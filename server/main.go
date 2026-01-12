@@ -1,0 +1,54 @@
+package main
+
+import (
+	"log"
+	"os"
+	"transport-server/api/bus"
+	"transport-server/config"
+	"transport-server/routes"
+
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
+	"github.com/robfig/cron/v3"
+)
+
+func main() {
+	// 1. Load Environment Variables
+	if err := godotenv.Load(); err != nil {
+		log.Println("Warning: No .env file found")
+	}
+
+	// 2. Initialize Database
+	config.InitDB()
+	bus.InitBusStopsTable()
+
+	// 3. Initialize Gin Router
+	r := gin.Default()
+	r.Static("/uploads", "./uploads")
+
+	// 4. Configure CORS
+	corsConfig := cors.Config{
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		AllowOrigins:     []string{"http://localhost:5173"},
+	}
+	r.Use(cors.New(corsConfig))
+
+	// 5. Register Routes
+	routes.RegisterRoutes(r)
+	// 6. Initialize Cron Jobs (Placeholder)
+	c := cron.New(cron.WithSeconds())
+	// Example: _, _ = c.AddFunc("0 0 * * * *", jobs.SomeJob)
+	c.Start()
+
+	// 7. Start Server
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	log.Printf("Server running on port %s", port)
+	r.Run(":" + port)
+}

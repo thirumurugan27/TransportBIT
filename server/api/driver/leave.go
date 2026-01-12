@@ -1,0 +1,169 @@
+package driver
+
+import (
+	"database/sql"
+	"log"
+	"net/http"
+
+	"transport-server/config"
+
+	"github.com/gin-gonic/gin"
+)
+
+// LeaveRequest - leave request struct
+type LeaveRequest struct {
+	ID                 int     `json:"id"`
+	DriverID           int     `json:"driver_id"`
+	DriverName         string  `json:"driver_name"`
+	LeaveType          string  `json:"leave_type"`
+	StartDate          string  `json:"start_date"`
+	EndDate            string  `json:"end_date"`
+	Reason             string  `json:"reason"`
+	Status             string  `json:"status"`
+	InchargeID         *int    `json:"incharge_id"`
+	InchargeName       *string `json:"incharge_name"`
+	InchargeApprovedAt *string `json:"incharge_approved_at"`
+	InchargeRemarks    *string `json:"incharge_remarks"`
+	AdminID            *int    `json:"admin_id"`
+	AdminName          *string `json:"admin_name"`
+	AdminApprovedAt    *string `json:"admin_approved_at"`
+	AdminRemarks       *string `json:"admin_remarks"`
+	CreatedAt          string  `json:"created_at"`
+}
+
+// ApplyLeaveRequest - request to apply for leave
+type ApplyLeaveRequest struct {
+	DriverID  int    `json:"driver_id"`
+	LeaveType string `json:"leave_type"`
+	StartDate string `json:"start_date"`
+	EndDate   string `json:"end_date"`
+	Reason    string `json:"reason"`
+}
+
+/*
+=========================
+
+	POST /api/driver/leave/apply
+
+=========================
+*/
+func ApplyLeave(c *gin.Context) {
+	var req ApplyLeaveRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	if req.DriverID == 0 || req.StartDate == "" || req.EndDate == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing required fields"})
+		return
+	}
+
+	leaveType := req.LeaveType
+	if leaveType == "" {
+		leaveType = "CASUAL"
+	}
+
+	result, err := config.DB.Exec(`
+		INSERT INTO leave_requests (driver_id, leave_type, start_date, end_date, reason, status)
+		VALUES (?, ?, ?, ?, ?, 'pending')
+	`, req.DriverID, leaveType, req.StartDate, req.EndDate, req.Reason)
+
+	if err != nil {
+		log.Printf("Apply leave error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error applying for leave"})
+		return
+	}
+
+	id, _ := result.LastInsertId()
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Leave request submitted successfully",
+		"id":      id,
+	})
+}
+
+/*
+=========================
+
+	GET /api/driver/leave?driver_id=X
+
+=========================
+*/
+func GetMyLeaveRequests(c *gin.Context) {
+	driverID := c.Query("driver_id")
+	if driverID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "driver_id is required"})
+		return
+	}
+
+	rows, err := config.DB.Query(`
+		SELECT lr.id, lr.driver_id, lr.leave_type, lr.start_date, lr.end_date, lr.reason, lr.status,
+			   lr.incharge_id, u_inc.full_name as incharge_name, lr.incharge_approved_at, lr.incharge_remarks,
+			   lr.admin_id, u_adm.full_name as admin_name, lr.admin_approved_at, lr.admin_remarks, lr.created_at
+		FROM leave_requests lr
+		LEFT JOIN users u_inc ON lr.incharge_id = u_inc.id
+		LEFT JOIN users u_adm ON lr.admin_id = u_adm.id
+		WHERE lr.driver_id = ?
+		ORDER BY lr.created_at DESC
+	`, driverID)
+
+	if err != nil {
+		log.Printf("Get leave requests error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching leave requests"})
+		return
+	}
+	defer rows.Close()
+
+	var leaves []LeaveRequest
+	for rows.Next() {
+		var l LeaveRequest
+		var startDate, endDate, createdAt []byte
+		var inchargeApprovedAt, adminApprovedAt sql.NullString
+		var inchargeRemarks, adminRemarks sql.NullString
+		var inchargeName, adminName sql.NullString
+		var inchargeID, adminID sql.NullInt64
+
+		err := rows.Scan(&l.ID, &l.DriverID, &l.LeaveType, &startDate, &endDate, &l.Reason, &l.Status,
+			&inchargeID, &inchargeName, &inchargeApprovedAt, &inchargeRemarks,
+			&adminID, &adminName, &adminApprovedAt, &adminRemarks, &createdAt)
+		if err != nil {
+			log.Printf("Scan leave request error: %v", err)
+			continue
+		}
+
+		l.StartDate = string(startDate)
+		l.EndDate = string(endDate)
+		l.CreatedAt = string(createdAt)
+
+		if inchargeID.Valid {
+			id := int(inchargeID.Int64)
+			l.InchargeID = &id
+		}
+		if inchargeName.Valid {
+			l.InchargeName = &inchargeName.String
+		}
+		if inchargeApprovedAt.Valid {
+			l.InchargeApprovedAt = &inchargeApprovedAt.String
+		}
+		if inchargeRemarks.Valid {
+			l.InchargeRemarks = &inchargeRemarks.String
+		}
+		if adminID.Valid {
+			id := int(adminID.Int64)
+			l.AdminID = &id
+		}
+		if adminName.Valid {
+			l.AdminName = &adminName.String
+		}
+		if adminApprovedAt.Valid {
+			l.AdminApprovedAt = &adminApprovedAt.String
+		}
+		if adminRemarks.Valid {
+			l.AdminRemarks = &adminRemarks.String
+		}
+
+		leaves = append(leaves, l)
+	}
+
+	c.JSON(http.StatusOK, gin.H{"leaves": leaves})
+}
