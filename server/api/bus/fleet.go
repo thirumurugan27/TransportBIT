@@ -1,6 +1,7 @@
 package bus
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -120,7 +121,9 @@ func InitBusStopsTable() {
 	}
 
 	// Ensure arrival_time column exists for older deployments
-	config.DB.Exec(`ALTER TABLE bus_stops ADD COLUMN IF NOT EXISTS arrival_time TIME NULL`)
+	if err := ensureArrivalTimeColumn(); err != nil {
+		log.Printf("Error ensuring arrival_time column: %v", err)
+	}
 
 	// Auto-populate buses table with existing BUS vehicles
 	config.DB.Exec(`
@@ -257,6 +260,14 @@ func AddBusStop(c *gin.Context) {
 		return
 	}
 
+	// Auto-determine stop_order if not provided or zero
+	stopOrder := req.StopOrder
+	if stopOrder == 0 {
+		var maxOrder int
+		config.DB.QueryRow(`SELECT COALESCE(MAX(stop_order), 0) FROM bus_stops WHERE vehicle_id = ?`, busID).Scan(&maxOrder)
+		stopOrder = maxOrder + 1
+	}
+
 	arrivalTime := strings.TrimSpace(req.ArrivalTime)
 	var arrivalValue interface{}
 	if arrivalTime != "" {
@@ -266,7 +277,7 @@ func AddBusStop(c *gin.Context) {
 	_, err := config.DB.Exec(`
 		INSERT INTO bus_stops (vehicle_id, stop_name, stop_order, fee, distance_km, arrival_time)
 		VALUES (?, ?, ?, ?, ?, ?)
-	`, busID, req.StopName, req.StopOrder, req.Fee, req.DistanceKm, arrivalValue)
+	`, busID, req.StopName, stopOrder, req.Fee, req.DistanceKm, arrivalValue)
 
 	if err != nil {
 		log.Printf("Add bus stop error: %v", err)
@@ -379,4 +390,25 @@ func UpdateBusRoute(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Route updated successfully"})
+}
+
+func ensureArrivalTimeColumn() error {
+	var count int
+	query := `
+		SELECT COUNT(*)
+		FROM information_schema.columns
+		WHERE table_schema = DATABASE()
+		  AND table_name = 'bus_stops'
+		  AND column_name = 'arrival_time'
+	`
+	if err := config.DB.QueryRow(query).Scan(&count); err != nil {
+		return fmt.Errorf("check arrival_time column: %w", err)
+	}
+	if count > 0 {
+		return nil
+	}
+	if _, err := config.DB.Exec(`ALTER TABLE bus_stops ADD COLUMN arrival_time TIME NULL`); err != nil {
+		return fmt.Errorf("add arrival_time column: %w", err)
+	}
+	return nil
 }

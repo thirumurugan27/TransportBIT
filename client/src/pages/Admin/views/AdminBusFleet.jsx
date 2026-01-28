@@ -302,25 +302,6 @@ export default function AdminBusFleet() {
                       <td className="px-6 py-4">
                         {editingStop?.id === stop.id ? (
                           <input
-                            type="time"
-                            value={editingStop.arrival_time || ""}
-                            onChange={(e) =>
-                              setEditingStop({
-                                ...editingStop,
-                                arrival_time: e.target.value,
-                              })
-                            }
-                            className="w-28 px-2 py-1 border rounded-md text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none"
-                          />
-                        ) : (
-                          <span className="text-gray-600 text-sm">
-                            {stop.arrival_time || "--"}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        {editingStop?.id === stop.id ? (
-                          <input
                             type="number"
                             value={editingStop.distance_km}
                             onChange={(e) =>
@@ -355,6 +336,25 @@ export default function AdminBusFleet() {
                         ) : (
                           <span className="font-bold text-green-600 text-sm">
                             ₹{stop.fee}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        {editingStop?.id === stop.id ? (
+                          <input
+                            type="time"
+                            value={editingStop.arrival_time || ""}
+                            onChange={(e) =>
+                              setEditingStop({
+                                ...editingStop,
+                                arrival_time: e.target.value,
+                              })
+                            }
+                            className="w-28 px-2 py-1 border rounded-md text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                          />
+                        ) : (
+                          <span className="text-gray-600 text-sm">
+                            {stop.arrival_time || "--"}
                           </span>
                         )}
                       </td>
