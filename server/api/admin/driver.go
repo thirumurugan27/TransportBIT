@@ -17,14 +17,26 @@ import (
 
 // GET /api/admin/drivers
 func GetDrivers(c *gin.Context) {
+	// Get today's attendance status for each driver
+	// Priority: on_leave (from approved leave) > attendance record > not_marked
 	rows, err := config.DB.Query(`
 		SELECT d.id, u.full_name, u.phone, u.email,
 		       d.license_number, d.license_type,
-		       d.experience_years, d.home_vehicle_id, u.status,
+		       d.experience_years, d.home_vehicle_id,
+		       CASE 
+		           WHEN lr.id IS NOT NULL AND lr.status = 'admin_approved' 
+		               AND CURDATE() BETWEEN lr.start_date AND lr.end_date THEN 'on_leave'
+		           WHEN a.status IS NOT NULL THEN a.status
+		           ELSE 'not_marked'
+		       END as status,
 		       d.cluster_id, COALESCE(c.name, '') as cluster_name
 		FROM drivers d
 		JOIN users u ON d.user_id = u.id
 		LEFT JOIN driver_clusters c ON d.cluster_id = c.id
+		LEFT JOIN attendance a ON a.user_id = u.id AND a.date = CURDATE()
+		LEFT JOIN leave_requests lr ON lr.driver_id = d.id 
+		    AND lr.status = 'admin_approved'
+		    AND CURDATE() BETWEEN lr.start_date AND lr.end_date
 	`)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

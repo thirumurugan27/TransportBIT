@@ -229,6 +229,9 @@ export default function MarkAttendance() {
                   <th className="px-6 py-4 text-xs font-bold text-secondarytext uppercase tracking-wider">
                     Time
                   </th>
+                  <th className="px-6 py-4 text-xs font-bold text-secondarytext uppercase tracking-wider">
+                    Marked By
+                  </th>
                   <th className="px-6 py-4 text-xs font-bold text-secondarytext uppercase tracking-wider text-right">
                     Actions
                   </th>
@@ -276,6 +279,15 @@ export default function MarkAttendance() {
                       <td className="px-6 py-4 text-secondarytext text-sm">
                         {d.checkin_time ? d.checkin_time.split(" ")[1] : "-"}
                       </td>
+                      <td className="px-6 py-4 text-sm">
+                        {d.marked_by_incharge_name ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs font-medium">
+                            {d.marked_by_incharge_name}
+                          </span>
+                        ) : (
+                          <span className="text-gray-300">-</span>
+                        )}
+                      </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2">
                           <button
@@ -315,7 +327,7 @@ export default function MarkAttendance() {
                 ) : (
                   <tr>
                     <td
-                      colSpan="4"
+                      colSpan="5"
                       className="px-6 py-12 text-center text-secondarytext"
                     >
                       No drivers match your filters

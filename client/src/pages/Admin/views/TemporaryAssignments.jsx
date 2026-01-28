@@ -14,6 +14,16 @@ import {
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
+// Helper to convert 24h time to 12h AM/PM format
+const formatTimeAMPM = (time24) => {
+  if (!time24) return '';
+  const [hours, minutes] = time24.split(':');
+  const h = parseInt(hours, 10);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  return `${h12}:${minutes} ${ampm}`;
+};
+
 export default function TemporaryAssignments() {
   const [tempAssignments, setTempAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -381,7 +391,7 @@ export default function TemporaryAssignments() {
                     <option value="">Select Shift</option>
                     {shifts.map((s) => (
                       <option key={s.id} value={s.id}>
-                        {s.shift_name} ({s.start_time}-{s.end_time})
+                        {s.shift_name} ({formatTimeAMPM(s.start_time)}-{formatTimeAMPM(s.end_time)})
                       </option>
                     ))}
                   </select>

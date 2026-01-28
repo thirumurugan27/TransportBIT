@@ -8,6 +8,8 @@ import {
   FileText,
   Filter,
   Search,
+  Clock,
+  CalendarDays,
 } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
@@ -16,14 +18,20 @@ export default function AttendanceRecords() {
   const [attendanceHistory, setAttendanceHistory] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Default to today
+  const today = new Date().toISOString().split("T")[0];
+  
   // Filters
-  const [startDate, setStartDate] = useState(
-    new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
-  );
-  const [endDate, setEndDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+  const [startDate, setStartDate] = useState(today);
+  const [endDate, setEndDate] = useState(today);
   const [statusFilter, setStatusFilter] = useState("all");
+
+  // Helper to set today's date
+  const setToday = () => {
+    const todayDate = new Date().toISOString().split("T")[0];
+    setStartDate(todayDate);
+    setEndDate(todayDate);
+  };
 
   useEffect(() => {
     fetchAttendanceHistory();
@@ -101,6 +109,18 @@ export default function AttendanceRecords() {
               <Filter size={16} /> Filters:
             </div>
 
+            <button
+              onClick={setToday}
+              className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 h-[38px] ${
+                startDate === today && endDate === today
+                  ? "bg-[var(--color-primary)] text-white"
+                  : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-100"
+              }`}
+            >
+              <CalendarDays size={14} />
+              Today
+            </button>
+
             <div className="flex flex-col gap-1">
               <label className="text-xs font-bold text-gray-500 uppercase">
                 From
@@ -137,6 +157,8 @@ export default function AttendanceRecords() {
                 <option value="all">All Status</option>
                 <option value="present">Present</option>
                 <option value="absent">Absent</option>
+                <option value="on_leave">On Leave</option>
+                <option value="not_marked">Not Marked</option>
               </select>
             </div>
 
@@ -152,49 +174,74 @@ export default function AttendanceRecords() {
         </div>
       </div>
 
+      {/* Info banner when viewing single day */}
+      {startDate === endDate && (
+        <div className="bg-blue-50 border border-blue-100 rounded-md p-4 flex items-center gap-3">
+          <Calendar className="w-5 h-5 text-blue-600" />
+          <p className="text-sm text-blue-700">
+            Showing attendance for <strong>{startDate}</strong> - All drivers are listed with their status
+          </p>
+        </div>
+      )}
+
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-md p-6 shadow-sm border border-gray-100 flex items-center justify-between group">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-white rounded-md p-5 shadow-sm border border-gray-100 flex items-center justify-between group">
           <div>
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
-              Total Records
+              Total
             </p>
-            <p className="text-3xl font-bold text-gray-800">
+            <p className="text-2xl font-bold text-gray-800">
               {attendanceHistory?.length || 0}
             </p>
           </div>
           <div className="p-3 bg-blue-50 text-blue-600 rounded-md group-hover:bg-blue-100 transition-colors">
-            <FileText size={24} />
+            <FileText size={20} />
           </div>
         </div>
 
-        <div className="bg-white rounded-md p-6 shadow-sm border border-gray-100 flex items-center justify-between group">
+        <div className="bg-white rounded-md p-5 shadow-sm border border-gray-100 flex items-center justify-between group">
           <div>
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
               Present
             </p>
-            <p className="text-3xl font-bold text-emerald-600">
+            <p className="text-2xl font-bold text-emerald-600">
               {attendanceHistory?.filter((r) => r.status === "present")
                 .length || 0}
             </p>
           </div>
           <div className="p-3 bg-emerald-50 text-emerald-600 rounded-md group-hover:bg-emerald-100 transition-colors">
-            <UserCheck size={24} />
+            <UserCheck size={20} />
           </div>
         </div>
 
-        <div className="bg-white rounded-md p-6 shadow-sm border border-gray-100 flex items-center justify-between group">
+        <div className="bg-white rounded-md p-5 shadow-sm border border-gray-100 flex items-center justify-between group">
           <div>
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
               Absent
             </p>
-            <p className="text-3xl font-bold text-rose-600">
+            <p className="text-2xl font-bold text-rose-600">
               {attendanceHistory?.filter((r) => r.status === "absent").length ||
                 0}
             </p>
           </div>
           <div className="p-3 bg-rose-50 text-rose-600 rounded-md group-hover:bg-rose-100 transition-colors">
-            <UserX size={24} />
+            <UserX size={20} />
+          </div>
+        </div>
+
+        <div className="bg-white rounded-md p-5 shadow-sm border border-gray-100 flex items-center justify-between group">
+          <div>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
+              Not Marked
+            </p>
+            <p className="text-2xl font-bold text-gray-500">
+              {attendanceHistory?.filter((r) => r.status === "not_marked" || r.status === "on_leave").length ||
+                0}
+            </p>
+          </div>
+          <div className="p-3 bg-gray-100 text-gray-500 rounded-md group-hover:bg-gray-200 transition-colors">
+            <Clock size={20} />
           </div>
         </div>
       </div>
@@ -224,7 +271,7 @@ export default function AttendanceRecords() {
                     Check-in
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Check-out
+                    Marked By
                   </th>
                 </tr>
               </thead>
@@ -256,7 +303,11 @@ export default function AttendanceRecords() {
                           className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wide border ${
                             record.status === "present"
                               ? "bg-emerald-50 text-emerald-700 border-emerald-100"
-                              : "bg-red-50 text-red-700 border-red-100"
+                              : record.status === "absent"
+                              ? "bg-red-50 text-red-700 border-red-100"
+                              : record.status === "on_leave"
+                              ? "bg-orange-50 text-orange-700 border-orange-100"
+                              : "bg-gray-50 text-gray-500 border-gray-200"
                           }`}
                         >
                           {record.status === "present" ? (
@@ -264,7 +315,10 @@ export default function AttendanceRecords() {
                           ) : (
                             <UserX size={12} />
                           )}
-                          {record.status === "present" ? "Present" : "Absent"}
+                          {record.status === "present" ? "Present" 
+                            : record.status === "absent" ? "Absent"
+                            : record.status === "on_leave" ? "On Leave"
+                            : "Not Marked"}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">
@@ -272,8 +326,13 @@ export default function AttendanceRecords() {
                           <span className="text-gray-300">-</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {record.checkout_time || (
+                      <td className="px-6 py-4 text-sm">
+                        {record.marked_by_incharge_name ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs font-medium">
+                            <UserCheck size={12} />
+                            {record.marked_by_incharge_name}
+                          </span>
+                        ) : (
                           <span className="text-gray-300">-</span>
                         )}
                       </td>

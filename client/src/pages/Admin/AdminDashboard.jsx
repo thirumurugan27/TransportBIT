@@ -6,13 +6,16 @@ import AdminHome from "./views/AdminHome";
 import AdminDrivers from "./views/AdminDrivers";
 import AdminVehicles from "./views/Vehicles";
 import AdminBusFleet from "./views/AdminBusFleet";
-import AdminAssignments from "./views/AdminAssignments";
+import Assignments from "./views/Assignments";
 import TemporaryAssignments from "./views/TemporaryAssignments";
 import LeaveApprovals from "./views/LeaveApprovals";
 import ScheduleManagement from "./views/ScheduleManagement";
 import KmSummary from "./views/KmSummary";
 import AttendanceRecords from "./views/AttendanceRecords";
-import FuelMileage from "./views/FuelMileage";
+import InsuranceFCStatus from "./views/InsuranceFCStatus";
+import FCReplacementManagement from "./views/FCReplacementManagement";
+import Notifications from "./views/Notifications";
+import AdminStudentTransport from "./views/AdminStudentTransport";
 import ComingSoon from "./views/ComingSoon";
 
 import {useAuth} from "../../context/AuthContext";
@@ -88,12 +91,15 @@ export default function AdminDashboard() {
               path="schedule-management"
               element={<ScheduleManagement />}
             />
-            <Route path="all-assignments" element={<AdminAssignments />} />
+            <Route path="all-assignments" element={<Assignments />} />
             {/* Temporary assignments route removed as it's now a tab in all-assignments */}
             <Route path="km-summary" element={<KmSummary />} />
-            <Route path="fuel-mileage" element={<FuelMileage />} />
             <Route path="leave-approvals" element={<LeaveApprovals />} />
             <Route path="attendance-records" element={<AttendanceRecords />} />
+            <Route path="insurance-fc-status" element={<InsuranceFCStatus />} />
+            <Route path="fc-replacement" element={<FCReplacementManagement />} />
+            <Route path="notifications" element={<Notifications />} />
+            <Route path="student-transport" element={<AdminStudentTransport />} />
             <Route path="*" element={<AdminHome />} />
           </Routes>
         </main>

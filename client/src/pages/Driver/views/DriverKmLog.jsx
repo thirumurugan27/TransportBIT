@@ -9,12 +9,14 @@ import {
   Truck,
   Calendar,
   AlertCircle,
+  Car,
 } from "lucide-react";
 
 export default function DriverKmLog() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [vehicles, setVehicles] = useState([]);
   const {user} = useAuth();
   const driverId = user?.driver_id;
 
@@ -23,14 +25,40 @@ export default function DriverKmLog() {
     start_km: 0,
     end_km: 0,
     vehicle_type: "BUS",
+    vehicle_id: "",
     remarks: "",
   });
 
   useEffect(() => {
     if (driverId) {
       fetchLogs();
+      fetchAssignedVehicles();
     }
   }, [driverId]);
+
+  useEffect(() => {
+    if (form.vehicle_id && showModal) {
+      fetchLastLogDetails(form.vehicle_id);
+    }
+  }, [form.vehicle_id, showModal]);
+
+  const fetchLastLogDetails = async (vehId) => {
+    try {
+      const res = await apiGet(`/api/driver/vehicle-last-log?vehicle_id=${vehId}`);
+      if (res.ok) {
+        const data = await res.json();
+        // If existing end_km is found, use it as start_km
+        if (data.end_km !== undefined) {
+          setForm((prev) => ({
+            ...prev,
+            start_km: data.end_km,
+          }));
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch last log details", err);
+    }
+  };
 
   const fetchLogs = async () => {
     setLoading(true);
@@ -47,6 +75,40 @@ export default function DriverKmLog() {
     }
   };
 
+  const fetchAssignedVehicles = async () => {
+    try {
+      // Fetch driver's assignments to get their vehicles
+      const res = await apiGet(`/api/driver/assignments?driver_id=${driverId}`);
+      if (res.ok) {
+        const assignments = await res.json();
+        // Extract unique vehicles from assignments
+        const uniqueVehicles = [];
+        const seenIds = new Set();
+        (assignments || []).forEach(a => {
+          if (a.vehicle_id && !seenIds.has(a.vehicle_id)) {
+            seenIds.add(a.vehicle_id);
+            uniqueVehicles.push({
+              id: a.vehicle_id,
+              vehicle_number: a.vehicle_number,
+              vehicle_type: a.vehicle_type || "BUS",
+            });
+          }
+        });
+        setVehicles(uniqueVehicles);
+        // Set default vehicle if available
+        if (uniqueVehicles.length > 0) {
+          setForm(prev => ({
+            ...prev,
+            vehicle_id: uniqueVehicles[0].id,
+            vehicle_type: uniqueVehicles[0].vehicle_type,
+          }));
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -56,12 +118,18 @@ export default function DriverKmLog() {
         return;
       }
 
+      if (!form.vehicle_id) {
+        alert("Please select a vehicle");
+        return;
+      }
+
       const payload = {
         driver_id: parseInt(driverId),
         date: form.date,
         start_km: parseFloat(form.start_km),
         end_km: parseFloat(form.end_km),
         vehicle_type: form.vehicle_type,
+        vehicle_id: parseInt(form.vehicle_id),
         remarks: form.remarks,
         total_km: parseFloat(form.end_km) - parseFloat(form.start_km),
       };
@@ -227,7 +295,7 @@ export default function DriverKmLog() {
                       Date
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
-                      Vehicle Type
+                      Vehicle
                     </th>
                     <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">
                       Start KM
@@ -261,9 +329,16 @@ export default function DriverKmLog() {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                              {log.vehicle_type || "BUS"}
-                            </span>
+                            <div className="flex flex-col">
+                              {log.vehicle_number && (
+                                <span className="text-sm font-medium text-gray-900">
+                                  {log.vehicle_number}
+                                </span>
+                              )}
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 w-fit mt-0.5">
+                                {log.vehicle_type || "BUS"}
+                              </span>
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right font-mono text-gray-600">
                             {log.start_km}
@@ -365,6 +440,37 @@ export default function DriverKmLog() {
                     onChange={(e) => setForm({...form, end_km: e.target.value})}
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                  Vehicle *
+                </label>
+                <select
+                  required
+                  className="w-full border border-gray-300 px-3 py-2.5 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none bg-white"
+                  value={form.vehicle_id}
+                  onChange={(e) => {
+                    const selectedVehicle = vehicles.find(v => v.id === parseInt(e.target.value));
+                    setForm({
+                      ...form, 
+                      vehicle_id: e.target.value,
+                      vehicle_type: selectedVehicle?.vehicle_type || form.vehicle_type
+                    });
+                  }}
+                >
+                  <option value="">Select Vehicle</option>
+                  {vehicles.map(v => (
+                    <option key={v.id} value={v.id}>
+                      {v.vehicle_number} ({v.vehicle_type})
+                    </option>
+                  ))}
+                </select>
+                {vehicles.length === 0 && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    No vehicles assigned. Contact admin.
+                  </p>
+                )}
               </div>
 
               <div>

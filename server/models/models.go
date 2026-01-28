@@ -1,5 +1,7 @@
 package models
 
+import "time"
+
 /* =========================
    AUTH & ADMIN MODELS
 ========================= */
@@ -70,19 +72,25 @@ type DriverResponse struct {
 ========================= */
 
 type Vehicle struct {
-	ID              int    `json:"id"`
-	VehicleNumber   string `json:"vehicle_number"`
-	VehicleType     string `json:"vehicle_type"`
-	FuelType        string `json:"fuel_type"`
-	SeatingCapacity int    `json:"seating_capacity"`
-	Status          string `json:"status"`
+	ID                  int     `json:"id"`
+	VehicleNumber       string  `json:"vehicle_number"`
+	VehicleType         string  `json:"vehicle_type"`
+	FuelType            string  `json:"fuel_type"`
+	SeatingCapacity     int     `json:"seating_capacity"`
+	Status              string  `json:"status"`
+	InsuranceExpireDate *string `json:"insurance_expire_date"`
+	FCExpireDate        *string `json:"fc_expire_date"`
+	PermitExpireDate    *string `json:"permit_expire_date"`
 }
 
 type CreateVehicleRequest struct {
-	VehicleNumber   string `json:"vehicle_number"`
-	VehicleType     string `json:"vehicle_type"`
-	FuelType        string `json:"fuel_type"`
-	SeatingCapacity int    `json:"seating_capacity"`
+	VehicleNumber       string  `json:"vehicle_number"`
+	VehicleType         string  `json:"vehicle_type"`
+	FuelType            string  `json:"fuel_type"`
+	SeatingCapacity     int     `json:"seating_capacity"`
+	InsuranceExpireDate *string `json:"insurance_expire_date"`
+	FCExpireDate        *string `json:"fc_expire_date"`
+	PermitExpireDate    *string `json:"permit_expire_date"`
 	// Bus-specific fields
 	BusName    string `json:"bus_name"`
 	StartPoint string `json:"start_point"`
@@ -252,7 +260,9 @@ type Attendance struct {
 	CheckinTime  *string `json:"checkin_time"`
 	CheckoutTime *string `json:"checkout_time"`
 	// Joined
-	FullName string `json:"full_name"`
+	FullName             string  `json:"full_name"`
+	MarkedByInchargeID   *int    `json:"marked_by_incharge_id"`
+	MarkedByInchargeName *string `json:"marked_by_incharge_name"`
 }
 
 type MarkAttendanceRequest struct {
@@ -359,4 +369,190 @@ type CreateOdometerReadingRequest struct {
 	FromReading int     `json:"from_reading"`
 	ToReading   int     `json:"to_reading"`
 	FuelUsed    float64 `json:"fuel_used"`
+}
+
+/* =========================
+   STUDENT TRANSPORT MODELS
+========================= */
+
+// TransportFee - Fee structure for each stop
+type TransportFee struct {
+	ID           int     `json:"id"`
+	StopID       int     `json:"stop_id"`
+	StopName     string  `json:"stop_name"`
+	FeeAmount    float64 `json:"fee_amount"`
+	AcademicYear string  `json:"academic_year"`
+	IsActive     bool    `json:"is_active"`
+}
+
+type CreateTransportFeeRequest struct {
+	StopID       int     `json:"stop_id"`
+	FeeAmount    float64 `json:"fee_amount"`
+	AcademicYear string  `json:"academic_year"`
+}
+
+type UpdateTransportFeeRequest struct {
+	ID        int     `json:"id"`
+	FeeAmount float64 `json:"fee_amount"`
+}
+
+// StudentTransport - Student's transport assignment
+type StudentTransport struct {
+	ID            int     `json:"id"`
+	UserID        int     `json:"user_id"`
+	StudentName   string  `json:"student_name"`
+	StudentEmail  string  `json:"student_email"`
+	BusID         int     `json:"bus_id"`
+	BusName       string  `json:"bus_name"`
+	BusNumber     string  `json:"bus_number"`
+	RouteStart    string  `json:"route_start"`
+	RouteEnd      string  `json:"route_end"`
+	StopID        int     `json:"stop_id"`
+	StopName      string  `json:"stop_name"`
+	StopLocation  string  `json:"stop_location"`
+	TotalFee      float64 `json:"total_fee"`
+	PaidAmount    float64 `json:"paid_amount"`
+	Balance       float64 `json:"balance"`
+	AcademicYear  string  `json:"academic_year"`
+	Status        string  `json:"status"`
+	ArrivalTime   string  `json:"arrival_time"`
+	DepartureTime string  `json:"departure_time"`
+}
+
+type AssignStudentTransportRequest struct {
+	UserID       int    `json:"user_id"`
+	BusID        int    `json:"bus_id"`
+	StopID       int    `json:"stop_id"`
+	AcademicYear string `json:"academic_year"`
+}
+
+type UpdateStudentTransportRequest struct {
+	ID     int    `json:"id"`
+	BusID  int    `json:"bus_id"`
+	StopID int    `json:"stop_id"`
+	Status string `json:"status"`
+}
+
+// TransportPayment - Payment records
+type TransportPayment struct {
+	ID                 int     `json:"id"`
+	StudentTransportID int     `json:"student_transport_id"`
+	StudentName        string  `json:"student_name"`
+	Amount             float64 `json:"amount"`
+	PaymentDate        string  `json:"payment_date"`
+	PaymentMethod      string  `json:"payment_method"`
+	TransactionID      string  `json:"transaction_id"`
+	ReceiptNumber      string  `json:"receipt_number"`
+	Remarks            string  `json:"remarks"`
+	RecordedBy         int     `json:"recorded_by"`
+	RecordedByName     string  `json:"recorded_by_name"`
+}
+
+type RecordPaymentRequest struct {
+	StudentTransportID int     `json:"student_transport_id"`
+	Amount             float64 `json:"amount"`
+	PaymentDate        string  `json:"payment_date"`
+	PaymentMethod      string  `json:"payment_method"`
+	TransactionID      string  `json:"transaction_id"`
+	ReceiptNumber      string  `json:"receipt_number"`
+	Remarks            string  `json:"remarks"`
+}
+
+// StopChangeRequest - Student request to change stop
+type StopChangeRequest struct {
+	ID                 int     `json:"id"`
+	StudentTransportID int     `json:"student_transport_id"`
+	StudentName        string  `json:"student_name"`
+	StudentEmail       string  `json:"student_email"`
+	CurrentStopID      int     `json:"current_stop_id"`
+	CurrentStopName    string  `json:"current_stop_name"`
+	RequestedStopID    int     `json:"requested_stop_id"`
+	RequestedStopName  string  `json:"requested_stop_name"`
+	CurrentFee         float64 `json:"current_fee"`
+	NewFee             float64 `json:"new_fee"`
+	FeeDifference      float64 `json:"fee_difference"`
+	Reason             string  `json:"reason"`
+	Status             string  `json:"status"`
+	AdminRemarks       string  `json:"admin_remarks"`
+	ProcessedBy        *int    `json:"processed_by"`
+	ProcessedByName    string  `json:"processed_by_name"`
+	ProcessedAt        *string `json:"processed_at"`
+	CreatedAt          string  `json:"created_at"`
+}
+
+type CreateStopChangeRequest struct {
+	RequestedStopID int    `json:"requested_stop_id"`
+	Reason          string `json:"reason"`
+}
+
+type ProcessStopChangeRequest struct {
+	RequestID    int    `json:"request_id"`
+	Status       string `json:"status"` // approved or rejected
+	AdminRemarks string `json:"admin_remarks"`
+}
+
+type CancelStopChangeRequest struct {
+	RequestID int `json:"request_id"`
+}
+
+// StudentListItem - For admin dropdown
+type StudentListItem struct {
+	ID           int    `json:"id"`
+	UserID       int    `json:"user_id"`
+	FullName     string `json:"full_name"`
+	Email        string `json:"email"`
+	Phone        string `json:"phone"`
+	HasTransport bool   `json:"has_transport"`
+}
+
+// CreateStudentRequest - For admin to create students
+type CreateStudentRequest struct {
+	Username   string `json:"username"`
+	Password   string `json:"password"`
+	FullName   string `json:"full_name"`
+	Phone      string `json:"phone"`
+	Email      string `json:"email"`
+	Department string `json:"department"`
+	Year       int    `json:"year"`
+	RollNumber string `json:"roll_number"`
+}
+
+// TransportRequest - Student requesting bus/stop assignment
+type TransportRequest struct {
+	ID           int        `json:"id"`
+	UserID       int        `json:"user_id"`
+	BusID        int        `json:"bus_id"`
+	StopID       int        `json:"stop_id"`
+	AcademicYear string     `json:"academic_year"`
+	Reason       string     `json:"reason"`
+	Status       string     `json:"status"`
+	AdminRemarks string     `json:"admin_remarks"`
+	ProcessedBy  int        `json:"processed_by"`
+	ProcessedAt  *time.Time `json:"processed_at"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
+	// Joined fields
+	StudentName string  `json:"student_name"`
+	Email       string  `json:"email"`
+	Phone       string  `json:"phone"`
+	Department  string  `json:"department"`
+	Year        int     `json:"year"`
+	RollNumber  string  `json:"roll_number"`
+	BusName     string  `json:"bus_name"`
+	Route       string  `json:"route"`
+	StopName    string  `json:"stop_name"`
+	Fee         float64 `json:"fee"`
+}
+
+type CreateTransportRequest struct {
+	BusID        int    `json:"bus_id"`
+	StopID       int    `json:"stop_id"`
+	AcademicYear string `json:"academic_year"`
+	Reason       string `json:"reason"`
+}
+
+type ProcessTransportRequest struct {
+	RequestID    int    `json:"request_id"`
+	Status       string `json:"status"` // approved or rejected
+	AdminRemarks string `json:"admin_remarks"`
 }

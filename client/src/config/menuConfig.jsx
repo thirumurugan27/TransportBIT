@@ -18,6 +18,7 @@ import {
   TrackIcon,
   BusPassIcon,
   FuelIcon,
+  NotificationIcon,
 } from "../components/layout/Icons";
 
 // Admin Menu Configuration
@@ -67,12 +68,6 @@ export const adminMenuConfig = {
       path: "/km-summary",
     },
     {
-      key: "fuelMileage",
-      label: "Fuel & Mileage",
-      icon: <FuelIcon />,
-      path: "/fuel-mileage",
-    },
-    {
       key: "leave",
       label: "Leave Approvals",
       icon: <LeaveIcon />,
@@ -83,6 +78,30 @@ export const adminMenuConfig = {
       label: "Attendance Records",
       icon: <ScheduleIcon />,
       path: "/attendance-records",
+    },
+    {
+      key: "insuranceFCStatus",
+      label: "Insurance & FC Status",
+      icon: <VehicleIcon />,
+      path: "/insurance-fc-status",
+    },
+    {
+      key: "fcReplacement",
+      label: "FC Replacements",
+      icon: <AssignmentIcon />,
+      path: "/fc-replacement",
+    },
+    {
+      key: "studentTransport",
+      label: "Student Transport",
+      icon: <BusIcon />,
+      path: "/student-transport",
+    },
+    {
+      key: "notifications",
+      label: "Notifications",
+      icon: <NotificationIcon />,
+      path: "/notifications",
     },
   ],
 };
@@ -116,6 +135,12 @@ export const driverMenuConfig = {
       label: "Apply Leave",
       icon: <LeaveIcon />,
       path: "/apply-leave",
+    },
+    {
+      key: "notifications",
+      label: "Notifications",
+      icon: <NotificationIcon />,
+      path: "/notifications",
     },
     {
       key: "profile",
@@ -167,6 +192,24 @@ export const inchargeMenuConfig = {
       label: "KM Summary",
       icon: <KmIcon />,
       path: "/km-summary",
+    },
+    {
+      key: "insuranceFCStatus",
+      label: "Insurance & FC Status",
+      icon: <VehicleIcon />,
+      path: "/insurance-fc-status",
+    },
+    {
+      key: "driverManagement",
+      label: "Driver Management",
+      icon: <DriversIcon />,
+      path: "/driver-management",
+    },
+    {
+      key: "notifications",
+      label: "Notifications",
+      icon: <NotificationIcon />,
+      path: "/notifications",
     },
   ],
 };

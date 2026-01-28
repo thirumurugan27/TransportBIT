@@ -6,6 +6,7 @@ import (
 	"transport-server/api/bus"
 	"transport-server/api/driver"
 	"transport-server/api/incharge"
+	"transport-server/api/student"
 
 	"github.com/gin-gonic/gin"
 )
@@ -97,14 +98,29 @@ func RegisterRoutes(r *gin.Engine) {
 	r.GET("/api/driver/assignments", driver.GetDriverAssignments)
 	r.GET("/api/driver/km-logs", driver.GetDriverKmLogs)
 	r.POST("/api/driver/km-log/add", driver.AddDriverKmLog)
+	r.GET("/api/driver/vehicle-last-log", driver.GetLastLogForVehicle)
 	r.POST("/api/driver/leave/apply", driver.ApplyLeave)
 	r.GET("/api/driver/leave", driver.GetMyLeaveRequests)
+	r.GET("/api/driver/vehicles/alerts", driver.GetDriverVehicleAlerts)
+	r.GET("/api/driver/notifications", driver.GetDriverNotifications)
+	r.GET("/api/driver/notifications/unread-count", driver.GetUnreadNotificationCount)
+	r.POST("/api/driver/notifications/:id/mark-read", driver.MarkNotificationRead)
+	r.POST("/api/driver/notifications/mark-all-read", driver.MarkAllNotificationsRead)
 
 	// =========================
 	// STUDENT PORTAL
 	// =========================
 	r.GET("/api/student/buses", bus.GetBusFleet)
-	r.GET("/api/student/bus/:id/stops", bus.GetBusStops)
+	r.GET("/api/student/bus/:id/stops", student.GetBusStopsForStudent)
+	r.GET("/api/student/transport", student.GetMyTransport)
+	r.GET("/api/student/transport/payments", student.GetMyPayments)
+	r.POST("/api/student/stop-change/request", student.RequestStopChange)
+	r.POST("/api/student/stop-change/request/cancel", student.CancelStopChangeRequest)
+	r.GET("/api/student/stop-change/requests", student.GetMyStopChangeRequests)
+	r.GET("/api/student/available-stops", student.GetAvailableStops)
+	r.GET("/api/student/all-buses", student.GetAllBuses)
+	r.POST("/api/student/transport/request", student.RequestTransport)
+	r.GET("/api/student/transport/requests", student.GetMyTransportRequests)
 
 	// =========================
 	// INCHARGE PORTAL
@@ -113,6 +129,15 @@ func RegisterRoutes(r *gin.Engine) {
 	r.GET("/api/incharge/cluster-drivers", incharge.GetInchargeClusterDrivers)
 	r.POST("/api/incharge/attendance/mark", incharge.InchargeMarkAttendance)
 	r.GET("/api/incharge/attendance/history", incharge.GetInchargeAttendanceHistory)
+	r.GET("/api/incharge/vehicles/alerts", incharge.GetInchargeVehicleAlerts)
+	r.POST("/api/incharge/fc-replacement/request", incharge.RequestFCReplacement)
+	r.GET("/api/incharge/fc-replacements", incharge.GetInchargeFCReplacements)
+	r.GET("/api/incharge/driver-assignments", incharge.GetDriverAssignments)
+	r.GET("/api/incharge/all-drivers", incharge.GetAllDriversForIncharge)
+	r.POST("/api/incharge/km-log/add", incharge.InchargeAddKmLog)
+	r.POST("/api/incharge/leave/apply", incharge.InchargeApplyLeave)
+	r.GET("/api/incharge/driver-km-logs", incharge.GetDriverKmLogs)
+	r.GET("/api/incharge/km-summary", incharge.GetInchargeKmSummary)
 
 	// =========================
 	// BUS FLEET MANAGEMENT
@@ -150,6 +175,7 @@ func RegisterRoutes(r *gin.Engine) {
 	// =========================
 	r.GET("/api/admin/ev-vehicles", admin.GetEVVehicles)
 	r.GET("/api/admin/ev-assignments", admin.GetEVAssignments)
+	r.GET("/api/admin/ev-assignments/:id/details", admin.GetEVAssignmentDetails)
 	r.POST("/api/admin/ev-assignments/create", admin.CreateEVAssignment)
 	r.DELETE("/api/admin/ev-assignments/delete", admin.DeleteEVAssignment)
 
@@ -180,4 +206,60 @@ func RegisterRoutes(r *gin.Engine) {
 	r.POST("/api/admin/fuel-indents/complete", admin.CompleteFuelIndent)
 	r.GET("/api/admin/odometer-readings", admin.GetOdometerReadings)
 	r.POST("/api/admin/odometer-readings/create", admin.CreateOdometerReading)
+
+	// =========================
+	// VEHICLE DOCUMENT ALERTS
+	// =========================
+	r.GET("/api/admin/vehicles/alerts", admin.GetVehicleDocumentAlerts)
+
+	// =========================
+	// FC/INSURANCE/PERMIT REPLACEMENT MANAGEMENT
+	// =========================
+	r.GET("/api/admin/fc-replacements", admin.GetFCReplacements)
+	r.POST("/api/admin/fc-replacements/create", admin.CreateFCReplacement)
+	r.POST("/api/admin/fc-replacements/approve", admin.ApproveFCReplacement)
+	r.POST("/api/admin/fc-replacements/reject", admin.RejectFCReplacement)
+	r.POST("/api/admin/fc-replacements/complete", admin.CompleteFCReplacement)
+	r.POST("/api/admin/fc-replacements/update", admin.UpdateFCReplacement)
+	r.POST("/api/admin/fc-replacements/delete", admin.DeleteFCReplacement)
+	r.GET("/api/admin/fc-replacements/available-vehicles", admin.GetAvailableReplacementVehicles)
+	r.GET("/api/admin/fc-replacements/pending-count", admin.GetPendingFCReplacementsCount)
+	r.POST("/api/admin/fc-replacements/check-expired", admin.CheckExpiredFCReplacements)
+	r.GET("/api/admin/fc-replacements/recent-completions", admin.GetRecentFCCompletions)
+	r.GET("/api/admin/fc-replacements/vehicle-drivers", admin.GetVehicleDrivers)
+	r.GET("/api/admin/fc-replacements/cluster-drivers", admin.GetClusterDrivers)
+
+	// Admin notifications
+	r.GET("/api/admin/notifications", admin.GetAdminNotifications)
+	r.POST("/api/admin/notifications/:id/mark-read", admin.MarkAdminNotificationRead)
+	r.POST("/api/admin/notifications/mark-all-read", admin.MarkAllAdminNotificationsRead)
+
+	// =========================
+	// STUDENT TRANSPORT MANAGEMENT (Admin)
+	// =========================
+	r.GET("/api/admin/students", admin.GetAllStudents)
+	r.POST("/api/admin/students/create", admin.CreateStudent)
+	r.DELETE("/api/admin/students/delete", admin.DeleteStudent)
+	r.GET("/api/admin/student-transport", admin.GetAllStudentTransport)
+	r.POST("/api/admin/student-transport/assign", admin.AssignStudentTransport)
+	r.POST("/api/admin/student-transport/update", admin.UpdateStudentTransport)
+	r.DELETE("/api/admin/student-transport/delete", admin.DeleteStudentTransport)
+	r.GET("/api/admin/transport-fees", admin.GetTransportFees)
+	r.POST("/api/admin/transport-fees/create", admin.CreateTransportFee)
+	r.POST("/api/admin/transport-fees/update", admin.UpdateTransportFee)
+	r.GET("/api/admin/transport-payments", admin.GetAllTransportPayments)
+	r.POST("/api/admin/transport-payments/record", admin.RecordTransportPayment)
+	r.GET("/api/admin/stop-change-requests", admin.GetAllStopChangeRequests)
+	r.POST("/api/admin/stop-change-requests/process", admin.ProcessStopChangeRequest)
+	r.GET("/api/admin/stop-change-requests/pending-count", admin.GetPendingStopChangeCount)
+
+	// Transport Requests (students request bus/stop, admin approves)
+	r.GET("/api/admin/transport-requests", admin.GetAllTransportRequests)
+	r.POST("/api/admin/transport-requests/process", admin.ProcessTransportRequest)
+	r.POST("/api/admin/transport-requests/fix-approved", admin.FixApprovedRequests)
+	r.GET("/api/admin/transport-requests/pending-count", admin.GetPendingTransportRequestCount)
+
+	// Students by Bus (view students under each bus)
+	r.GET("/api/admin/buses/with-students", admin.GetBusesWithStudentCounts)
+	r.GET("/api/admin/buses/:id/students", admin.GetStudentsByBus)
 }

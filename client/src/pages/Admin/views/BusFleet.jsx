@@ -29,6 +29,7 @@ export default function BusFleet() {
     stop_name: "",
     fee: 0,
     distance_km: 0,
+    arrival_time: "",
   });
   const [editingStop, setEditingStop] = useState(null);
 
@@ -76,7 +77,7 @@ export default function BusFleet() {
     setSelectedBus(null);
     setBusStops([]);
     setEditingStop(null);
-    setBusStopForm({stop_name: "", fee: 0, distance_km: 0});
+    setBusStopForm({stop_name: "", fee: 0, distance_km: 0, arrival_time: ""});
   };
 
   const addBusStop = async () => {
@@ -91,7 +92,7 @@ export default function BusFleet() {
     });
     if (res.ok) {
       alert("Stop added!");
-      setBusStopForm({stop_name: "", fee: 0, distance_km: 0});
+      setBusStopForm({stop_name: "", fee: 0, distance_km: 0, arrival_time: ""});
       fetchBusStops(selectedBus.id);
       fetchBusFleet(); // Update count if needed
     } else {
@@ -268,6 +269,9 @@ export default function BusFleet() {
                     <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
                       Stop Name
                     </th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-widest">
+                      Arrival
+                    </th>
                     <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
                       Distance
                     </th>
@@ -301,6 +305,25 @@ export default function BusFleet() {
                         ) : (
                           <span className="font-medium text-gray-800 text-sm">
                             {stop.stop_name}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        {editingStop?.id === stop.id ? (
+                          <input
+                            type="time"
+                            value={editingStop.arrival_time || ""}
+                            onChange={(e) =>
+                              setEditingStop({
+                                ...editingStop,
+                                arrival_time: e.target.value,
+                              })
+                            }
+                            className="w-24 px-2 py-1 border rounded-md text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                          />
+                        ) : (
+                          <span className="text-gray-600 text-sm">
+                            {stop.arrival_time || "--"}
                           </span>
                         )}
                       </td>
@@ -364,7 +387,12 @@ export default function BusFleet() {
                         ) : (
                           <div className="flex justify-end gap-2">
                             <button
-                              onClick={() => setEditingStop(stop)}
+                              onClick={() =>
+                                setEditingStop({
+                                  ...stop,
+                                  arrival_time: stop.arrival_time || "",
+                                })
+                              }
                               className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
                               title="Edit Stop"
                             >
@@ -385,7 +413,7 @@ export default function BusFleet() {
                   {busStops.length === 0 && (
                     <tr>
                       <td
-                        colSpan="5"
+                        colSpan="6"
                         className="px-6 py-12 text-center text-gray-400 italic"
                       >
                         <div className="flex flex-col items-center gap-2">
@@ -460,6 +488,22 @@ export default function BusFleet() {
                       step="1"
                     />
                   </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">
+                    Arrival Time
+                  </label>
+                  <input
+                    type="time"
+                    value={busStopForm.arrival_time}
+                    onChange={(e) =>
+                      setBusStopForm({
+                        ...busStopForm,
+                        arrival_time: e.target.value,
+                      })
+                    }
+                    className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] transition-all bg-white"
+                  />
                 </div>
                 <button
                   onClick={addBusStop}

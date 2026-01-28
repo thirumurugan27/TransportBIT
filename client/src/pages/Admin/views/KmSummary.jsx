@@ -10,6 +10,7 @@ import {
   Car,
   Zap,
   Award,
+  Gauge,
 } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
@@ -279,6 +280,115 @@ export default function KmSummary() {
                   )}
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Vehicle-wise KM Summary */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+            <div className="px-6 py-5 border-b border-gray-100">
+              <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <Gauge size={20} className="text-primary" />
+                Distance by Individual Vehicles
+              </h3>
+              <p className="text-sm text-gray-500 mt-1">
+                KM driven by each vehicle in the fleet
+              </p>
+            </div>
+            <div className="p-6">
+              {kmSummary.by_vehicle && kmSummary.by_vehicle.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-100">
+                        <th className="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                          Vehicle
+                        </th>
+                        <th className="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                          Type
+                        </th>
+                        <th className="text-right py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                          Total KM
+                        </th>
+                        <th className="text-right py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                          Trips
+                        </th>
+                        <th className="text-right py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                          Avg/Trip
+                        </th>
+                        <th className="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                          Progress
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {kmSummary.by_vehicle.map((vehicle, idx) => {
+                        const maxKM = kmSummary.by_vehicle[0]?.total_km || 1;
+                        const percentage = ((vehicle.total_km / maxKM) * 100).toFixed(0);
+                        return (
+                          <tr key={vehicle.vehicle_id} className="hover:bg-gray-50 transition-colors">
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-3">
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                                  idx === 0 ? 'bg-amber-100 text-amber-600' :
+                                  idx === 1 ? 'bg-gray-100 text-gray-600' :
+                                  idx === 2 ? 'bg-orange-100 text-orange-600' :
+                                  'bg-primary/10 text-primary'
+                                }`}>
+                                  {getVehicleIcon(vehicle.vehicle_type)}
+                                </div>
+                                <div>
+                                  <p className="font-semibold text-gray-800">{vehicle.vehicle_number}</p>
+                                  {vehicle.model && (
+                                    <p className="text-xs text-gray-500">{vehicle.model}</p>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                vehicle.vehicle_type === 'BUS' ? 'bg-blue-100 text-blue-700' :
+                                vehicle.vehicle_type === 'CAR' ? 'bg-green-100 text-green-700' :
+                                vehicle.vehicle_type === 'EV' ? 'bg-purple-100 text-purple-700' :
+                                'bg-gray-100 text-gray-700'
+                              }`}>
+                                {vehicle.vehicle_type}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <span className="font-bold text-gray-800">{vehicle.total_km?.toFixed(1)}</span>
+                              <span className="text-gray-500 text-sm ml-1">km</span>
+                            </td>
+                            <td className="py-3 px-4 text-right text-gray-600">
+                              {vehicle.total_trips}
+                            </td>
+                            <td className="py-3 px-4 text-right text-gray-600">
+                              {vehicle.avg_km_per_trip?.toFixed(1)} km
+                            </td>
+                            <td className="py-3 px-4 w-40">
+                              <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all duration-500 ${
+                                    idx === 0 ? 'bg-amber-500' :
+                                    idx === 1 ? 'bg-gray-400' :
+                                    idx === 2 ? 'bg-orange-400' :
+                                    'bg-primary'
+                                  }`}
+                                  style={{width: `${percentage}%`}}
+                                ></div>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="py-12 flex flex-col items-center text-center text-gray-400">
+                  <Truck size={48} className="mb-2 opacity-20" />
+                  <p>No vehicle KM data recorded yet.</p>
+                </div>
+              )}
             </div>
           </div>
         </>

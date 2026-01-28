@@ -3,6 +3,7 @@ package bus
 import (
 	"log"
 	"net/http"
+	"strings"
 
 	"transport-server/config"
 
@@ -33,28 +34,33 @@ type BusFleetItem struct {
 
 // BusStop - Stop with fee for a bus route
 type BusStop struct {
-	ID         int     `json:"id"`
-	VehicleID  int     `json:"vehicle_id"`
-	StopName   string  `json:"stop_name"`
-	StopOrder  int     `json:"stop_order"`
-	Fee        float64 `json:"fee"`
-	DistanceKm float64 `json:"distance_km"`
+	ID          int     `json:"id"`
+	StopID      int     `json:"stop_id"`
+	VehicleID   int     `json:"vehicle_id"`
+	StopName    string  `json:"stop_name"`
+	StopOrder   int     `json:"stop_order"`
+	Fee         float64 `json:"fee"`
+	DistanceKm  float64 `json:"distance_km"`
+	ArrivalTime string  `json:"arrival_time"`
 }
 
 type AddBusStopRequest struct {
-	BusID      int     `json:"bus_id"`
-	StopName   string  `json:"stop_name"`
-	StopOrder  int     `json:"stop_order"`
-	Fee        float64 `json:"fee"`
-	DistanceKm float64 `json:"distance_km"`
+	BusID       int     `json:"bus_id"`
+	VehicleID   int     `json:"vehicle_id"`
+	StopName    string  `json:"stop_name"`
+	StopOrder   int     `json:"stop_order"`
+	Fee         float64 `json:"fee"`
+	DistanceKm  float64 `json:"distance_km"`
+	ArrivalTime string  `json:"arrival_time"`
 }
 
 type UpdateBusStopRequest struct {
-	ID         int     `json:"id"`
-	StopName   string  `json:"stop_name"`
-	StopOrder  int     `json:"stop_order"`
-	Fee        float64 `json:"fee"`
-	DistanceKm float64 `json:"distance_km"`
+	ID          int     `json:"id"`
+	StopName    string  `json:"stop_name"`
+	StopOrder   int     `json:"stop_order"`
+	Fee         float64 `json:"fee"`
+	DistanceKm  float64 `json:"distance_km"`
+	ArrivalTime string  `json:"arrival_time"`
 }
 
 type UpdateBusRouteRequest struct {
@@ -101,6 +107,7 @@ func InitBusStopsTable() {
 			stop_order INT NOT NULL DEFAULT 1,
 			fee DECIMAL(10,2) NOT NULL DEFAULT 0,
 			distance_km DECIMAL(10,2) DEFAULT 0,
+			arrival_time TIME NULL,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE,
 			UNIQUE KEY unique_stop (vehicle_id, stop_order)
@@ -111,6 +118,9 @@ func InitBusStopsTable() {
 	} else {
 		log.Println("✅ bus_stops table ready")
 	}
+
+	// Ensure arrival_time column exists for older deployments
+	config.DB.Exec(`ALTER TABLE bus_stops ADD COLUMN IF NOT EXISTS arrival_time TIME NULL`)
 
 	// Auto-populate buses table with existing BUS vehicles
 	config.DB.Exec(`
@@ -199,7 +209,8 @@ func GetBusStops(c *gin.Context) {
 	}
 
 	rows, err := config.DB.Query(`
-		SELECT id, vehicle_id, stop_name, stop_order, fee, distance_km
+		SELECT id, vehicle_id, stop_name, stop_order, fee, distance_km,
+			COALESCE(TIME_FORMAT(arrival_time, '%H:%i'), '') as arrival_time
 		FROM bus_stops
 		WHERE vehicle_id = ?
 		ORDER BY stop_order ASC
@@ -214,7 +225,8 @@ func GetBusStops(c *gin.Context) {
 	var stops []BusStop
 	for rows.Next() {
 		var s BusStop
-		rows.Scan(&s.ID, &s.VehicleID, &s.StopName, &s.StopOrder, &s.Fee, &s.DistanceKm)
+		rows.Scan(&s.ID, &s.VehicleID, &s.StopName, &s.StopOrder, &s.Fee, &s.DistanceKm, &s.ArrivalTime)
+		s.StopID = s.ID // Add stop_id as alias for frontend compatibility
 		stops = append(stops, s)
 	}
 
@@ -236,10 +248,25 @@ func AddBusStop(c *gin.Context) {
 		return
 	}
 
+	busID := req.BusID
+	if busID == 0 {
+		busID = req.VehicleID
+	}
+	if busID == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Bus ID is required"})
+		return
+	}
+
+	arrivalTime := strings.TrimSpace(req.ArrivalTime)
+	var arrivalValue interface{}
+	if arrivalTime != "" {
+		arrivalValue = arrivalTime
+	}
+
 	_, err := config.DB.Exec(`
-		INSERT INTO bus_stops (vehicle_id, stop_name, stop_order, fee, distance_km)
-		VALUES (?, ?, ?, ?, ?)
-	`, req.BusID, req.StopName, req.StopOrder, req.Fee, req.DistanceKm)
+		INSERT INTO bus_stops (vehicle_id, stop_name, stop_order, fee, distance_km, arrival_time)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`, busID, req.StopName, req.StopOrder, req.Fee, req.DistanceKm, arrivalValue)
 
 	if err != nil {
 		log.Printf("Add bus stop error: %v", err)
@@ -265,11 +292,17 @@ func UpdateBusStop(c *gin.Context) {
 		return
 	}
 
+	arrivalTime := strings.TrimSpace(req.ArrivalTime)
+	var arrivalValue interface{}
+	if arrivalTime != "" {
+		arrivalValue = arrivalTime
+	}
+
 	_, err := config.DB.Exec(`
 		UPDATE bus_stops 
-		SET stop_name=?, stop_order=?, fee=?, distance_km=?
+		SET stop_name=?, stop_order=?, fee=?, distance_km=?, arrival_time=?
 		WHERE id=?
-	`, req.StopName, req.StopOrder, req.Fee, req.DistanceKm, req.ID)
+	`, req.StopName, req.StopOrder, req.Fee, req.DistanceKm, arrivalValue, req.ID)
 
 	if err != nil {
 		log.Printf("Update bus stop error: %v", err)

@@ -1,4 +1,5 @@
 import React, {useState, useEffect} from "react";
+import {useSearchParams} from "react-router-dom";
 import {
   User,
   Users,
@@ -26,11 +27,12 @@ import {
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
 export default function AdminDrivers() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState("table"); // 'table' or 'grid'
-  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterStatus, setFilterStatus] = useState(searchParams.get("status") || "all");
 
   // Modal State
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -84,22 +86,28 @@ export default function AdminDrivers() {
       color: "bg-primary/10 text-primary",
     },
     {
-      label: "Active",
-      value: drivers.filter((d) => d.status === "ACTIVE").length,
+      label: "Present",
+      value: drivers.filter((d) => d.status === "present").length,
       icon: BadgeCheck,
       color: "bg-green/10 text-green",
     },
     {
+      label: "Absent",
+      value: drivers.filter((d) => d.status === "absent").length,
+      icon: AlertTriangle,
+      color: "bg-red/10 text-red",
+    },
+    {
       label: "On Leave",
-      value: drivers.filter((d) => d.status === "LEAVE").length,
+      value: drivers.filter((d) => d.status === "on_leave").length,
       icon: Calendar,
       color: "bg-pending/10 text-pending",
     },
     {
-      label: "Incharges",
-      value: drivers.filter((d) => d.is_incharge).length,
-      icon: Award,
-      color: "bg-primary/10 text-primary",
+      label: "Not Marked",
+      value: drivers.filter((d) => d.status === "not_marked").length,
+      icon: Clock,
+      color: "bg-gray-100 text-gray-500",
     },
   ];
 
@@ -296,13 +304,22 @@ export default function AdminDrivers() {
           </div>
           <select
             value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
+            onChange={(e) => {
+              setFilterStatus(e.target.value);
+              if (e.target.value === "all") {
+                searchParams.delete("status");
+              } else {
+                searchParams.set("status", e.target.value);
+              }
+              setSearchParams(searchParams);
+            }}
             className="px-3 py-2.5 bg-primarybg border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm"
           >
             <option value="all">All Status</option>
-            <option value="ACTIVE">Active</option>
-            <option value="LEAVE">On Leave</option>
-            <option value="INACTIVE">Inactive</option>
+            <option value="present">Present</option>
+            <option value="absent">Absent</option>
+            <option value="on_leave">On Leave</option>
+            <option value="not_marked">Not Marked</option>
           </select>
         </div>
         <div className="flex items-center gap-3">
@@ -383,14 +400,18 @@ export default function AdminDrivers() {
                   </div>
                   <span
                     className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase ${
-                      driver.status === "ACTIVE"
+                      driver.status === "present"
                         ? "bg-green/10 text-green"
-                        : driver.status === "LEAVE"
+                        : driver.status === "absent"
+                        ? "bg-red/10 text-red"
+                        : driver.status === "on_leave"
                         ? "bg-pending/10 text-pending"
+                        : driver.status === "not_marked"
+                        ? "bg-gray-200 text-gray-500"
                         : "bg-gray-100 text-secondarytext"
                     }`}
                   >
-                    {driver.status}
+                    {driver.status === "not_marked" ? "NOT MARKED" : driver.status}
                   </span>
                 </div>
 
@@ -536,23 +557,29 @@ export default function AdminDrivers() {
                         <span
                           className={`px-2.5 py-1 rounded-full text-xs font-medium inline-flex items-center gap-1
                         ${
-                          driver.status === "ACTIVE"
+                          driver.status === "present"
                             ? "bg-green-100 text-green-700"
-                            : driver.status === "LEAVE"
+                            : driver.status === "absent"
+                            ? "bg-red-100 text-red-700"
+                            : driver.status === "on_leave"
                             ? "bg-orange-100 text-orange-700"
+                            : driver.status === "not_marked"
+                            ? "bg-gray-100 text-gray-500"
                             : "bg-gray-100 text-gray-600"
                         }`}
                         >
                           <span
                             className={`w-1.5 h-1.5 rounded-full ${
-                              driver.status === "ACTIVE"
+                              driver.status === "present"
                                 ? "bg-green-500"
-                                : driver.status === "LEAVE"
+                                : driver.status === "absent"
+                                ? "bg-red-500"
+                                : driver.status === "on_leave"
                                 ? "bg-orange-500"
-                                : "bg-gray-500"
+                                : "bg-gray-400"
                             }`}
                           ></span>
-                          {driver.status}
+                          {driver.status === "not_marked" ? "Not Marked" : driver.status}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">

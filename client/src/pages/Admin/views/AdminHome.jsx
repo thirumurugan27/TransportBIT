@@ -11,6 +11,8 @@ import {
   Clock,
   ChevronRight,
   Fuel,
+  Shield,
+  FileWarning,
 } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
@@ -25,19 +27,28 @@ export default function AdminHome() {
     active_duties: 0,
   });
   const [recentAssignments, setRecentAssignments] = useState([]);
+  const [vehicleAlerts, setVehicleAlerts] = useState({
+    alerts: [],
+    expired: 0,
+    critical: 0,
+    total: 0,
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [statsRes, assignmentsRes] = await Promise.all([
+        const [statsRes, assignmentsRes, alertsRes] = await Promise.all([
           fetch(`${API_BASE}/api/admin/dashboard/stats`),
           fetch(`${API_BASE}/api/admin/assignments`),
+          fetch(`${API_BASE}/api/admin/vehicles/alerts`),
         ]);
         const statsData = await statsRes.json();
         const assignmentsData = await assignmentsRes.json();
+        const alertsData = await alertsRes.json();
         setStats(statsData);
         setRecentAssignments((assignmentsData || []).slice(0, 4));
+        setVehicleAlerts(alertsData || { alerts: [], expired: 0, critical: 0, total: 0 });
       } catch (err) {
         console.error(err);
       } finally {
@@ -272,7 +283,7 @@ export default function AdminHome() {
         </div>
       </div>
 
-      {/* Alert Section */}
+      {/* Absent Driver Alert Section */}
       {stats.absent_drivers > 0 && (
         <div className="bg-red/10 border border-red/20 rounded-md p-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -282,16 +293,52 @@ export default function AdminHome() {
             <div>
               <h3 className="font-bold text-red">Attention Required</h3>
               <p className="text-sm text-red/80">
-                {stats.absent_drivers} driver(s) are currently marked absent
+                {stats.absent_drivers} driver(s) are absent or on leave today
               </p>
             </div>
           </div>
           <button
-            onClick={() => navigate("/admin-dashboard/drivers")}
+            onClick={() => navigate("/admin-dashboard/drivers?status=absent")}
             className="px-4 py-2 bg-red text-white rounded-md font-medium hover:bg-red/90 transition-colors text-sm"
           >
             View Details
           </button>
+        </div>
+      )}
+
+      {/* Vehicle Document Alert Section */}
+      {vehicleAlerts.total > 0 && (
+        <div className={`${vehicleAlerts.expired > 0 ? 'bg-red/10 border-red/20' : 'bg-pending/10 border-pending/20'} border rounded-md p-6 flex items-center justify-between`}>
+          <div className="flex items-center gap-4">
+            <div className={`w-12 h-12 ${vehicleAlerts.expired > 0 ? 'bg-red/20' : 'bg-pending/20'} rounded-md flex items-center justify-center`}>
+              <Shield className={`w-6 h-6 ${vehicleAlerts.expired > 0 ? 'text-red' : 'text-pending'}`} />
+            </div>
+            <div>
+              <h3 className={`font-bold ${vehicleAlerts.expired > 0 ? 'text-red' : 'text-pending'}`}>
+                ⚠️ Vehicle Document Alerts
+              </h3>
+              <p className={`text-sm ${vehicleAlerts.expired > 0 ? 'text-red/80' : 'text-pending/80'}`}>
+                {vehicleAlerts.expired > 0 && <span className="font-semibold">{vehicleAlerts.expired} vehicle(s) with expired documents</span>}
+                {vehicleAlerts.expired > 0 && vehicleAlerts.critical > 0 && ' • '}
+                {vehicleAlerts.critical > 0 && <span>{vehicleAlerts.critical} vehicle(s) expiring within 10 days</span>}
+                {' — Insurance, FC, or Permit'}
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => navigate("/admin-dashboard/fc-replacement")}
+              className="px-4 py-2 bg-primary hover:bg-primarydull text-white rounded-md font-medium transition-colors text-sm"
+            >
+              Manage Replacements
+            </button>
+            <button
+              onClick={() => navigate("/admin-dashboard/insurance-fc-status")}
+              className={`px-4 py-2 ${vehicleAlerts.expired > 0 ? 'bg-red hover:bg-red/90' : 'bg-pending hover:bg-pending/90'} text-white rounded-md font-medium transition-colors text-sm`}
+            >
+              View Status
+            </button>
+          </div>
         </div>
       )}
     </div>

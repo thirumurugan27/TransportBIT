@@ -4,6 +4,7 @@ import {Sidebar} from "../../components/layout";
 import DashboardHeader from "../../components/DashboardHeader";
 import StudentHome from "./views/StudentHome";
 import StudentTrackBus from "./views/StudentTrackBus";
+import StudentTransport from "./views/StudentTransport";
 import ComingSoon from "./views/ComingSoon";
 import {useAuth} from "../../context/AuthContext";
 
@@ -26,10 +27,8 @@ export default function StudentDashboard() {
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-primarybg p-6">
           <Routes>
             <Route path="" element={<StudentHome />} />
-            <Route
-              path="my-bus"
-              element={<ComingSoon title="My Bus Details" />}
-            />
+            <Route path="my-bus" element={<StudentTransport />} />
+            <Route path="my-transport" element={<StudentTransport />} />
             <Route path="track-bus" element={<StudentTrackBus />} />
             <Route
               path="bus-pass"

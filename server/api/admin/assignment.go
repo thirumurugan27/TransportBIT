@@ -106,13 +106,13 @@ func GetAllAssignments(c *gin.Context) {
 		WHERE ta.status = 'active'
 		ORDER BY ta.start_date DESC, ta.id DESC
 	`)
-	
+
 	if err == nil {
 		defer tempRows.Close()
 		for tempRows.Next() {
 			var a models.Assignment
 			var originalDriverID sql.NullInt64
-			
+
 			// Temporary assignment doesn't calculate driver_status the same way, assume 'assigned' or 'active' matches
 			// We can default driver_status to 'active' for temporary
 			a.DriverStatus = "active"
@@ -124,7 +124,7 @@ func GetAllAssignments(c *gin.Context) {
 				&a.ShiftName, &a.StartTime, &a.EndTime,
 				&a.VehicleNumber, &a.VehicleType,
 				&a.DriverName, &a.OriginalDriverName)
-			
+
 			if err != nil {
 				log.Printf("Scan error temp assignment: %v", err)
 				continue
@@ -561,7 +561,8 @@ func getDriverConflictsDetails(driverID int, checkDate string, checkRanges []str
 	rows, err := config.DB.Query(`
 		SELECT a.id, v.vehicle_number, v.vehicle_type, s.name as shift_name,
 		       s.start_time, s.end_time,
-		       ss.start_time as slot_start, ss.end_time as slot_end
+		       ss.start_time as slot_start, ss.end_time as slot_end,
+		       a.start_date, a.end_date, 'REGULAR' as assignment_type
 		FROM assignments a
 		JOIN vehicles v ON a.vehicle_id = v.id
 		JOIN shifts s ON a.shift_id = s.id
@@ -576,7 +577,8 @@ func getDriverConflictsDetails(driverID int, checkDate string, checkRanges []str
 		       COALESCE(s.start_time, dc.start_time, '08:00:00') as start_time,
 		       COALESCE(s.end_time,   dc.end_time,   '17:00:00') as end_time,
 		       NULL as slot_start,
-		       NULL as slot_end
+		       NULL as slot_end,
+		       ev.start_date, ev.end_date, 'EV_CLUSTER' as assignment_type
 		FROM ev_assignments ev
 		JOIN vehicles v ON ev.vehicle_id = v.id
 		JOIN driver_clusters dc ON ev.cluster_id = dc.id
@@ -597,8 +599,9 @@ func getDriverConflictsDetails(driverID int, checkDate string, checkRanges []str
 		var vehicleNumber, vehicleType, shiftName string
 		var startTime, endTime sql.NullString
 		var slotStart, slotEnd sql.NullString
+		var startDate, endDate, assignmentType string
 
-		if err := rows.Scan(&id, &vehicleNumber, &vehicleType, &shiftName, &startTime, &endTime, &slotStart, &slotEnd); err != nil {
+		if err := rows.Scan(&id, &vehicleNumber, &vehicleType, &shiftName, &startTime, &endTime, &slotStart, &slotEnd, &startDate, &endDate, &assignmentType); err != nil {
 			continue
 		}
 
@@ -626,10 +629,13 @@ func getDriverConflictsDetails(driverID int, checkDate string, checkRanges []str
 
 		if conflicted {
 			item := map[string]interface{}{
-				"assignment_id":  id,
-				"vehicle_number": vehicleNumber,
-				"vehicle_type":   vehicleType,
-				"shift_name":     shiftName,
+				"assignment_id":   id,
+				"vehicle_number":  vehicleNumber,
+				"vehicle_type":    vehicleType,
+				"shift_name":      shiftName,
+				"start_date":      startDate,
+				"end_date":        endDate,
+				"assignment_type": assignmentType,
 			}
 			// Prefer slot times if present, else base shift times
 			if slotStart.Valid && slotEnd.Valid {

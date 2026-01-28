@@ -29,9 +29,10 @@ CREATE TABLE IF NOT EXISTS odometer_readings (
     FOREIGN KEY (driver_id) REFERENCES drivers(id) ON DELETE CASCADE
 );
 
--- Add indexes for performance
-CREATE INDEX IF NOT EXISTS idx_fuel_indents_vehicle ON fuel_indents(vehicle_id);
-CREATE INDEX IF NOT EXISTS idx_fuel_indents_driver ON fuel_indents(driver_id);
-CREATE INDEX IF NOT EXISTS idx_fuel_indents_status ON fuel_indents(status);
-CREATE INDEX IF NOT EXISTS idx_odometer_vehicle ON odometer_readings(vehicle_id);
-CREATE INDEX IF NOT EXISTS idx_odometer_driver ON odometer_readings(driver_id);
+-- Note: MySQL does not support "IF NOT EXISTS" on CREATE INDEX
+-- Run this migration once; rerunning will error if indexes already exist
+CREATE INDEX idx_fuel_indents_vehicle ON fuel_indents(vehicle_id);
+CREATE INDEX idx_fuel_indents_driver ON fuel_indents(driver_id);
+CREATE INDEX idx_fuel_indents_status ON fuel_indents(status);
+CREATE INDEX idx_odometer_vehicle ON odometer_readings(vehicle_id);
+CREATE INDEX idx_odometer_driver ON odometer_readings(driver_id);

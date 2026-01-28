@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"transport-server/config"
 	"transport-server/models"
@@ -171,6 +172,7 @@ func CreateEVAssignment(c *gin.Context) {
 		"message": "EV assignment created successfully",
 	})
 }
+
 /*
 =========================
 
@@ -211,4 +213,189 @@ func DeleteEVAssignment(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "EV assignment deleted"})
+}
+
+/*
+=========================
+
+	GET /api/admin/ev-assignments/:id/details
+	Get detailed EV assignment info with drivers and KM logs
+
+=========================
+*/
+func GetEVAssignmentDetails(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil || id <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid assignment ID"})
+		return
+	}
+
+	// Get assignment details
+	var assignment struct {
+		ID            int    `json:"id"`
+		VehicleID     int    `json:"vehicle_id"`
+		VehicleNumber string `json:"vehicle_number"`
+		VehicleType   string `json:"vehicle_type"`
+		ClusterID     int    `json:"cluster_id"`
+		ClusterName   string `json:"cluster_name"`
+		StartDate     string `json:"start_date"`
+		EndDate       string `json:"end_date"`
+		Status        string `json:"status"`
+		DaysTotal     int    `json:"days_total"`
+		DaysRemaining int    `json:"days_remaining"`
+		DaysCompleted int    `json:"days_completed"`
+	}
+
+	err = config.DB.QueryRow(`
+		SELECT ea.id, ea.vehicle_id, v.vehicle_number, v.vehicle_type,
+		       ea.cluster_id, c.name as cluster_name,
+		       DATE_FORMAT(ea.start_date, '%Y-%m-%d') as start_date,
+		       DATE_FORMAT(ea.end_date, '%Y-%m-%d') as end_date,
+		       ea.status
+		FROM ev_assignments ea
+		JOIN vehicles v ON ea.vehicle_id = v.id
+		JOIN driver_clusters c ON ea.cluster_id = c.id
+		WHERE ea.id = ?
+	`, id).Scan(&assignment.ID, &assignment.VehicleID, &assignment.VehicleNumber,
+		&assignment.VehicleType, &assignment.ClusterID, &assignment.ClusterName,
+		&assignment.StartDate, &assignment.EndDate, &assignment.Status)
+
+	if err != nil {
+		log.Printf("Get EV assignment details error: %v", err)
+		c.JSON(http.StatusNotFound, gin.H{"error": "Assignment not found"})
+		return
+	}
+
+	// Calculate days
+	startDate, _ := time.Parse("2006-01-02", assignment.StartDate)
+	endDate, _ := time.Parse("2006-01-02", assignment.EndDate)
+	today := time.Now().Truncate(24 * time.Hour)
+
+	assignment.DaysTotal = int(endDate.Sub(startDate).Hours()/24) + 1
+
+	if today.Before(startDate) {
+		assignment.DaysRemaining = assignment.DaysTotal
+		assignment.DaysCompleted = 0
+	} else if today.After(endDate) {
+		assignment.DaysRemaining = 0
+		assignment.DaysCompleted = assignment.DaysTotal
+	} else {
+		assignment.DaysCompleted = int(today.Sub(startDate).Hours()/24) + 1
+		assignment.DaysRemaining = assignment.DaysTotal - assignment.DaysCompleted
+	}
+
+	// Get drivers in the cluster with their initials
+	type DriverInfo struct {
+		DriverID   int     `json:"driver_id"`
+		DriverName string  `json:"driver_name"`
+		Initials   string  `json:"initials"`
+		Status     string  `json:"status"`
+		OnLeave    bool    `json:"on_leave"`
+		TotalKM    float64 `json:"total_km"`
+	}
+
+	driverRows, err := config.DB.Query(`
+		SELECT d.id, u.full_name, u.status,
+		       EXISTS(SELECT 1 FROM leave_requests lr 
+		              WHERE lr.driver_id = d.id 
+		              AND lr.status = 'admin_approved'
+		              AND CURDATE() BETWEEN lr.start_date AND lr.end_date) as on_leave,
+		       COALESCE((SELECT SUM(total_km) FROM km_logs kl 
+		                 WHERE kl.driver_id = d.id 
+		                 AND kl.vehicle_id = ?
+		                 AND kl.date BETWEEN ? AND ?), 0) as total_km
+		FROM drivers d
+		JOIN users u ON d.user_id = u.id
+		WHERE d.cluster_id = ?
+		ORDER BY u.full_name
+	`, assignment.VehicleID, assignment.StartDate, assignment.EndDate, assignment.ClusterID)
+
+	var drivers []DriverInfo
+	if err == nil {
+		defer driverRows.Close()
+		for driverRows.Next() {
+			var di DriverInfo
+			var onLeave int
+			driverRows.Scan(&di.DriverID, &di.DriverName, &di.Status, &onLeave, &di.TotalKM)
+			di.OnLeave = onLeave == 1
+
+			// Generate initials from name
+			words := splitName(di.DriverName)
+			for _, w := range words {
+				if len(w) > 0 {
+					di.Initials += string(w[0])
+				}
+			}
+			drivers = append(drivers, di)
+		}
+	}
+
+	// Get total KM for this vehicle during assignment period
+	var totalVehicleKM float64
+	config.DB.QueryRow(`
+		SELECT COALESCE(SUM(total_km), 0) 
+		FROM km_logs 
+		WHERE vehicle_id = ? 
+		AND date BETWEEN ? AND ?
+	`, assignment.VehicleID, assignment.StartDate, assignment.EndDate).Scan(&totalVehicleKM)
+
+	// Get recent KM logs for this vehicle
+	type KMLog struct {
+		ID         int     `json:"id"`
+		Date       string  `json:"date"`
+		DriverName string  `json:"driver_name"`
+		StartKM    float64 `json:"start_km"`
+		EndKM      float64 `json:"end_km"`
+		TotalKM    float64 `json:"total_km"`
+	}
+
+	kmRows, err := config.DB.Query(`
+		SELECT kl.id, DATE_FORMAT(kl.date, '%Y-%m-%d') as date, 
+		       u.full_name as driver_name, kl.start_km, kl.end_km, kl.total_km
+		FROM km_logs kl
+		JOIN drivers d ON kl.driver_id = d.id
+		JOIN users u ON d.user_id = u.id
+		WHERE kl.vehicle_id = ?
+		AND kl.date BETWEEN ? AND ?
+		ORDER BY kl.date DESC, kl.id DESC
+		LIMIT 20
+	`, assignment.VehicleID, assignment.StartDate, assignment.EndDate)
+
+	var kmLogs []KMLog
+	if err == nil {
+		defer kmRows.Close()
+		for kmRows.Next() {
+			var kl KMLog
+			kmRows.Scan(&kl.ID, &kl.Date, &kl.DriverName, &kl.StartKM, &kl.EndKM, &kl.TotalKM)
+			kmLogs = append(kmLogs, kl)
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"assignment":       assignment,
+		"drivers":          drivers,
+		"total_vehicle_km": totalVehicleKM,
+		"km_logs":          kmLogs,
+	})
+}
+
+// Helper function to split name into words
+func splitName(name string) []string {
+	var words []string
+	var current string
+	for _, c := range name {
+		if c == ' ' {
+			if current != "" {
+				words = append(words, current)
+				current = ""
+			}
+		} else {
+			current += string(c)
+		}
+	}
+	if current != "" {
+		words = append(words, current)
+	}
+	return words
 }

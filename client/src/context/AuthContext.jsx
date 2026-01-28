@@ -59,6 +59,10 @@ export const AuthProvider = ({children}) => {
 
       if (res.ok) {
         const data = await res.json();
+        // Save token to localStorage for API calls
+        if (data.token) {
+          localStorage.setItem("token", data.token);
+        }
         setUser(data);
         redirectToDashboard(data.role);
         return {success: true};
@@ -85,6 +89,8 @@ export const AuthProvider = ({children}) => {
     } catch (err) {
       console.error("Logout failed", err);
     }
+    // Clear localStorage
+    localStorage.removeItem("token");
     setUser(null);
     navigate("/login");
   };

@@ -15,6 +15,16 @@ import {
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
+// Helper to convert 24h time to 12h AM/PM format
+const formatTimeAMPM = (time24) => {
+  if (!time24) return '';
+  const [hours, minutes] = time24.split(':');
+  const h = parseInt(hours, 10);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  return `${h12}:${minutes} ${ampm}`;
+};
+
 export default function ScheduleManagement() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("groups"); // groups, shifts
@@ -44,9 +54,8 @@ export default function ScheduleManagement() {
 
   const [shiftForm, setShiftForm] = useState({
     name: "",
-    start_time: "09:00",
-    end_time: "17:00",
     description: "",
+    slots: [{start_time: "09:00", end_time: "17:00"}],
   });
 
   const fetchData = async () => {
@@ -110,11 +119,15 @@ export default function ScheduleManagement() {
         driver_ids: currentDriverIds,
       });
     } else {
+      // Convert existing shift to slots format
+      const existingSlots = item.slots && item.slots.length > 0 
+        ? item.slots.map(s => ({start_time: s.start_time, end_time: s.end_time}))
+        : [{start_time: item.start_time, end_time: item.end_time}];
+      
       setShiftForm({
         name: item.name,
-        start_time: item.start_time,
-        end_time: item.end_time,
         description: item.description || "",
+        slots: existingSlots,
       });
     }
     setShowModal(true);
@@ -160,15 +173,38 @@ export default function ScheduleManagement() {
   };
 
   const handleCreateOrUpdateShift = async () => {
-    if (!shiftForm.name || !shiftForm.start_time || !shiftForm.end_time) {
-      alert("Please fill required fields");
+    if (!shiftForm.name || shiftForm.slots.length === 0) {
+      alert("Please fill shift name and add at least one time slot");
       return;
+    }
+
+    // Validate all slots have start and end time
+    for (const slot of shiftForm.slots) {
+      if (!slot.start_time || !slot.end_time) {
+        alert("Please fill all time slots completely");
+        return;
+      }
     }
 
     const endpoint = isEditing
       ? "/api/admin/shifts/update"
       : "/api/admin/shifts/create";
-    const payload = isEditing ? {...shiftForm, id: editingId} : shiftForm;
+    
+    // Format payload for backend
+    const payload = isEditing 
+      ? {
+          id: editingId,
+          name: shiftForm.name,
+          description: shiftForm.description,
+          start_time: shiftForm.slots[0]?.start_time || "09:00",
+          end_time: shiftForm.slots[0]?.end_time || "17:00",
+          slots: shiftForm.slots,
+        }
+      : {
+          name: shiftForm.name,
+          description: shiftForm.description,
+          slots: shiftForm.slots,
+        };
 
     try {
       const res = await fetch(`${API_BASE}${endpoint}`, {
@@ -182,9 +218,8 @@ export default function ScheduleManagement() {
         fetchData();
         setShiftForm({
           name: "",
-          start_time: "09:00",
-          end_time: "17:00",
           description: "",
+          slots: [{start_time: "09:00", end_time: "17:00"}],
         });
       } else {
         alert("Failed to process shift");
@@ -318,9 +353,8 @@ export default function ScheduleManagement() {
               });
               setShiftForm({
                 name: "",
-                start_time: "09:00",
-                end_time: "17:00",
                 description: "",
+                slots: [{start_time: "09:00", end_time: "17:00"}],
               });
               setDriverSearch("");
               setShowOnlyUnassigned(false);
@@ -384,7 +418,7 @@ export default function ScheduleManagement() {
                         <Clock className="w-4 h-4 text-primary shrink-0" />
                         <span>
                           {cluster.start_time && cluster.end_time
-                            ? `${cluster.start_time} - ${cluster.end_time}`
+                            ? `${formatTimeAMPM(cluster.start_time)} - ${formatTimeAMPM(cluster.end_time)}`
                             : "No schedule"}
                         </span>
                       </div>
@@ -442,9 +476,19 @@ export default function ScheduleManagement() {
                           {shift.name}
                         </td>
                         <td className="py-4 px-4 text-sm text-secondarytext">
-                          <span className="bg-white border border-gray-200 px-3 py-1 rounded-full text-xs font-medium text-primary shadow-sm">
-                            {shift.start_time} - {shift.end_time}
-                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {shift.slots && shift.slots.length > 0 ? (
+                              shift.slots.map((slot, idx) => (
+                                <span key={idx} className="bg-white border border-gray-200 px-3 py-1 rounded-full text-xs font-medium text-primary shadow-sm">
+                                  {formatTimeAMPM(slot.start_time)} - {formatTimeAMPM(slot.end_time)}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="bg-white border border-gray-200 px-3 py-1 rounded-full text-xs font-medium text-primary shadow-sm">
+                                {formatTimeAMPM(shift.start_time)} - {formatTimeAMPM(shift.end_time)}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="py-4 px-4 text-sm text-secondarytext">
                           {shift.description || "-"}
@@ -751,7 +795,7 @@ export default function ScheduleManagement() {
                   </div>
                 </div>
               ) : (
-                // Shift Form
+                // Shift Form with Multiple Time Slots
                 <div className="space-y-5">
                   <div>
                     <label className="block text-xs font-bold text-secondarytext uppercase tracking-widest mb-1.5">
@@ -766,44 +810,93 @@ export default function ScheduleManagement() {
                       }
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-secondarytext uppercase tracking-widest mb-1.5">
-                        Start Time
+
+                  {/* Time Slots Section */}
+                  <div>
+                    <div className="flex justify-between items-center mb-3">
+                      <label className="block text-xs font-bold text-secondarytext uppercase tracking-widest">
+                        Time Slots
                       </label>
-                      <input
-                        type="time"
-                        className="w-full px-4 py-2.5 rounded-md border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all text-sm"
-                        value={shiftForm.start_time}
-                        onChange={(e) =>
-                          setShiftForm({
-                            ...shiftForm,
-                            start_time: e.target.value,
-                          })
-                        }
-                      />
+                      <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-medium">
+                        {shiftForm.slots.length} slot{shiftForm.slots.length !== 1 ? 's' : ''}
+                      </span>
                     </div>
-                    <div>
-                      <label className="block text-xs font-bold text-secondarytext uppercase tracking-widest mb-1.5">
-                        End Time
-                      </label>
-                      <input
-                        type="time"
-                        className="w-full px-4 py-2.5 rounded-md border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all text-sm"
-                        value={shiftForm.end_time}
-                        onChange={(e) =>
-                          setShiftForm({...shiftForm, end_time: e.target.value})
-                        }
-                      />
+                    
+                    <div className="space-y-3">
+                      {shiftForm.slots.map((slot, index) => (
+                        <div key={index} className="flex items-center gap-3 bg-gray-50 p-3 rounded-md border border-gray-200">
+                          <span className="text-xs font-bold text-secondarytext w-6">#{index + 1}</span>
+                          <div className="flex-1 grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-[10px] font-bold text-secondarytext uppercase mb-1">
+                                Start Time
+                              </label>
+                              <input
+                                type="time"
+                                className="w-full px-3 py-2 rounded-md border border-gray-200 bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm"
+                                value={slot.start_time}
+                                onChange={(e) => {
+                                  const newSlots = [...shiftForm.slots];
+                                  newSlots[index].start_time = e.target.value;
+                                  setShiftForm({...shiftForm, slots: newSlots});
+                                }}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-bold text-secondarytext uppercase mb-1">
+                                End Time
+                              </label>
+                              <input
+                                type="time"
+                                className="w-full px-3 py-2 rounded-md border border-gray-200 bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm"
+                                value={slot.end_time}
+                                onChange={(e) => {
+                                  const newSlots = [...shiftForm.slots];
+                                  newSlots[index].end_time = e.target.value;
+                                  setShiftForm({...shiftForm, slots: newSlots});
+                                }}
+                              />
+                            </div>
+                          </div>
+                          {shiftForm.slots.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newSlots = shiftForm.slots.filter((_, i) => i !== index);
+                                setShiftForm({...shiftForm, slots: newSlots});
+                              }}
+                              className="p-2 text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShiftForm({
+                          ...shiftForm,
+                          slots: [...shiftForm.slots, {start_time: "09:00", end_time: "17:00"}]
+                        });
+                      }}
+                      className="mt-3 w-full px-4 py-2.5 border-2 border-dashed border-gray-300 rounded-md text-sm font-medium text-secondarytext hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Another Time Slot
+                    </button>
                   </div>
+
                   <div>
                     <label className="block text-xs font-bold text-secondarytext uppercase tracking-widest mb-1.5">
                       Description
                     </label>
                     <textarea
                       className="w-full px-4 py-2.5 rounded-md border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all text-sm"
-                      rows="4"
+                      rows="3"
+                      placeholder="Optional description for this shift..."
                       value={shiftForm.description}
                       onChange={(e) =>
                         setShiftForm({

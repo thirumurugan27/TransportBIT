@@ -3,7 +3,9 @@ package main
 import (
 	"log"
 	"os"
+	"transport-server/api/admin"
 	"transport-server/api/bus"
+	"transport-server/api/student"
 	"transport-server/config"
 	"transport-server/routes"
 
@@ -22,6 +24,7 @@ func main() {
 	// 2. Initialize Database
 	config.InitDB()
 	bus.InitBusStopsTable()
+	student.InitStudentTransportTables()
 
 	// 3. Initialize Gin Router
 	r := gin.Default()
@@ -39,10 +42,14 @@ func main() {
 
 	// 5. Register Routes
 	routes.RegisterRoutes(r)
-	// 6. Initialize Cron Jobs (Placeholder)
+	// 6. Initialize Cron Jobs
 	c := cron.New(cron.WithSeconds())
-	// Example: _, _ = c.AddFunc("0 0 * * * *", jobs.SomeJob)
+	// Run auto-complete for expired FC replacements daily at midnight
+	_, _ = c.AddFunc("0 0 0 * * *", admin.AutoCompleteExpiredFCReplacements)
 	c.Start()
+
+	// Run auto-complete check on startup
+	go admin.AutoCompleteExpiredFCReplacements()
 
 	// 7. Start Server
 	port := os.Getenv("PORT")

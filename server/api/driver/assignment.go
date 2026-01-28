@@ -28,9 +28,11 @@ type DriverAssignment struct {
 }
 
 /*
-	=========================
-	  GET /api/driver/assignment/today
-	=========================
+=========================
+
+	GET /api/driver/assignment/today
+
+=========================
 */
 func GetDriverTodayAssignment(c *gin.Context) {
 	driverID := c.Query("driver_id")
@@ -99,11 +101,13 @@ func GetDriverTodayAssignment(c *gin.Context) {
 }
 
 /*
-	=========================
-	  GET /api/driver/assignments/today
-	  Returns ALL assignments for today (driver might have multiple - bus morning, EV afternoon)
-	  Includes both individual assignments AND EV cluster assignments
-	=========================
+=========================
+
+	GET /api/driver/assignments/today
+	Returns ALL assignments for today (driver might have multiple - bus morning, EV afternoon)
+	Includes both individual assignments AND EV cluster assignments
+
+=========================
 */
 func GetDriverTodayAssignments(c *gin.Context) {
 	driverID := c.Query("driver_id")
@@ -235,7 +239,7 @@ func GetDriverTodayAssignments(c *gin.Context) {
 				&a.ShiftName, &a.StartTime, &a.EndTime,
 				&a.AssignedDate, &a.StartDate, &a.EndDate, &a.Status,
 				&originalDriverID, &a.OriginalDriverName)
-			
+
 			if err == nil {
 				a.Status = "Temporary"
 				a.IsTemporaryReplacement = true
@@ -251,10 +255,12 @@ func GetDriverTodayAssignments(c *gin.Context) {
 }
 
 /*
-	=========================
-	  GET /api/driver/assignments
-	  Returns ALL assignments for a driver (including EV cluster assignments)
-	=========================
+=========================
+
+	GET /api/driver/assignments
+	Returns ALL assignments for a driver (including EV cluster assignments)
+
+=========================
 */
 func GetDriverAssignments(c *gin.Context) {
 	driverID := c.Query("driver_id")
@@ -391,11 +397,113 @@ func GetDriverAssignments(c *gin.Context) {
 				a.IsTemporaryReplacement = true
 				a.OriginalDriverID = &originalDriverID
 				// Use start date as assigned date for sorting/display
-				a.AssignedDate = a.StartDate 
+				a.AssignedDate = a.StartDate
 				assignments = append(assignments, a)
 			}
 		}
 	}
 
 	c.JSON(http.StatusOK, assignments)
+}
+
+// GET /api/driver/vehicles/alerts - Get alerts for vehicles assigned to this driver
+func GetDriverVehicleAlerts(c *gin.Context) {
+	driverID := c.Query("driver_id")
+	if driverID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "driver_id required"})
+		return
+	}
+
+	// Get vehicles assigned to this driver with expiring documents
+	rows, err := config.DB.Query(`
+		SELECT DISTINCT v.id, v.vehicle_number, v.vehicle_type, v.status,
+		       v.insurance_expire_date, v.fc_expire_date, v.permit_expire_date,
+		       DATEDIFF(v.insurance_expire_date, CURDATE()) as insurance_days,
+		       DATEDIFF(v.fc_expire_date, CURDATE()) as fc_days,
+		       DATEDIFF(v.permit_expire_date, CURDATE()) as permit_days
+		FROM vehicles v
+		INNER JOIN assignments a ON a.vehicle_id = v.id
+		WHERE a.driver_id = ?
+		  AND CURDATE() BETWEEN a.start_date AND a.end_date
+		  AND v.status = 'active'
+		  AND (
+		    (v.insurance_expire_date IS NOT NULL AND DATEDIFF(v.insurance_expire_date, CURDATE()) <= 10)
+		    OR (v.fc_expire_date IS NOT NULL AND DATEDIFF(v.fc_expire_date, CURDATE()) <= 10)
+		    OR (v.permit_expire_date IS NOT NULL AND DATEDIFF(v.permit_expire_date, CURDATE()) <= 10)
+		  )
+		ORDER BY 
+		  LEAST(
+		    COALESCE(DATEDIFF(v.insurance_expire_date, CURDATE()), 999),
+		    COALESCE(DATEDIFF(v.fc_expire_date, CURDATE()), 999),
+		    COALESCE(DATEDIFF(v.permit_expire_date, CURDATE()), 999)
+		  ) ASC
+	`, driverID)
+
+	if err != nil {
+		log.Printf("Driver vehicle alerts error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer rows.Close()
+
+	type VehicleAlert struct {
+		ID              int     `json:"id"`
+		VehicleNumber   string  `json:"vehicle_number"`
+		VehicleType     string  `json:"vehicle_type"`
+		Status          string  `json:"status"`
+		InsuranceExpire *string `json:"insurance_expire_date"`
+		FCExpire        *string `json:"fc_expire_date"`
+		PermitExpire    *string `json:"permit_expire_date"`
+		InsuranceDays   *int    `json:"insurance_days"`
+		FCDays          *int    `json:"fc_days"`
+		PermitDays      *int    `json:"permit_days"`
+	}
+
+	var alerts []VehicleAlert
+	for rows.Next() {
+		var a VehicleAlert
+		rows.Scan(&a.ID, &a.VehicleNumber, &a.VehicleType, &a.Status,
+			&a.InsuranceExpire, &a.FCExpire, &a.PermitExpire,
+			&a.InsuranceDays, &a.FCDays, &a.PermitDays)
+		alerts = append(alerts, a)
+	}
+
+	// Count expired (< 0 days) and critical (0-10 days)
+	expired := 0
+	critical := 0
+	for _, a := range alerts {
+		hasExpired := false
+		hasCritical := false
+
+		if a.InsuranceDays != nil && *a.InsuranceDays < 0 {
+			hasExpired = true
+		} else if a.InsuranceDays != nil && *a.InsuranceDays <= 10 {
+			hasCritical = true
+		}
+
+		if a.FCDays != nil && *a.FCDays < 0 {
+			hasExpired = true
+		} else if a.FCDays != nil && *a.FCDays <= 10 {
+			hasCritical = true
+		}
+
+		if a.PermitDays != nil && *a.PermitDays < 0 {
+			hasExpired = true
+		} else if a.PermitDays != nil && *a.PermitDays <= 10 {
+			hasCritical = true
+		}
+
+		if hasExpired {
+			expired++
+		} else if hasCritical {
+			critical++
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"alerts":   alerts,
+		"expired":  expired,
+		"critical": critical,
+		"total":    len(alerts),
+	})
 }

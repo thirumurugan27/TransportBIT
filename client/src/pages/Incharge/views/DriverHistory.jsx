@@ -240,7 +240,7 @@ export default function DriverHistory() {
                       Status
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-bold text-secondarytext uppercase">
-                      Check-in
+                      Marked By
                     </th>
                   </tr>
                 </thead>
@@ -268,8 +268,14 @@ export default function DriverHistory() {
                             {record.status === "present" ? "Present" : "Absent"}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-sm text-secondarytext">
-                          {record.checkin_time || "-"}
+                        <td className="px-4 py-3 text-sm">
+                          {record.marked_by_incharge_name ? (
+                            <span className="inline-flex items-center px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs font-medium">
+                              {record.marked_by_incharge_name}
+                            </span>
+                          ) : (
+                            <span className="text-gray-300">-</span>
+                          )}
                         </td>
                       </tr>
                     ))

@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"transport-server/config"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -266,11 +267,52 @@ func GetKMSummary(c *gin.Context) {
 		topDrivers = append(topDrivers, td)
 	}
 
+	// KM by individual vehicles - using vehicle_id from km_logs directly
+	vehicleRows, _ := config.DB.Query(`
+		SELECT 
+			v.id,
+			v.vehicle_number,
+			v.vehicle_type,
+			v.model,
+			COALESCE(SUM(k.total_km), 0) as total_km,
+			COUNT(k.id) as total_trips,
+			COALESCE(AVG(k.total_km), 0) as avg_km_per_trip
+		FROM km_logs k
+		JOIN vehicles v ON k.vehicle_id = v.id
+		WHERE k.vehicle_id IS NOT NULL AND ` + dateFilter + `
+		GROUP BY v.id, v.vehicle_number, v.vehicle_type, v.model
+		ORDER BY total_km DESC
+		LIMIT 20
+	`)
+	if vehicleRows != nil {
+		defer vehicleRows.Close()
+	}
+
+	type VehicleKM struct {
+		VehicleID     int     `json:"vehicle_id"`
+		VehicleNumber string  `json:"vehicle_number"`
+		VehicleType   string  `json:"vehicle_type"`
+		Model         *string `json:"model"`
+		TotalKM       float64 `json:"total_km"`
+		TotalTrips    int     `json:"total_trips"`
+		AvgKMPerTrip  float64 `json:"avg_km_per_trip"`
+	}
+
+	var vehicleKMs []VehicleKM
+	if vehicleRows != nil {
+		for vehicleRows.Next() {
+			var vk VehicleKM
+			vehicleRows.Scan(&vk.VehicleID, &vk.VehicleNumber, &vk.VehicleType, &vk.Model, &vk.TotalKM, &vk.TotalTrips, &vk.AvgKMPerTrip)
+			vehicleKMs = append(vehicleKMs, vk)
+		}
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"period":            period,
 		"by_vehicle_type":   summary,
 		"grand_total_km":    grandTotalKM,
 		"grand_total_trips": grandTotalTrips,
 		"top_drivers":       topDrivers,
+		"by_vehicle":        vehicleKMs,
 	})
 }
