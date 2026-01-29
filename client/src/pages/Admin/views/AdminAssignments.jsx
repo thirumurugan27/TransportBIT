@@ -1,6 +1,8 @@
 import React, {useState, useEffect} from "react";
 import TemporaryAssignments from "./TemporaryAssignments";
 import EVAssignmentsList from "./EVAssignmentsList";
+import {showError, showConfirm} from "../../../utils/swal";
+import {formatVehicleLabel} from "../../../utils/vehicleLabel";
 import {
   Calendar,
   User,
@@ -66,8 +68,11 @@ export default function AdminAssignments() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this assignment?"))
-      return;
+    const isConfirmed = await showConfirm(
+      "Are you sure?",
+      "Do you really want to delete this assignment?",
+    );
+    if (!isConfirmed) return;
     try {
       const res = await fetch(`${API_BASE}/api/admin/assignments/delete`, {
         method: "DELETE",
@@ -77,7 +82,7 @@ export default function AdminAssignments() {
       if (res.ok) {
         fetchAssignments();
       } else {
-        alert("Failed to delete assignment");
+        showError("Error", "Failed to delete assignment");
       }
     } catch (err) {
       console.error(err);
@@ -114,7 +119,7 @@ export default function AdminAssignments() {
         setShowEditModal(false);
         fetchAssignments();
       } else {
-        alert("Failed to update assignment");
+        showError("Error", "Failed to update assignment");
       }
     } catch (err) {
       console.error(err);
@@ -243,7 +248,7 @@ export default function AdminAssignments() {
                         <td className="px-6 py-4 text-sm text-gray-600">
                           <div className="flex items-center gap-2">
                             <Truck size={16} className="text-gray-400" />
-                            <span>{assignment.vehicle_number}</span>
+                            <span>{formatVehicleLabel(assignment)}</span>
                           </div>
                           <div className="text-xs text-gray-400 ml-6">
                             {assignment.vehicle_type}
@@ -348,7 +353,7 @@ export default function AdminAssignments() {
                   <option value="">Select Vehicle</option>
                   {vehicles.map((v) => (
                     <option key={v.id} value={v.id}>
-                      {v.registration_number}
+                      {formatVehicleLabel(v)}
                     </option>
                   ))}
                 </select>

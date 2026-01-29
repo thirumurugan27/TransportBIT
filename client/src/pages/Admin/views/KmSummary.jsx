@@ -1,4 +1,6 @@
 import React, {useState, useEffect} from "react";
+import {apiGet} from "../../../utils/api";
+import SearchableSelect from "../../../components/ui/SearchableSelect";
 import {
   Loader2,
   Map,
@@ -11,32 +13,92 @@ import {
   Zap,
   Award,
   Gauge,
+  Filter,
+  RefreshCw,
+  User,
 } from "lucide-react";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
+const defaultFilters = {
+  period: "month",
+  driverId: "",
+  vehicleId: "",
+  startDate: "",
+  endDate: "",
+};
+
+const formatNumber = (value, fraction = 1) =>
+  Number(value || 0)
+    .toFixed(fraction)
+    .replace(/\.0+$/, "");
 
 export default function KmSummary() {
-  const [kmSummary, setKmSummary] = useState({});
+  const [kmSummary, setKmSummary] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState(defaultFilters);
+  const [metaLoading, setMetaLoading] = useState(true);
+  const [filterMeta, setFilterMeta] = useState({drivers: [], vehicles: []});
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    loadFilterMeta();
+  }, []);
 
   useEffect(() => {
     fetchKmSummary();
-  }, []);
+  }, [filters]);
+
+  const loadFilterMeta = async () => {
+    try {
+      setMetaLoading(true);
+      const res = await apiGet(`/api/admin/km-filters`);
+      if (res.ok) {
+        const payload = await res.json();
+        console.log("KM Filters loaded:", payload);
+        setFilterMeta({
+          drivers: Array.isArray(payload.drivers) ? payload.drivers : [],
+          vehicles: Array.isArray(payload.vehicles) ? payload.vehicles : [],
+        });
+      } else {
+        console.error("Failed to load filters, status:", res.status);
+      }
+    } catch (err) {
+      console.error("Failed to load KM filters", err);
+    } finally {
+      setMetaLoading(false);
+    }
+  };
 
   const fetchKmSummary = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/api/admin/km-summary`);
+      setError("");
+      const params = new URLSearchParams();
+      params.set("period", filters.period);
+      if (filters.driverId) params.set("driver_id", filters.driverId);
+      if (filters.vehicleId) params.set("vehicle_id", filters.vehicleId);
+      if (filters.startDate) params.set("start_date", filters.startDate);
+      if (filters.endDate) params.set("end_date", filters.endDate);
+
+      const res = await apiGet(`/api/admin/km-summary?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
         setKmSummary(data || {});
+      } else {
+        setError("Unable to fetch KM summary");
       }
     } catch (error) {
       console.error("Error fetching KM summary:", error);
+      setError("Something went wrong while loading data");
     } finally {
       setLoading(false);
     }
   };
+
+  const updateFilter = (key, value) => {
+    setFilters((prev) => ({...prev, [key]: value}));
+  };
+
+  const resetFilters = () => setFilters({...defaultFilters});
 
   const getVehicleIcon = (type) => {
     switch (type) {
@@ -53,9 +115,70 @@ export default function KmSummary() {
     }
   };
 
+  const summary = kmSummary || {};
+  const selectedDriver = summary.selected_driver;
+  const selectedVehicle = summary.selected_vehicle;
+
+  const periodPresets = [
+    {value: "today", label: "Today"},
+    {value: "week", label: "This Week"},
+    {value: "month", label: "This Month"},
+  ];
+
+  const activeBadges = [];
+  if (
+    !filters.startDate &&
+    !filters.endDate &&
+    filters.period !== defaultFilters.period
+  ) {
+    const presetName =
+      periodPresets.find((preset) => preset.value === filters.period)?.label ||
+      filters.period;
+    activeBadges.push(presetName);
+  }
+  if (filters.driverId) {
+    const driver = filterMeta.drivers.find(
+      (d) => String(d.id) === String(filters.driverId),
+    );
+    activeBadges.push(driver?.name || "Driver filter");
+  }
+  if (filters.vehicleId) {
+    const vehicle = filterMeta.vehicles.find(
+      (v) => String(v.id) === String(filters.vehicleId),
+    );
+    activeBadges.push(vehicle?.vehicle_number || "Vehicle filter");
+  }
+  if (filters.startDate || filters.endDate) {
+    activeBadges.push(
+      `${filters.startDate || "Start"} → ${filters.endDate || "End"}`,
+    );
+  }
+
+  const hasCustomFilters =
+    filters.period !== defaultFilters.period ||
+    Boolean(filters.driverId) ||
+    Boolean(filters.vehicleId) ||
+    Boolean(filters.startDate) ||
+    Boolean(filters.endDate);
+
+  const formatDateRange = (start, end) => {
+    if (start && end) {
+      if (start === end) return start;
+      return `${start} → ${end}`;
+    }
+    return start || end || "No date range";
+  };
+
+  const avgKmPerTrip =
+    summary.avg_km_per_trip ??
+    (summary.grand_total_trips > 0
+      ? summary.grand_total_km / summary.grand_total_trips
+      : 0);
+
+  const maxVehicleKm = summary.by_vehicle?.[0]?.total_km || 1;
+
   return (
     <div className="space-y-6 pb-12">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-800">
           Analytics & Reports
@@ -65,13 +188,254 @@ export default function KmSummary() {
         </p>
       </div>
 
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+        <div className="px-6 py-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2 text-gray-700 font-semibold">
+            <Filter size={18} className="text-primary" />
+            Smart Filters
+            {metaLoading && (
+              <span className="flex items-center gap-1 text-xs font-normal text-gray-400">
+                <Loader2 size={14} className="animate-spin" /> Syncing options
+              </span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={resetFilters}
+            disabled={!hasCustomFilters}
+            className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 disabled:text-gray-300"
+          >
+            <RefreshCw size={16} /> Reset filters
+          </button>
+        </div>
+        <div className="px-6 pb-6 grid grid-cols-1 gap-4 lg:grid-cols-4">
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              Period
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {periodPresets.map((preset) => {
+                const isActive = filters.period === preset.value;
+                return (
+                  <button
+                    key={preset.value}
+                    type="button"
+                    onClick={() => updateFilter("period", preset.value)}
+                    className={`px-3 py-2 text-xs font-semibold rounded-full border transition-all ${
+                      isActive
+                        ? "bg-primary text-white border-primary shadow"
+                        : "border-gray-200 text-gray-600 hover:border-primary/40"
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              Driver
+            </p>
+            <SearchableSelect
+              options={(filterMeta.drivers || []).map((driver) => ({
+                value: driver.id,
+                label: driver.name,
+                subtitle: driver.cluster ? `Cluster: ${driver.cluster}` : null,
+              }))}
+              value={filters.driverId}
+              onChange={(val) => updateFilter("driverId", val)}
+              placeholder="All drivers"
+              disabled={metaLoading}
+              emptyMessage="No drivers found"
+            />
+          </div>
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              Vehicle
+            </p>
+            <SearchableSelect
+              options={(filterMeta.vehicles || []).map((vehicle) => ({
+                value: vehicle.id,
+                label:
+                  vehicle.bus_name &&
+                  vehicle.bus_name !== vehicle.vehicle_number
+                    ? `${vehicle.bus_name} - ${vehicle.vehicle_number}`
+                    : vehicle.vehicle_number,
+                subtitle: vehicle.vehicle_type,
+              }))}
+              value={filters.vehicleId}
+              onChange={(val) => updateFilter("vehicleId", val)}
+              placeholder="All vehicles"
+              disabled={metaLoading}
+              emptyMessage="No vehicles found"
+            />
+          </div>
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              Custom Range
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="date"
+                value={filters.startDate}
+                onChange={(e) => updateFilter("startDate", e.target.value)}
+                className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+              <input
+                type="date"
+                value={filters.endDate}
+                min={filters.startDate || undefined}
+                onChange={(e) => updateFilter("endDate", e.target.value)}
+                className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+            </div>
+          </div>
+        </div>
+        {activeBadges.length > 0 && (
+          <div className="flex flex-wrap gap-2 px-6 py-4 border-t border-dashed border-gray-100 bg-gray-50/60 rounded-b-xl">
+            {activeBadges.map((label, idx) => (
+              <span
+                key={`${label}-${idx}`}
+                className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-white border border-primary/20 text-primary shadow-sm"
+              >
+                {label}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {error && (
+        <div className="flex items-start gap-3 p-4 rounded-lg border border-red-200 bg-red-50 text-red-700">
+          <AlertCircle size={18} className="mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold">Unable to load mileage data</p>
+            <p className="text-xs opacity-90">{error}</p>
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <div className="flex justify-center p-20">
           <div className="animate-spin inline-block w-8 h-8 border-4 border-current border-t-transparent text-primary rounded-full"></div>
         </div>
       ) : (
         <>
-          {/* Stats Cards */}
+          {(selectedDriver || selectedVehicle) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {selectedDriver && (
+                <div className="bg-white rounded-xl border border-primary/20 shadow-sm p-5 flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-3 rounded-full bg-primary/10 text-primary">
+                        <User size={22} />
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase text-gray-500 font-semibold tracking-wide">
+                          Driver Focus
+                        </p>
+                        <p className="text-lg font-bold text-gray-800">
+                          {selectedDriver.driver_name}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-xs font-semibold text-primary bg-primary/10 px-3 py-1 rounded-full">
+                      #{selectedDriver.driver_id}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div>
+                      <p className="text-xs text-gray-500">Total KM</p>
+                      <p className="text-xl font-bold text-gray-800">
+                        {formatNumber(selectedDriver.total_km, 1)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Trips</p>
+                      <p className="text-xl font-bold text-gray-800">
+                        {selectedDriver.trips || 0}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Avg / Trip</p>
+                      <p className="text-xl font-bold text-gray-800">
+                        {formatNumber(
+                          selectedDriver.trips > 0
+                            ? selectedDriver.total_km / selectedDriver.trips
+                            : 0,
+                          1,
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 text-center">
+                    {formatDateRange(
+                      selectedDriver.first_date,
+                      selectedDriver.last_date,
+                    )}
+                  </p>
+                </div>
+              )}
+              {selectedVehicle && (
+                <div className="bg-white rounded-xl border border-emerald-100 shadow-sm p-5 flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-3 rounded-full bg-emerald-50 text-emerald-600">
+                        <Truck size={22} />
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase text-gray-500 font-semibold tracking-wide">
+                          Vehicle Focus
+                        </p>
+                        <p className="text-lg font-bold text-gray-800">
+                          {selectedVehicle.vehicle_number}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {selectedVehicle.vehicle_type || "UNKNOWN"}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full">
+                      #{selectedVehicle.vehicle_id}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div>
+                      <p className="text-xs text-gray-500">Total KM</p>
+                      <p className="text-xl font-bold text-gray-800">
+                        {formatNumber(selectedVehicle.total_km, 1)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Trips</p>
+                      <p className="text-xl font-bold text-gray-800">
+                        {selectedVehicle.trips || 0}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Avg / Trip</p>
+                      <p className="text-xl font-bold text-gray-800">
+                        {formatNumber(
+                          selectedVehicle.trips > 0
+                            ? selectedVehicle.total_km / selectedVehicle.trips
+                            : 0,
+                          1,
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 text-center">
+                    {formatDateRange(
+                      selectedVehicle.first_date,
+                      selectedVehicle.last_date,
+                    )}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
@@ -86,8 +450,8 @@ export default function KmSummary() {
                     Total Distance
                   </p>
                   <p className="text-2xl font-bold text-gray-800 mt-1">
-                    {kmSummary.grand_total_km?.toFixed(1) || 0}{" "}
-                    <span className="text-sm text-gray-500 font-normal">
+                    {formatNumber(summary.grand_total_km, 1)}
+                    <span className="text-sm text-gray-500 font-normal ml-1">
                       km
                     </span>
                   </p>
@@ -108,7 +472,7 @@ export default function KmSummary() {
                     Total Trips
                   </p>
                   <p className="text-2xl font-bold text-gray-800 mt-1">
-                    {kmSummary.grand_total_trips || 0}
+                    {summary.grand_total_trips || 0}
                   </p>
                 </div>
               </div>
@@ -127,12 +491,8 @@ export default function KmSummary() {
                     Avg / Trip
                   </p>
                   <p className="text-2xl font-bold text-gray-800 mt-1">
-                    {kmSummary.grand_total_trips > 0
-                      ? (
-                          kmSummary.grand_total_km / kmSummary.grand_total_trips
-                        ).toFixed(1)
-                      : 0}{" "}
-                    <span className="text-sm text-gray-500 font-normal">
+                    {formatNumber(avgKmPerTrip, 1)}
+                    <span className="text-sm text-gray-500 font-normal ml-1">
                       km
                     </span>
                   </p>
@@ -153,7 +513,7 @@ export default function KmSummary() {
                     Fleet Types
                   </p>
                   <p className="text-2xl font-bold text-gray-800 mt-1">
-                    {kmSummary.by_vehicle_type?.length || 0}
+                    {summary.by_vehicle_type?.length || 0}
                   </p>
                 </div>
               </div>
@@ -161,7 +521,6 @@ export default function KmSummary() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Vehicle Category Breakdown */}
             <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col">
               <div className="px-6 py-5 border-b border-gray-100">
                 <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
@@ -171,11 +530,11 @@ export default function KmSummary() {
               </div>
               <div className="p-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {kmSummary.by_vehicle_type?.map((item) => {
+                  {summary.by_vehicle_type?.map((item) => {
                     const percentage =
-                      kmSummary.grand_total_km > 0
+                      summary.grand_total_km > 0
                         ? (
-                            (item.total_km / kmSummary.grand_total_km) *
+                            ((item.total_km || 0) / summary.grand_total_km) *
                             100
                           ).toFixed(1)
                         : 0;
@@ -196,14 +555,14 @@ export default function KmSummary() {
                           {item.vehicle_type}
                         </h4>
                         <p className="text-xl font-bold text-gray-800 mb-1">
-                          {item.total_km?.toFixed(1)}{" "}
-                          <span className="text-sm text-gray-500 font-normal">
+                          {formatNumber(item.total_km, 1)}
+                          <span className="text-sm text-gray-500 font-normal ml-1">
                             km
                           </span>
                         </p>
                         <p className="text-xs text-gray-500">
                           {item.total_trips} trips •{" "}
-                          {item.avg_km_per_trip?.toFixed(1)} km/trip
+                          {formatNumber(item.avg_km_per_trip, 1)} km/trip
                         </p>
                         <div className="w-full bg-gray-200 rounded-full h-1.5 mt-4 overflow-hidden">
                           <div
@@ -214,8 +573,8 @@ export default function KmSummary() {
                       </div>
                     );
                   })}
-                  {(!kmSummary.by_vehicle_type ||
-                    kmSummary.by_vehicle_type.length === 0) && (
+                  {(!summary.by_vehicle_type ||
+                    summary.by_vehicle_type.length === 0) && (
                     <div className="col-span-full py-12 flex flex-col items-center text-center text-gray-400">
                       <AlertCircle size={48} className="mb-2 opacity-20" />
                       <p>No vehicle data recorded yet.</p>
@@ -225,7 +584,6 @@ export default function KmSummary() {
               </div>
             </div>
 
-            {/* Top Drivers */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col h-full">
               <div className="px-6 py-5 border-b border-gray-100">
                 <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
@@ -235,7 +593,7 @@ export default function KmSummary() {
               </div>
               <div className="p-4 flex-1 overflow-y-auto max-h-[500px]">
                 <div className="space-y-3">
-                  {kmSummary.top_drivers?.map((d, i) => (
+                  {summary.top_drivers?.map((d, i) => (
                     <div
                       key={d.driver_id}
                       className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100 hover:border-primary/30 transition-all hover:bg-white hover:shadow-sm"
@@ -245,10 +603,10 @@ export default function KmSummary() {
                           i === 0
                             ? "bg-amber-100 text-amber-700 ring-4 ring-amber-50"
                             : i === 1
-                            ? "bg-gray-200 text-gray-700 ring-4 ring-gray-100"
-                            : i === 2
-                            ? "bg-orange-100 text-orange-700 ring-4 ring-orange-100"
-                            : "bg-white border border-gray-200 text-gray-500"
+                              ? "bg-gray-200 text-gray-700 ring-4 ring-gray-100"
+                              : i === 2
+                                ? "bg-orange-100 text-orange-700 ring-4 ring-orange-100"
+                                : "bg-white border border-gray-200 text-gray-500"
                         }`}
                       >
                         {i + 1}
@@ -263,16 +621,20 @@ export default function KmSummary() {
                       </div>
                       <div className="text-right shrink-0">
                         <p className="text-sm font-bold text-primary">
-                          {d.total_km?.toFixed(0)} km
+                          {formatNumber(d.total_km, 0)} km
                         </p>
                         <p className="text-[10px] text-gray-400">
-                          {(d.total_km / d.trips).toFixed(1)} avg
+                          {formatNumber(
+                            d.total_km / Math.max(d.trips || 1, 1),
+                            1,
+                          )}{" "}
+                          avg
                         </p>
                       </div>
                     </div>
                   ))}
-                  {(!kmSummary.top_drivers ||
-                    kmSummary.top_drivers.length === 0) && (
+                  {(!summary.top_drivers ||
+                    summary.top_drivers.length === 0) && (
                     <div className="py-12 flex flex-col items-center text-center text-gray-400">
                       <Award size={48} className="mb-2 opacity-20" />
                       <p>No driver data available.</p>
@@ -283,7 +645,6 @@ export default function KmSummary() {
             </div>
           </div>
 
-          {/* Vehicle-wise KM Summary */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100">
             <div className="px-6 py-5 border-b border-gray-100">
               <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
@@ -295,7 +656,7 @@ export default function KmSummary() {
               </p>
             </div>
             <div className="p-6">
-              {kmSummary.by_vehicle && kmSummary.by_vehicle.length > 0 ? (
+              {summary.by_vehicle && summary.by_vehicle.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
@@ -321,59 +682,83 @@ export default function KmSummary() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                      {kmSummary.by_vehicle.map((vehicle, idx) => {
-                        const maxKM = kmSummary.by_vehicle[0]?.total_km || 1;
-                        const percentage = ((vehicle.total_km / maxKM) * 100).toFixed(0);
+                      {summary.by_vehicle.map((vehicle, idx) => {
+                        const percentage =
+                          ((vehicle.total_km || 0) / maxVehicleKm) * 100;
                         return (
-                          <tr key={vehicle.vehicle_id} className="hover:bg-gray-50 transition-colors">
+                          <tr
+                            key={vehicle.vehicle_id}
+                            className="hover:bg-gray-50 transition-colors"
+                          >
                             <td className="py-3 px-4">
                               <div className="flex items-center gap-3">
-                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                                  idx === 0 ? 'bg-amber-100 text-amber-600' :
-                                  idx === 1 ? 'bg-gray-100 text-gray-600' :
-                                  idx === 2 ? 'bg-orange-100 text-orange-600' :
-                                  'bg-primary/10 text-primary'
-                                }`}>
+                                <div
+                                  className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                                    idx === 0
+                                      ? "bg-amber-100 text-amber-600"
+                                      : idx === 1
+                                        ? "bg-gray-100 text-gray-600"
+                                        : idx === 2
+                                          ? "bg-orange-100 text-orange-600"
+                                          : "bg-primary/10 text-primary"
+                                  }`}
+                                >
                                   {getVehicleIcon(vehicle.vehicle_type)}
                                 </div>
                                 <div>
-                                  <p className="font-semibold text-gray-800">{vehicle.vehicle_number}</p>
+                                  <p className="font-semibold text-gray-800">
+                                    {vehicle.vehicle_number}
+                                  </p>
                                   {vehicle.model && (
-                                    <p className="text-xs text-gray-500">{vehicle.model}</p>
+                                    <p className="text-xs text-gray-500">
+                                      {vehicle.model}
+                                    </p>
                                   )}
                                 </div>
                               </div>
                             </td>
                             <td className="py-3 px-4">
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                vehicle.vehicle_type === 'BUS' ? 'bg-blue-100 text-blue-700' :
-                                vehicle.vehicle_type === 'CAR' ? 'bg-green-100 text-green-700' :
-                                vehicle.vehicle_type === 'EV' ? 'bg-purple-100 text-purple-700' :
-                                'bg-gray-100 text-gray-700'
-                              }`}>
+                              <span
+                                className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  vehicle.vehicle_type === "BUS"
+                                    ? "bg-blue-100 text-blue-700"
+                                    : vehicle.vehicle_type === "CAR"
+                                      ? "bg-green-100 text-green-700"
+                                      : vehicle.vehicle_type === "EV"
+                                        ? "bg-purple-100 text-purple-700"
+                                        : "bg-gray-100 text-gray-700"
+                                }`}
+                              >
                                 {vehicle.vehicle_type}
                               </span>
                             </td>
                             <td className="py-3 px-4 text-right">
-                              <span className="font-bold text-gray-800">{vehicle.total_km?.toFixed(1)}</span>
-                              <span className="text-gray-500 text-sm ml-1">km</span>
+                              <span className="font-bold text-gray-800">
+                                {formatNumber(vehicle.total_km, 1)}
+                              </span>
+                              <span className="text-gray-500 text-sm ml-1">
+                                km
+                              </span>
                             </td>
                             <td className="py-3 px-4 text-right text-gray-600">
                               {vehicle.total_trips}
                             </td>
                             <td className="py-3 px-4 text-right text-gray-600">
-                              {vehicle.avg_km_per_trip?.toFixed(1)} km
+                              {formatNumber(vehicle.avg_km_per_trip, 1)} km
                             </td>
                             <td className="py-3 px-4 w-40">
                               <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
                                 <div
                                   className={`h-full rounded-full transition-all duration-500 ${
-                                    idx === 0 ? 'bg-amber-500' :
-                                    idx === 1 ? 'bg-gray-400' :
-                                    idx === 2 ? 'bg-orange-400' :
-                                    'bg-primary'
+                                    idx === 0
+                                      ? "bg-amber-500"
+                                      : idx === 1
+                                        ? "bg-gray-400"
+                                        : idx === 2
+                                          ? "bg-orange-400"
+                                          : "bg-primary"
                                   }`}
-                                  style={{width: `${percentage}%`}}
+                                  style={{width: `${percentage.toFixed(0)}%`}}
                                 ></div>
                               </div>
                             </td>

@@ -81,6 +81,9 @@ type Vehicle struct {
 	InsuranceExpireDate *string `json:"insurance_expire_date"`
 	FCExpireDate        *string `json:"fc_expire_date"`
 	PermitExpireDate    *string `json:"permit_expire_date"`
+	BusName             string  `json:"bus_name"`
+	StartPoint          string  `json:"start_point"`
+	EndPoint            string  `json:"end_point"`
 }
 
 type CreateVehicleRequest struct {
@@ -174,6 +177,7 @@ type Assignment struct {
 	EndTime            string `json:"end_time"`
 	VehicleNumber      string `json:"vehicle_number"`
 	VehicleType        string `json:"vehicle_type"`
+	BusName            string `json:"bus_name"`
 	DriverName         string `json:"driver_name"`
 	OriginalDriverName string `json:"original_driver_name"`
 	DriverStatus       string `json:"driver_status"`
@@ -212,6 +216,7 @@ type TemporaryAssignment struct {
 	EndTime               string `json:"end_time"`
 	VehicleNumber         string `json:"vehicle_number"`
 	VehicleType           string `json:"vehicle_type"`
+	BusName               string `json:"bus_name"`
 }
 
 type CreateTemporaryAssignmentRequest struct {

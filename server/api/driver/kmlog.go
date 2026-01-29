@@ -1,6 +1,7 @@
 package driver
 
 import (
+	"database/sql"
 	"log"
 	"net/http"
 
@@ -102,6 +103,11 @@ func AddDriverKmLog(c *gin.Context) {
 		return
 	}
 
+	if req.VehicleID == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "vehicle_id required"})
+		return
+	}
+
 	if req.EndKm < req.StartKm {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "End KM must be greater than Start KM"})
 		return
@@ -112,11 +118,62 @@ func AddDriverKmLog(c *gin.Context) {
 		req.TotalKm = req.EndKm - req.StartKm
 	}
 
-	// Insert into DB with vehicle_id
+	// Fetch driver user info for recorded_by metadata
+	var recordedByUserID int
+	var recordedByName string
+	err := config.DB.QueryRow(`
+		SELECT u.id, u.full_name
+		FROM drivers d
+		JOIN users u ON d.user_id = u.id
+		WHERE d.id = ?
+	`, req.DriverID).Scan(&recordedByUserID, &recordedByName)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Driver not found"})
+		return
+	}
+
+	// Default vehicle type from vehicles table when missing
+	if req.VehicleType == "" {
+		config.DB.QueryRow(`SELECT vehicle_type FROM vehicles WHERE id = ?`, *req.VehicleID).Scan(&req.VehicleType)
+		if req.VehicleType == "" {
+			req.VehicleType = "BUS"
+		}
+	}
+
+	// Auto-detect assignment if not provided
+	if req.AssignmentID == nil {
+		var assignmentID sql.NullInt64
+		err = config.DB.QueryRow(`
+			SELECT id FROM assignments
+			WHERE driver_id = ? AND vehicle_id = ? AND ? BETWEEN start_date AND end_date
+			ORDER BY start_date DESC
+			LIMIT 1
+		`, req.DriverID, *req.VehicleID, req.Date).Scan(&assignmentID)
+		if err == nil && assignmentID.Valid {
+			val := int(assignmentID.Int64)
+			req.AssignmentID = &val
+		}
+	}
+
+	var vehicleID interface{}
+	if req.VehicleID != nil {
+		vehicleID = *req.VehicleID
+	}
+
+	var assignmentID interface{}
+	if req.AssignmentID != nil {
+		assignmentID = *req.AssignmentID
+	}
+
+	// Insert into DB with recorded metadata
 	result, err := config.DB.Exec(`
-		INSERT INTO km_logs (driver_id, date, start_km, end_km, total_km, remarks, vehicle_type, vehicle_id, assignment_id)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, req.DriverID, req.Date, req.StartKm, req.EndKm, req.TotalKm, req.Remarks, req.VehicleType, req.VehicleID, req.AssignmentID)
+		INSERT INTO km_logs (
+			driver_id, date, start_km, end_km, total_km, remarks,
+			vehicle_type, vehicle_id, assignment_id,
+			recorded_by_user_id, recorded_by_role, recorded_by_name
+		)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'DRIVER', ?)
+	`, req.DriverID, req.Date, req.StartKm, req.EndKm, req.TotalKm, req.Remarks, req.VehicleType, vehicleID, assignmentID, recordedByUserID, recordedByName)
 
 	if err != nil {
 		log.Printf("Add km log error: %v", err)

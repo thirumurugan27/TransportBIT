@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, {useState, useEffect} from "react";
+import {useToast} from "../../../context/ToastContext";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
 export default function AdminStudentTransport() {
+  const {showToast} = useToast();
   const [activeTab, setActiveTab] = useState("transport-requests");
   const [students, setStudents] = useState([]);
   const [studentTransports, setStudentTransports] = useState([]);
@@ -25,7 +27,8 @@ export default function AdminStudentTransport() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showFeeModal, setShowFeeModal] = useState(false);
   const [showProcessModal, setShowProcessModal] = useState(false);
-  const [showTransportProcessModal, setShowTransportProcessModal] = useState(false);
+  const [showTransportProcessModal, setShowTransportProcessModal] =
+    useState(false);
   const [showStudentDetailModal, setShowStudentDetailModal] = useState(false);
 
   // Forms
@@ -99,169 +102,218 @@ export default function AdminStudentTransport() {
   const fetchStudents = async () => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/students`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {Authorization: `Bearer ${token}`},
       });
-      if (res.ok) setStudents(await res.json() || []);
-    } catch (err) { console.error(err); }
+      if (res.ok) setStudents((await res.json()) || []);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const fetchStudentTransports = async () => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/student-transport`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {Authorization: `Bearer ${token}`},
       });
-      if (res.ok) setStudentTransports(await res.json() || []);
-    } catch (err) { console.error(err); }
+      if (res.ok) setStudentTransports((await res.json()) || []);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const fetchBuses = async () => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/bus-fleet`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {Authorization: `Bearer ${token}`},
       });
-      if (res.ok) setBuses(await res.json() || []);
-    } catch (err) { console.error(err); }
+      if (res.ok) setBuses((await res.json()) || []);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const fetchStops = async () => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/stops`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {Authorization: `Bearer ${token}`},
       });
-      if (res.ok) setStops(await res.json() || []);
-    } catch (err) { console.error(err); }
+      if (res.ok) setStops((await res.json()) || []);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const fetchTransportFees = async () => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/transport-fees`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {Authorization: `Bearer ${token}`},
       });
-      if (res.ok) setTransportFees(await res.json() || []);
-    } catch (err) { console.error(err); }
+      if (res.ok) setTransportFees((await res.json()) || []);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const fetchPayments = async () => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/transport-payments`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {Authorization: `Bearer ${token}`},
       });
-      if (res.ok) setPayments(await res.json() || []);
-    } catch (err) { console.error(err); }
+      if (res.ok) setPayments((await res.json()) || []);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const fetchStopChangeRequests = async () => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/stop-change-requests`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {Authorization: `Bearer ${token}`},
       });
-      if (res.ok) setStopChangeRequests(await res.json() || []);
-    } catch (err) { console.error(err); }
+      if (res.ok) setStopChangeRequests((await res.json()) || []);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const fetchPendingCount = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/stop-change-requests/pending-count`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(
+        `${API_BASE}/api/admin/stop-change-requests/pending-count`,
+        {
+          headers: {Authorization: `Bearer ${token}`},
+        },
+      );
       if (res.ok) {
         const data = await res.json();
         setPendingCount(data.count || 0);
       }
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const fetchTransportRequests = async () => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/transport-requests`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {Authorization: `Bearer ${token}`},
       });
-      if (res.ok) setTransportRequests(await res.json() || []);
-    } catch (err) { console.error(err); }
+      if (res.ok) setTransportRequests((await res.json()) || []);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const fetchPendingTransportCount = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/transport-requests/pending-count`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(
+        `${API_BASE}/api/admin/transport-requests/pending-count`,
+        {
+          headers: {Authorization: `Bearer ${token}`},
+        },
+      );
       if (res.ok) {
         const data = await res.json();
         setPendingTransportCount(data.count || 0);
       }
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const fetchBusesWithStudents = async () => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/buses/with-students`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {Authorization: `Bearer ${token}`},
       });
-      if (res.ok) setBusesWithStudents(await res.json() || []);
-    } catch (err) { console.error(err); }
+      if (res.ok) setBusesWithStudents((await res.json()) || []);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const fetchStudentsByBus = async (busId) => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/buses/${busId}/students`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {Authorization: `Bearer ${token}`},
       });
       if (res.ok) {
-        setSelectedBusStudents(await res.json() || []);
+        setSelectedBusStudents((await res.json()) || []);
         setSelectedBusId(busId);
       }
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const fetchBusStops = async (busId) => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/bus/${busId}/stops`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {Authorization: `Bearer ${token}`},
       });
-      if (res.ok) setSelectedBusStops(await res.json() || []);
-    } catch (err) { console.error(err); }
+      if (res.ok) setSelectedBusStops((await res.json()) || []);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   // Handlers
   const handleAssign = async () => {
     if (!assignForm.user_id || !assignForm.bus_id || !assignForm.stop_id) {
-      alert("Please fill all required fields");
+      showToast("Please fill all required fields", "warning");
       return;
     }
     try {
-      const res = await fetch(`${API_BASE}/api/admin/student-transport/assign`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(assignForm),
-      });
+      const res = await fetch(
+        `${API_BASE}/api/admin/student-transport/assign`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(assignForm),
+        },
+      );
       if (res.ok) {
-        alert("Student transport assigned successfully!");
+        showToast("Student transport assigned successfully!", "success");
         setShowAssignModal(false);
-        setAssignForm({ user_id: 0, bus_id: 0, stop_id: 0, academic_year: "2025-2026" });
+        setAssignForm({
+          user_id: 0,
+          bus_id: 0,
+          stop_id: 0,
+          academic_year: "2025-2026",
+        });
         fetchStudentTransports();
         fetchStudents();
       } else {
         const data = await res.json();
-        alert(data.error || "Failed to assign");
+        showToast(data.error || "Failed to assign", "error");
       }
     } catch (err) {
-      alert("Error assigning transport");
+      showToast("Error assigning transport", "error");
     }
   };
 
   const handleRecordPayment = async () => {
     if (!paymentForm.student_transport_id || !paymentForm.amount) {
-      alert("Please select student and enter amount");
+      showToast("Please select student and enter amount", "warning");
       return;
     }
     try {
-      const res = await fetch(`${API_BASE}/api/admin/transport-payments/record`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(paymentForm),
-      });
+      const res = await fetch(
+        `${API_BASE}/api/admin/transport-payments/record`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(paymentForm),
+        },
+      );
       if (res.ok) {
-        alert("Payment recorded successfully!");
+        showToast("Payment recorded successfully!", "success");
         setShowPaymentModal(false);
         setPaymentForm({
           student_transport_id: 0,
@@ -276,80 +328,95 @@ export default function AdminStudentTransport() {
         fetchStudentTransports();
       } else {
         const data = await res.json();
-        alert(data.error || "Failed to record payment");
+        showToast(data.error || "Failed to record payment", "error");
       }
     } catch (err) {
-      alert("Error recording payment");
+      showToast("Error recording payment", "error");
     }
   };
 
   const handleCreateFee = async () => {
     if (!feeForm.stop_id || !feeForm.fee_amount) {
-      alert("Please select stop and enter fee amount");
+      showToast("Please select stop and enter fee amount", "warning");
       return;
     }
     try {
       const res = await fetch(`${API_BASE}/api/admin/transport-fees/create`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify(feeForm),
       });
       if (res.ok) {
-        alert("Transport fee created successfully!");
+        showToast("Transport fee created successfully!", "success");
         setShowFeeModal(false);
-        setFeeForm({ stop_id: 0, fee_amount: 0, academic_year: "2025-2026" });
+        setFeeForm({stop_id: 0, fee_amount: 0, academic_year: "2025-2026"});
         fetchTransportFees();
       } else {
         const data = await res.json();
-        alert(data.error || "Failed to create fee");
+        showToast(data.error || "Failed to create fee", "error");
       }
     } catch (err) {
-      alert("Error creating fee");
+      showToast("Error creating fee", "error");
     }
   };
 
   const handleProcessRequest = async (status) => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/stop-change-requests/process`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          request_id: processForm.request_id,
-          status: status,
-          admin_remarks: processForm.admin_remarks,
-        }),
-      });
+      const res = await fetch(
+        `${API_BASE}/api/admin/stop-change-requests/process`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            request_id: processForm.request_id,
+            status: status,
+            admin_remarks: processForm.admin_remarks,
+          }),
+        },
+      );
       if (res.ok) {
-        alert(`Request ${status} successfully!`);
+        showToast(`Request ${status} successfully!`, "success");
         setShowProcessModal(false);
-        setProcessForm({ request_id: 0, status: "", admin_remarks: "" });
+        setProcessForm({request_id: 0, status: "", admin_remarks: ""});
         fetchStopChangeRequests();
         fetchStudentTransports();
         fetchPendingCount();
       } else {
         const data = await res.json();
-        alert(data.error || "Failed to process request");
+        showToast(data.error || "Failed to process request", "error");
       }
     } catch (err) {
-      alert("Error processing request");
+      showToast("Error processing request", "error");
     }
   };
 
   const handleProcessTransportRequest = async (status) => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/transport-requests/process`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          request_id: transportProcessForm.request_id,
-          status: status,
-          admin_remarks: transportProcessForm.admin_remarks,
-        }),
-      });
+      const res = await fetch(
+        `${API_BASE}/api/admin/transport-requests/process`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            request_id: transportProcessForm.request_id,
+            status: status,
+            admin_remarks: transportProcessForm.admin_remarks,
+          }),
+        },
+      );
       if (res.ok) {
-        alert(`Transport request ${status} successfully!`);
+        showToast(`Transport request ${status} successfully!`, "success");
         setShowTransportProcessModal(false);
-        setTransportProcessForm({ request_id: 0, status: "", admin_remarks: "" });
+        setTransportProcessForm({request_id: 0, status: "", admin_remarks: ""});
         fetchTransportRequests();
         fetchPendingTransportCount();
         fetchStudentTransports();
@@ -357,10 +424,10 @@ export default function AdminStudentTransport() {
         if (selectedBusId) fetchStudentsByBus(selectedBusId);
       } else {
         const data = await res.json();
-        alert(data.error || "Failed to process request");
+        showToast(data.error || "Failed to process request", "error");
       }
     } catch (err) {
-      alert("Error processing transport request");
+      showToast("Error processing transport request", "error");
     }
   };
 
@@ -373,7 +440,9 @@ export default function AdminStudentTransport() {
       inactive: "bg-gray-100 text-gray-800",
     };
     return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[status] || "bg-gray-100"}`}>
+      <span
+        className={`px-2 py-1 rounded-full text-xs font-medium ${styles[status] || "bg-gray-100"}`}
+      >
         {status?.charAt(0).toUpperCase() + status?.slice(1)}
       </span>
     );
@@ -391,19 +460,31 @@ export default function AdminStudentTransport() {
     <div className="space-y-6">
       {/* Header */}
       <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl p-6 text-white shadow-lg">
-        <h2 className="text-2xl font-bold mb-1">🎓 Student Transport Management</h2>
-        <p className="text-indigo-100">Manage student bus assignments, fees, and stop change requests</p>
+        <h2 className="text-2xl font-bold mb-1">
+          🎓 Student Transport Management
+        </h2>
+        <p className="text-indigo-100">
+          Manage student bus assignments, fees, and stop change requests
+        </p>
       </div>
 
       {/* Tabs */}
       <div className="flex space-x-2 border-b border-gray-200 overflow-x-auto">
         {[
-          { id: "transport-requests", label: `Bus Requests ${pendingTransportCount > 0 ? `(${pendingTransportCount})` : ""}`, icon: "📨" },
-          { id: "students-by-bus", label: "Students by Bus", icon: "🚌" },
-          { id: "assignments", label: "All Assignments", icon: "👥" },
-          { id: "fees", label: "Transport Fees", icon: "💰" },
-          { id: "payments", label: "Payments", icon: "💳" },
-          { id: "requests", label: `Stop Requests ${pendingCount > 0 ? `(${pendingCount})` : ""}`, icon: "📝" },
+          {
+            id: "transport-requests",
+            label: `Bus Requests ${pendingTransportCount > 0 ? `(${pendingTransportCount})` : ""}`,
+            icon: "📨",
+          },
+          {id: "students-by-bus", label: "Students by Bus", icon: "🚌"},
+          {id: "assignments", label: "All Assignments", icon: "👥"},
+          {id: "fees", label: "Transport Fees", icon: "💰"},
+          {id: "payments", label: "Payments", icon: "💳"},
+          {
+            id: "requests",
+            label: `Stop Requests ${pendingCount > 0 ? `(${pendingCount})` : ""}`,
+            icon: "📝",
+          },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -422,18 +503,29 @@ export default function AdminStudentTransport() {
       {/* Transport Requests Tab - NEW STUDENT BUS REQUESTS */}
       {activeTab === "transport-requests" && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">📨 Student Bus Requests</h3>
-          <p className="text-sm text-gray-500 mb-4">Students request a bus and stop. Approve to assign them to the bus.</p>
-          
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">
+            📨 Student Bus Requests
+          </h3>
+          <p className="text-sm text-gray-500 mb-4">
+            Students request a bus and stop. Approve to assign them to the bus.
+          </p>
+
           {transportRequests.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">No transport requests found</p>
+            <p className="text-gray-500 text-center py-8">
+              No transport requests found
+            </p>
           ) : (
             <div className="space-y-4">
               {transportRequests.map((req) => (
-                <div key={req.id} className={`border rounded-lg p-4 ${req.status === "pending" ? "border-yellow-300 bg-yellow-50" : "border-gray-200"}`}>
+                <div
+                  key={req.id}
+                  className={`border rounded-lg p-4 ${req.status === "pending" ? "border-yellow-300 bg-yellow-50" : "border-gray-200"}`}
+                >
                   <div className="flex justify-between items-start mb-3">
                     <div>
-                      <div className="font-medium text-gray-800 text-lg">{req.student_name}</div>
+                      <div className="font-medium text-gray-800 text-lg">
+                        {req.student_name}
+                      </div>
                       <div className="text-sm text-gray-500">{req.email}</div>
                       <div className="text-sm text-gray-600 mt-1">
                         {req.department && `${req.department} - `}
@@ -443,43 +535,55 @@ export default function AdminStudentTransport() {
                     </div>
                     {getStatusBadge(req.status)}
                   </div>
-                  
+
                   <div className="bg-white rounded-lg p-3 mb-3 border border-gray-100">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
-                        <div className="text-sm text-gray-500">Requested Bus</div>
+                        <div className="text-sm text-gray-500">
+                          Requested Bus
+                        </div>
                         <div className="font-medium">{req.bus_name}</div>
                         <div className="text-xs text-gray-500">{req.route}</div>
                       </div>
                       <div>
-                        <div className="text-sm text-gray-500">Requested Stop</div>
+                        <div className="text-sm text-gray-500">
+                          Requested Stop
+                        </div>
                         <div className="font-medium">{req.stop_name}</div>
                       </div>
                       <div>
-                        <div className="text-sm text-gray-500">Transport Fee</div>
-                        <div className="font-bold text-indigo-600">₹{req.fee?.toLocaleString()}</div>
+                        <div className="text-sm text-gray-500">
+                          Transport Fee
+                        </div>
+                        <div className="font-bold text-indigo-600">
+                          ₹{req.fee?.toLocaleString()}
+                        </div>
                       </div>
                     </div>
                     <div className="mt-2 text-sm text-gray-500">
                       Academic Year: {req.academic_year}
                     </div>
                   </div>
-                  
+
                   {req.reason && (
                     <div className="text-sm text-gray-600 mb-3">
                       <strong>Reason:</strong> {req.reason}
                     </div>
                   )}
-                  
+
                   <div className="text-xs text-gray-400 mb-3">
                     Requested on: {new Date(req.created_at).toLocaleString()}
                   </div>
-                  
+
                   {req.status === "pending" && (
                     <div className="flex gap-3">
                       <button
                         onClick={() => {
-                          setTransportProcessForm({ request_id: req.id, status: "", admin_remarks: "" });
+                          setTransportProcessForm({
+                            request_id: req.id,
+                            status: "",
+                            admin_remarks: "",
+                          });
                           setShowTransportProcessModal(true);
                         }}
                         className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
@@ -488,7 +592,11 @@ export default function AdminStudentTransport() {
                       </button>
                       <button
                         onClick={() => {
-                          setTransportProcessForm({ request_id: req.id, status: "rejected", admin_remarks: "" });
+                          setTransportProcessForm({
+                            request_id: req.id,
+                            status: "rejected",
+                            admin_remarks: "",
+                          });
                           setShowTransportProcessModal(true);
                         }}
                         className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
@@ -497,7 +605,7 @@ export default function AdminStudentTransport() {
                       </button>
                     </div>
                   )}
-                  
+
                   {req.admin_remarks && req.status !== "pending" && (
                     <div className="text-sm text-gray-600 mt-2">
                       <strong>Admin Remarks:</strong> {req.admin_remarks}
@@ -515,7 +623,9 @@ export default function AdminStudentTransport() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Bus List */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">🚌 Select a Bus</h3>
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">
+              🚌 Select a Bus
+            </h3>
             <div className="space-y-2">
               {busesWithStudents.map((bus) => (
                 <button
@@ -530,10 +640,16 @@ export default function AdminStudentTransport() {
                   <div className="font-medium">{bus.name}</div>
                   <div className="text-sm text-gray-500">{bus.route}</div>
                   <div className="flex justify-between items-center mt-2">
-                    <span className="text-xs text-gray-400">Driver: {bus.driver_name}</span>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      bus.student_count > 0 ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"
-                    }`}>
+                    <span className="text-xs text-gray-400">
+                      Driver: {bus.driver_name}
+                    </span>
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        bus.student_count > 0
+                          ? "bg-green-100 text-green-800"
+                          : "bg-gray-100 text-gray-600"
+                      }`}
+                    >
                       {bus.student_count} students
                     </span>
                   </div>
@@ -547,11 +663,15 @@ export default function AdminStudentTransport() {
             <h3 className="text-lg font-semibold text-gray-800 mb-4">
               👥 Students {selectedBusId && `(${selectedBusStudents.length})`}
             </h3>
-            
+
             {!selectedBusId ? (
-              <p className="text-gray-500 text-center py-8">← Select a bus to view students</p>
+              <p className="text-gray-500 text-center py-8">
+                ← Select a bus to view students
+              </p>
             ) : selectedBusStudents.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">No students assigned to this bus</p>
+              <p className="text-gray-500 text-center py-8">
+                No students assigned to this bus
+              </p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {selectedBusStudents.map((student) => (
@@ -565,8 +685,12 @@ export default function AdminStudentTransport() {
                   >
                     <div className="flex justify-between items-start">
                       <div>
-                        <div className="font-medium text-gray-800">{student.name}</div>
-                        <div className="text-sm text-gray-500">{student.email}</div>
+                        <div className="font-medium text-gray-800">
+                          {student.name}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {student.email}
+                        </div>
                       </div>
                       <span className="text-xs bg-indigo-100 text-indigo-800 px-2 py-1 rounded">
                         {student.stop_name}
@@ -578,7 +702,13 @@ export default function AdminStudentTransport() {
                     </div>
                     <div className="mt-2 flex justify-between text-xs text-gray-500">
                       <span>Fee: ₹{student.total_fee?.toLocaleString()}</span>
-                      <span className={student.paid_amount < student.total_fee ? "text-red-600" : "text-green-600"}>
+                      <span
+                        className={
+                          student.paid_amount < student.total_fee
+                            ? "text-red-600"
+                            : "text-green-600"
+                        }
+                      >
                         Paid: ₹{student.paid_amount?.toLocaleString()}
                       </span>
                     </div>
@@ -594,7 +724,9 @@ export default function AdminStudentTransport() {
       {activeTab === "assignments" && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold text-gray-800">Student Transport Assignments</h3>
+            <h3 className="text-lg font-semibold text-gray-800">
+              Student Transport Assignments
+            </h3>
             <button
               onClick={() => setShowAssignModal(true)}
               className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors"
@@ -603,46 +735,80 @@ export default function AdminStudentTransport() {
             </button>
           </div>
           {studentTransports.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">No student assignments found</p>
+            <p className="text-gray-500 text-center py-8">
+              No student assignments found
+            </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="bg-gray-50">
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Student</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Bus</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Stop</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Total Fee</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Paid</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Balance</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Status</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Actions</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
+                      Student
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
+                      Bus
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
+                      Stop
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
+                      Total Fee
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
+                      Paid
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
+                      Balance
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
+                      Status
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {studentTransports.map((st) => (
-                    <tr key={st.id} className="border-t border-gray-100 hover:bg-gray-50">
+                    <tr
+                      key={st.id}
+                      className="border-t border-gray-100 hover:bg-gray-50"
+                    >
                       <td className="px-4 py-3">
                         <div>
                           <div className="font-medium">{st.student_name}</div>
-                          <div className="text-sm text-gray-500">{st.student_email}</div>
+                          <div className="text-sm text-gray-500">
+                            {st.student_email}
+                          </div>
                         </div>
                       </td>
                       <td className="px-4 py-3">
                         <div className="font-medium">{st.bus_name}</div>
-                        <div className="text-sm text-gray-500">{st.bus_number}</div>
+                        <div className="text-sm text-gray-500">
+                          {st.bus_number}
+                        </div>
                       </td>
                       <td className="px-4 py-3">{st.stop_name}</td>
-                      <td className="px-4 py-3">₹{st.total_fee?.toLocaleString()}</td>
-                      <td className="px-4 py-3 text-green-600">₹{st.paid_amount?.toLocaleString()}</td>
-                      <td className={`px-4 py-3 font-medium ${st.balance > 0 ? "text-red-600" : "text-green-600"}`}>
+                      <td className="px-4 py-3">
+                        ₹{st.total_fee?.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 text-green-600">
+                        ₹{st.paid_amount?.toLocaleString()}
+                      </td>
+                      <td
+                        className={`px-4 py-3 font-medium ${st.balance > 0 ? "text-red-600" : "text-green-600"}`}
+                      >
                         ₹{st.balance?.toLocaleString()}
                       </td>
                       <td className="px-4 py-3">{getStatusBadge(st.status)}</td>
                       <td className="px-4 py-3">
                         <button
                           onClick={() => {
-                            setPaymentForm({ ...paymentForm, student_transport_id: st.id });
+                            setPaymentForm({
+                              ...paymentForm,
+                              student_transport_id: st.id,
+                            });
                             setShowPaymentModal(true);
                           }}
                           className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
@@ -663,7 +829,9 @@ export default function AdminStudentTransport() {
       {activeTab === "fees" && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold text-gray-800">Stop-wise Transport Fees</h3>
+            <h3 className="text-lg font-semibold text-gray-800">
+              Stop-wise Transport Fees
+            </h3>
             <button
               onClick={() => setShowFeeModal(true)}
               className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors"
@@ -672,17 +840,28 @@ export default function AdminStudentTransport() {
             </button>
           </div>
           {transportFees.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">No transport fees defined</p>
+            <p className="text-gray-500 text-center py-8">
+              No transport fees defined
+            </p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {transportFees.map((fee) => (
-                <div key={fee.id} className="border border-gray-200 rounded-lg p-4">
+                <div
+                  key={fee.id}
+                  className="border border-gray-200 rounded-lg p-4"
+                >
                   <div className="flex justify-between items-start">
                     <div>
-                      <h4 className="font-medium text-gray-800">{fee.stop_name}</h4>
-                      <p className="text-sm text-gray-500">{fee.academic_year}</p>
+                      <h4 className="font-medium text-gray-800">
+                        {fee.stop_name}
+                      </h4>
+                      <p className="text-sm text-gray-500">
+                        {fee.academic_year}
+                      </p>
                     </div>
-                    <span className={`px-2 py-1 rounded text-xs ${fee.is_active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}`}>
+                    <span
+                      className={`px-2 py-1 rounded text-xs ${fee.is_active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}`}
+                    >
                       {fee.is_active ? "Active" : "Inactive"}
                     </span>
                   </div>
@@ -700,7 +879,9 @@ export default function AdminStudentTransport() {
       {activeTab === "payments" && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold text-gray-800">Payment Records</h3>
+            <h3 className="text-lg font-semibold text-gray-800">
+              Payment Records
+            </h3>
             <button
               onClick={() => setShowPaymentModal(true)}
               className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors"
@@ -709,29 +890,51 @@ export default function AdminStudentTransport() {
             </button>
           </div>
           {payments.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">No payment records found</p>
+            <p className="text-gray-500 text-center py-8">
+              No payment records found
+            </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="bg-gray-50">
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Date</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Student</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Amount</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Method</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Receipt #</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Recorded By</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
+                      Date
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
+                      Student
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
+                      Amount
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
+                      Method
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
+                      Receipt #
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
+                      Recorded By
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {payments.map((p) => (
                     <tr key={p.id} className="border-t border-gray-100">
                       <td className="px-4 py-3">{p.payment_date}</td>
-                      <td className="px-4 py-3 font-medium">{p.student_name}</td>
-                      <td className="px-4 py-3 text-green-600 font-medium">₹{p.amount?.toLocaleString()}</td>
-                      <td className="px-4 py-3 capitalize">{p.payment_method}</td>
+                      <td className="px-4 py-3 font-medium">
+                        {p.student_name}
+                      </td>
+                      <td className="px-4 py-3 text-green-600 font-medium">
+                        ₹{p.amount?.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 capitalize">
+                        {p.payment_method}
+                      </td>
                       <td className="px-4 py-3">{p.receipt_number || "-"}</td>
-                      <td className="px-4 py-3 text-gray-500">{p.recorded_by_name}</td>
+                      <td className="px-4 py-3 text-gray-500">
+                        {p.recorded_by_name}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -744,18 +947,31 @@ export default function AdminStudentTransport() {
       {/* Stop Change Requests Tab */}
       {activeTab === "requests" && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Stop Change Requests</h3>
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">
+            Stop Change Requests
+          </h3>
           {stopChangeRequests.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">No stop change requests found</p>
+            <p className="text-gray-500 text-center py-8">
+              No stop change requests found
+            </p>
           ) : (
             <div className="space-y-4">
               {stopChangeRequests.map((req) => (
-                <div key={req.id} className={`border rounded-lg p-4 ${req.status === "pending" ? "border-yellow-300 bg-yellow-50" : "border-gray-200"}`}>
+                <div
+                  key={req.id}
+                  className={`border rounded-lg p-4 ${req.status === "pending" ? "border-yellow-300 bg-yellow-50" : "border-gray-200"}`}
+                >
                   <div className="flex justify-between items-start mb-3">
                     <div>
-                      <div className="font-medium text-gray-800">{req.student_name}</div>
-                      <div className="text-sm text-gray-500">{req.student_email}</div>
-                      <div className="text-sm text-gray-500 mt-1">Submitted: {req.created_at}</div>
+                      <div className="font-medium text-gray-800">
+                        {req.student_name}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {req.student_email}
+                      </div>
+                      <div className="text-sm text-gray-500 mt-1">
+                        Submitted: {req.created_at}
+                      </div>
                     </div>
                     {getStatusBadge(req.status)}
                   </div>
@@ -763,19 +979,32 @@ export default function AdminStudentTransport() {
                     <div className="flex items-center gap-4">
                       <div className="flex-1">
                         <div className="text-sm text-gray-500">From</div>
-                        <div className="font-medium">{req.current_stop_name}</div>
-                        <div className="text-sm text-gray-600">₹{req.current_fee?.toLocaleString()}</div>
+                        <div className="font-medium">
+                          {req.current_stop_name}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          ₹{req.current_fee?.toLocaleString()}
+                        </div>
                       </div>
                       <div className="text-2xl">→</div>
                       <div className="flex-1">
                         <div className="text-sm text-gray-500">To</div>
-                        <div className="font-medium">{req.requested_stop_name}</div>
-                        <div className="text-sm text-gray-600">₹{req.new_fee?.toLocaleString()}</div>
+                        <div className="font-medium">
+                          {req.requested_stop_name}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          ₹{req.new_fee?.toLocaleString()}
+                        </div>
                       </div>
                       <div className="flex-1 text-right">
-                        <div className="text-sm text-gray-500">Fee Difference</div>
-                        <div className={`font-bold ${req.fee_difference >= 0 ? "text-red-600" : "text-green-600"}`}>
-                          {req.fee_difference >= 0 ? "+" : ""}₹{req.fee_difference?.toLocaleString()}
+                        <div className="text-sm text-gray-500">
+                          Fee Difference
+                        </div>
+                        <div
+                          className={`font-bold ${req.fee_difference >= 0 ? "text-red-600" : "text-green-600"}`}
+                        >
+                          {req.fee_difference >= 0 ? "+" : ""}₹
+                          {req.fee_difference?.toLocaleString()}
                         </div>
                       </div>
                     </div>
@@ -789,7 +1018,11 @@ export default function AdminStudentTransport() {
                     <div className="flex gap-3">
                       <button
                         onClick={() => {
-                          setProcessForm({ request_id: req.id, status: "", admin_remarks: "" });
+                          setProcessForm({
+                            request_id: req.id,
+                            status: "",
+                            admin_remarks: "",
+                          });
                           setShowProcessModal(true);
                         }}
                         className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
@@ -798,7 +1031,11 @@ export default function AdminStudentTransport() {
                       </button>
                       <button
                         onClick={() => {
-                          setProcessForm({ request_id: req.id, status: "rejected", admin_remarks: "" });
+                          setProcessForm({
+                            request_id: req.id,
+                            status: "rejected",
+                            admin_remarks: "",
+                          });
                           setShowProcessModal(true);
                         }}
                         className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
@@ -823,28 +1060,41 @@ export default function AdminStudentTransport() {
       {showAssignModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">🎓 Assign Student to Bus</h3>
-            
-            <label className="block text-sm font-medium text-gray-700 mb-2">Select Student</label>
+            <h3 className="text-xl font-bold text-gray-800 mb-4">
+              🎓 Assign Student to Bus
+            </h3>
+
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Select Student
+            </label>
             <select
               value={assignForm.user_id}
-              onChange={(e) => setAssignForm({ ...assignForm, user_id: parseInt(e.target.value) })}
+              onChange={(e) =>
+                setAssignForm({
+                  ...assignForm,
+                  user_id: parseInt(e.target.value),
+                })
+              }
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 mb-4"
             >
               <option value={0}>-- Select Student --</option>
-              {students.filter(s => !s.has_transport).map((s) => (
-                <option key={s.user_id} value={s.user_id}>
-                  {s.full_name} ({s.email})
-                </option>
-              ))}
+              {students
+                .filter((s) => !s.has_transport)
+                .map((s) => (
+                  <option key={s.user_id} value={s.user_id}>
+                    {s.full_name} ({s.email})
+                  </option>
+                ))}
             </select>
 
-            <label className="block text-sm font-medium text-gray-700 mb-2">Select Bus</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Select Bus
+            </label>
             <select
               value={assignForm.bus_id}
               onChange={(e) => {
                 const busId = parseInt(e.target.value);
-                setAssignForm({ ...assignForm, bus_id: busId, stop_id: 0 });
+                setAssignForm({...assignForm, bus_id: busId, stop_id: 0});
                 if (busId > 0) fetchBusStops(busId);
               }}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 mb-4"
@@ -852,15 +1102,23 @@ export default function AdminStudentTransport() {
               <option value={0}>-- Select Bus --</option>
               {buses.map((b) => (
                 <option key={b.id} value={b.id}>
-                  {b.bus_name} - {b.vehicle_number} ({b.start_point} → {b.end_point})
+                  {b.bus_name} - {b.vehicle_number} ({b.start_point} →{" "}
+                  {b.end_point})
                 </option>
               ))}
             </select>
 
-            <label className="block text-sm font-medium text-gray-700 mb-2">Select Stop</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Select Stop
+            </label>
             <select
               value={assignForm.stop_id}
-              onChange={(e) => setAssignForm({ ...assignForm, stop_id: parseInt(e.target.value) })}
+              onChange={(e) =>
+                setAssignForm({
+                  ...assignForm,
+                  stop_id: parseInt(e.target.value),
+                })
+              }
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 mb-4"
               disabled={!assignForm.bus_id}
             >
@@ -872,10 +1130,14 @@ export default function AdminStudentTransport() {
               ))}
             </select>
 
-            <label className="block text-sm font-medium text-gray-700 mb-2">Academic Year</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Academic Year
+            </label>
             <select
               value={assignForm.academic_year}
-              onChange={(e) => setAssignForm({ ...assignForm, academic_year: e.target.value })}
+              onChange={(e) =>
+                setAssignForm({...assignForm, academic_year: e.target.value})
+              }
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 mb-4"
             >
               <option value="2025-2026">2025-2026</option>
@@ -904,12 +1166,21 @@ export default function AdminStudentTransport() {
       {showPaymentModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">💳 Record Payment</h3>
-            
-            <label className="block text-sm font-medium text-gray-700 mb-2">Select Student</label>
+            <h3 className="text-xl font-bold text-gray-800 mb-4">
+              💳 Record Payment
+            </h3>
+
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Select Student
+            </label>
             <select
               value={paymentForm.student_transport_id}
-              onChange={(e) => setPaymentForm({ ...paymentForm, student_transport_id: parseInt(e.target.value) })}
+              onChange={(e) =>
+                setPaymentForm({
+                  ...paymentForm,
+                  student_transport_id: parseInt(e.target.value),
+                })
+              }
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 mb-4"
             >
               <option value={0}>-- Select Student --</option>
@@ -920,27 +1191,42 @@ export default function AdminStudentTransport() {
               ))}
             </select>
 
-            <label className="block text-sm font-medium text-gray-700 mb-2">Amount (₹)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Amount (₹)
+            </label>
             <input
               type="number"
               value={paymentForm.amount}
-              onChange={(e) => setPaymentForm({ ...paymentForm, amount: parseFloat(e.target.value) || 0 })}
+              onChange={(e) =>
+                setPaymentForm({
+                  ...paymentForm,
+                  amount: parseFloat(e.target.value) || 0,
+                })
+              }
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 mb-4"
               placeholder="Enter amount"
             />
 
-            <label className="block text-sm font-medium text-gray-700 mb-2">Payment Date</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Payment Date
+            </label>
             <input
               type="date"
               value={paymentForm.payment_date}
-              onChange={(e) => setPaymentForm({ ...paymentForm, payment_date: e.target.value })}
+              onChange={(e) =>
+                setPaymentForm({...paymentForm, payment_date: e.target.value})
+              }
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 mb-4"
             />
 
-            <label className="block text-sm font-medium text-gray-700 mb-2">Payment Method</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Payment Method
+            </label>
             <select
               value={paymentForm.payment_method}
-              onChange={(e) => setPaymentForm({ ...paymentForm, payment_method: e.target.value })}
+              onChange={(e) =>
+                setPaymentForm({...paymentForm, payment_method: e.target.value})
+              }
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 mb-4"
             >
               <option value="cash">Cash</option>
@@ -950,11 +1236,15 @@ export default function AdminStudentTransport() {
               <option value="other">Other</option>
             </select>
 
-            <label className="block text-sm font-medium text-gray-700 mb-2">Receipt Number (Optional)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Receipt Number (Optional)
+            </label>
             <input
               type="text"
               value={paymentForm.receipt_number}
-              onChange={(e) => setPaymentForm({ ...paymentForm, receipt_number: e.target.value })}
+              onChange={(e) =>
+                setPaymentForm({...paymentForm, receipt_number: e.target.value})
+              }
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 mb-4"
               placeholder="Enter receipt number"
             />
@@ -981,12 +1271,18 @@ export default function AdminStudentTransport() {
       {showFeeModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">💰 Add Transport Fee</h3>
-            
-            <label className="block text-sm font-medium text-gray-700 mb-2">Select Stop</label>
+            <h3 className="text-xl font-bold text-gray-800 mb-4">
+              💰 Add Transport Fee
+            </h3>
+
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Select Stop
+            </label>
             <select
               value={feeForm.stop_id}
-              onChange={(e) => setFeeForm({ ...feeForm, stop_id: parseInt(e.target.value) })}
+              onChange={(e) =>
+                setFeeForm({...feeForm, stop_id: parseInt(e.target.value)})
+              }
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 mb-4"
             >
               <option value={0}>-- Select Stop --</option>
@@ -997,19 +1293,30 @@ export default function AdminStudentTransport() {
               ))}
             </select>
 
-            <label className="block text-sm font-medium text-gray-700 mb-2">Fee Amount (₹)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Fee Amount (₹)
+            </label>
             <input
               type="number"
               value={feeForm.fee_amount}
-              onChange={(e) => setFeeForm({ ...feeForm, fee_amount: parseFloat(e.target.value) || 0 })}
+              onChange={(e) =>
+                setFeeForm({
+                  ...feeForm,
+                  fee_amount: parseFloat(e.target.value) || 0,
+                })
+              }
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 mb-4"
               placeholder="Enter fee amount"
             />
 
-            <label className="block text-sm font-medium text-gray-700 mb-2">Academic Year</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Academic Year
+            </label>
             <select
               value={feeForm.academic_year}
-              onChange={(e) => setFeeForm({ ...feeForm, academic_year: e.target.value })}
+              onChange={(e) =>
+                setFeeForm({...feeForm, academic_year: e.target.value})
+              }
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 mb-4"
             >
               <option value="2025-2026">2025-2026</option>
@@ -1038,12 +1345,18 @@ export default function AdminStudentTransport() {
       {showProcessModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">📝 Process Stop Change Request</h3>
-            
-            <label className="block text-sm font-medium text-gray-700 mb-2">Admin Remarks (Optional)</label>
+            <h3 className="text-xl font-bold text-gray-800 mb-4">
+              📝 Process Stop Change Request
+            </h3>
+
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Admin Remarks (Optional)
+            </label>
             <textarea
               value={processForm.admin_remarks}
-              onChange={(e) => setProcessForm({ ...processForm, admin_remarks: e.target.value })}
+              onChange={(e) =>
+                setProcessForm({...processForm, admin_remarks: e.target.value})
+              }
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 mb-4"
               rows={3}
               placeholder="Enter any remarks..."
@@ -1077,12 +1390,21 @@ export default function AdminStudentTransport() {
       {showTransportProcessModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">📨 Process Transport Request</h3>
-            
-            <label className="block text-sm font-medium text-gray-700 mb-2">Admin Remarks (Optional)</label>
+            <h3 className="text-xl font-bold text-gray-800 mb-4">
+              📨 Process Transport Request
+            </h3>
+
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Admin Remarks (Optional)
+            </label>
             <textarea
               value={transportProcessForm.admin_remarks}
-              onChange={(e) => setTransportProcessForm({ ...transportProcessForm, admin_remarks: e.target.value })}
+              onChange={(e) =>
+                setTransportProcessForm({
+                  ...transportProcessForm,
+                  admin_remarks: e.target.value,
+                })
+              }
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 mb-4"
               rows={3}
               placeholder="Enter any remarks for the student..."
@@ -1116,15 +1438,19 @@ export default function AdminStudentTransport() {
       {showStudentDetailModal && selectedStudent && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">👤 Student Details</h3>
-            
+            <h3 className="text-xl font-bold text-gray-800 mb-4">
+              👤 Student Details
+            </h3>
+
             <div className="space-y-4">
               <div className="flex items-center gap-4">
                 <div className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center text-2xl">
                   👤
                 </div>
                 <div>
-                  <div className="text-xl font-bold text-gray-800">{selectedStudent.name}</div>
+                  <div className="text-xl font-bold text-gray-800">
+                    {selectedStudent.name}
+                  </div>
                   <div className="text-gray-500">{selectedStudent.email}</div>
                 </div>
               </div>
@@ -1132,32 +1458,48 @@ export default function AdminStudentTransport() {
               <div className="grid grid-cols-2 gap-4 bg-gray-50 rounded-lg p-4">
                 <div>
                   <div className="text-sm text-gray-500">Department</div>
-                  <div className="font-medium">{selectedStudent.department || "N/A"}</div>
+                  <div className="font-medium">
+                    {selectedStudent.department || "N/A"}
+                  </div>
                 </div>
                 <div>
                   <div className="text-sm text-gray-500">Year</div>
-                  <div className="font-medium">{selectedStudent.year > 0 ? `Year ${selectedStudent.year}` : "N/A"}</div>
+                  <div className="font-medium">
+                    {selectedStudent.year > 0
+                      ? `Year ${selectedStudent.year}`
+                      : "N/A"}
+                  </div>
                 </div>
                 <div>
                   <div className="text-sm text-gray-500">Roll Number</div>
-                  <div className="font-medium">{selectedStudent.roll_number || "N/A"}</div>
+                  <div className="font-medium">
+                    {selectedStudent.roll_number || "N/A"}
+                  </div>
                 </div>
                 <div>
                   <div className="text-sm text-gray-500">Academic Year</div>
-                  <div className="font-medium">{selectedStudent.academic_year}</div>
+                  <div className="font-medium">
+                    {selectedStudent.academic_year}
+                  </div>
                 </div>
               </div>
 
               <div className="bg-indigo-50 rounded-lg p-4">
-                <div className="text-sm text-indigo-600 font-medium mb-2">🚌 Transport Details</div>
+                <div className="text-sm text-indigo-600 font-medium mb-2">
+                  🚌 Transport Details
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <div className="text-sm text-gray-500">Stop</div>
-                    <div className="font-medium">{selectedStudent.stop_name}</div>
+                    <div className="font-medium">
+                      {selectedStudent.stop_name}
+                    </div>
                   </div>
                   <div>
                     <div className="text-sm text-gray-500">Stop Fee</div>
-                    <div className="font-medium">₹{selectedStudent.stop_fee?.toLocaleString()}</div>
+                    <div className="font-medium">
+                      ₹{selectedStudent.stop_fee?.toLocaleString()}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1165,16 +1507,27 @@ export default function AdminStudentTransport() {
               <div className="grid grid-cols-3 gap-4">
                 <div className="bg-gray-50 rounded-lg p-3 text-center">
                   <div className="text-sm text-gray-500">Total Fee</div>
-                  <div className="text-lg font-bold text-gray-800">₹{selectedStudent.total_fee?.toLocaleString()}</div>
+                  <div className="text-lg font-bold text-gray-800">
+                    ₹{selectedStudent.total_fee?.toLocaleString()}
+                  </div>
                 </div>
                 <div className="bg-green-50 rounded-lg p-3 text-center">
                   <div className="text-sm text-gray-500">Paid</div>
-                  <div className="text-lg font-bold text-green-600">₹{selectedStudent.paid_amount?.toLocaleString()}</div>
+                  <div className="text-lg font-bold text-green-600">
+                    ₹{selectedStudent.paid_amount?.toLocaleString()}
+                  </div>
                 </div>
-                <div className={`rounded-lg p-3 text-center ${selectedStudent.total_fee - selectedStudent.paid_amount > 0 ? "bg-red-50" : "bg-green-50"}`}>
+                <div
+                  className={`rounded-lg p-3 text-center ${selectedStudent.total_fee - selectedStudent.paid_amount > 0 ? "bg-red-50" : "bg-green-50"}`}
+                >
                   <div className="text-sm text-gray-500">Balance</div>
-                  <div className={`text-lg font-bold ${selectedStudent.total_fee - selectedStudent.paid_amount > 0 ? "text-red-600" : "text-green-600"}`}>
-                    ₹{(selectedStudent.total_fee - selectedStudent.paid_amount)?.toLocaleString()}
+                  <div
+                    className={`text-lg font-bold ${selectedStudent.total_fee - selectedStudent.paid_amount > 0 ? "text-red-600" : "text-green-600"}`}
+                  >
+                    ₹
+                    {(
+                      selectedStudent.total_fee - selectedStudent.paid_amount
+                    )?.toLocaleString()}
                   </div>
                 </div>
               </div>
@@ -1189,7 +1542,10 @@ export default function AdminStudentTransport() {
               </button>
               <button
                 onClick={() => {
-                  setPaymentForm({ ...paymentForm, student_transport_id: selectedStudent.id });
+                  setPaymentForm({
+                    ...paymentForm,
+                    student_transport_id: selectedStudent.id,
+                  });
                   setShowStudentDetailModal(false);
                   setShowPaymentModal(true);
                 }}

@@ -1,5 +1,7 @@
 import React, {useState, useEffect} from "react";
 import {Zap, Users, Plus, Trash2, X, Calendar, Truck} from "lucide-react";
+import {showError, showConfirm} from "../../../utils/swal";
+import {formatVehicleLabel} from "../../../utils/vehicleLabel";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
@@ -78,27 +80,30 @@ export default function EVAssignmentsList() {
         });
       } else {
         const err = await res.json();
-        alert("Error: " + (err.message || err.error));
+        showError("Error", err.message || err.error);
       }
     } catch (err) {
-      alert("Error creating assignment");
+      showError("Error", "Error creating assignment");
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this assignment?"))
-      return;
+    const isConfirmed = await showConfirm(
+      "Are you sure?",
+      "Do you really want to delete this assignment?",
+    );
+    if (!isConfirmed) return;
     try {
       const res = await fetch(
         `${API_BASE}/api/admin/ev-assignments/delete?id=${id}`,
         {
           method: "DELETE",
-        }
+        },
       );
       if (res.ok) {
         fetchAssignments();
       } else {
-        alert("Failed to delete");
+        showError("Error", "Failed to delete");
       }
     } catch (err) {
       console.error(err);
@@ -167,7 +172,7 @@ export default function EVAssignmentsList() {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2 font-medium text-gray-900">
                           <Truck size={16} className="text-gray-400" />
-                          {item.vehicle_number}
+                          {formatVehicleLabel(item)}
                         </div>
                       </td>
                       <td className="px-6 py-4 text-sm text-[var(--color-primary)] font-medium">
@@ -248,7 +253,7 @@ export default function EVAssignmentsList() {
                   <option value="">Choose Vehicle...</option>
                   {evVehicles.map((v) => (
                     <option key={v.id} value={v.id}>
-                      {v.vehicle_number} ({v.seating_capacity} seats)
+                      {formatVehicleLabel(v)} ({v.seating_capacity} seats)
                     </option>
                   ))}
                 </select>

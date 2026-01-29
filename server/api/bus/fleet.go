@@ -155,12 +155,12 @@ func GetBusFleet(c *gin.Context) {
 			 LIMIT 1) as driver_name,
 			COALESCE(b.start_point, '') as start_point, 
 			COALESCE(b.end_point, '') as end_point,
-			COALESCE(b.bus_name, v.vehicle_number) as bus_name,
+			COALESCE(v.name, b.bus_name, v.vehicle_number) as bus_name,
 			(SELECT COUNT(*) FROM bus_stops bs WHERE bs.vehicle_id = v.id) as total_stops
 		FROM vehicles v
 		LEFT JOIN buses b ON b.vehicle_id = v.id
 		WHERE v.vehicle_type = 'BUS'
-		ORDER BY v.vehicle_number
+		ORDER BY bus_name ASC
 	`)
 	if err != nil {
 		log.Printf("Get bus fleet error: %v", err)

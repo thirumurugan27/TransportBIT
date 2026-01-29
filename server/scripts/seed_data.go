@@ -43,7 +43,7 @@ func main() {
 	vehicles := []string{
 		"INSERT INTO vehicles (vehicle_number, vehicle_type, fuel_type, seating_capacity, status) VALUES ('TN33AB1234', 'BUS', 'DIESEL', 45, 'available') ON DUPLICATE KEY UPDATE vehicle_number=vehicle_number",
 		"INSERT INTO vehicles (vehicle_number, vehicle_type, fuel_type, seating_capacity, status) VALUES ('TN33CD5678', 'BUS', 'DIESEL', 52, 'available') ON DUPLICATE KEY UPDATE vehicle_number=vehicle_number",
-		"INSERT INTO vehicles (vehicle_number, vehicle_type, fuel_type, seating_capacity, status) VALUES ('TN33EF9012', 'VAN', 'PETROL', 12, 'available') ON DUPLICATE KEY UPDATE vehicle_number=vehicle_number",
+\t\t\"INSERT INTO vehicles (vehicle_number, vehicle_type, fuel_type, seating_capacity, status) VALUES ('TN33EF9012', 'BATTERY_VEHICLE', 'EV', 12, 'available') ON DUPLICATE KEY UPDATE vehicle_number=vehicle_number\",
 		"INSERT INTO vehicles (vehicle_number, vehicle_type, fuel_type, seating_capacity, status) VALUES ('TN33GH3456', 'BUS', 'CNG', 40, 'in_service') ON DUPLICATE KEY UPDATE vehicle_number=vehicle_number",
 		"INSERT INTO vehicles (vehicle_number, vehicle_type, fuel_type, seating_capacity, status) VALUES ('TN33IJ7890', 'CAR', 'PETROL', 4, 'available') ON DUPLICATE KEY UPDATE vehicle_number=vehicle_number",
 		"INSERT INTO vehicles (vehicle_number, vehicle_type, fuel_type, seating_capacity, status) VALUES ('TN33KL1122', 'EV', 'EV', 35, 'available') ON DUPLICATE KEY UPDATE vehicle_number=vehicle_number",

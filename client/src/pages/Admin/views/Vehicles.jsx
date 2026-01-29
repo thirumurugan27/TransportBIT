@@ -1,4 +1,5 @@
 import React, {useState, useEffect} from "react";
+import {showError, showSuccess, showConfirm} from "../../../utils/swal";
 import {
   Car,
   Bus,
@@ -46,7 +47,11 @@ const getStatusColor = (days) => {
 const formatDate = (dateStr) => {
   if (!dateStr) return "-";
   const date = new Date(dateStr);
-  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 };
 
 export default function Vehicles() {
@@ -109,7 +114,9 @@ export default function Vehicles() {
   });
 
   const getVehicleLabel = (v) => {
-    if (v.vehicle_type === "BUS") return `${v.vehicle_number} (${v.bus_name})`;
+    if (v.bus_name) {
+      return v.bus_name;
+    }
     return v.vehicle_number;
   };
 
@@ -132,24 +139,27 @@ export default function Vehicles() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this vehicle?"))
-      return;
+    const isConfirmed = await showConfirm(
+      "Are you sure?",
+      "Do you really want to delete this vehicle?",
+    );
+    if (!isConfirmed) return;
     try {
       const res = await fetch(
         `${API_BASE}/api/admin/vehicles/delete?id=${id}`,
         {
           method: "DELETE",
-        }
+        },
       );
       if (res.ok) {
-        alert("Vehicle deleted successfully!");
+        showSuccess("Success", "Vehicle deleted successfully!");
         fetchVehicles();
       } else {
-        alert("Failed to delete vehicle: " + (await res.text()));
+        showError("Error", "Failed to delete vehicle: " + (await res.text()));
       }
     } catch (err) {
       console.error(err);
-      alert("Error deleting vehicle");
+      showError("Error", "Error deleting vehicle");
     }
   };
 
@@ -160,7 +170,7 @@ export default function Vehicles() {
       !vehicleForm.seating_capacity ||
       !vehicleForm.fuel_type
     ) {
-      alert("Please fill all required fields");
+      showError("Error", "Please fill all required fields");
       return;
     }
     if (
@@ -169,7 +179,10 @@ export default function Vehicles() {
         !vehicleForm.start_point ||
         !vehicleForm.end_point)
     ) {
-      alert("Please fill all bus details (Name, Start/End Points)");
+      showError(
+        "Error",
+        "Please fill all bus details (Name, Start/End Points)",
+      );
       return;
     }
 
@@ -187,10 +200,11 @@ export default function Vehicles() {
       });
 
       if (res.ok) {
-        alert(
+        showSuccess(
+          "Success",
           isEditing
             ? "Vehicle updated successfully!"
-            : "Vehicle created successfully!"
+            : "Vehicle created successfully!",
         );
         fetchVehicles();
         setShowCreateModal(false);
@@ -198,30 +212,34 @@ export default function Vehicles() {
         setIsEditing(false);
         setEditingId(null);
       } else {
-        alert(
+        showError(
+          "Error",
           `Failed to ${isEditing ? "update" : "create"} vehicle: ` +
-            (await res.text())
+            (await res.text()),
         );
       }
     } catch (err) {
       console.error(err);
-      alert(`Error ${isEditing ? "updating" : "creating"} vehicle`);
+      showError(
+        "Error",
+        `Error ${isEditing ? "updating" : "creating"} vehicle`,
+      );
     }
   };
 
   // Helper to format date for API (YYYY-MM-DD only)
   const formatDateForAPI = (dateStr) => {
     if (!dateStr) return null;
-    return dateStr.split('T')[0];
+    return dateStr.split("T")[0];
   };
 
   // Handle inline expiry date update
   const handleExpiryClick = (vehicle, field) => {
-    setEditingExpiry({ vehicleId: vehicle.id, field });
+    setEditingExpiry({vehicleId: vehicle.id, field});
     // Extract just the date part (YYYY-MM-DD) from the stored value
     const dateValue = vehicle[field];
     if (dateValue) {
-      setExpiryFormValue(dateValue.split('T')[0]);
+      setExpiryFormValue(dateValue.split("T")[0]);
     } else {
       setExpiryFormValue("");
     }
@@ -229,8 +247,8 @@ export default function Vehicles() {
 
   const handleExpiryUpdate = async () => {
     if (!editingExpiry) return;
-    
-    const vehicle = vehicles.find(v => v.id === editingExpiry.vehicleId);
+
+    const vehicle = vehicles.find((v) => v.id === editingExpiry.vehicleId);
     if (!vehicle) return;
 
     // Format all dates to YYYY-MM-DD
@@ -250,7 +268,7 @@ export default function Vehicles() {
     try {
       const res = await fetch(`${API_BASE}/api/admin/vehicles/update`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {"Content-Type": "application/json"},
         body: JSON.stringify(updatedVehicle),
       });
 
@@ -259,11 +277,14 @@ export default function Vehicles() {
         setEditingExpiry(null);
         setExpiryFormValue("");
       } else {
-        alert("Failed to update expiry date: " + (await res.text()));
+        showError(
+          "Error",
+          "Failed to update expiry date: " + (await res.text()),
+        );
       }
     } catch (err) {
       console.error(err);
-      alert("Error updating expiry date");
+      showError("Error", "Error updating expiry date");
     }
   };
 
@@ -274,9 +295,12 @@ export default function Vehicles() {
 
   // Get expiry stats
   const getExpiryStats = () => {
-    let insuranceExpired = 0, insuranceCritical = 0;
-    let fcExpired = 0, fcCritical = 0;
-    let permitExpired = 0, permitCritical = 0;
+    let insuranceExpired = 0,
+      insuranceCritical = 0;
+    let fcExpired = 0,
+      fcCritical = 0;
+    let permitExpired = 0,
+      permitCritical = 0;
 
     vehicles.forEach((v) => {
       const insDays = getDaysUntil(v.insurance_expire_date);
@@ -298,9 +322,9 @@ export default function Vehicles() {
     });
 
     return {
-      insurance: { expired: insuranceExpired, critical: insuranceCritical },
-      fc: { expired: fcExpired, critical: fcCritical },
-      permit: { expired: permitExpired, critical: permitCritical },
+      insurance: {expired: insuranceExpired, critical: insuranceCritical},
+      fc: {expired: fcExpired, critical: fcCritical},
+      permit: {expired: permitExpired, critical: permitCritical},
     };
   };
 
@@ -310,29 +334,34 @@ export default function Vehicles() {
     <div className="space-y-6">
       {/* View Mode Toggle */}
       <div className="flex justify-between items-center">
-        <div className="flex bg-white rounded-lg border border-gray-200 p-1">
+        <div className="flex bg-secondarybg rounded-md border border-gray-200 p-1 gap-1">
           <button
             onClick={() => setViewMode("fleet")}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
+            className={`px-5 py-2.5 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
               viewMode === "fleet"
-                ? "bg-[var(--color-primary)] text-white shadow-sm"
-                : "text-gray-600 hover:bg-gray-50"
+                ? "bg-primary text-white shadow-sm"
+                : "text-secondarytext hover:bg-primarybg"
             }`}
           >
             <Bus size={16} /> Fleet View
           </button>
           <button
             onClick={() => setViewMode("expiry")}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
+            className={`px-5 py-2.5 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
               viewMode === "expiry"
-                ? "bg-[var(--color-primary)] text-white shadow-sm"
-                : "text-gray-600 hover:bg-gray-50"
+                ? "bg-primary text-white shadow-sm"
+                : "text-secondarytext hover:bg-primarybg"
             }`}
           >
             <Shield size={16} /> Insurance/FC/Permit Status
-            {(expiryStats.insurance.expired + expiryStats.fc.expired + expiryStats.permit.expired) > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 bg-red-500 text-white text-xs rounded-full">
-                {expiryStats.insurance.expired + expiryStats.fc.expired + expiryStats.permit.expired}
+            {expiryStats.insurance.expired +
+              expiryStats.fc.expired +
+              expiryStats.permit.expired >
+              0 && (
+              <span className="ml-1 px-2 py-0.5 bg-red text-white text-xs rounded-full font-semibold">
+                {expiryStats.insurance.expired +
+                  expiryStats.fc.expired +
+                  expiryStats.permit.expired}
               </span>
             )}
           </button>
@@ -340,73 +369,97 @@ export default function Vehicles() {
       </div>
 
       {/* Stats Section */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 flex items-center justify-between">
-          <div>
-            <h4 className="text-sm font-medium text-gray-500 mb-2 uppercase tracking-wider">
-              Buses
-            </h4>
-            <p className="text-3xl font-bold text-gray-800">
-              {vehicles?.filter((v) => v.vehicle_type === "BUS").length || 0}
-            </p>
-          </div>
-          <div className="p-3 bg-blue-50 rounded-lg text-blue-600">
-            <Bus size={24} />
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 flex items-center justify-between">
-          <div>
-            <h4 className="text-sm font-medium text-gray-500 mb-2 uppercase tracking-wider">
-              Electric
-            </h4>
-            <p className="text-3xl font-bold text-purple-600">
-              {vehicles?.filter((v) => v.fuel_type === "EV").length || 0}
-            </p>
-          </div>
-          <div className="p-3 bg-purple-50 rounded-lg text-purple-600">
-            <Zap size={24} />
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="bg-white rounded-md p-4 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-medium text-secondarytext mb-1">
+                Total Vehicles
+              </p>
+              <p className="text-2xl font-bold text-primarytext">
+                {vehicles?.length || 0}
+              </p>
+            </div>
+            <div className="p-2.5 bg-primary/10 rounded-md">
+              <Bus size={20} className="text-primary" />
+            </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 flex items-center justify-between">
-          <div>
-            <h4 className="text-sm font-medium text-gray-500 mb-2 uppercase tracking-wider">
-              Cars
-            </h4>
-            <p className="text-3xl font-bold text-emerald-600">
-              {vehicles?.filter((v) => v.vehicle_type === "CAR").length || 0}
-            </p>
-          </div>
-          <div className="p-3 bg-emerald-50 rounded-lg text-emerald-600">
-            <Car size={24} />
+        <div className="bg-white rounded-md p-4 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-medium text-secondarytext mb-1">
+                Buses
+              </p>
+              <p className="text-2xl font-bold text-primarytext">
+                {vehicles?.filter((v) => v.vehicle_type === "BUS").length || 0}
+              </p>
+            </div>
+            <div className="p-2.5 bg-primary/10 rounded-md">
+              <Bus size={20} className="text-primary" />
+            </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 flex items-center justify-between">
-          <div>
-            <h4 className="text-sm font-medium text-gray-500 mb-2 uppercase tracking-wider">
-              Others
-            </h4>
-            <p className="text-3xl font-bold text-gray-600">
-              {vehicles?.filter(
-                (v) => v.vehicle_type === "OTHER" || v.vehicle_type === "VAN"
-              ).length || 0}
-            </p>
+        <div className="bg-white rounded-md p-4 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-medium text-secondarytext mb-1">
+                Cars
+              </p>
+              <p className="text-2xl font-bold text-primarytext">
+                {vehicles?.filter((v) => v.vehicle_type === "CAR").length || 0}
+              </p>
+            </div>
+            <div className="p-2.5 bg-green/10 rounded-md">
+              <Car size={20} className="text-green" />
+            </div>
           </div>
-          <div className="p-3 bg-gray-50 rounded-lg text-gray-600">
-            <Truck size={24} />
+        </div>
+
+        <div className="bg-white rounded-md p-4 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-medium text-secondarytext mb-1">
+                Battery Vehicles
+              </p>
+              <p className="text-2xl font-bold text-primarytext">
+                {vehicles?.filter((v) => v.vehicle_type === "BATTERY_VEHICLE")
+                  .length || 0}
+              </p>
+            </div>
+            <div className="p-2.5 bg-pending/10 rounded-md">
+              <Zap size={20} className="text-pending" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-md p-4 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-medium text-secondarytext mb-1">
+                Others
+              </p>
+              <p className="text-2xl font-bold text-primarytext">
+                {vehicles?.filter((v) => v.vehicle_type === "OTHER").length ||
+                  0}
+              </p>
+            </div>
+            <div className="p-2.5 bg-secondarytext/10 rounded-md">
+              <Truck size={20} className="text-secondarytext" />
+            </div>
           </div>
         </div>
       </div>
 
       {/* Action Header */}
-      <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+      <div className="flex justify-between items-center bg-secondarybg p-5 rounded-md border border-gray-200 shadow-sm">
         <div>
-          <h2 className="text-xl font-bold text-gray-800">
+          <h2 className="text-xl font-bold text-primarytext">
             Vehicle Management
           </h2>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-secondarytext">
             Manage your entire fleet and assets
           </p>
         </div>
@@ -416,7 +469,7 @@ export default function Vehicles() {
             setVehicleForm(initialFormState);
             setShowCreateModal(true);
           }}
-          className="flex items-center gap-2 px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:opacity-90 transition-all font-medium shadow-md shadow-[var(--color-primary)]/25"
+          className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-md hover:bg-primarydull transition-colors font-medium shadow-sm"
         >
           <Plus size={18} />
           Add New Vehicle
@@ -427,33 +480,37 @@ export default function Vehicles() {
       <div className="flex flex-col md:flex-row gap-4">
         <div className="relative flex-1">
           <Search
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-            size={20}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-secondarytext"
+            size={18}
           />
           <input
             type="text"
             placeholder="Search by vehicle number or bus name..."
-            className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)]"
+            className="w-full pl-10 pr-4 py-2.5 bg-secondarybg border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-primarytext placeholder:text-secondarytext"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <div className="flex bg-white rounded-lg border border-gray-200 p-1 overflow-x-auto">
-          {["ALL", "BUS", "CAR", "VAN", "OTHER"].map((type) => (
-            <button
-              key={type}
-              onClick={() => setFilterType(type)}
-              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap ${
-                filterType === type
-                  ? "bg-[var(--color-primary)] text-white shadow-sm"
-                  : "text-gray-600 hover:bg-gray-50"
-              }`}
-            >
-              {type === "ALL"
-                ? "All"
-                : type.charAt(0) + type.slice(1).toLowerCase()}
-            </button>
-          ))}
+        <div className="flex bg-secondarybg rounded-md border border-gray-200 p-1 gap-1">
+          {["ALL", "BUS", "CAR", "BATTERY_VEHICLE", "OTHER"].map((type) => {
+            return (
+              <button
+                key={type}
+                onClick={() => setFilterType(type)}
+                className={`min-w-[100px] px-4 py-2 rounded-md text-sm font-medium transition-all whitespace-nowrap ${
+                  filterType === type
+                    ? "bg-primary text-white shadow-sm"
+                    : "text-secondarytext hover:bg-primarybg"
+                }`}
+              >
+                {type === "ALL"
+                  ? "All"
+                  : type === "BATTERY_VEHICLE"
+                    ? "Battery Vehicle"
+                    : type.charAt(0) + type.slice(1).toLowerCase()}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -462,251 +519,342 @@ export default function Vehicles() {
         <>
           {/* Expiry Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+            <div className="bg-white rounded-md p-5 shadow-sm border border-gray-200">
               <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
+                <div className="p-2 bg-blue-100 text-blue-600 rounded-md">
                   <Shield size={20} />
                 </div>
                 <h4 className="font-bold text-gray-800">Insurance</h4>
               </div>
               <div className="grid grid-cols-2 gap-2 text-center">
-                <div className="bg-red-50 p-3 rounded-lg">
-                  <p className="text-2xl font-bold text-red-600">{expiryStats.insurance.expired}</p>
+                <div className="bg-red-50 p-3 rounded-md">
+                  <p className="text-2xl font-bold text-red-600">
+                    {expiryStats.insurance.expired}
+                  </p>
                   <p className="text-xs text-red-600 font-medium">Expired</p>
                 </div>
-                <div className="bg-amber-50 p-3 rounded-lg">
-                  <p className="text-2xl font-bold text-amber-600">{expiryStats.insurance.critical}</p>
-                  <p className="text-xs text-amber-600 font-medium">{"< 30 days"}</p>
+                <div className="bg-amber-50 p-3 rounded-md">
+                  <p className="text-2xl font-bold text-amber-600">
+                    {expiryStats.insurance.critical}
+                  </p>
+                  <p className="text-xs text-amber-600 font-medium">
+                    {"< 30 days"}
+                  </p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+            <div className="bg-white rounded-md p-5 shadow-sm border border-gray-200">
               <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-green-100 text-green-600 rounded-lg">
+                <div className="p-2 bg-green-100 text-green-600 rounded-md">
                   <FileCheck size={20} />
                 </div>
-                <h4 className="font-bold text-gray-800">FC (Fitness Certificate)</h4>
+                <h4 className="font-bold text-gray-800">
+                  FC (Fitness Certificate)
+                </h4>
               </div>
               <div className="grid grid-cols-2 gap-2 text-center">
-                <div className="bg-red-50 p-3 rounded-lg">
-                  <p className="text-2xl font-bold text-red-600">{expiryStats.fc.expired}</p>
+                <div className="bg-red-50 p-3 rounded-md">
+                  <p className="text-2xl font-bold text-red-600">
+                    {expiryStats.fc.expired}
+                  </p>
                   <p className="text-xs text-red-600 font-medium">Expired</p>
                 </div>
-                <div className="bg-amber-50 p-3 rounded-lg">
-                  <p className="text-2xl font-bold text-amber-600">{expiryStats.fc.critical}</p>
-                  <p className="text-xs text-amber-600 font-medium">{"< 30 days"}</p>
+                <div className="bg-amber-50 p-3 rounded-md">
+                  <p className="text-2xl font-bold text-amber-600">
+                    {expiryStats.fc.critical}
+                  </p>
+                  <p className="text-xs text-amber-600 font-medium">
+                    {"< 30 days"}
+                  </p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+            <div className="bg-white rounded-md p-5 shadow-sm border border-gray-200">
               <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-purple-100 text-purple-600 rounded-lg">
+                <div className="p-2 bg-purple-100 text-purple-600 rounded-md">
                   <FileText size={20} />
                 </div>
                 <h4 className="font-bold text-gray-800">Permit</h4>
               </div>
               <div className="grid grid-cols-2 gap-2 text-center">
-                <div className="bg-red-50 p-3 rounded-lg">
-                  <p className="text-2xl font-bold text-red-600">{expiryStats.permit.expired}</p>
+                <div className="bg-red-50 p-3 rounded-md">
+                  <p className="text-2xl font-bold text-red-600">
+                    {expiryStats.permit.expired}
+                  </p>
                   <p className="text-xs text-red-600 font-medium">Expired</p>
                 </div>
-                <div className="bg-amber-50 p-3 rounded-lg">
-                  <p className="text-2xl font-bold text-amber-600">{expiryStats.permit.critical}</p>
-                  <p className="text-xs text-amber-600 font-medium">{"< 30 days"}</p>
+                <div className="bg-amber-50 p-3 rounded-md">
+                  <p className="text-2xl font-bold text-amber-600">
+                    {expiryStats.permit.critical}
+                  </p>
+                  <p className="text-xs text-amber-600 font-medium">
+                    {"< 30 days"}
+                  </p>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Expiry Table */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+          <div className="bg-white rounded-md shadow-sm border border-gray-200 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50/50">
               <p className="text-sm text-gray-500">
-                <span className="font-medium text-gray-700">💡 Tip:</span> Click on any expiry date cell to update it directly
+                <span className="font-medium text-gray-700">💡 Tip:</span> Click
+                on any expiry date cell to update it directly
               </p>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50/50 border-b border-gray-100">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">S.No</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Vehicle</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Type</th>
-                    <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Insurance Expire</th>
-                    <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Days</th>
-                    <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">FC Expire</th>
-                    <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Days</th>
-                    <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Permit Expire</th>
-                    <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Days</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                      S.No
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                      Vehicle
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                      Type
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">
+                      Insurance Expire
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">
+                      Days
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">
+                      FC Expire
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">
+                      Days
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">
+                      Permit Expire
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">
+                      Days
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {filteredVehicles && filteredVehicles.length > 0 ? (
-                    [...filteredVehicles].sort((a, b) => {
-                      const aMin = Math.min(
-                        getDaysUntil(a.insurance_expire_date) ?? 9999,
-                        getDaysUntil(a.fc_expire_date) ?? 9999,
-                        getDaysUntil(a.permit_expire_date) ?? 9999
-                      );
-                      const bMin = Math.min(
-                        getDaysUntil(b.insurance_expire_date) ?? 9999,
-                        getDaysUntil(b.fc_expire_date) ?? 9999,
-                        getDaysUntil(b.permit_expire_date) ?? 9999
-                      );
-                      return aMin - bMin;
-                    }).map((v, idx) => {
-                      const insDays = getDaysUntil(v.insurance_expire_date);
-                      const fcDays = getDaysUntil(v.fc_expire_date);
-                      const permitDays = getDaysUntil(v.permit_expire_date);
+                    [...filteredVehicles]
+                      .sort((a, b) => {
+                        const aMin = Math.min(
+                          getDaysUntil(a.insurance_expire_date) ?? 9999,
+                          getDaysUntil(a.fc_expire_date) ?? 9999,
+                          getDaysUntil(a.permit_expire_date) ?? 9999,
+                        );
+                        const bMin = Math.min(
+                          getDaysUntil(b.insurance_expire_date) ?? 9999,
+                          getDaysUntil(b.fc_expire_date) ?? 9999,
+                          getDaysUntil(b.permit_expire_date) ?? 9999,
+                        );
+                        return aMin - bMin;
+                      })
+                      .map((v, idx) => {
+                        const insDays = getDaysUntil(v.insurance_expire_date);
+                        const fcDays = getDaysUntil(v.fc_expire_date);
+                        const permitDays = getDaysUntil(v.permit_expire_date);
 
-                      return (
-                        <tr key={v.id} className="hover:bg-gray-50/50 transition-colors">
-                          <td className="px-4 py-3 text-sm text-gray-600 font-medium">{idx + 1}</td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              {v.vehicle_type === "BUS" ? (
-                                <Bus size={16} className="text-blue-500" />
+                        return (
+                          <tr
+                            key={v.id}
+                            className="hover:bg-gray-50/50 transition-colors"
+                          >
+                            <td className="px-4 py-3 text-sm text-gray-600 font-medium">
+                              {idx + 1}
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                {v.vehicle_type === "BUS" ? (
+                                  <Bus size={16} className="text-blue-500" />
+                                ) : (
+                                  <Car size={16} className="text-green-500" />
+                                )}
+                                <span className="font-semibold text-gray-900">
+                                  {v.bus_name || v.vehicle_number} (
+                                  {v.vehicle_number})
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-600">
+                              {v.vehicle_type}
+                            </td>
+
+                            {/* Insurance Expire - Clickable */}
+                            <td className="px-4 py-3 text-center">
+                              {editingExpiry?.vehicleId === v.id &&
+                              editingExpiry?.field ===
+                                "insurance_expire_date" ? (
+                                <div className="flex items-center gap-1 justify-center">
+                                  <input
+                                    type="date"
+                                    value={expiryFormValue}
+                                    onChange={(e) =>
+                                      setExpiryFormValue(e.target.value)
+                                    }
+                                    className="px-2 py-1 text-sm border border-primary rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                                    autoFocus
+                                  />
+                                  <button
+                                    onClick={handleExpiryUpdate}
+                                    className="p-1 text-green-600 hover:bg-green-50 rounded"
+                                  >
+                                    <Save size={14} />
+                                  </button>
+                                  <button
+                                    onClick={cancelExpiryEdit}
+                                    className="p-1 text-gray-400 hover:bg-gray-100 rounded"
+                                  >
+                                    <X size={14} />
+                                  </button>
+                                </div>
                               ) : (
-                                <Car size={16} className="text-green-500" />
+                                <button
+                                  onClick={() =>
+                                    handleExpiryClick(
+                                      v,
+                                      "insurance_expire_date",
+                                    )
+                                  }
+                                  className="px-2 py-1 text-sm text-gray-700 hover:bg-blue-50 rounded border border-transparent hover:border-blue-200 transition-all cursor-pointer"
+                                  title="Click to update"
+                                >
+                                  {formatDate(v.insurance_expire_date)}
+                                </button>
                               )}
-                              <span className="font-semibold text-gray-900">{v.vehicle_number}</span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-600">{v.vehicle_type}</td>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              {insDays !== null ? (
+                                <span
+                                  className={`px-2 py-1 rounded text-xs font-bold ${getStatusColor(insDays)}`}
+                                >
+                                  {insDays < 0
+                                    ? `${Math.abs(insDays)} overdue`
+                                    : insDays}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </td>
 
-                          {/* Insurance Expire - Clickable */}
-                          <td className="px-4 py-3 text-center">
-                            {editingExpiry?.vehicleId === v.id && editingExpiry?.field === "insurance_expire_date" ? (
-                              <div className="flex items-center gap-1 justify-center">
-                                <input
-                                  type="date"
-                                  value={expiryFormValue}
-                                  onChange={(e) => setExpiryFormValue(e.target.value)}
-                                  className="px-2 py-1 text-sm border border-primary rounded focus:outline-none focus:ring-1 focus:ring-primary"
-                                  autoFocus
-                                />
+                            {/* FC Expire - Clickable */}
+                            <td className="px-4 py-3 text-center">
+                              {editingExpiry?.vehicleId === v.id &&
+                              editingExpiry?.field === "fc_expire_date" ? (
+                                <div className="flex items-center gap-1 justify-center">
+                                  <input
+                                    type="date"
+                                    value={expiryFormValue}
+                                    onChange={(e) =>
+                                      setExpiryFormValue(e.target.value)
+                                    }
+                                    className="px-2 py-1 text-sm border border-primary rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                                    autoFocus
+                                  />
+                                  <button
+                                    onClick={handleExpiryUpdate}
+                                    className="p-1 text-green-600 hover:bg-green-50 rounded"
+                                  >
+                                    <Save size={14} />
+                                  </button>
+                                  <button
+                                    onClick={cancelExpiryEdit}
+                                    className="p-1 text-gray-400 hover:bg-gray-100 rounded"
+                                  >
+                                    <X size={14} />
+                                  </button>
+                                </div>
+                              ) : (
                                 <button
-                                  onClick={handleExpiryUpdate}
-                                  className="p-1 text-green-600 hover:bg-green-50 rounded"
+                                  onClick={() =>
+                                    handleExpiryClick(v, "fc_expire_date")
+                                  }
+                                  className="px-2 py-1 text-sm text-gray-700 hover:bg-green-50 rounded border border-transparent hover:border-green-200 transition-all cursor-pointer"
+                                  title="Click to update"
                                 >
-                                  <Save size={14} />
+                                  {formatDate(v.fc_expire_date)}
                                 </button>
-                                <button
-                                  onClick={cancelExpiryEdit}
-                                  className="p-1 text-gray-400 hover:bg-gray-100 rounded"
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              {fcDays !== null ? (
+                                <span
+                                  className={`px-2 py-1 rounded text-xs font-bold ${getStatusColor(fcDays)}`}
                                 >
-                                  <X size={14} />
-                                </button>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => handleExpiryClick(v, "insurance_expire_date")}
-                                className="px-2 py-1 text-sm text-gray-700 hover:bg-blue-50 rounded border border-transparent hover:border-blue-200 transition-all cursor-pointer"
-                                title="Click to update"
-                              >
-                                {formatDate(v.insurance_expire_date)}
-                              </button>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            {insDays !== null ? (
-                              <span className={`px-2 py-1 rounded text-xs font-bold ${getStatusColor(insDays)}`}>
-                                {insDays < 0 ? `${Math.abs(insDays)} overdue` : insDays}
-                              </span>
-                            ) : <span className="text-gray-400">-</span>}
-                          </td>
+                                  {fcDays < 0
+                                    ? `${Math.abs(fcDays)} overdue`
+                                    : fcDays}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </td>
 
-                          {/* FC Expire - Clickable */}
-                          <td className="px-4 py-3 text-center">
-                            {editingExpiry?.vehicleId === v.id && editingExpiry?.field === "fc_expire_date" ? (
-                              <div className="flex items-center gap-1 justify-center">
-                                <input
-                                  type="date"
-                                  value={expiryFormValue}
-                                  onChange={(e) => setExpiryFormValue(e.target.value)}
-                                  className="px-2 py-1 text-sm border border-primary rounded focus:outline-none focus:ring-1 focus:ring-primary"
-                                  autoFocus
-                                />
+                            {/* Permit Expire - Clickable */}
+                            <td className="px-4 py-3 text-center">
+                              {editingExpiry?.vehicleId === v.id &&
+                              editingExpiry?.field === "permit_expire_date" ? (
+                                <div className="flex items-center gap-1 justify-center">
+                                  <input
+                                    type="date"
+                                    value={expiryFormValue}
+                                    onChange={(e) =>
+                                      setExpiryFormValue(e.target.value)
+                                    }
+                                    className="px-2 py-1 text-sm border border-primary rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                                    autoFocus
+                                  />
+                                  <button
+                                    onClick={handleExpiryUpdate}
+                                    className="p-1 text-green-600 hover:bg-green-50 rounded"
+                                  >
+                                    <Save size={14} />
+                                  </button>
+                                  <button
+                                    onClick={cancelExpiryEdit}
+                                    className="p-1 text-gray-400 hover:bg-gray-100 rounded"
+                                  >
+                                    <X size={14} />
+                                  </button>
+                                </div>
+                              ) : (
                                 <button
-                                  onClick={handleExpiryUpdate}
-                                  className="p-1 text-green-600 hover:bg-green-50 rounded"
+                                  onClick={() =>
+                                    handleExpiryClick(v, "permit_expire_date")
+                                  }
+                                  className="px-2 py-1 text-sm text-gray-700 hover:bg-purple-50 rounded border border-transparent hover:border-purple-200 transition-all cursor-pointer"
+                                  title="Click to update"
                                 >
-                                  <Save size={14} />
+                                  {formatDate(v.permit_expire_date)}
                                 </button>
-                                <button
-                                  onClick={cancelExpiryEdit}
-                                  className="p-1 text-gray-400 hover:bg-gray-100 rounded"
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              {permitDays !== null ? (
+                                <span
+                                  className={`px-2 py-1 rounded text-xs font-bold ${getStatusColor(permitDays)}`}
                                 >
-                                  <X size={14} />
-                                </button>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => handleExpiryClick(v, "fc_expire_date")}
-                                className="px-2 py-1 text-sm text-gray-700 hover:bg-green-50 rounded border border-transparent hover:border-green-200 transition-all cursor-pointer"
-                                title="Click to update"
-                              >
-                                {formatDate(v.fc_expire_date)}
-                              </button>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            {fcDays !== null ? (
-                              <span className={`px-2 py-1 rounded text-xs font-bold ${getStatusColor(fcDays)}`}>
-                                {fcDays < 0 ? `${Math.abs(fcDays)} overdue` : fcDays}
-                              </span>
-                            ) : <span className="text-gray-400">-</span>}
-                          </td>
-
-                          {/* Permit Expire - Clickable */}
-                          <td className="px-4 py-3 text-center">
-                            {editingExpiry?.vehicleId === v.id && editingExpiry?.field === "permit_expire_date" ? (
-                              <div className="flex items-center gap-1 justify-center">
-                                <input
-                                  type="date"
-                                  value={expiryFormValue}
-                                  onChange={(e) => setExpiryFormValue(e.target.value)}
-                                  className="px-2 py-1 text-sm border border-primary rounded focus:outline-none focus:ring-1 focus:ring-primary"
-                                  autoFocus
-                                />
-                                <button
-                                  onClick={handleExpiryUpdate}
-                                  className="p-1 text-green-600 hover:bg-green-50 rounded"
-                                >
-                                  <Save size={14} />
-                                </button>
-                                <button
-                                  onClick={cancelExpiryEdit}
-                                  className="p-1 text-gray-400 hover:bg-gray-100 rounded"
-                                >
-                                  <X size={14} />
-                                </button>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => handleExpiryClick(v, "permit_expire_date")}
-                                className="px-2 py-1 text-sm text-gray-700 hover:bg-purple-50 rounded border border-transparent hover:border-purple-200 transition-all cursor-pointer"
-                                title="Click to update"
-                              >
-                                {formatDate(v.permit_expire_date)}
-                              </button>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            {permitDays !== null ? (
-                              <span className={`px-2 py-1 rounded text-xs font-bold ${getStatusColor(permitDays)}`}>
-                                {permitDays < 0 ? `${Math.abs(permitDays)} overdue` : permitDays}
-                              </span>
-                            ) : <span className="text-gray-400">-</span>}
-                          </td>
-                        </tr>
-                      );
-                    })
+                                  {permitDays < 0
+                                    ? `${Math.abs(permitDays)} overdue`
+                                    : permitDays}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
                   ) : (
                     <tr>
-                      <td colSpan="9" className="px-6 py-12 text-center text-gray-500">
+                      <td
+                        colSpan="9"
+                        className="px-6 py-12 text-center text-gray-500"
+                      >
                         No vehicles found.
                       </td>
                     </tr>
@@ -720,197 +868,203 @@ export default function Vehicles() {
 
       {/* Vehicles Table - Fleet View */}
       {viewMode === "fleet" && (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        {loading ? (
-          <div className="p-12 text-center text-gray-500 flex flex-col items-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--color-primary)] mb-4"></div>
-            <p>Loading fleet data...</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50/50 border-b border-gray-100">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
-                    Vehicle Info
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
-                    Category
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
-                    Specs
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
-                    Route / Location
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filteredVehicles && filteredVehicles.length > 0 ? (
-                  filteredVehicles.map((v) => (
-                    <tr
-                      key={v.id}
-                      className="hover:bg-gray-50/50 transition-colors group"
-                    >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-4">
-                          <div
-                            className={`h-12 w-12 rounded-lg flex items-center justify-center text-xl transition-colors ${
-                              v.vehicle_type === "BUS"
-                                ? "bg-blue-50 text-blue-600"
-                                : v.fuel_type === "EV"
-                                ? "bg-purple-50 text-purple-600"
-                                : v.vehicle_type === "CAR"
-                                ? "bg-emerald-50 text-emerald-600"
-                                : "bg-gray-50 text-gray-600"
-                            }`}
-                          >
-                            {v.vehicle_type === "BUS" ? (
-                              <Bus size={20} />
-                            ) : v.vehicle_type === "CAR" ? (
-                              <Car size={20} />
-                            ) : (
-                              <Truck size={20} />
-                            )}
-                          </div>
-                          <div>
-                            <div className="font-semibold text-gray-900">
-                              {getVehicleLabel(v)}
+        <div className="bg-secondarybg rounded-md shadow-sm border border-gray-200 overflow-hidden">
+          {loading ? (
+            <div className="p-12 text-center text-secondarytext flex flex-col items-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
+              <p>Loading fleet data...</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-primarybg border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
+                      Vehicle Info
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
+                      Category
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
+                      Specs
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
+                      Route / Location
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-4 text-right text-xs font-bold text-secondarytext uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredVehicles && filteredVehicles.length > 0 ? (
+                    filteredVehicles.map((v) => (
+                      <tr
+                        key={v.id}
+                        className="hover:bg-primarybg transition-colors group"
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-4">
+                            <div
+                              className={`h-11 w-11 rounded-md flex items-center justify-center transition-colors ${
+                                v.vehicle_type === "BUS"
+                                  ? "bg-primary/10 text-primary"
+                                  : v.vehicle_type === "CAR"
+                                    ? "bg-green/10 text-green"
+                                    : v.vehicle_type === "BATTERY_VEHICLE"
+                                      ? "bg-pending/10 text-pending"
+                                      : "bg-secondarytext/10 text-secondarytext"
+                              }`}
+                            >
+                              {v.vehicle_type === "BUS" ? (
+                                <Bus size={20} />
+                              ) : v.vehicle_type === "CAR" ? (
+                                <Car size={20} />
+                              ) : v.vehicle_type === "BATTERY_VEHICLE" ? (
+                                <Zap size={20} />
+                              ) : (
+                                <Truck size={20} />
+                              )}
                             </div>
-                            <div className="text-xs text-gray-500 font-mono mt-0.5">
-                              #{v.id} • {v.vehicle_number}
+                            <div>
+                              <div className="font-semibold text-primarytext">
+                                {getVehicleLabel(v)}
+                              </div>
+                              <div className="text-xs text-secondarytext font-mono mt-0.5">
+                                #{v.id} • {v.vehicle_number}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        {v.vehicle_type === "BUS" && (
-                          <span className="inline-flex px-2.5 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700 border border-blue-200">
-                            College Bus
-                          </span>
-                        )}
-                        {v.vehicle_type === "CAR" &&
-                          v.seating_capacity <= 5 && (
-                            <span className="inline-flex px-2.5 py-1 text-xs font-medium rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">
-                              Car (5-Seater)
+                        </td>
+                        <td className="px-6 py-4">
+                          {v.vehicle_type === "BUS" && (
+                            <span className="inline-flex px-3 py-1 text-xs font-medium rounded-full bg-primary/10 text-primary border border-primary/20">
+                              College Bus
                             </span>
                           )}
-                        {v.vehicle_type === "CAR" && v.seating_capacity > 5 && (
-                          <span className="inline-flex px-2.5 py-1 text-xs font-medium rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">
-                            Car (7-Seater)
-                          </span>
-                        )}
-                        {v.vehicle_type === "VAN" && (
-                          <span className="inline-flex px-2.5 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-700 border border-amber-200">
-                            Van
-                          </span>
-                        )}
-                        {v.vehicle_type === "OTHER" && (
-                          <span className="inline-flex px-2.5 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-700 border border-gray-200">
-                            Special Purpose
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col gap-1.5">
-                          <div className="flex items-center gap-2 text-xs font-medium text-gray-700">
-                            {v.fuel_type === "EV" ? (
-                              <Zap size={14} className="text-purple-500" />
-                            ) : (
-                              <Fuel size={14} className="text-gray-400" />
+                          {v.vehicle_type === "CAR" &&
+                            v.seating_capacity <= 5 && (
+                              <span className="inline-flex px-3 py-1 text-xs font-medium rounded-full bg-green/10 text-green border border-green/20">
+                                Car (5-Seater)
+                              </span>
                             )}
-                            {v.fuel_type}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {v.seating_capacity} Seats
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {v.vehicle_type === "BUS" ? (
-                          <div className="flex flex-col text-xs gap-1">
-                            <div className="flex items-center gap-1.5">
-                              <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
-                              <span className="font-medium text-gray-700">
-                                {v.start_point || "?"}
+                          {v.vehicle_type === "CAR" &&
+                            v.seating_capacity > 5 && (
+                              <span className="inline-flex px-3 py-1 text-xs font-medium rounded-full bg-green/10 text-green border border-green/20">
+                                Car (7-Seater)
                               </span>
-                            </div>
-                            <div className="h-3 border-l border-gray-200 ml-[3px]"></div>
-                            <div className="flex items-center gap-1.5">
-                              <div className="w-1.5 h-1.5 rounded-full bg-red-500"></div>
-                              <span className="font-medium text-gray-700">
-                                {v.end_point || "?"}
-                              </span>
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border ${
-                            v.status === "available"
-                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                              : "bg-amber-50 text-amber-700 border-amber-200"
-                          }`}
-                        >
-                          {v.status === "available" ? (
-                            <CheckCircle size={12} />
-                          ) : (
-                            <AlertCircle size={12} />
+                            )}
+                          {v.vehicle_type === "BATTERY_VEHICLE" && (
+                            <span className="inline-flex px-3 py-1 text-xs font-medium rounded-full bg-pending/10 text-pending border border-pending/20">
+                              Battery Vehicle
+                            </span>
                           )}
-                          {v.status === "available"
-                            ? "Available"
-                            : "In Service"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end gap-2">
-                          <button
-                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                            onClick={() => handleEdit(v)}
-                            title="Edit Vehicle"
+                          {v.vehicle_type === "OTHER" && (
+                            <span className="inline-flex px-3 py-1 text-xs font-medium rounded-full bg-secondarytext/10 text-secondarytext border border-secondarytext/20">
+                              Special Purpose
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col gap-1.5">
+                            <div className="flex items-center gap-2 text-xs font-medium text-primarytext">
+                              {v.fuel_type === "EV" ? (
+                                <Zap size={14} className="text-primary" />
+                              ) : (
+                                <Fuel
+                                  size={14}
+                                  className="text-secondarytext"
+                                />
+                              )}
+                              {v.fuel_type}
+                            </div>
+                            <div className="text-xs text-secondarytext">
+                              {v.seating_capacity} Seats
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-secondarytext">
+                          {v.vehicle_type === "BUS" ? (
+                            <div className="flex flex-col text-xs gap-1">
+                              <div className="flex items-center gap-1.5">
+                                <div className="w-1.5 h-1.5 rounded-full bg-green"></div>
+                                <span className="font-medium text-primarytext">
+                                  {v.start_point || "?"}
+                                </span>
+                              </div>
+                              <div className="h-3 border-l border-gray-200 ml-[3px]"></div>
+                              <div className="flex items-center gap-1.5">
+                                <div className="w-1.5 h-1.5 rounded-full bg-red"></div>
+                                <span className="font-medium text-primarytext">
+                                  {v.end_point || "?"}
+                                </span>
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-secondarytext">-</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span
+                            className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full border ${
+                              v.status === "available"
+                                ? "bg-green/10 text-green border-green/20"
+                                : "bg-pending/10 text-pending border-pending/20"
+                            }`}
                           >
-                            <Edit2 size={18} />
-                          </button>
-                          <button
-                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                            onClick={() => handleDelete(v.id)}
-                            title="Delete Vehicle"
-                          >
-                            <Trash2 size={18} />
-                          </button>
+                            {v.status === "available" ? (
+                              <CheckCircle size={12} />
+                            ) : (
+                              <AlertCircle size={12} />
+                            )}
+                            {v.status === "available"
+                              ? "Available"
+                              : "In Service"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex justify-end gap-2">
+                            <button
+                              className="p-2 text-secondarytext hover:text-primary hover:bg-primary/10 rounded-md transition-all"
+                              onClick={() => handleEdit(v)}
+                              title="Edit Vehicle"
+                            >
+                              <Edit2 size={16} />
+                            </button>
+                            <button
+                              className="p-2 text-secondarytext hover:text-red hover:bg-red/10 rounded-md transition-all"
+                              onClick={() => handleDelete(v.id)}
+                              title="Delete Vehicle"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td
+                        colSpan="6"
+                        className="px-6 py-12 text-center text-secondarytext"
+                      >
+                        <div className="flex flex-col items-center gap-3">
+                          <div className="w-12 h-12 bg-primarybg rounded-full flex items-center justify-center">
+                            <Bus size={24} className="text-secondarytext" />
+                          </div>
+                          <p>No vehicles found. Add one to get started.</p>
                         </div>
                       </td>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td
-                      colSpan="6"
-                      className="px-6 py-12 text-center text-gray-500"
-                    >
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
-                          <Bus size={24} className="text-gray-400" />
-                        </div>
-                        <p>No vehicles found. Add one to get started.</p>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Create Vehicle Modal */}
@@ -920,17 +1074,17 @@ export default function Vehicles() {
           onClick={() => setShowCreateModal(false)}
         >
           <div
-            className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col animate-scaleIn"
+            className="bg-white rounded-md shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col animate-scaleIn"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50/50">
               <h2 className="text-lg font-bold text-gray-800">
                 {isEditing ? "Edit" : "Create"}{" "}
                 {vehicleForm.vehicle_type === "BUS" ? "Bus" : "Vehicle"}
               </h2>
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-200 text-gray-500 transition-colors"
+                className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-gray-200 text-gray-500 transition-colors"
               >
                 <X size={20} />
               </button>
@@ -943,13 +1097,13 @@ export default function Vehicles() {
                   Vehicle Category
                 </label>
                 <div className="grid grid-cols-2 gap-2">
-                  {["BUS", "CAR", "VAN", "OTHER"].map((type) => (
+                  {["BUS", "CAR", "BATTERY_VEHICLE", "OTHER"].map((type) => (
                     <button
                       key={type}
                       onClick={() =>
                         setVehicleForm({...vehicleForm, vehicle_type: type})
                       }
-                      className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-medium border transition-all ${
+                      className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-md text-sm font-medium border transition-all ${
                         vehicleForm.vehicle_type === type
                           ? "bg-[var(--color-primary)]/10 border-[var(--color-primary)] text-[var(--color-primary)] ring-1 ring-[var(--color-primary)]"
                           : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
@@ -965,9 +1119,9 @@ export default function Vehicles() {
                           <Car size={16} /> Car
                         </>
                       )}
-                      {type === "VAN" && (
+                      {type === "BATTERY_VEHICLE" && (
                         <>
-                          <Truck size={16} /> Van
+                          <Zap size={16} /> Battery Vehicle
                         </>
                       )}
                       {type === "OTHER" && (
@@ -982,24 +1136,22 @@ export default function Vehicles() {
 
               {/* Basic Info */}
               <div className="space-y-4">
-                {vehicleForm.vehicle_type === "BUS" && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Bus Name / Route Name
-                    </label>
-                    <input
-                      placeholder="e.g., Route A Express"
-                      value={vehicleForm.bus_name}
-                      onChange={(e) =>
-                        setVehicleForm({
-                          ...vehicleForm,
-                          bus_name: e.target.value,
-                        })
-                      }
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none transition-all"
-                    />
-                  </div>
-                )}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Vehicle Name / Route Name
+                  </label>
+                  <input
+                    placeholder="e.g., Route A Express or Staff Car"
+                    value={vehicleForm.bus_name}
+                    onChange={(e) =>
+                      setVehicleForm({
+                        ...vehicleForm,
+                        bus_name: e.target.value,
+                      })
+                    }
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none transition-all"
+                  />
+                </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1014,7 +1166,7 @@ export default function Vehicles() {
                         vehicle_number: e.target.value.toUpperCase(),
                       })
                     }
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none font-mono uppercase transition-all"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none font-mono uppercase transition-all"
                   />
                 </div>
               </div>
@@ -1033,7 +1185,7 @@ export default function Vehicles() {
                         fuel_type: e.target.value,
                       })
                     }
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-white transition-all"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-white transition-all"
                   >
                     <option value="DIESEL">🛢️ Diesel</option>
                     <option value="PETROL">⛽ Petrol</option>
@@ -1054,7 +1206,7 @@ export default function Vehicles() {
                         seating_capacity: parseInt(e.target.value) || 0,
                       })
                     }
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none transition-all"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none transition-all"
                     min="1"
                   />
                 </div>
@@ -1062,7 +1214,7 @@ export default function Vehicles() {
 
               {/* Route Details (Bus Only) */}
               {vehicleForm.vehicle_type === "BUS" && (
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
                   <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
                     Route Details
                   </h4>
@@ -1080,7 +1232,7 @@ export default function Vehicles() {
                             start_point: e.target.value,
                           })
                         }
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-white transition-all"
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-white transition-all"
                       />
                     </div>
                     <div>
@@ -1096,7 +1248,7 @@ export default function Vehicles() {
                             end_point: e.target.value,
                           })
                         }
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-white transition-all"
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-white transition-all"
                       />
                     </div>
                   </div>
@@ -1104,7 +1256,7 @@ export default function Vehicles() {
               )}
 
               {/* Insurance, FC & Permit Dates */}
-              <div className="bg-amber-50 p-4 rounded-lg border border-amber-200">
+              <div className="bg-amber-50 p-4 rounded-md border border-amber-200">
                 <h4 className="text-xs font-semibold text-amber-700 uppercase tracking-wider mb-3">
                   📋 Insurance, FC & Permit Details
                 </h4>
@@ -1122,7 +1274,7 @@ export default function Vehicles() {
                           insurance_expire_date: e.target.value,
                         })
                       }
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-white transition-all"
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-white transition-all"
                     />
                   </div>
                   <div>
@@ -1138,7 +1290,7 @@ export default function Vehicles() {
                           fc_expire_date: e.target.value,
                         })
                       }
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-white transition-all"
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-white transition-all"
                     />
                   </div>
                   <div>
@@ -1154,7 +1306,7 @@ export default function Vehicles() {
                           permit_expire_date: e.target.value,
                         })
                       }
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-white transition-all"
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-white transition-all"
                     />
                   </div>
                 </div>
@@ -1162,7 +1314,7 @@ export default function Vehicles() {
 
               <button
                 onClick={handleSubmit}
-                className="w-full px-4 py-3 bg-[var(--color-primary)] text-white rounded-lg hover:opacity-90 transition-all font-bold shadow-lg shadow-[var(--color-primary)]/25 hover:shadow-xl transform hover:-translate-y-0.5"
+                className="w-full px-4 py-3 bg-[var(--color-primary)] text-white rounded-md hover:opacity-90 transition-all font-bold shadow-lg shadow-[var(--color-primary)]/25 hover:shadow-xl transform hover:-translate-y-0.5"
               >
                 {isEditing ? "Update" : "Create"} Vehicle
               </button>

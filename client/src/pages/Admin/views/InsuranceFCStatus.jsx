@@ -1,4 +1,5 @@
 import React, {useState, useEffect} from "react";
+import {showError} from "../../../utils/swal";
 import {
   Shield,
   FileCheck,
@@ -78,11 +79,11 @@ export default function InsuranceFCStatus() {
 
   // Handle inline expiry date click
   const handleExpiryClick = (vehicle, field) => {
-    setEditingExpiry({ vehicleId: vehicle.id, field });
+    setEditingExpiry({vehicleId: vehicle.id, field});
     // Extract just the date part (YYYY-MM-DD) from the stored value
     const dateValue = vehicle[field];
     if (dateValue) {
-      setExpiryFormValue(dateValue.split('T')[0]);
+      setExpiryFormValue(dateValue.split("T")[0]);
     } else {
       setExpiryFormValue("");
     }
@@ -92,14 +93,14 @@ export default function InsuranceFCStatus() {
   const formatDateForAPI = (dateStr) => {
     if (!dateStr) return null;
     // Already in YYYY-MM-DD format from input[type="date"]
-    return dateStr.split('T')[0];
+    return dateStr.split("T")[0];
   };
 
   // Handle inline expiry date update
   const handleExpiryUpdate = async () => {
     if (!editingExpiry) return;
-    
-    const vehicle = vehicles.find(v => v.id === editingExpiry.vehicleId);
+
+    const vehicle = vehicles.find((v) => v.id === editingExpiry.vehicleId);
     if (!vehicle) return;
 
     // Format all dates to YYYY-MM-DD
@@ -119,7 +120,7 @@ export default function InsuranceFCStatus() {
     try {
       const res = await fetch(`${API_BASE}/api/admin/vehicles/update`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {"Content-Type": "application/json"},
         body: JSON.stringify(updatedVehicle),
       });
 
@@ -128,11 +129,14 @@ export default function InsuranceFCStatus() {
         setEditingExpiry(null);
         setExpiryFormValue("");
       } else {
-        alert("Failed to update expiry date: " + (await res.text()));
+        showError(
+          "Error",
+          "Failed to update expiry date: " + (await res.text()),
+        );
       }
     } catch (err) {
       console.error(err);
-      alert("Error updating expiry date");
+      showError("Error", "Error updating expiry date");
     }
   };
 
@@ -143,9 +147,15 @@ export default function InsuranceFCStatus() {
 
   // Calculate stats
   const getVehicleStats = () => {
-    let insuranceExpired = 0, insuranceCritical = 0, insuranceWarning = 0;
-    let fcExpired = 0, fcCritical = 0, fcWarning = 0;
-    let permitExpired = 0, permitCritical = 0, permitWarning = 0;
+    let insuranceExpired = 0,
+      insuranceCritical = 0,
+      insuranceWarning = 0;
+    let fcExpired = 0,
+      fcCritical = 0,
+      fcWarning = 0;
+    let permitExpired = 0,
+      permitCritical = 0,
+      permitWarning = 0;
 
     vehicles.forEach((v) => {
       const insDays = getDaysUntil(v.insurance_expire_date);
@@ -170,9 +180,17 @@ export default function InsuranceFCStatus() {
     });
 
     return {
-      insurance: { expired: insuranceExpired, critical: insuranceCritical, warning: insuranceWarning },
-      fc: { expired: fcExpired, critical: fcCritical, warning: fcWarning },
-      permit: { expired: permitExpired, critical: permitCritical, warning: permitWarning },
+      insurance: {
+        expired: insuranceExpired,
+        critical: insuranceCritical,
+        warning: insuranceWarning,
+      },
+      fc: {expired: fcExpired, critical: fcCritical, warning: fcWarning},
+      permit: {
+        expired: permitExpired,
+        critical: permitCritical,
+        warning: permitWarning,
+      },
     };
   };
 
@@ -184,21 +202,34 @@ export default function InsuranceFCStatus() {
     if (filterType !== "ALL" && v.vehicle_type !== filterType) return false;
 
     // Search filter
-    if (searchQuery && !v.vehicle_number.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    if (
+      searchQuery &&
+      !v.vehicle_number.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+      return false;
 
     // Status filter
     if (filterStatus !== "ALL") {
       if (filterStatus === "MAINTENANCE") {
-        return v.status === 'under_maintenance';
+        return v.status === "under_maintenance";
       }
-      
+
       const insDays = getDaysUntil(v.insurance_expire_date);
       const fcDays = getDaysUntil(v.fc_expire_date);
       const permitDays = getDaysUntil(v.permit_expire_date);
 
-      const isExpired = (insDays !== null && insDays < 0) || (fcDays !== null && fcDays < 0) || (permitDays !== null && permitDays < 0);
-      const isCritical = (insDays !== null && insDays >= 0 && insDays <= 30) || (fcDays !== null && fcDays >= 0 && fcDays <= 30) || (permitDays !== null && permitDays >= 0 && permitDays <= 30);
-      const isWarning = (insDays !== null && insDays > 30 && insDays <= 90) || (fcDays !== null && fcDays > 30 && fcDays <= 90) || (permitDays !== null && permitDays > 30 && permitDays <= 90);
+      const isExpired =
+        (insDays !== null && insDays < 0) ||
+        (fcDays !== null && fcDays < 0) ||
+        (permitDays !== null && permitDays < 0);
+      const isCritical =
+        (insDays !== null && insDays >= 0 && insDays <= 30) ||
+        (fcDays !== null && fcDays >= 0 && fcDays <= 30) ||
+        (permitDays !== null && permitDays >= 0 && permitDays <= 30);
+      const isWarning =
+        (insDays !== null && insDays > 30 && insDays <= 90) ||
+        (fcDays !== null && fcDays > 30 && fcDays <= 90) ||
+        (permitDays !== null && permitDays > 30 && permitDays <= 90);
 
       if (filterStatus === "EXPIRED" && !isExpired) return false;
       if (filterStatus === "CRITICAL" && !isCritical) return false;
@@ -213,19 +244,29 @@ export default function InsuranceFCStatus() {
     const aMin = Math.min(
       getDaysUntil(a.insurance_expire_date) ?? 9999,
       getDaysUntil(a.fc_expire_date) ?? 9999,
-      getDaysUntil(a.permit_expire_date) ?? 9999
+      getDaysUntil(a.permit_expire_date) ?? 9999,
     );
     const bMin = Math.min(
       getDaysUntil(b.insurance_expire_date) ?? 9999,
       getDaysUntil(b.fc_expire_date) ?? 9999,
-      getDaysUntil(b.permit_expire_date) ?? 9999
+      getDaysUntil(b.permit_expire_date) ?? 9999,
     );
     return aMin - bMin;
   });
 
   // Export to CSV
   const exportCSV = () => {
-    const headers = ["S.No", "Vehicle", "Type", "Insurance Expire", "Insurance Days", "FC Expire", "FC Days", "Permit Expire", "Permit Days"];
+    const headers = [
+      "S.No",
+      "Vehicle",
+      "Type",
+      "Insurance Expire",
+      "Insurance Days",
+      "FC Expire",
+      "FC Days",
+      "Permit Expire",
+      "Permit Days",
+    ];
     const rows = sortedVehicles.map((v, idx) => [
       idx + 1,
       v.vehicle_number,
@@ -238,8 +279,11 @@ export default function InsuranceFCStatus() {
       getDaysUntil(v.permit_expire_date) ?? "-",
     ]);
 
-    const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((r) => r.join(",")),
+    ].join("\n");
+    const blob = new Blob([csvContent], {type: "text/csv;charset=utf-8;"});
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = `vehicle_insurance_fc_status_${new Date().toISOString().split("T")[0]}.csv`;
@@ -256,7 +300,8 @@ export default function InsuranceFCStatus() {
               <Shield className="text-primary" /> Insurance, FC & Permit Status
             </h3>
             <p className="text-sm text-secondarytext mt-1">
-              Track and manage vehicle insurance, fitness certificates, and permits
+              Track and manage vehicle insurance, fitness certificates, and
+              permits
             </p>
           </div>
           <div className="flex gap-2">
@@ -288,15 +333,21 @@ export default function InsuranceFCStatus() {
           </div>
           <div className="grid grid-cols-3 gap-2 text-center">
             <div className="bg-red-50 p-2 rounded-md">
-              <p className="text-xl font-bold text-red-600">{stats.insurance.expired}</p>
+              <p className="text-xl font-bold text-red-600">
+                {stats.insurance.expired}
+              </p>
               <p className="text-xs text-red-600">Expired</p>
             </div>
             <div className="bg-amber-50 p-2 rounded-md">
-              <p className="text-xl font-bold text-amber-600">{stats.insurance.critical}</p>
+              <p className="text-xl font-bold text-amber-600">
+                {stats.insurance.critical}
+              </p>
               <p className="text-xs text-amber-600">{"< 30 days"}</p>
             </div>
             <div className="bg-yellow-50 p-2 rounded-md">
-              <p className="text-xl font-bold text-yellow-600">{stats.insurance.warning}</p>
+              <p className="text-xl font-bold text-yellow-600">
+                {stats.insurance.warning}
+              </p>
               <p className="text-xs text-yellow-600">{"< 90 days"}</p>
             </div>
           </div>
@@ -308,19 +359,27 @@ export default function InsuranceFCStatus() {
             <div className="p-2 bg-green-100 text-green-600 rounded-md">
               <FileCheck size={20} />
             </div>
-            <h4 className="font-bold text-primarytext">Fitness Certificate (FC)</h4>
+            <h4 className="font-bold text-primarytext">
+              Fitness Certificate (FC)
+            </h4>
           </div>
           <div className="grid grid-cols-3 gap-2 text-center">
             <div className="bg-red-50 p-2 rounded-md">
-              <p className="text-xl font-bold text-red-600">{stats.fc.expired}</p>
+              <p className="text-xl font-bold text-red-600">
+                {stats.fc.expired}
+              </p>
               <p className="text-xs text-red-600">Expired</p>
             </div>
             <div className="bg-amber-50 p-2 rounded-md">
-              <p className="text-xl font-bold text-amber-600">{stats.fc.critical}</p>
+              <p className="text-xl font-bold text-amber-600">
+                {stats.fc.critical}
+              </p>
               <p className="text-xs text-amber-600">{"< 30 days"}</p>
             </div>
             <div className="bg-yellow-50 p-2 rounded-md">
-              <p className="text-xl font-bold text-yellow-600">{stats.fc.warning}</p>
+              <p className="text-xl font-bold text-yellow-600">
+                {stats.fc.warning}
+              </p>
               <p className="text-xs text-yellow-600">{"< 90 days"}</p>
             </div>
           </div>
@@ -336,15 +395,21 @@ export default function InsuranceFCStatus() {
           </div>
           <div className="grid grid-cols-3 gap-2 text-center">
             <div className="bg-red-50 p-2 rounded-md">
-              <p className="text-xl font-bold text-red-600">{stats.permit.expired}</p>
+              <p className="text-xl font-bold text-red-600">
+                {stats.permit.expired}
+              </p>
               <p className="text-xs text-red-600">Expired</p>
             </div>
             <div className="bg-amber-50 p-2 rounded-md">
-              <p className="text-xl font-bold text-amber-600">{stats.permit.critical}</p>
+              <p className="text-xl font-bold text-amber-600">
+                {stats.permit.critical}
+              </p>
               <p className="text-xs text-amber-600">{"< 30 days"}</p>
             </div>
             <div className="bg-yellow-50 p-2 rounded-md">
-              <p className="text-xl font-bold text-yellow-600">{stats.permit.warning}</p>
+              <p className="text-xl font-bold text-yellow-600">
+                {stats.permit.warning}
+              </p>
               <p className="text-xs text-yellow-600">{"< 90 days"}</p>
             </div>
           </div>
@@ -356,9 +421,12 @@ export default function InsuranceFCStatus() {
         <div className="flex items-center gap-2 text-sm text-secondarytext font-medium">
           <Filter size={16} /> Filters:
         </div>
-        
+
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+          <Search
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            size={16}
+          />
           <input
             type="text"
             placeholder="Search vehicle..."
@@ -396,7 +464,8 @@ export default function InsuranceFCStatus() {
       <div className="bg-secondarybg rounded-md shadow-sm border border-gray-100 overflow-hidden">
         <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/50">
           <p className="text-sm text-secondarytext">
-            <span className="font-medium text-primarytext">💡 Tip:</span> Click on any expiry date to update it directly
+            <span className="font-medium text-primarytext">💡 Tip:</span> Click
+            on any expiry date to update it directly
           </p>
         </div>
         {loading ? (
@@ -406,17 +475,39 @@ export default function InsuranceFCStatus() {
             <table className="w-full">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="px-4 py-3 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">S.No</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">Vehicle</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">Type</th>
-                  <th className="px-4 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">Insurance Expire</th>
-                  <th className="px-4 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">Days</th>
-                  <th className="px-4 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">FC Expire</th>
-                  <th className="px-4 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">Days</th>
-                  <th className="px-4 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">Permit Expire</th>
-                  <th className="px-4 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">Days</th>
-                  <th className="px-4 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">Replacement</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
+                    S.No
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
+                    Vehicle
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
+                    Type
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">
+                    Insurance Expire
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">
+                    Days
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">
+                    FC Expire
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">
+                    Days
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">
+                    Permit Expire
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">
+                    Days
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">
+                    Replacement
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -427,23 +518,37 @@ export default function InsuranceFCStatus() {
                     const permitDays = getDaysUntil(v.permit_expire_date);
 
                     return (
-                      <tr key={v.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-4 py-3 text-sm text-primarytext font-medium">{idx + 1}</td>
+                      <tr
+                        key={v.id}
+                        className="hover:bg-gray-50 transition-colors"
+                      >
+                        <td className="px-4 py-3 text-sm text-primarytext font-medium">
+                          {idx + 1}
+                        </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
-                            {v.vehicle_type === "BUS" ? <Bus size={16} className="text-blue-500" /> : <Car size={16} className="text-green-500" />}
-                            <span className="font-medium text-primarytext">{v.vehicle_number}</span>
+                            {v.vehicle_type === "BUS" ? (
+                              <Bus size={16} className="text-blue-500" />
+                            ) : (
+                              <Car size={16} className="text-green-500" />
+                            )}
+                            <span className="font-medium text-primarytext">
+                              {v.bus_name || v.vehicle_number} (
+                              {v.vehicle_number})
+                            </span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-sm text-secondarytext">{v.vehicle_type}</td>
-                        
+                        <td className="px-4 py-3 text-sm text-secondarytext">
+                          {v.vehicle_type}
+                        </td>
+
                         {/* Vehicle Status */}
                         <td className="px-4 py-3 text-center">
-                          {v.status === 'under_maintenance' ? (
+                          {v.status === "under_maintenance" ? (
                             <span className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 text-xs font-medium rounded">
                               <Wrench size={12} /> Maintenance
                             </span>
-                          ) : v.status === 'available' ? (
+                          ) : v.status === "available" ? (
                             <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded">
                               <CheckCircle size={12} /> Available
                             </span>
@@ -453,15 +558,18 @@ export default function InsuranceFCStatus() {
                             </span>
                           )}
                         </td>
-                        
+
                         {/* Insurance - Clickable */}
                         <td className="px-4 py-3 text-center text-sm">
-                          {editingExpiry?.vehicleId === v.id && editingExpiry?.field === "insurance_expire_date" ? (
+                          {editingExpiry?.vehicleId === v.id &&
+                          editingExpiry?.field === "insurance_expire_date" ? (
                             <div className="flex items-center gap-1 justify-center">
                               <input
                                 type="date"
                                 value={expiryFormValue}
-                                onChange={(e) => setExpiryFormValue(e.target.value)}
+                                onChange={(e) =>
+                                  setExpiryFormValue(e.target.value)
+                                }
                                 className="px-2 py-1 text-sm border border-primary rounded focus:outline-none focus:ring-1 focus:ring-primary"
                                 autoFocus
                               />
@@ -480,32 +588,49 @@ export default function InsuranceFCStatus() {
                             </div>
                           ) : (
                             <button
-                              onClick={() => handleExpiryClick(v, "insurance_expire_date")}
+                              onClick={() =>
+                                handleExpiryClick(v, "insurance_expire_date")
+                              }
                               className={`px-2 py-1 rounded text-xs font-medium cursor-pointer hover:ring-2 hover:ring-blue-300 transition-all ${getStatusBg(insDays)}`}
                               title="Click to update"
                             >
-                              {v.insurance_expire_date 
-                                ? new Date(v.insurance_expire_date).toLocaleDateString('en-GB', {day: '2-digit', month: 'short', year: 'numeric'})
+                              {v.insurance_expire_date
+                                ? new Date(
+                                    v.insurance_expire_date,
+                                  ).toLocaleDateString("en-GB", {
+                                    day: "2-digit",
+                                    month: "short",
+                                    year: "numeric",
+                                  })
                                 : "Set date"}
                             </button>
                           )}
                         </td>
                         <td className="px-4 py-3 text-center">
                           {insDays !== null ? (
-                            <span className={`px-2 py-1 rounded text-xs font-bold ${getStatusColor(insDays)}`}>
-                              {insDays < 0 ? `${Math.abs(insDays)} overdue` : insDays}
+                            <span
+                              className={`px-2 py-1 rounded text-xs font-bold ${getStatusColor(insDays)}`}
+                            >
+                              {insDays < 0
+                                ? `${Math.abs(insDays)} overdue`
+                                : insDays}
                             </span>
-                          ) : <span className="text-gray-400">-</span>}
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
                         </td>
 
                         {/* FC - Clickable */}
                         <td className="px-4 py-3 text-center text-sm">
-                          {editingExpiry?.vehicleId === v.id && editingExpiry?.field === "fc_expire_date" ? (
+                          {editingExpiry?.vehicleId === v.id &&
+                          editingExpiry?.field === "fc_expire_date" ? (
                             <div className="flex items-center gap-1 justify-center">
                               <input
                                 type="date"
                                 value={expiryFormValue}
-                                onChange={(e) => setExpiryFormValue(e.target.value)}
+                                onChange={(e) =>
+                                  setExpiryFormValue(e.target.value)
+                                }
                                 className="px-2 py-1 text-sm border border-primary rounded focus:outline-none focus:ring-1 focus:ring-primary"
                                 autoFocus
                               />
@@ -524,32 +649,50 @@ export default function InsuranceFCStatus() {
                             </div>
                           ) : (
                             <button
-                              onClick={() => handleExpiryClick(v, "fc_expire_date")}
+                              onClick={() =>
+                                handleExpiryClick(v, "fc_expire_date")
+                              }
                               className={`px-2 py-1 rounded text-xs font-medium cursor-pointer hover:ring-2 hover:ring-green-300 transition-all ${getStatusBg(fcDays)}`}
                               title="Click to update"
                             >
-                              {v.fc_expire_date 
-                                ? new Date(v.fc_expire_date).toLocaleDateString('en-GB', {day: '2-digit', month: 'short', year: 'numeric'})
+                              {v.fc_expire_date
+                                ? new Date(v.fc_expire_date).toLocaleDateString(
+                                    "en-GB",
+                                    {
+                                      day: "2-digit",
+                                      month: "short",
+                                      year: "numeric",
+                                    },
+                                  )
                                 : "Set date"}
                             </button>
                           )}
                         </td>
                         <td className="px-4 py-3 text-center">
                           {fcDays !== null ? (
-                            <span className={`px-2 py-1 rounded text-xs font-bold ${getStatusColor(fcDays)}`}>
-                              {fcDays < 0 ? `${Math.abs(fcDays)} overdue` : fcDays}
+                            <span
+                              className={`px-2 py-1 rounded text-xs font-bold ${getStatusColor(fcDays)}`}
+                            >
+                              {fcDays < 0
+                                ? `${Math.abs(fcDays)} overdue`
+                                : fcDays}
                             </span>
-                          ) : <span className="text-gray-400">-</span>}
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
                         </td>
 
                         {/* Permit - Clickable */}
                         <td className="px-4 py-3 text-center text-sm">
-                          {editingExpiry?.vehicleId === v.id && editingExpiry?.field === "permit_expire_date" ? (
+                          {editingExpiry?.vehicleId === v.id &&
+                          editingExpiry?.field === "permit_expire_date" ? (
                             <div className="flex items-center gap-1 justify-center">
                               <input
                                 type="date"
                                 value={expiryFormValue}
-                                onChange={(e) => setExpiryFormValue(e.target.value)}
+                                onChange={(e) =>
+                                  setExpiryFormValue(e.target.value)
+                                }
                                 className="px-2 py-1 text-sm border border-primary rounded focus:outline-none focus:ring-1 focus:ring-primary"
                                 autoFocus
                               />
@@ -568,39 +711,67 @@ export default function InsuranceFCStatus() {
                             </div>
                           ) : (
                             <button
-                              onClick={() => handleExpiryClick(v, "permit_expire_date")}
+                              onClick={() =>
+                                handleExpiryClick(v, "permit_expire_date")
+                              }
                               className={`px-2 py-1 rounded text-xs font-medium cursor-pointer hover:ring-2 hover:ring-purple-300 transition-all ${getStatusBg(permitDays)}`}
                               title="Click to update"
                             >
-                              {v.permit_expire_date 
-                                ? new Date(v.permit_expire_date).toLocaleDateString('en-GB', {day: '2-digit', month: 'short', year: 'numeric'})
+                              {v.permit_expire_date
+                                ? new Date(
+                                    v.permit_expire_date,
+                                  ).toLocaleDateString("en-GB", {
+                                    day: "2-digit",
+                                    month: "short",
+                                    year: "numeric",
+                                  })
                                 : "Set date"}
                             </button>
                           )}
                         </td>
                         <td className="px-4 py-3 text-center">
                           {permitDays !== null ? (
-                            <span className={`px-2 py-1 rounded text-xs font-bold ${getStatusColor(permitDays)}`}>
-                              {permitDays < 0 ? `${Math.abs(permitDays)} overdue` : permitDays}
+                            <span
+                              className={`px-2 py-1 rounded text-xs font-bold ${getStatusColor(permitDays)}`}
+                            >
+                              {permitDays < 0
+                                ? `${Math.abs(permitDays)} overdue`
+                                : permitDays}
                             </span>
-                          ) : <span className="text-gray-400">-</span>}
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
                         </td>
 
                         {/* Replacement Info */}
                         <td className="px-4 py-3 text-center">
                           {v.fc_replacement_id ? (
                             <div className="text-xs">
-                              <span className={`inline-flex items-center gap-1 px-2 py-1 rounded font-medium ${
-                                v.fc_replacement_status === 'pending' ? 'bg-amber-100 text-amber-700' :
-                                v.fc_replacement_status === 'approved' || v.fc_replacement_status === 'active' ? 'bg-blue-100 text-blue-700' :
-                                'bg-gray-100 text-gray-600'
-                              }`}>
+                              <span
+                                className={`inline-flex items-center gap-1 px-2 py-1 rounded font-medium ${
+                                  v.fc_replacement_status === "pending"
+                                    ? "bg-amber-100 text-amber-700"
+                                    : v.fc_replacement_status === "approved" ||
+                                        v.fc_replacement_status === "active"
+                                      ? "bg-blue-100 text-blue-700"
+                                      : "bg-gray-100 text-gray-600"
+                                }`}
+                              >
                                 <RotateCcw size={12} />
-                                {v.replacement_vehicle_number || v.fc_replacement_status}
+                                {v.replacement_vehicle_number ||
+                                  v.fc_replacement_status}
                               </span>
                               {v.fc_start_date && v.fc_end_date && (
                                 <div className="text-gray-500 mt-1">
-                                  {new Date(v.fc_start_date).toLocaleDateString('en-GB', {day: '2-digit', month: 'short'})} - {new Date(v.fc_end_date).toLocaleDateString('en-GB', {day: '2-digit', month: 'short'})}
+                                  {new Date(v.fc_start_date).toLocaleDateString(
+                                    "en-GB",
+                                    {day: "2-digit", month: "short"},
+                                  )}{" "}
+                                  -{" "}
+                                  {new Date(v.fc_end_date).toLocaleDateString(
+                                    "en-GB",
+                                    {day: "2-digit", month: "short"},
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -613,7 +784,10 @@ export default function InsuranceFCStatus() {
                   })
                 ) : (
                   <tr>
-                    <td colSpan="11" className="px-4 py-12 text-center text-secondarytext">
+                    <td
+                      colSpan="11"
+                      className="px-4 py-12 text-center text-secondarytext"
+                    >
                       No vehicles found matching your filters.
                     </td>
                   </tr>

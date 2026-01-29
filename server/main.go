@@ -23,6 +23,10 @@ func main() {
 
 	// 2. Initialize Database
 	config.InitDB()
+	
+	// Fix database schema issues (ENUM truncation)
+	admin.FixDatabaseSchema()
+
 	bus.InitBusStopsTable()
 	student.InitStudentTransportTables()
 

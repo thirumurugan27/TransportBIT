@@ -14,8 +14,10 @@ import {
 } from "lucide-react";
 import {useAuth} from "../../../context/AuthContext";
 import {apiGet, apiPost} from "../../../utils/api";
+import {useToast} from "../../../context/ToastContext";
 
 export default function LeaveApprovals() {
+  const {showToast} = useToast();
   const [loading, setLoading] = useState(false);
   const [pendingLeaves, setPendingLeaves] = useState([]);
   const [selectedLeave, setSelectedLeave] = useState(null);
@@ -64,10 +66,10 @@ export default function LeaveApprovals() {
         fetchPendingLeaves();
         setShowLeaveModal(false);
       } else {
-        alert("Error: " + (await res.text()));
+        showToast("Error: " + (await res.text()), "error");
       }
     } catch (err) {
-      alert("Error: " + err.message);
+      showToast("Error: " + err.message, "error");
     } finally {
       setActionProcessing(null);
     }
@@ -225,10 +227,10 @@ export default function LeaveApprovals() {
                           leave.status === "admin_approved"
                             ? "bg-green/10 text-green border-green/20"
                             : leave.status === "rejected" &&
-                              leave.incharge_id &&
-                              !leave.admin_id
-                            ? "bg-red/10 text-red border-red/20"
-                            : "bg-pending/10 text-pending border-pending/20"
+                                leave.incharge_id &&
+                                !leave.admin_id
+                              ? "bg-red/10 text-red border-red/20"
+                              : "bg-pending/10 text-pending border-pending/20"
                         }`}
                       >
                         {leave.incharge_approved_at ||
@@ -236,10 +238,10 @@ export default function LeaveApprovals() {
                         leave.status === "admin_approved"
                           ? "Approved"
                           : leave.status === "rejected" &&
-                            leave.incharge_id &&
-                            !leave.admin_id
-                          ? "Rejected"
-                          : "Pending"}
+                              leave.incharge_id &&
+                              !leave.admin_id
+                            ? "Rejected"
+                            : "Pending"}
                       </span>
                     </td>
                     <td className="px-6 py-4">
@@ -249,20 +251,20 @@ export default function LeaveApprovals() {
                           leave.status === "admin_approved"
                             ? "bg-green/10 text-green border-green/20"
                             : leave.status === "rejected" && leave.admin_id
-                            ? "bg-red/10 text-red border-red/20"
-                            : leave.incharge_approved_at
-                            ? "bg-pending/10 text-pending border-pending/20"
-                            : "bg-gray-100 text-gray-400 border-gray-200"
+                              ? "bg-red/10 text-red border-red/20"
+                              : leave.incharge_approved_at
+                                ? "bg-pending/10 text-pending border-pending/20"
+                                : "bg-gray-100 text-gray-400 border-gray-200"
                         }`}
                       >
                         {leave.admin_approved_at ||
                         leave.status === "admin_approved"
                           ? "Approved"
                           : leave.status === "rejected" && leave.admin_id
-                          ? "Rejected"
-                          : leave.incharge_approved_at
-                          ? "Pending"
-                          : "Waiting"}
+                            ? "Rejected"
+                            : leave.incharge_approved_at
+                              ? "Pending"
+                              : "Waiting"}
                       </span>
                     </td>
                   </tr>
@@ -327,7 +329,7 @@ export default function LeaveApprovals() {
                   <p className="font-medium text-gray-800">
                     {calculateDuration(
                       selectedLeave.start_date,
-                      selectedLeave.end_date
+                      selectedLeave.end_date,
                     )}
                   </p>
                 </div>

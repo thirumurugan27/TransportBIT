@@ -1,4 +1,5 @@
 import React, {useState, useEffect} from "react";
+import {showError, showConfirm, showSuccess} from "../../../utils/swal";
 import {
   Loader2,
   Plus,
@@ -17,10 +18,10 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
 // Helper to convert 24h time to 12h AM/PM format
 const formatTimeAMPM = (time24) => {
-  if (!time24) return '';
-  const [hours, minutes] = time24.split(':');
+  if (!time24) return "";
+  const [hours, minutes] = time24.split(":");
   const h = parseInt(hours, 10);
-  const ampm = h >= 12 ? 'PM' : 'AM';
+  const ampm = h >= 12 ? "PM" : "AM";
   const h12 = h % 12 || 12;
   return `${h12}:${minutes} ${ampm}`;
 };
@@ -81,20 +82,24 @@ export default function ScheduleManagement() {
   }, []);
 
   const handleDelete = async (endpoint, id) => {
-    if (!window.confirm("Are you sure you want to delete this item?")) return;
+    const isConfirmed = await showConfirm(
+      "Are you sure?",
+      "Do you really want to delete this item?",
+    );
+    if (!isConfirmed) return;
     try {
       const res = await fetch(`${API_BASE}${endpoint}?id=${id}`, {
         method: "DELETE",
       });
       if (res.ok) {
-        // alert("Deleted successfully");
+        showSuccess("Success", "Deleted successfully");
         fetchData();
       } else {
-        alert("Failed to delete");
+        showError("Error", "Failed to delete");
       }
     } catch (err) {
       console.error(err);
-      alert("Error deleting item");
+      showError("Error", "Error deleting item");
     }
   };
 
@@ -120,10 +125,14 @@ export default function ScheduleManagement() {
       });
     } else {
       // Convert existing shift to slots format
-      const existingSlots = item.slots && item.slots.length > 0 
-        ? item.slots.map(s => ({start_time: s.start_time, end_time: s.end_time}))
-        : [{start_time: item.start_time, end_time: item.end_time}];
-      
+      const existingSlots =
+        item.slots && item.slots.length > 0
+          ? item.slots.map((s) => ({
+              start_time: s.start_time,
+              end_time: s.end_time,
+            }))
+          : [{start_time: item.start_time, end_time: item.end_time}];
+
       setShiftForm({
         name: item.name,
         description: item.description || "",
@@ -135,7 +144,7 @@ export default function ScheduleManagement() {
 
   const handleCreateOrUpdateCluster = async () => {
     if (!clusterForm.name) {
-      alert("Name is required");
+      showError("Error", "Name is required");
       return;
     }
 
@@ -151,7 +160,10 @@ export default function ScheduleManagement() {
         body: JSON.stringify(payload),
       });
       if (res.ok) {
-        // alert(`Group ${isEditing ? "updated" : "created"} successfully!`);
+        showSuccess(
+          "Success",
+          `Group ${isEditing ? "updated" : "created"} successfully!`,
+        );
         setShowModal(false);
         fetchData();
         setClusterForm({
@@ -164,24 +176,27 @@ export default function ScheduleManagement() {
           driver_ids: [],
         });
       } else {
-        alert("Failed: " + (await res.text()));
+        showError("Error", "Failed: " + (await res.text()));
       }
     } catch (err) {
       console.error(err);
-      alert("Error processing group");
+      showError("Error", "Error processing group");
     }
   };
 
   const handleCreateOrUpdateShift = async () => {
     if (!shiftForm.name || shiftForm.slots.length === 0) {
-      alert("Please fill shift name and add at least one time slot");
+      showError(
+        "Error",
+        "Please fill shift name and add at least one time slot",
+      );
       return;
     }
 
     // Validate all slots have start and end time
     for (const slot of shiftForm.slots) {
       if (!slot.start_time || !slot.end_time) {
-        alert("Please fill all time slots completely");
+        showError("Error", "Please fill all time slots completely");
         return;
       }
     }
@@ -189,9 +204,9 @@ export default function ScheduleManagement() {
     const endpoint = isEditing
       ? "/api/admin/shifts/update"
       : "/api/admin/shifts/create";
-    
+
     // Format payload for backend
-    const payload = isEditing 
+    const payload = isEditing
       ? {
           id: editingId,
           name: shiftForm.name,
@@ -213,7 +228,7 @@ export default function ScheduleManagement() {
         body: JSON.stringify(payload),
       });
       if (res.ok) {
-        // alert(`Shift ${isEditing ? "updated" : "created"}!`);
+        showSuccess("Success", `Shift ${isEditing ? "updated" : "created"}!`);
         setShowModal(false);
         fetchData();
         setShiftForm({
@@ -222,11 +237,11 @@ export default function ScheduleManagement() {
           slots: [{start_time: "09:00", end_time: "17:00"}],
         });
       } else {
-        alert("Failed to process shift");
+        showError("Error", "Failed to process shift");
       }
     } catch (e) {
       console.error(e);
-      alert("Error processing shift");
+      showError("Error", "Error processing shift");
     }
   };
 
@@ -479,13 +494,18 @@ export default function ScheduleManagement() {
                           <div className="flex flex-wrap gap-1.5">
                             {shift.slots && shift.slots.length > 0 ? (
                               shift.slots.map((slot, idx) => (
-                                <span key={idx} className="bg-white border border-gray-200 px-3 py-1 rounded-full text-xs font-medium text-primary shadow-sm">
-                                  {formatTimeAMPM(slot.start_time)} - {formatTimeAMPM(slot.end_time)}
+                                <span
+                                  key={idx}
+                                  className="bg-white border border-gray-200 px-3 py-1 rounded-full text-xs font-medium text-primary shadow-sm"
+                                >
+                                  {formatTimeAMPM(slot.start_time)} -{" "}
+                                  {formatTimeAMPM(slot.end_time)}
                                 </span>
                               ))
                             ) : (
                               <span className="bg-white border border-gray-200 px-3 py-1 rounded-full text-xs font-medium text-primary shadow-sm">
-                                {formatTimeAMPM(shift.start_time)} - {formatTimeAMPM(shift.end_time)}
+                                {formatTimeAMPM(shift.start_time)} -{" "}
+                                {formatTimeAMPM(shift.end_time)}
                               </span>
                             )}
                           </div>
@@ -505,7 +525,7 @@ export default function ScheduleManagement() {
                               onClick={() =>
                                 handleDelete(
                                   "/api/admin/shifts/delete",
-                                  shift.id
+                                  shift.id,
                                 )
                               }
                               className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors"
@@ -713,7 +733,7 @@ export default function ScheduleManagement() {
                         {filteredDrivers.length > 0 ? (
                           filteredDrivers.map((driver) => {
                             const isSelected = clusterForm.driver_ids.includes(
-                              driver.id
+                              driver.id,
                             );
                             return (
                               <label
@@ -752,7 +772,7 @@ export default function ScheduleManagement() {
                                           setClusterForm((prev) => ({
                                             ...prev,
                                             driver_ids: prev.driver_ids.filter(
-                                              (id) => id !== driver.id
+                                              (id) => id !== driver.id,
                                             ),
                                           }));
                                         }
@@ -818,14 +838,20 @@ export default function ScheduleManagement() {
                         Time Slots
                       </label>
                       <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-medium">
-                        {shiftForm.slots.length} slot{shiftForm.slots.length !== 1 ? 's' : ''}
+                        {shiftForm.slots.length} slot
+                        {shiftForm.slots.length !== 1 ? "s" : ""}
                       </span>
                     </div>
-                    
+
                     <div className="space-y-3">
                       {shiftForm.slots.map((slot, index) => (
-                        <div key={index} className="flex items-center gap-3 bg-gray-50 p-3 rounded-md border border-gray-200">
-                          <span className="text-xs font-bold text-secondarytext w-6">#{index + 1}</span>
+                        <div
+                          key={index}
+                          className="flex items-center gap-3 bg-gray-50 p-3 rounded-md border border-gray-200"
+                        >
+                          <span className="text-xs font-bold text-secondarytext w-6">
+                            #{index + 1}
+                          </span>
                           <div className="flex-1 grid grid-cols-2 gap-3">
                             <div>
                               <label className="block text-[10px] font-bold text-secondarytext uppercase mb-1">
@@ -862,7 +888,9 @@ export default function ScheduleManagement() {
                             <button
                               type="button"
                               onClick={() => {
-                                const newSlots = shiftForm.slots.filter((_, i) => i !== index);
+                                const newSlots = shiftForm.slots.filter(
+                                  (_, i) => i !== index,
+                                );
                                 setShiftForm({...shiftForm, slots: newSlots});
                               }}
                               className="p-2 text-red-500 hover:bg-red-50 rounded-md transition-colors"
@@ -879,7 +907,10 @@ export default function ScheduleManagement() {
                       onClick={() => {
                         setShiftForm({
                           ...shiftForm,
-                          slots: [...shiftForm.slots, {start_time: "09:00", end_time: "17:00"}]
+                          slots: [
+                            ...shiftForm.slots,
+                            {start_time: "09:00", end_time: "17:00"},
+                          ],
                         });
                       }}
                       className="mt-3 w-full px-4 py-2.5 border-2 border-dashed border-gray-300 rounded-md text-sm font-medium text-secondarytext hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2"

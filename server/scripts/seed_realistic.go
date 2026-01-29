@@ -67,9 +67,9 @@ func main() {
 		{"BUS-88", "BUS", "DIESEL", 45, "in_service"}, // Route 88 - Under maintenance
 		{"BUS-89", "BUS", "CNG", 40, "available"},     // Route 89 - CNG Bus
 
-		// Electric Vehicles
-		{"EV-VAN-01", "VAN", "EV", 12, "available"}, // Electric Van for staff
-		{"EV-VAN-02", "VAN", "EV", 12, "available"}, // Electric Van for hostel
+		// Battery Vehicles (Electric)
+		{"EV-BATT-01", "BATTERY_VEHICLE", "EV", 12, "available"}, // Electric Battery Vehicle for staff
+		{"EV-BATT-02", "BATTERY_VEHICLE", "EV", 12, "available"}, // Electric Battery Vehicle for hostel
 
 		// Cars - 5 Seater
 		{"CAR-5S-01", "CAR", "PETROL", 5, "available"}, // Principal's car
@@ -191,8 +191,8 @@ func main() {
 		{1, 1, 0, "2026-01-05", "assigned"},  // BUS-86 -> Suresh -> Morning 6AM
 		{2, 2, 1, "2026-01-05", "assigned"},  // BUS-87 -> Ganesh -> Morning 7AM
 		{4, 3, 1, "2026-01-05", "assigned"},  // BUS-89 -> Murugan -> Morning 7AM
-		{5, 6, 6, "2026-01-05", "assigned"},  // EV-VAN-01 -> Kumar -> Staff Morning
-		{6, 7, 2, "2026-01-05", "assigned"},  // EV-VAN-02 -> Raja -> Afternoon
+		{5, 6, 6, "2026-01-05", "assigned"},  // EV-BATT-01 -> Kumar -> Staff Morning
+		{6, 7, 2, "2026-01-05", "assigned"},  // EV-BATT-02 -> Raja -> Afternoon
 		{7, 8, 8, "2026-01-05", "assigned"},  // CAR-5S-01 -> Arun -> On-Call
 		{10, 9, 8, "2026-01-05", "assigned"}, // CAR-7S-01 -> Bala -> On-Call
 
@@ -218,8 +218,8 @@ func main() {
 	db.QueryRow("SELECT COUNT(*) FROM vehicles WHERE vehicle_type='BUS'").Scan(&count)
 	fmt.Printf("🚌 Buses:          %d (BUS-85 to BUS-89)\n", count)
 
-	db.QueryRow("SELECT COUNT(*) FROM vehicles WHERE fuel_type='EV'").Scan(&count)
-	fmt.Printf("⚡ Electric Vans:   %d\n", count)
+	db.QueryRow("SELECT COUNT(*) FROM vehicles WHERE vehicle_type='BATTERY_VEHICLE'").Scan(&count)
+	fmt.Printf("⚡ Battery Vehicles: %d\n", count)
 
 	db.QueryRow("SELECT COUNT(*) FROM vehicles WHERE vehicle_type='CAR' AND seating_capacity=5").Scan(&count)
 	fmt.Printf("🚗 Cars (5-seater): %d\n", count)

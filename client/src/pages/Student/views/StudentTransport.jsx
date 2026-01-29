@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from "react";
-import { useAuth } from "../../../context/AuthContext";
+import React, {useState, useEffect} from "react";
+import {useAuth} from "../../../context/AuthContext";
+import {useToast} from "../../../context/ToastContext";
+import {showConfirm} from "../../../utils/swal";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
 export default function StudentTransport() {
-  const { user } = useAuth();
+  const {user} = useAuth();
+  const {showToast} = useToast();
   const studentName = user?.full_name || user?.username || "Student";
   const [transport, setTransport] = useState(null);
   const [payments, setPayments] = useState([]);
@@ -27,14 +30,16 @@ export default function StudentTransport() {
   });
 
   // Transport request form (for new students)
-  const [showTransportRequestModal, setShowTransportRequestModal] = useState(false);
+  const [showTransportRequestModal, setShowTransportRequestModal] =
+    useState(false);
   const [transportRequestForm, setTransportRequestForm] = useState({
     bus_id: 0,
     stop_id: 0,
-    academic_year: new Date().getFullYear() + "-" + (new Date().getFullYear() + 1),
+    academic_year:
+      new Date().getFullYear() + "-" + (new Date().getFullYear() + 1),
     reason: "",
   });
-  
+
   const [submitting, setSubmitting] = useState(false);
 
   const token = localStorage.getItem("token");
@@ -50,7 +55,7 @@ export default function StudentTransport() {
   const fetchTransport = async () => {
     try {
       const res = await fetch(`${API_BASE}/api/student/transport`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {Authorization: `Bearer ${token}`},
       });
       if (res.ok) {
         const data = await res.json();
@@ -73,7 +78,7 @@ export default function StudentTransport() {
   const fetchPayments = async () => {
     try {
       const res = await fetch(`${API_BASE}/api/student/transport/payments`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {Authorization: `Bearer ${token}`},
       });
       if (res.ok) {
         const data = await res.json();
@@ -87,7 +92,7 @@ export default function StudentTransport() {
   const fetchStopRequests = async () => {
     try {
       const res = await fetch(`${API_BASE}/api/student/stop-change/requests`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {Authorization: `Bearer ${token}`},
       });
       if (res.ok) {
         const data = await res.json();
@@ -101,13 +106,13 @@ export default function StudentTransport() {
   const fetchTransportRequests = async () => {
     try {
       const res = await fetch(`${API_BASE}/api/student/transport/requests`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {Authorization: `Bearer ${token}`},
       });
       if (res.ok) {
         const data = await res.json();
         setTransportRequests(data || []);
         // If there's an approved request and no transport yet, re-fetch transport
-        const hasApproved = (data || []).some(r => r.status === 'approved');
+        const hasApproved = (data || []).some((r) => r.status === "approved");
         if (hasApproved && !transport) {
           fetchTransport();
         }
@@ -120,7 +125,7 @@ export default function StudentTransport() {
   const fetchAllBuses = async () => {
     try {
       const res = await fetch(`${API_BASE}/api/student/all-buses`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {Authorization: `Bearer ${token}`},
       });
       if (res.ok) {
         const data = await res.json();
@@ -138,7 +143,7 @@ export default function StudentTransport() {
     }
     try {
       const res = await fetch(`${API_BASE}/api/student/bus/${busId}/stops`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {Authorization: `Bearer ${token}`},
       });
       if (res.ok) {
         const data = await res.json();
@@ -155,7 +160,7 @@ export default function StudentTransport() {
   const handleOpenRequestModal = () => {
     const defaultBusId = transport?.bus_id || 0;
     setStopChangeBusId(defaultBusId);
-    setRequestForm({ requested_stop_id: 0, reason: "" });
+    setRequestForm({requested_stop_id: 0, reason: ""});
     if (defaultBusId) {
       fetchBusStops(defaultBusId, setStopChangeStops);
     } else {
@@ -170,7 +175,11 @@ export default function StudentTransport() {
 
   const handleBusChange = (e) => {
     const busId = parseInt(e.target.value);
-    setTransportRequestForm({ ...transportRequestForm, bus_id: busId, stop_id: 0 });
+    setTransportRequestForm({
+      ...transportRequestForm,
+      bus_id: busId,
+      stop_id: 0,
+    });
     if (busId > 0) {
       fetchBusStops(busId);
     } else {
@@ -181,7 +190,7 @@ export default function StudentTransport() {
   const handleStopChangeBusSelect = (e) => {
     const busId = parseInt(e.target.value);
     setStopChangeBusId(busId);
-    setRequestForm({ ...requestForm, requested_stop_id: 0 });
+    setRequestForm({...requestForm, requested_stop_id: 0});
     if (busId > 0) {
       fetchBusStops(busId, setStopChangeStops);
     } else {
@@ -193,16 +202,16 @@ export default function StudentTransport() {
     setShowRequestModal(false);
     setStopChangeBusId(0);
     setStopChangeStops([]);
-    setRequestForm({ requested_stop_id: 0, reason: "" });
+    setRequestForm({requested_stop_id: 0, reason: ""});
   };
 
   const handleSubmitRequest = async () => {
     if (!stopChangeBusId) {
-      alert("Please select a bus");
+      showToast("Please select a bus", "warning");
       return;
     }
     if (!requestForm.requested_stop_id) {
-      alert("Please select a stop");
+      showToast("Please select a stop", "warning");
       return;
     }
     setSubmitting(true);
@@ -216,15 +225,15 @@ export default function StudentTransport() {
         body: JSON.stringify(requestForm),
       });
       if (res.ok) {
-        alert("Stop change request submitted successfully!");
+        showToast("Stop change request submitted successfully!", "success");
         closeRequestModal();
         fetchStopRequests();
       } else {
         const data = await res.json();
-        alert(data.error || "Failed to submit request");
+        showToast(data.error || "Failed to submit request", "error");
       }
     } catch (err) {
-      alert("Error submitting request");
+      showToast("Error submitting request", "error");
     } finally {
       setSubmitting(false);
     }
@@ -232,29 +241,35 @@ export default function StudentTransport() {
 
   const handleCancelStopRequest = async (requestId) => {
     if (!requestId) return;
-    const confirmCancel = window.confirm("Cancel this request?\nYou can submit a new one afterwards.");
+    const confirmCancel = await showConfirm(
+      "Cancel Request",
+      "Cancel this request?\nYou can submit a new one afterwards.",
+    );
     if (!confirmCancel) return;
 
     setCancellingRequestId(requestId);
     try {
-      const res = await fetch(`${API_BASE}/api/student/stop-change/request/cancel`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+      const res = await fetch(
+        `${API_BASE}/api/student/stop-change/request/cancel`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({request_id: requestId}),
         },
-        body: JSON.stringify({ request_id: requestId }),
-      });
+      );
       if (res.ok) {
-        alert("Request cancelled");
+        showToast("Request cancelled", "success");
         fetchStopRequests();
       } else {
         const data = await res.json();
-        alert(data.error || "Failed to cancel request");
+        showToast(data.error || "Failed to cancel request", "error");
       }
     } catch (err) {
       console.error(err);
-      alert("Error cancelling request");
+      showToast("Error cancelling request", "error");
     } finally {
       setCancellingRequestId(null);
     }
@@ -262,7 +277,7 @@ export default function StudentTransport() {
 
   const handleSubmitTransportRequest = async () => {
     if (!transportRequestForm.bus_id || !transportRequestForm.stop_id) {
-      alert("Please select a bus and stop");
+      showToast("Please select a bus and stop", "warning");
       return;
     }
     setSubmitting(true);
@@ -276,21 +291,25 @@ export default function StudentTransport() {
         body: JSON.stringify(transportRequestForm),
       });
       if (res.ok) {
-        alert("Transport request submitted successfully! Please wait for admin approval.");
+        showToast(
+          "Transport request submitted successfully! Please wait for admin approval.",
+          "success",
+        );
         setShowTransportRequestModal(false);
         setTransportRequestForm({
           bus_id: 0,
           stop_id: 0,
-          academic_year: new Date().getFullYear() + "-" + (new Date().getFullYear() + 1),
+          academic_year:
+            new Date().getFullYear() + "-" + (new Date().getFullYear() + 1),
           reason: "",
         });
         fetchTransportRequests();
       } else {
         const data = await res.json();
-        alert(data.error || "Failed to submit request");
+        showToast(data.error || "Failed to submit request", "error");
       }
     } catch (err) {
-      alert("Error submitting request");
+      showToast("Error submitting request", "error");
     } finally {
       setSubmitting(false);
     }
@@ -303,7 +322,9 @@ export default function StudentTransport() {
       rejected: "bg-red-100 text-red-800",
     };
     return (
-      <span className={`px-3 py-1 rounded-full text-sm font-medium ${styles[status] || "bg-gray-100"}`}>
+      <span
+        className={`px-3 py-1 rounded-full text-sm font-medium ${styles[status] || "bg-gray-100"}`}
+      >
         {status.charAt(0).toUpperCase() + status.slice(1)}
       </span>
     );
@@ -324,14 +345,20 @@ export default function StudentTransport() {
         {/* Header */}
         <div className="bg-gradient-to-r from-primary to-primarydull rounded-xl p-6 text-white shadow-lg">
           <h2 className="text-2xl font-bold mb-1">Request Bus Transport</h2>
-          <p className="text-white/80">You are not assigned to a bus yet. Request a bus and stop to get started!</p>
+          <p className="text-white/80">
+            You are not assigned to a bus yet. Request a bus and stop to get
+            started!
+          </p>
         </div>
 
         {/* Request Transport Card */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-center">
-          <h3 className="text-xl font-bold text-gray-800 mb-2">No Bus Assigned Yet</h3>
+          <h3 className="text-xl font-bold text-gray-800 mb-2">
+            No Bus Assigned Yet
+          </h3>
           <p className="text-gray-600 mb-6">
-            Request a bus route and stop. Once approved by the admin, you will be assigned to the bus.
+            Request a bus route and stop. Once approved by the admin, you will
+            be assigned to the bus.
           </p>
           <button
             onClick={handleOpenTransportRequestModal}
@@ -343,28 +370,43 @@ export default function StudentTransport() {
 
         {/* My Transport Requests */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">My Transport Requests</h3>
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">
+            My Transport Requests
+          </h3>
           {transportRequests.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">No transport requests yet. Submit a request above!</p>
+            <p className="text-gray-500 text-center py-8">
+              No transport requests yet. Submit a request above!
+            </p>
           ) : (
             <div className="space-y-4">
               {transportRequests.map((req) => (
-                <div key={req.id} className="border border-gray-200 rounded-lg p-4">
+                <div
+                  key={req.id}
+                  className="border border-gray-200 rounded-lg p-4"
+                >
                   <div className="flex justify-between items-start mb-3">
                     <div>
-                      <div className="font-medium text-gray-800">{req.bus_name}</div>
-                      <div className="text-sm text-gray-500">Stop: {req.stop_name}</div>
+                      <div className="font-medium text-gray-800">
+                        {req.bus_name}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        Stop: {req.stop_name}
+                      </div>
                     </div>
                     {getStatusBadge(req.status)}
                   </div>
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <span className="text-gray-500">Academic Year:</span>
-                      <span className="ml-2 font-medium">{req.academic_year}</span>
+                      <span className="ml-2 font-medium">
+                        {req.academic_year}
+                      </span>
                     </div>
                     <div>
                       <span className="text-gray-500">Fee:</span>
-                      <span className="ml-2 font-medium">₹{req.fee?.toLocaleString()}</span>
+                      <span className="ml-2 font-medium">
+                        ₹{req.fee?.toLocaleString()}
+                      </span>
                     </div>
                   </div>
                   {req.reason && (
@@ -390,9 +432,13 @@ export default function StudentTransport() {
         {showTransportRequestModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
-              <h3 className="text-xl font-bold text-gray-800 mb-4">Request Bus Transport</h3>
-              
-              <label className="block text-sm font-medium text-gray-700 mb-2">Select Bus Route</label>
+              <h3 className="text-xl font-bold text-gray-800 mb-4">
+                Request Bus Transport
+              </h3>
+
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Select Bus Route
+              </label>
               <select
                 value={transportRequestForm.bus_id}
                 onChange={handleBusChange}
@@ -408,36 +454,62 @@ export default function StudentTransport() {
 
               {transportRequestForm.bus_id > 0 && (
                 <>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Select Stop</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Stop
+                  </label>
                   <select
                     value={transportRequestForm.stop_id}
-                    onChange={(e) => setTransportRequestForm({ ...transportRequestForm, stop_id: parseInt(e.target.value) })}
+                    onChange={(e) =>
+                      setTransportRequestForm({
+                        ...transportRequestForm,
+                        stop_id: parseInt(e.target.value),
+                      })
+                    }
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4"
                   >
                     <option value={0}>-- Select Stop --</option>
                     {busStops.map((stop) => (
-                      <option key={stop.stop_id || stop.id} value={stop.stop_id || stop.id}>
+                      <option
+                        key={stop.stop_id || stop.id}
+                        value={stop.stop_id || stop.id}
+                      >
                         {stop.stop_name} - ₹{stop.fee?.toLocaleString()}
-                        {stop.arrival_time ? ` (Arrives ${stop.arrival_time})` : ""}
+                        {stop.arrival_time
+                          ? ` (Arrives ${stop.arrival_time})`
+                          : ""}
                       </option>
                     ))}
                   </select>
                 </>
               )}
 
-              <label className="block text-sm font-medium text-gray-700 mb-2">Academic Year</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Academic Year
+              </label>
               <input
                 type="text"
                 value={transportRequestForm.academic_year}
-                onChange={(e) => setTransportRequestForm({ ...transportRequestForm, academic_year: e.target.value })}
+                onChange={(e) =>
+                  setTransportRequestForm({
+                    ...transportRequestForm,
+                    academic_year: e.target.value,
+                  })
+                }
                 placeholder="e.g., 2024-2025"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4"
               />
 
-              <label className="block text-sm font-medium text-gray-700 mb-2">Reason (Optional)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Reason (Optional)
+              </label>
               <textarea
                 value={transportRequestForm.reason}
-                onChange={(e) => setTransportRequestForm({ ...transportRequestForm, reason: e.target.value })}
+                onChange={(e) =>
+                  setTransportRequestForm({
+                    ...transportRequestForm,
+                    reason: e.target.value,
+                  })
+                }
                 placeholder="Any additional information..."
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4"
                 rows={2}
@@ -470,15 +542,17 @@ export default function StudentTransport() {
       {/* Header */}
       <div className="bg-gradient-to-r from-primary to-primarydull rounded-xl p-6 text-white shadow-lg">
         <h2 className="text-2xl font-bold mb-1">My Transport</h2>
-        <p className="text-white/80">View your bus details, fees, and manage stop change requests</p>
+        <p className="text-white/80">
+          View your bus details, fees, and manage stop change requests
+        </p>
       </div>
 
       {/* Tabs */}
       <div className="flex space-x-2 border-b border-gray-200">
         {[
-          { id: "details", label: "Transport Details" },
-          { id: "fees", label: "Fee & Payments" },
-          { id: "requests", label: "Stop Change Requests" },
+          {id: "details", label: "Transport Details"},
+          {id: "fees", label: "Fee & Payments"},
+          {id: "requests", label: "Stop Change Requests"},
         ].map((tab) => (
           <button
             key={tab.id}
@@ -499,15 +573,21 @@ export default function StudentTransport() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Bus Info Card */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Bus Information</h3>
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">
+              Bus Information
+            </h3>
             <div className="space-y-3">
               <div className="flex justify-between py-2 border-b border-gray-100">
                 <span className="text-gray-500">Bus Name</span>
-                <span className="font-medium text-gray-800">{transport.bus_name}</span>
+                <span className="font-medium text-gray-800">
+                  {transport.bus_name}
+                </span>
               </div>
               <div className="flex justify-between py-2 border-b border-gray-100">
                 <span className="text-gray-500">Bus Number</span>
-                <span className="font-medium text-gray-800">{transport.bus_number}</span>
+                <span className="font-medium text-gray-800">
+                  {transport.bus_number}
+                </span>
               </div>
               <div className="flex justify-between py-2 border-b border-gray-100">
                 <span className="text-gray-500">Route</span>
@@ -520,25 +600,35 @@ export default function StudentTransport() {
 
           {/* Stop Info Card */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">My Stop</h3>
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">
+              My Stop
+            </h3>
             <div className="space-y-3">
               <div className="flex justify-between py-2 border-b border-gray-100">
                 <span className="text-gray-500">Stop Name</span>
-                <span className="font-medium text-gray-800">{transport.stop_name}</span>
+                <span className="font-medium text-gray-800">
+                  {transport.stop_name}
+                </span>
               </div>
               {transport.stop_location && (
                 <div className="flex justify-between py-2 border-b border-gray-100">
                   <span className="text-gray-500">Location</span>
-                  <span className="font-medium text-gray-800">{transport.stop_location}</span>
+                  <span className="font-medium text-gray-800">
+                    {transport.stop_location}
+                  </span>
                 </div>
               )}
               <div className="flex justify-between py-2 border-b border-gray-100">
                 <span className="text-gray-500">Arrival Time</span>
-                <span className="font-medium text-gray-800">{transport.arrival_time || "N/A"}</span>
+                <span className="font-medium text-gray-800">
+                  {transport.arrival_time || "N/A"}
+                </span>
               </div>
               <div className="flex justify-between py-2">
                 <span className="text-gray-500">Departure Time</span>
-                <span className="font-medium text-gray-800">{transport.departure_time || "N/A"}</span>
+                <span className="font-medium text-gray-800">
+                  {transport.departure_time || "N/A"}
+                </span>
               </div>
             </div>
             <button
@@ -558,15 +648,21 @@ export default function StudentTransport() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-center">
               <div className="text-sm text-gray-500 mb-1">Total Fee</div>
-              <div className="text-2xl font-bold text-gray-800">₹{transport.total_fee?.toLocaleString()}</div>
+              <div className="text-2xl font-bold text-gray-800">
+                ₹{transport.total_fee?.toLocaleString()}
+              </div>
             </div>
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-center">
               <div className="text-sm text-gray-500 mb-1">Paid Amount</div>
-              <div className="text-2xl font-bold text-green-600">₹{transport.paid_amount?.toLocaleString()}</div>
+              <div className="text-2xl font-bold text-green-600">
+                ₹{transport.paid_amount?.toLocaleString()}
+              </div>
             </div>
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-center">
               <div className="text-sm text-gray-500 mb-1">Balance Due</div>
-              <div className={`text-2xl font-bold ${transport.balance > 0 ? "text-red-600" : "text-green-600"}`}>
+              <div
+                className={`text-2xl font-bold ${transport.balance > 0 ? "text-red-600" : "text-green-600"}`}
+              >
                 ₹{transport.balance?.toLocaleString()}
               </div>
             </div>
@@ -574,26 +670,42 @@ export default function StudentTransport() {
 
           {/* Payment History */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Payment History</h3>
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">
+              Payment History
+            </h3>
             {payments.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">No payment records found</p>
+              <p className="text-gray-500 text-center py-8">
+                No payment records found
+              </p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="bg-gray-50">
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Date</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Amount</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Method</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Receipt #</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
+                        Date
+                      </th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
+                        Amount
+                      </th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
+                        Method
+                      </th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
+                        Receipt #
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {payments.map((p) => (
                       <tr key={p.id} className="border-t border-gray-100">
                         <td className="px-4 py-3">{p.payment_date}</td>
-                        <td className="px-4 py-3 font-medium text-green-600">₹{p.amount?.toLocaleString()}</td>
-                        <td className="px-4 py-3 capitalize">{p.payment_method}</td>
+                        <td className="px-4 py-3 font-medium text-green-600">
+                          ₹{p.amount?.toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 capitalize">
+                          {p.payment_method}
+                        </td>
                         <td className="px-4 py-3">{p.receipt_number || "-"}</td>
                       </tr>
                     ))}
@@ -609,7 +721,9 @@ export default function StudentTransport() {
       {activeTab === "requests" && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold text-gray-800">My Stop Change Requests</h3>
+            <h3 className="text-lg font-semibold text-gray-800">
+              My Stop Change Requests
+            </h3>
             <button
               onClick={handleOpenRequestModal}
               className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primarydull transition-colors font-medium"
@@ -618,17 +732,24 @@ export default function StudentTransport() {
             </button>
           </div>
           {stopRequests.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">No stop change requests found</p>
+            <p className="text-gray-500 text-center py-8">
+              No stop change requests found
+            </p>
           ) : (
             <div className="space-y-4">
               {stopRequests.map((req) => (
-                <div key={req.id} className="border border-gray-200 rounded-lg p-4">
+                <div
+                  key={req.id}
+                  className="border border-gray-200 rounded-lg p-4"
+                >
                   <div className="flex justify-between items-start mb-3">
                     <div>
                       <div className="font-medium text-gray-800">
                         {req.current_stop_name} → {req.requested_stop_name}
                       </div>
-                      <div className="text-sm text-gray-500">{req.created_at}</div>
+                      <div className="text-sm text-gray-500">
+                        {req.created_at}
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       {getStatusBadge(req.status)}
@@ -638,7 +759,9 @@ export default function StudentTransport() {
                           disabled={cancellingRequestId === req.id}
                           className="px-3 py-1 text-sm rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
                         >
-                          {cancellingRequestId === req.id ? "Cancelling..." : "Cancel"}
+                          {cancellingRequestId === req.id
+                            ? "Cancelling..."
+                            : "Cancel"}
                         </button>
                       )}
                     </div>
@@ -646,16 +769,23 @@ export default function StudentTransport() {
                   <div className="grid grid-cols-3 gap-4 text-sm">
                     <div>
                       <span className="text-gray-500">Current Fee:</span>
-                      <span className="ml-2 font-medium">₹{req.current_fee?.toLocaleString()}</span>
+                      <span className="ml-2 font-medium">
+                        ₹{req.current_fee?.toLocaleString()}
+                      </span>
                     </div>
                     <div>
                       <span className="text-gray-500">New Fee:</span>
-                      <span className="ml-2 font-medium">₹{req.new_fee?.toLocaleString()}</span>
+                      <span className="ml-2 font-medium">
+                        ₹{req.new_fee?.toLocaleString()}
+                      </span>
                     </div>
                     <div>
                       <span className="text-gray-500">Difference:</span>
-                      <span className={`ml-2 font-medium ${req.fee_difference >= 0 ? "text-red-600" : "text-green-600"}`}>
-                        {req.fee_difference >= 0 ? "+" : ""}₹{req.fee_difference?.toLocaleString()}
+                      <span
+                        className={`ml-2 font-medium ${req.fee_difference >= 0 ? "text-red-600" : "text-green-600"}`}
+                      >
+                        {req.fee_difference >= 0 ? "+" : ""}₹
+                        {req.fee_difference?.toLocaleString()}
                       </span>
                     </div>
                   </div>
@@ -680,17 +810,23 @@ export default function StudentTransport() {
       {showRequestModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">Request Stop Change</h3>
-            
+            <h3 className="text-xl font-bold text-gray-800 mb-4">
+              Request Stop Change
+            </h3>
+
             {transport && (
               <div className="bg-gray-50 rounded-lg p-3 mb-4">
                 <div className="text-sm text-gray-500">Current Stop</div>
                 <div className="font-medium">{transport.stop_name}</div>
-                <div className="text-sm text-gray-500">Fee: ₹{transport.total_fee?.toLocaleString()}</div>
+                <div className="text-sm text-gray-500">
+                  Fee: ₹{transport.total_fee?.toLocaleString()}
+                </div>
               </div>
             )}
 
-            <label className="block text-sm font-medium text-gray-700 mb-2">Select Bus</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Select Bus
+            </label>
             <select
               value={stopChangeBusId}
               onChange={handleStopChangeBusSelect}
@@ -704,26 +840,42 @@ export default function StudentTransport() {
               ))}
             </select>
 
-            <label className="block text-sm font-medium text-gray-700 mb-2">Select New Stop</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Select New Stop
+            </label>
             <select
               value={requestForm.requested_stop_id}
-              onChange={(e) => setRequestForm({ ...requestForm, requested_stop_id: parseInt(e.target.value) })}
+              onChange={(e) =>
+                setRequestForm({
+                  ...requestForm,
+                  requested_stop_id: parseInt(e.target.value),
+                })
+              }
               disabled={!stopChangeBusId}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4 disabled:bg-gray-50"
             >
-              <option value={0}>{stopChangeBusId ? "-- Select Stop --" : "Select a bus first"}</option>
+              <option value={0}>
+                {stopChangeBusId ? "-- Select Stop --" : "Select a bus first"}
+              </option>
               {stopChangeStops.map((stop) => (
-                <option key={stop.stop_id || stop.id} value={stop.stop_id || stop.id}>
+                <option
+                  key={stop.stop_id || stop.id}
+                  value={stop.stop_id || stop.id}
+                >
                   {stop.stop_name} - ₹{stop.fee?.toLocaleString()}
                   {stop.arrival_time ? ` (Arrives ${stop.arrival_time})` : ""}
                 </option>
               ))}
             </select>
 
-            <label className="block text-sm font-medium text-gray-700 mb-2">Reason for Change</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Reason for Change
+            </label>
             <textarea
               value={requestForm.reason}
-              onChange={(e) => setRequestForm({ ...requestForm, reason: e.target.value })}
+              onChange={(e) =>
+                setRequestForm({...requestForm, reason: e.target.value})
+              }
               placeholder="Please explain why you need to change your stop..."
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4"
               rows={3}

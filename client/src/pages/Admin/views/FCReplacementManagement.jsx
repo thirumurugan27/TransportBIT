@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, {useState, useEffect} from "react";
 import {
   Car,
   Calendar,
@@ -15,10 +15,12 @@ import {
   Edit2,
   Trash2,
 } from "lucide-react";
+import {useToast} from "../../../context/ToastContext";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
 export default function FCReplacementManagement() {
+  const {showToast} = useToast();
   const [requests, setRequests] = useState([]);
   const [availableVehicles, setAvailableVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -27,7 +29,7 @@ export default function FCReplacementManagement() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [filter, setFilter] = useState("all");
-  const [vehicleAlerts, setVehicleAlerts] = useState({ alerts: [], total: 0 });
+  const [vehicleAlerts, setVehicleAlerts] = useState({alerts: [], total: 0});
 
   // Edit form state
   const [editFormData, setEditFormData] = useState({
@@ -61,12 +63,13 @@ export default function FCReplacementManagement() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [requestsRes, driversRes, vehiclesRes, alertsRes] = await Promise.all([
-        fetch(`${API_BASE}/api/admin/fc-replacements?status=${filter}`),
-        fetch(`${API_BASE}/api/admin/drivers`),
-        fetch(`${API_BASE}/api/admin/vehicles`),
-        fetch(`${API_BASE}/api/admin/vehicles/alerts`),
-      ]);
+      const [requestsRes, driversRes, vehiclesRes, alertsRes] =
+        await Promise.all([
+          fetch(`${API_BASE}/api/admin/fc-replacements?status=${filter}`),
+          fetch(`${API_BASE}/api/admin/drivers`),
+          fetch(`${API_BASE}/api/admin/vehicles`),
+          fetch(`${API_BASE}/api/admin/vehicles/alerts`),
+        ]);
 
       const requestsData = await requestsRes.json();
       const driversData = await driversRes.json();
@@ -76,7 +79,7 @@ export default function FCReplacementManagement() {
       setRequests(requestsData || []);
       setDrivers(driversData || []);
       setVehicles(vehiclesData || []);
-      setVehicleAlerts(alertsData || { alerts: [], total: 0 });
+      setVehicleAlerts(alertsData || {alerts: [], total: 0});
     } catch (err) {
       console.error(err);
     } finally {
@@ -92,17 +95,19 @@ export default function FCReplacementManagement() {
       return;
     }
     try {
-      const res = await fetch(`${API_BASE}/api/admin/fc-replacements/vehicle-drivers?vehicle_id=${vehicleId}`);
+      const res = await fetch(
+        `${API_BASE}/api/admin/fc-replacements/vehicle-drivers?vehicle_id=${vehicleId}`,
+      );
       const data = await res.json();
       setVehicleDrivers(data || []);
-      
+
       // Check if it's an EV assignment (cluster-based)
-      const hasEVDrivers = data?.some(d => d.is_ev);
+      const hasEVDrivers = data?.some((d) => d.is_ev);
       setIsEVAssignment(hasEVDrivers);
-      
+
       // Auto-select first driver if available
       if (data && data.length > 0) {
-        setFormData(prev => ({ ...prev, driver_id: data[0].id.toString() }));
+        setFormData((prev) => ({...prev, driver_id: data[0].id.toString()}));
       }
     } catch (err) {
       console.error(err);
@@ -113,7 +118,7 @@ export default function FCReplacementManagement() {
     if (!startDate || !endDate) return;
     try {
       const res = await fetch(
-        `${API_BASE}/api/admin/fc-replacements/available-vehicles?start_date=${startDate}&end_date=${endDate}&exclude_vehicle_id=${excludeId}`
+        `${API_BASE}/api/admin/fc-replacements/available-vehicles?start_date=${startDate}&end_date=${endDate}&exclude_vehicle_id=${excludeId}`,
       );
       const data = await res.json();
       setAvailableVehicles(data || []);
@@ -127,7 +132,7 @@ export default function FCReplacementManagement() {
     try {
       const res = await fetch(`${API_BASE}/api/admin/fc-replacements/create`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
           ...formData,
           vehicle_id: parseInt(formData.vehicle_id),
@@ -165,7 +170,7 @@ export default function FCReplacementManagement() {
     try {
       const res = await fetch(`${API_BASE}/api/admin/fc-replacements/approve`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
           request_id: selectedRequest.id,
           replacement_vehicle_id: parseInt(replacementVehicleId),
@@ -190,7 +195,7 @@ export default function FCReplacementManagement() {
     try {
       await fetch(`${API_BASE}/api/admin/fc-replacements/reject`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
           request_id: requestId,
           rejected_by: 1,
@@ -204,13 +209,18 @@ export default function FCReplacementManagement() {
   };
 
   const handleComplete = async (requestId) => {
-    if (!confirm("Mark this replacement as completed and reassign driver to original vehicle?")) return;
+    if (
+      !confirm(
+        "Mark this replacement as completed and reassign driver to original vehicle?",
+      )
+    )
+      return;
 
     try {
       await fetch(`${API_BASE}/api/admin/fc-replacements/complete`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ request_id: requestId }),
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({request_id: requestId}),
       });
       fetchData();
     } catch (err) {
@@ -237,7 +247,7 @@ export default function FCReplacementManagement() {
     try {
       const res = await fetch(`${API_BASE}/api/admin/fc-replacements/update`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
           request_id: parseInt(editFormData.request_id),
           start_date: editFormData.start_date,
@@ -258,44 +268,53 @@ export default function FCReplacementManagement() {
           notes: "",
         });
         fetchData();
-        alert("Request updated successfully!");
+        showToast("Request updated successfully!", "success");
       } else {
         const data = await res.json();
-        alert(data.error || "Failed to update request");
+        showToast(data.error || "Failed to update request", "error");
       }
     } catch (err) {
       console.error(err);
-      alert("Error updating request");
+      showToast("Error updating request", "error");
     }
   };
 
   // Handle delete request
   const handleDelete = async (requestId) => {
-    if (!confirm("Are you sure you want to delete this replacement request? This action cannot be undone.")) return;
+    if (
+      !confirm(
+        "Are you sure you want to delete this replacement request? This action cannot be undone.",
+      )
+    )
+      return;
 
     try {
       const res = await fetch(`${API_BASE}/api/admin/fc-replacements/delete`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ request_id: requestId }),
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({request_id: requestId}),
       });
 
       if (res.ok) {
         fetchData();
-        alert("Request deleted successfully!");
+        showToast("Request deleted successfully!", "success");
       } else {
         const data = await res.json();
-        alert(data.error || "Failed to delete request");
+        showToast(data.error || "Failed to delete request", "error");
       }
     } catch (err) {
       console.error(err);
-      alert("Error deleting request");
+      showToast("Error deleting request", "error");
     }
   };
 
   const openApproveModal = (request) => {
     setSelectedRequest(request);
-    fetchAvailableVehicles(request.start_date, request.end_date, request.vehicle_id);
+    fetchAvailableVehicles(
+      request.start_date,
+      request.end_date,
+      request.vehicle_id,
+    );
     setShowApproveModal(true);
   };
 
@@ -335,7 +354,8 @@ export default function FCReplacementManagement() {
             FC/Insurance Replacement Management
           </h1>
           <p className="text-secondarytext mt-1">
-            Manage temporary vehicle replacements for FC, Insurance, or Permit renewals
+            Manage temporary vehicle replacements for FC, Insurance, or Permit
+            renewals
           </p>
         </div>
         <button
@@ -363,23 +383,47 @@ export default function FCReplacementManagement() {
                 className="bg-white p-3 rounded-md border border-pending/20 flex justify-between items-center"
               >
                 <div>
-                  <p className="font-semibold text-primarytext">{v.vehicle_number}</p>
+                  <p className="font-semibold text-primarytext">
+                    {v.vehicle_number}
+                  </p>
                   <p className="text-xs text-secondarytext">{v.vehicle_type}</p>
                 </div>
                 <div className="text-right text-sm">
                   {v.insurance_days !== null && v.insurance_days <= 10 && (
-                    <p className={v.insurance_days < 0 ? "text-red font-semibold" : "text-pending"}>
-                      Ins: {v.insurance_days < 0 ? "Expired" : `${v.insurance_days}d`}
+                    <p
+                      className={
+                        v.insurance_days < 0
+                          ? "text-red font-semibold"
+                          : "text-pending"
+                      }
+                    >
+                      Ins:{" "}
+                      {v.insurance_days < 0
+                        ? "Expired"
+                        : `${v.insurance_days}d`}
                     </p>
                   )}
                   {v.fc_days !== null && v.fc_days <= 10 && (
-                    <p className={v.fc_days < 0 ? "text-red font-semibold" : "text-pending"}>
+                    <p
+                      className={
+                        v.fc_days < 0
+                          ? "text-red font-semibold"
+                          : "text-pending"
+                      }
+                    >
                       FC: {v.fc_days < 0 ? "Expired" : `${v.fc_days}d`}
                     </p>
                   )}
                   {v.permit_days !== null && v.permit_days <= 10 && (
-                    <p className={v.permit_days < 0 ? "text-red font-semibold" : "text-pending"}>
-                      Permit: {v.permit_days < 0 ? "Expired" : `${v.permit_days}d`}
+                    <p
+                      className={
+                        v.permit_days < 0
+                          ? "text-red font-semibold"
+                          : "text-pending"
+                      }
+                    >
+                      Permit:{" "}
+                      {v.permit_days < 0 ? "Expired" : `${v.permit_days}d`}
                     </p>
                   )}
                 </div>
@@ -393,19 +437,21 @@ export default function FCReplacementManagement() {
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2 text-sm">
           <span className="text-secondarytext font-medium">Status:</span>
-          {["all", "pending", "approved", "completed", "rejected"].map((status) => (
-            <button
-              key={status}
-              onClick={() => setFilter(status)}
-              className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${
-                filter === status
-                  ? "bg-primary text-white"
-                  : "bg-gray-100 text-secondarytext hover:bg-gray-200"
-              }`}
-            >
-              {status}
-            </button>
-          ))}
+          {["all", "pending", "approved", "completed", "rejected"].map(
+            (status) => (
+              <button
+                key={status}
+                onClick={() => setFilter(status)}
+                className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${
+                  filter === status
+                    ? "bg-primary text-white"
+                    : "bg-gray-100 text-secondarytext hover:bg-gray-200"
+                }`}
+              >
+                {status}
+              </button>
+            ),
+          )}
         </div>
         <button
           onClick={fetchData}
@@ -458,20 +504,29 @@ export default function FCReplacementManagement() {
               </tr>
             ) : (
               requests.map((req) => (
-                <tr key={req.id} className="border-b border-gray-50 hover:bg-gray-50">
+                <tr
+                  key={req.id}
+                  className="border-b border-gray-50 hover:bg-gray-50"
+                >
                   <td className="p-4">
                     <div className="flex items-center gap-2">
                       <Car className="w-4 h-4 text-primary" />
                       <div>
-                        <p className="font-semibold text-primarytext">{req.vehicle_number}</p>
-                        <p className="text-xs text-secondarytext">{req.vehicle_type}</p>
+                        <p className="font-semibold text-primarytext">
+                          {req.vehicle_number}
+                        </p>
+                        <p className="text-xs text-secondarytext">
+                          {req.vehicle_type}
+                        </p>
                       </div>
                     </div>
                   </td>
                   <td className="p-4">
                     <div className="flex items-center gap-2">
                       <User className="w-4 h-4 text-gray-400" />
-                      <span className="text-primarytext">{req.driver_name}</span>
+                      <span className="text-primarytext">
+                        {req.driver_name}
+                      </span>
                     </div>
                     {req.driver_notified && (
                       <span className="inline-flex items-center gap-1 text-xs text-green mt-1">
@@ -481,26 +536,36 @@ export default function FCReplacementManagement() {
                   </td>
                   <td className="p-4">
                     {req.replacement_vehicle_number ? (
-                      <span className="font-medium text-green">{req.replacement_vehicle_number}</span>
+                      <span className="font-medium text-green">
+                        {req.replacement_vehicle_number}
+                      </span>
                     ) : (
-                      <span className="text-secondarytext text-sm">Not assigned</span>
+                      <span className="text-secondarytext text-sm">
+                        Not assigned
+                      </span>
                     )}
                   </td>
                   <td className="p-4">
                     <div className="text-sm">
-                      <p className="text-primarytext">{req.start_date} to {req.end_date}</p>
+                      <p className="text-primarytext">
+                        {req.start_date} to {req.end_date}
+                      </p>
                       {req.days_remaining > 0 && req.status === "approved" && (
-                        <p className="text-xs text-pending">{req.days_remaining} days remaining</p>
+                        <p className="text-xs text-pending">
+                          {req.days_remaining} days remaining
+                        </p>
                       )}
                     </div>
                   </td>
                   <td className="p-4">
-                    <span className="text-sm">{getReasonLabel(req.reason)}</span>
+                    <span className="text-sm">
+                      {getReasonLabel(req.reason)}
+                    </span>
                   </td>
                   <td className="p-4">
                     <span
                       className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${getStatusBadge(
-                        req.status
+                        req.status,
                       )}`}
                     >
                       {req.status}
@@ -535,7 +600,8 @@ export default function FCReplacementManagement() {
                         </button>
                       )}
                       {/* Edit and Delete buttons for pending/approved status */}
-                      {(req.status === "pending" || req.status === "approved") && (
+                      {(req.status === "pending" ||
+                        req.status === "approved") && (
                         <>
                           <button
                             onClick={() => openEditModal(req)}
@@ -578,10 +644,18 @@ export default function FCReplacementManagement() {
                   value={formData.vehicle_id}
                   onChange={(e) => {
                     const vehicleId = e.target.value;
-                    setFormData({ ...formData, vehicle_id: vehicleId, driver_id: "" });
+                    setFormData({
+                      ...formData,
+                      vehicle_id: vehicleId,
+                      driver_id: "",
+                    });
                     fetchVehicleDrivers(vehicleId);
                     if (formData.start_date && formData.end_date) {
-                      fetchAvailableVehicles(formData.start_date, formData.end_date, vehicleId);
+                      fetchAvailableVehicles(
+                        formData.start_date,
+                        formData.end_date,
+                        vehicleId,
+                      );
                     }
                   }}
                   className="w-full border rounded-md p-2"
@@ -599,21 +673,34 @@ export default function FCReplacementManagement() {
               {/* Driver Selection with Suggestions */}
               <div>
                 <label className="block text-sm font-medium text-secondarytext mb-1">
-                  Driver {isEVAssignment && <span className="text-primary text-xs">(EV Cluster Assignment)</span>}
+                  Driver{" "}
+                  {isEVAssignment && (
+                    <span className="text-primary text-xs">
+                      (EV Cluster Assignment)
+                    </span>
+                  )}
                 </label>
-                
+
                 {/* Show suggested drivers if vehicle is selected */}
                 {vehicleDrivers.length > 0 && (
                   <div className="mb-2 p-3 bg-primary/5 border border-primary/20 rounded-md">
                     <p className="text-xs text-primary font-medium mb-2">
-                      {isEVAssignment ? "👥 Cluster Drivers (Group Assignment)" : "👤 Assigned Driver(s)"}:
+                      {isEVAssignment
+                        ? "👥 Cluster Drivers (Group Assignment)"
+                        : "👤 Assigned Driver(s)"}
+                      :
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {vehicleDrivers.map((d) => (
                         <button
                           key={d.id}
                           type="button"
-                          onClick={() => setFormData({ ...formData, driver_id: d.id.toString() })}
+                          onClick={() =>
+                            setFormData({
+                              ...formData,
+                              driver_id: d.id.toString(),
+                            })
+                          }
                           className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                             formData.driver_id === d.id.toString()
                               ? "bg-primary text-white"
@@ -621,14 +708,22 @@ export default function FCReplacementManagement() {
                           }`}
                         >
                           {d.full_name}
-                          {d.is_incharge && <span className="ml-1 text-xs">⭐</span>}
-                          {d.cluster_name && <span className="ml-1 text-gray-400">({d.cluster_name})</span>}
+                          {d.is_incharge && (
+                            <span className="ml-1 text-xs">⭐</span>
+                          )}
+                          {d.cluster_name && (
+                            <span className="ml-1 text-gray-400">
+                              ({d.cluster_name})
+                            </span>
+                          )}
                         </button>
                       ))}
                     </div>
                     {isEVAssignment && (
                       <p className="text-xs text-secondarytext mt-2">
-                        💡 This is an EV cluster assignment. All {vehicleDrivers.length} drivers in the cluster will be notified.
+                        💡 This is an EV cluster assignment. All{" "}
+                        {vehicleDrivers.length} drivers in the cluster will be
+                        notified.
                       </p>
                     )}
                   </div>
@@ -636,12 +731,16 @@ export default function FCReplacementManagement() {
 
                 <select
                   value={formData.driver_id}
-                  onChange={(e) => setFormData({ ...formData, driver_id: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({...formData, driver_id: e.target.value})
+                  }
                   className="w-full border rounded-md p-2"
                   required
                 >
                   <option value="">
-                    {vehicleDrivers.length > 0 ? "Or select a different driver" : "Select Driver"}
+                    {vehicleDrivers.length > 0
+                      ? "Or select a different driver"
+                      : "Select Driver"}
                   </option>
                   {drivers.map((d) => (
                     <option key={d.id} value={d.id}>
@@ -660,9 +759,13 @@ export default function FCReplacementManagement() {
                     type="date"
                     value={formData.start_date}
                     onChange={(e) => {
-                      setFormData({ ...formData, start_date: e.target.value });
+                      setFormData({...formData, start_date: e.target.value});
                       if (formData.vehicle_id && formData.end_date) {
-                        fetchAvailableVehicles(e.target.value, formData.end_date, formData.vehicle_id);
+                        fetchAvailableVehicles(
+                          e.target.value,
+                          formData.end_date,
+                          formData.vehicle_id,
+                        );
                       }
                     }}
                     className="w-full border rounded-md p-2"
@@ -677,9 +780,13 @@ export default function FCReplacementManagement() {
                     type="date"
                     value={formData.end_date}
                     onChange={(e) => {
-                      setFormData({ ...formData, end_date: e.target.value });
+                      setFormData({...formData, end_date: e.target.value});
                       if (formData.vehicle_id && formData.start_date) {
-                        fetchAvailableVehicles(formData.start_date, e.target.value, formData.vehicle_id);
+                        fetchAvailableVehicles(
+                          formData.start_date,
+                          e.target.value,
+                          formData.vehicle_id,
+                        );
                       }
                     }}
                     className="w-full border rounded-md p-2"
@@ -694,7 +801,9 @@ export default function FCReplacementManagement() {
                 </label>
                 <select
                   value={formData.reason}
-                  onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({...formData, reason: e.target.value})
+                  }
                   className="w-full border rounded-md p-2"
                   required
                 >
@@ -711,21 +820,30 @@ export default function FCReplacementManagement() {
                 </label>
                 <select
                   value={formData.replacement_vehicle_id}
-                  onChange={(e) => setFormData({ ...formData, replacement_vehicle_id: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      replacement_vehicle_id: e.target.value,
+                    })
+                  }
                   className="w-full border rounded-md p-2"
                 >
                   <option value="">Select Replacement Vehicle</option>
                   {availableVehicles.map((v) => (
                     <option key={v.id} value={v.id}>
-                      {v.vehicle_number} ({v.vehicle_type}) - {v.seating_capacity} seats
+                      {v.vehicle_number} ({v.vehicle_type}) -{" "}
+                      {v.seating_capacity} seats
                     </option>
                   ))}
                 </select>
-                {availableVehicles.length === 0 && formData.start_date && formData.end_date && (
-                  <p className="text-xs text-pending mt-1">
-                    No vehicles available for selected dates. Please select dates first.
-                  </p>
-                )}
+                {availableVehicles.length === 0 &&
+                  formData.start_date &&
+                  formData.end_date && (
+                    <p className="text-xs text-pending mt-1">
+                      No vehicles available for selected dates. Please select
+                      dates first.
+                    </p>
+                  )}
               </div>
 
               <div>
@@ -734,7 +852,9 @@ export default function FCReplacementManagement() {
                 </label>
                 <textarea
                   value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({...formData, notes: e.target.value})
+                  }
                   className="w-full border rounded-md p-2"
                   rows={3}
                   placeholder="Additional notes..."
@@ -783,17 +903,20 @@ export default function FCReplacementManagement() {
             </h2>
             <div className="bg-gray-50 rounded-md p-4 mb-4">
               <p className="text-sm">
-                <span className="font-medium">Vehicle:</span> {selectedRequest.vehicle_number}
+                <span className="font-medium">Vehicle:</span>{" "}
+                {selectedRequest.vehicle_number}
               </p>
               <p className="text-sm">
-                <span className="font-medium">Driver:</span> {selectedRequest.driver_name}
+                <span className="font-medium">Driver:</span>{" "}
+                {selectedRequest.driver_name}
               </p>
               <p className="text-sm">
-                <span className="font-medium">Period:</span> {selectedRequest.start_date} to{" "}
-                {selectedRequest.end_date}
+                <span className="font-medium">Period:</span>{" "}
+                {selectedRequest.start_date} to {selectedRequest.end_date}
               </p>
               <p className="text-sm">
-                <span className="font-medium">Reason:</span> {getReasonLabel(selectedRequest.reason)}
+                <span className="font-medium">Reason:</span>{" "}
+                {getReasonLabel(selectedRequest.reason)}
               </p>
             </div>
 
@@ -814,9 +937,12 @@ export default function FCReplacementManagement() {
                   >
                     <div className="flex justify-between items-center">
                       <div>
-                        <p className="font-semibold text-primarytext">{v.vehicle_number}</p>
+                        <p className="font-semibold text-primarytext">
+                          {v.vehicle_number}
+                        </p>
                         <p className="text-xs text-secondarytext">
-                          {v.vehicle_type} • {v.seating_capacity} seats • {v.fuel_type}
+                          {v.vehicle_type} • {v.seating_capacity} seats •{" "}
+                          {v.fuel_type}
                         </p>
                       </div>
                       <CheckCircle className="w-5 h-5 text-green" />
@@ -850,14 +976,18 @@ export default function FCReplacementManagement() {
             </h2>
             <div className="bg-gray-50 rounded-md p-4 mb-4">
               <p className="text-sm">
-                <span className="font-medium">Vehicle:</span> {selectedRequest.vehicle_number}
+                <span className="font-medium">Vehicle:</span>{" "}
+                {selectedRequest.vehicle_number}
               </p>
               <p className="text-sm">
-                <span className="font-medium">Driver:</span> {selectedRequest.driver_name}
+                <span className="font-medium">Driver:</span>{" "}
+                {selectedRequest.driver_name}
               </p>
               <p className="text-sm">
                 <span className="font-medium">Status:</span>{" "}
-                <span className={`px-2 py-0.5 rounded text-xs font-medium capitalize ${getStatusBadge(selectedRequest.status)}`}>
+                <span
+                  className={`px-2 py-0.5 rounded text-xs font-medium capitalize ${getStatusBadge(selectedRequest.status)}`}
+                >
                   {selectedRequest.status}
                 </span>
               </p>
@@ -872,7 +1002,12 @@ export default function FCReplacementManagement() {
                   <input
                     type="date"
                     value={editFormData.start_date}
-                    onChange={(e) => setEditFormData({ ...editFormData, start_date: e.target.value })}
+                    onChange={(e) =>
+                      setEditFormData({
+                        ...editFormData,
+                        start_date: e.target.value,
+                      })
+                    }
                     className="w-full border rounded-md p-2"
                     required
                   />
@@ -884,7 +1019,12 @@ export default function FCReplacementManagement() {
                   <input
                     type="date"
                     value={editFormData.end_date}
-                    onChange={(e) => setEditFormData({ ...editFormData, end_date: e.target.value })}
+                    onChange={(e) =>
+                      setEditFormData({
+                        ...editFormData,
+                        end_date: e.target.value,
+                      })
+                    }
                     className="w-full border rounded-md p-2"
                     required
                   />
@@ -897,7 +1037,9 @@ export default function FCReplacementManagement() {
                 </label>
                 <select
                   value={editFormData.reason}
-                  onChange={(e) => setEditFormData({ ...editFormData, reason: e.target.value })}
+                  onChange={(e) =>
+                    setEditFormData({...editFormData, reason: e.target.value})
+                  }
                   className="w-full border rounded-md p-2"
                   required
                 >
@@ -914,7 +1056,9 @@ export default function FCReplacementManagement() {
                 </label>
                 <textarea
                   value={editFormData.notes}
-                  onChange={(e) => setEditFormData({ ...editFormData, notes: e.target.value })}
+                  onChange={(e) =>
+                    setEditFormData({...editFormData, notes: e.target.value})
+                  }
                   className="w-full border rounded-md p-2"
                   rows={3}
                   placeholder="Additional notes..."

@@ -1,4 +1,5 @@
 import React, {useState, useEffect} from "react";
+import {showError, showSuccess} from "../../../utils/swal";
 import {
   CheckCircle2,
   XCircle,
@@ -81,10 +82,10 @@ export default function LeaveApprovals() {
           fetchLeaveRequests();
         }
       } else {
-        alert("Failed: " + (await res.text()));
+        showError("Error", "Failed: " + (await res.text()));
       }
     } catch (err) {
-      alert("Error: " + err.message);
+      showError("Error", err.message);
     } finally {
       setActionProcessing(null);
     }
@@ -94,7 +95,7 @@ export default function LeaveApprovals() {
     assignmentId,
     newDriverId,
     startDate,
-    endDate
+    endDate,
   ) => {
     try {
       const res = await fetch(
@@ -108,7 +109,7 @@ export default function LeaveApprovals() {
             start_date: startDate,
             end_date: endDate,
           }),
-        }
+        },
       );
       if (res.ok) {
         const remaining = reassignData.filter((a) => a.id !== assignmentId);
@@ -116,10 +117,10 @@ export default function LeaveApprovals() {
         if (remaining.length === 0) {
           setShowReassignModal(false);
           fetchLeaveRequests();
-          alert("All affected assignments handled.");
+          showSuccess("Success", "All affected assignments handled.");
         }
       } else {
-        alert("Failed to reassign: " + (await res.text()));
+        showError("Error", "Failed to reassign: " + (await res.text()));
       }
     } catch (e) {
       console.error(e);
@@ -144,12 +145,12 @@ export default function LeaveApprovals() {
       statusFilter === "ALL"
         ? true
         : statusFilter === "PENDING"
-        ? leave.status === "incharge_approved" || leave.status === "pending"
-        : statusFilter === "APPROVED"
-        ? leave.status === "approved" || leave.status === "admin_approved"
-        : statusFilter === "REJECTED"
-        ? leave.status === "rejected"
-        : true;
+          ? leave.status === "incharge_approved" || leave.status === "pending"
+          : statusFilter === "APPROVED"
+            ? leave.status === "approved" || leave.status === "admin_approved"
+            : statusFilter === "REJECTED"
+              ? leave.status === "rejected"
+              : true;
 
     return matchesSearch && matchesStatus;
   });
@@ -285,10 +286,10 @@ export default function LeaveApprovals() {
                             leave.incharge_approved_at
                               ? "bg-green/10 text-green border-green/20"
                               : leave.status === "rejected" &&
-                                leave.incharge_id &&
-                                !leave.admin_id
-                              ? "bg-red/10 text-red border-red/20"
-                              : "bg-pending/10 text-pending border-pending/20"
+                                  leave.incharge_id &&
+                                  !leave.admin_id
+                                ? "bg-red/10 text-red border-red/20"
+                                : "bg-pending/10 text-pending border-pending/20"
                           }`}
                         >
                           {leave.status === "incharge_approved" ||
@@ -296,10 +297,10 @@ export default function LeaveApprovals() {
                           leave.incharge_approved_at
                             ? "APPROVED"
                             : leave.status === "rejected" &&
-                              leave.incharge_id &&
-                              !leave.admin_id
-                            ? "REJECTED"
-                            : "PENDING"}
+                                leave.incharge_id &&
+                                !leave.admin_id
+                              ? "REJECTED"
+                              : "PENDING"}
                         </span>
                       </div>
                     </td>
@@ -310,19 +311,19 @@ export default function LeaveApprovals() {
                             leave.status === "admin_approved"
                               ? "bg-green/10 text-green border-green/20"
                               : leave.status === "rejected" && leave.admin_id
-                              ? "bg-red/10 text-red border-red/20"
-                              : leave.status === "incharge_approved"
-                              ? "bg-pending/10 text-pending border-pending/20"
-                              : "bg-gray-100 text-gray-400 border-gray-200"
+                                ? "bg-red/10 text-red border-red/20"
+                                : leave.status === "incharge_approved"
+                                  ? "bg-pending/10 text-pending border-pending/20"
+                                  : "bg-gray-100 text-gray-400 border-gray-200"
                           }`}
                         >
                           {leave.status === "admin_approved"
                             ? "APPROVED"
                             : leave.status === "rejected" && leave.admin_id
-                            ? "REJECTED"
-                            : leave.status === "incharge_approved"
-                            ? "PENDING"
-                            : "WAITING"}
+                              ? "REJECTED"
+                              : leave.status === "incharge_approved"
+                                ? "PENDING"
+                                : "WAITING"}
                         </span>
                       </div>
                     </td>
@@ -388,7 +389,7 @@ export default function LeaveApprovals() {
                   <p className="font-medium text-gray-800">
                     {calculateDuration(
                       selectedLeave.start_date,
-                      selectedLeave.end_date
+                      selectedLeave.end_date,
                     )}
                   </p>
                 </div>
@@ -590,7 +591,7 @@ export default function LeaveApprovals() {
                               item.id,
                               parseInt(e.target.value),
                               item.start_date,
-                              item.end_date
+                              item.end_date,
                             );
                         }}
                         defaultValue=""

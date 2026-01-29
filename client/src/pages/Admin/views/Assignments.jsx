@@ -17,20 +17,23 @@ import {
   Users,
   TrendingUp,
 } from "lucide-react";
+import {useToast} from "../../../context/ToastContext";
+import {showConfirm, showError, showSuccess} from "../../../utils/swal";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
 // Helper to convert 24h time to 12h AM/PM format
 const formatTimeAMPM = (time24) => {
-  if (!time24) return '';
-  const [hours, minutes] = time24.split(':');
+  if (!time24) return "";
+  const [hours, minutes] = time24.split(":");
   const h = parseInt(hours, 10);
-  const ampm = h >= 12 ? 'PM' : 'AM';
+  const ampm = h >= 12 ? "PM" : "AM";
   const h12 = h % 12 || 12;
   return `${h12}:${minutes} ${ampm}`;
 };
 
 export default function Assignments() {
+  const {showToast} = useToast();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("bus"); // bus, car, ev
 
@@ -72,7 +75,9 @@ export default function Assignments() {
     setLoadingEvDetails(true);
     setShowEvDetailsModal(true);
     try {
-      const res = await fetch(`${API_BASE}/api/admin/ev-assignments/${assignmentId}/details`);
+      const res = await fetch(
+        `${API_BASE}/api/admin/ev-assignments/${assignmentId}/details`,
+      );
       if (res.ok) {
         const data = await res.json();
         setEvDetails(data);
@@ -91,10 +96,10 @@ export default function Assignments() {
     try {
       const [bus, car, ev, s, v, d] = await Promise.all([
         fetch(
-          `${API_BASE}/api/admin/assignments/by-category?category=BUS`
+          `${API_BASE}/api/admin/assignments/by-category?category=BUS`,
         ).then((r) => r.json()),
         fetch(
-          `${API_BASE}/api/admin/assignments/by-category?category=CAR`
+          `${API_BASE}/api/admin/assignments/by-category?category=CAR`,
         ).then((r) => r.json()),
         fetch(`${API_BASE}/api/admin/ev-assignments`).then((r) => r.json()),
         fetch(`${API_BASE}/api/admin/shifts`).then((r) => r.json()),
@@ -154,7 +159,7 @@ export default function Assignments() {
       !assignmentForm.start_date ||
       !assignmentForm.end_date
     ) {
-      alert("Please fill all fields");
+      showToast("Please fill all fields", "warning");
       return;
     }
 
@@ -176,7 +181,7 @@ export default function Assignments() {
       });
 
       if (res.ok) {
-        alert("Assignment created successfully!");
+        showToast("Assignment created successfully!", "success");
         setShowCreateModal(false);
         setConflictModal(null);
         setConflictPendingForm(null);
@@ -187,26 +192,30 @@ export default function Assignments() {
         if (data.error === "time_conflict") {
           setConflictPendingForm({...assignmentForm});
           setConflictModal({
-            message: data.message || "Driver is already assigned during this time",
+            message:
+              data.message || "Driver is already assigned during this time",
             conflicts: data.conflicts || [],
           });
         } else {
-          alert(data.message || "Conflict error");
+          showToast(data.message || "Conflict error", "error");
         }
       } else {
         const errorData = await res.json().catch(() => ({}));
-        alert("Failed to create assignment: " + (errorData.error || res.statusText));
+        showToast(
+          "Failed to create assignment: " + (errorData.error || res.statusText),
+          "error",
+        );
       }
     } catch (err) {
       console.error(err);
-      alert("Error creating assignment");
+      showToast("Error creating assignment", "error");
     }
   };
 
   // Force assign after viewing conflict warning
   const handleForceAssign = async () => {
     if (!conflictPendingForm) return;
-    
+
     const endpoint =
       createModalType === "ev"
         ? `${API_BASE}/api/admin/ev-assignments/create`
@@ -225,39 +234,48 @@ export default function Assignments() {
       });
 
       if (res.ok) {
-        alert("Assignment created successfully (forced)!");
+        showToast("Assignment created successfully (forced)!", "success");
         setShowCreateModal(false);
         setConflictModal(null);
         setConflictPendingForm(null);
         fetchAllData();
       } else {
         const errorData = await res.json().catch(() => ({}));
-        alert("Failed to force assign: " + (errorData.error || res.statusText));
+        showToast(
+          "Failed to force assign: " + (errorData.error || res.statusText),
+          "error",
+        );
       }
     } catch (err) {
       console.error(err);
-      alert("Error creating assignment");
+      showToast("Error creating assignment", "error");
     }
   };
 
   // Get available drivers (those not conflicting with selected shift/dates)
   const getAvailableDriversForSelection = () => {
     if (!conflictModal || !conflictPendingForm) return availableDrivers;
-    
+
     // Filter out the currently selected driver (who has conflict)
-    return availableDrivers.filter(d => d.id !== conflictPendingForm.driver_id);
+    return availableDrivers.filter(
+      (d) => d.id !== conflictPendingForm.driver_id,
+    );
   };
 
   // Select a different driver from conflict modal
   const handleSelectAlternateDriver = (driverId) => {
-    setAssignmentForm(prev => ({...prev, driver_id: driverId}));
+    setAssignmentForm((prev) => ({...prev, driver_id: driverId}));
     setConflictModal(null);
     setConflictPendingForm(null);
     // Don't auto-submit, let user review and click Create again
   };
 
   const handleDelete = async (id, isEv = false) => {
-    if (!window.confirm("Are you sure?")) return;
+    const isConfirmed = await showConfirm(
+      "Are you sure?",
+      "Are you sure you want to delete this assignment?",
+    );
+    if (!isConfirmed) return;
     const endpoint = isEv
       ? "/api/admin/ev-assignments/delete"
       : "/api/admin/assignments/delete";
@@ -266,10 +284,10 @@ export default function Assignments() {
         method: "DELETE",
       });
       if (res.ok) {
-        alert("Deleted successfully");
+        showToast("Deleted successfully", "success");
         fetchAllData();
       } else {
-        alert("Failed to delete");
+        showToast("Failed to delete", "error");
       }
     } catch (err) {
       console.error(err);
@@ -289,11 +307,11 @@ export default function Assignments() {
         }),
       });
       if (res.ok) {
-        alert("Reassigned successfully");
+        showToast("Reassigned successfully", "success");
         setReassignModal(null);
         fetchAllData();
       } else {
-        alert("Failed to reassign");
+        showToast("Failed to reassign", "error");
       }
     } catch (err) {
       console.error(err);
@@ -322,12 +340,13 @@ export default function Assignments() {
     },
     {
       label: "Active Today",
-      value: busAssignments
-        .concat(carAssignments)
-        .filter((a) => {
-          const today = new Date().toISOString().split("T")[0];
-          return (a.start_date <= today && a.end_date >= today) || a.assigned_date === today;
-        }).length,
+      value: busAssignments.concat(carAssignments).filter((a) => {
+        const today = new Date().toISOString().split("T")[0];
+        return (
+          (a.start_date <= today && a.end_date >= today) ||
+          a.assigned_date === today
+        );
+      }).length,
       icon: Calendar,
       color: "bg-red/10 text-red",
     },
@@ -456,14 +475,14 @@ export default function Assignments() {
             {(activeTab === "bus"
               ? busAssignments
               : activeTab === "car"
-              ? carAssignments
-              : evAssignments
+                ? carAssignments
+                : evAssignments
             ).length > 0 ? (
               (activeTab === "bus"
                 ? busAssignments
                 : activeTab === "car"
-                ? carAssignments
-                : evAssignments
+                  ? carAssignments
+                  : evAssignments
               ).map((a) => (
                 <div
                   key={a.id}
@@ -476,8 +495,8 @@ export default function Assignments() {
                           activeTab === "bus"
                             ? "bg-primary"
                             : activeTab === "car"
-                            ? "bg-green"
-                            : "bg-pending"
+                              ? "bg-green"
+                              : "bg-pending"
                         }`}
                       >
                         {activeTab === "bus" ? (
@@ -493,7 +512,9 @@ export default function Assignments() {
                           {a.vehicle_number}
                         </p>
                         <p className="text-sm text-secondarytext">
-                          {a.start_date === a.end_date ? a.start_date : `${a.start_date} to ${a.end_date}`}{" "}
+                          {a.start_date === a.end_date
+                            ? a.start_date
+                            : `${a.start_date} to ${a.end_date}`}{" "}
                           {a.cluster_name && `(${a.cluster_name})`}
                         </p>
                       </div>
@@ -505,7 +526,8 @@ export default function Assignments() {
                         </span>
                       )}
                       <span className="text-xs text-secondarytext">
-                        {formatTimeAMPM(a.start_time)} - {formatTimeAMPM(a.end_time)}
+                        {formatTimeAMPM(a.start_time)} -{" "}
+                        {formatTimeAMPM(a.end_time)}
                       </span>
                     </div>
 
@@ -534,27 +556,35 @@ export default function Assignments() {
                       </div>
                     )}
 
-                    {activeTab === "ev" && a.drivers && a.drivers.length > 0 && (
-                      <div className="flex items-center gap-2">
-                        <div className="flex -space-x-2">
-                          {a.drivers.slice(0, 4).map((driver, idx) => (
-                            <div
-                              key={driver.driver_id}
-                              className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-xs font-medium border-2 border-white"
-                              title={driver.driver_name}
-                            >
-                              {driver.driver_name.split(' ').map(n => n[0]).join('').substring(0, 2)}
-                            </div>
-                          ))}
-                          {a.drivers.length > 4 && (
-                            <div className="w-8 h-8 rounded-full bg-gray-300 text-gray-600 flex items-center justify-center text-xs font-medium border-2 border-white">
-                              +{a.drivers.length - 4}
-                            </div>
-                          )}
+                    {activeTab === "ev" &&
+                      a.drivers &&
+                      a.drivers.length > 0 && (
+                        <div className="flex items-center gap-2">
+                          <div className="flex -space-x-2">
+                            {a.drivers.slice(0, 4).map((driver, idx) => (
+                              <div
+                                key={driver.driver_id}
+                                className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-xs font-medium border-2 border-white"
+                                title={driver.driver_name}
+                              >
+                                {driver.driver_name
+                                  .split(" ")
+                                  .map((n) => n[0])
+                                  .join("")
+                                  .substring(0, 2)}
+                              </div>
+                            ))}
+                            {a.drivers.length > 4 && (
+                              <div className="w-8 h-8 rounded-full bg-gray-300 text-gray-600 flex items-center justify-center text-xs font-medium border-2 border-white">
+                                +{a.drivers.length - 4}
+                              </div>
+                            )}
+                          </div>
+                          <span className="text-xs text-secondarytext">
+                            {a.driver_count || a.drivers.length} drivers
+                          </span>
                         </div>
-                        <span className="text-xs text-secondarytext">{a.driver_count || a.drivers.length} drivers</span>
-                      </div>
-                    )}
+                      )}
 
                     <div className="flex gap-2">
                       {activeTab === "ev" && (
@@ -620,7 +650,9 @@ export default function Assignments() {
             <div className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1">Start Date</label>
+                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1">
+                    Start Date
+                  </label>
                   <input
                     type="date"
                     className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
@@ -634,7 +666,9 @@ export default function Assignments() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1">End Date</label>
+                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1">
+                    End Date
+                  </label>
                   <input
                     type="date"
                     className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
@@ -650,7 +684,9 @@ export default function Assignments() {
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1">Shift</label>
+                <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1">
+                  Shift
+                </label>
                 <select
                   className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   value={assignmentForm.shift_id}
@@ -664,9 +700,15 @@ export default function Assignments() {
                   <option value={0}>Select Shift</option>
                   {shifts.map((s) => {
                     // Show all time slots if available in AM/PM format
-                    const timeDisplay = s.slots && s.slots.length > 0
-                      ? s.slots.map(slot => `${formatTimeAMPM(slot.start_time)}-${formatTimeAMPM(slot.end_time)}`).join(', ')
-                      : `${formatTimeAMPM(s.start_time)}-${formatTimeAMPM(s.end_time)}`;
+                    const timeDisplay =
+                      s.slots && s.slots.length > 0
+                        ? s.slots
+                            .map(
+                              (slot) =>
+                                `${formatTimeAMPM(slot.start_time)}-${formatTimeAMPM(slot.end_time)}`,
+                            )
+                            .join(", ")
+                        : `${formatTimeAMPM(s.start_time)}-${formatTimeAMPM(s.end_time)}`;
                     return (
                       <option key={s.id} value={s.id}>
                         {s.name} ({timeDisplay})
@@ -694,7 +736,7 @@ export default function Assignments() {
                     .filter(
                       (v) =>
                         v.vehicle_type === createModalType.toUpperCase() ||
-                        (createModalType === "ev" && v.fuel_type === "EV")
+                        (createModalType === "ev" && v.fuel_type === "EV"),
                     )
                     .map((v) => (
                       <option key={v.id} value={v.id}>
@@ -704,7 +746,9 @@ export default function Assignments() {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1">Driver</label>
+                <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1">
+                  Driver
+                </label>
                 <select
                   className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   value={assignmentForm.driver_id}
@@ -727,7 +771,7 @@ export default function Assignments() {
                 </select>
               </div>
               <button
-                onClick={handleCreate}
+                onClick={() => handleCreate()}
                 className="w-full bg-primary text-white rounded-md py-2.5 font-medium hover:bg-primary/90 transition-colors"
               >
                 Create Assignment
@@ -748,7 +792,9 @@ export default function Assignments() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-primarytext">Reassign Driver</h3>
+              <h3 className="text-lg font-bold text-primarytext">
+                Reassign Driver
+              </h3>
               <button
                 onClick={() => setReassignModal(null)}
                 className="text-secondarytext hover:text-primarytext transition-colors"
@@ -809,8 +855,12 @@ export default function Assignments() {
                 <AlertTriangle className="text-amber-600" size={24} />
               </div>
               <div className="flex-1">
-                <h3 className="text-lg font-bold text-primarytext">Time Conflict Detected</h3>
-                <p className="text-sm text-secondarytext mt-1">{conflictModal.message}</p>
+                <h3 className="text-lg font-bold text-primarytext">
+                  Time Conflict Detected
+                </h3>
+                <p className="text-sm text-secondarytext mt-1">
+                  {conflictModal.message}
+                </p>
               </div>
               <button
                 onClick={() => {
@@ -826,7 +876,9 @@ export default function Assignments() {
             {/* Conflict Details */}
             {conflictModal.conflicts && conflictModal.conflicts.length > 0 && (
               <div className="mb-6">
-                <h4 className="text-sm font-semibold text-primarytext mb-3">Existing Assignments:</h4>
+                <h4 className="text-sm font-semibold text-primarytext mb-3">
+                  Existing Assignments:
+                </h4>
                 <div className="space-y-2">
                   {conflictModal.conflicts.map((conflict, idx) => (
                     <div
@@ -844,13 +896,17 @@ export default function Assignments() {
                       </div>
                       <div className="text-sm text-amber-700 space-y-1">
                         <p>
-                          <strong>Time:</strong> {formatTimeAMPM(conflict.start_time)} - {formatTimeAMPM(conflict.end_time)}
+                          <strong>Time:</strong>{" "}
+                          {formatTimeAMPM(conflict.start_time)} -{" "}
+                          {formatTimeAMPM(conflict.end_time)}
                         </p>
                         <p>
-                          <strong>Vehicle:</strong> {conflict.vehicle_number || "N/A"}
+                          <strong>Vehicle:</strong>{" "}
+                          {conflict.vehicle_number || "N/A"}
                         </p>
                         <p>
-                          <strong>Dates:</strong> {conflict.start_date} to {conflict.end_date}
+                          <strong>Dates:</strong> {conflict.start_date} to{" "}
+                          {conflict.end_date}
                         </p>
                       </div>
                     </div>
@@ -861,16 +917,20 @@ export default function Assignments() {
 
             {/* Options */}
             <div className="border-t border-gray-200 pt-4">
-              <h4 className="text-sm font-semibold text-primarytext mb-3">What would you like to do?</h4>
-              
+              <h4 className="text-sm font-semibold text-primarytext mb-3">
+                What would you like to do?
+              </h4>
+
               {/* Option 1: Force Assign */}
               <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-3">
                 <div className="flex items-start gap-3">
                   <div className="flex-1">
-                    <h5 className="font-medium text-red-800">Assign Anyway (Override)</h5>
+                    <h5 className="font-medium text-red-800">
+                      Assign Anyway (Override)
+                    </h5>
                     <p className="text-xs text-red-600 mt-1">
-                      This will create a new assignment even though the driver has conflicting schedules. 
-                      Use this only if necessary.
+                      This will create a new assignment even though the driver
+                      has conflicting schedules. Use this only if necessary.
                     </p>
                   </div>
                   <button
@@ -890,13 +950,16 @@ export default function Assignments() {
                       <CheckCircle size={16} /> Choose a Different Driver
                     </h5>
                     <p className="text-xs text-green-600 mt-1 mb-3">
-                      Select an available driver who doesn't have conflicting assignments:
+                      Select an available driver who doesn't have conflicting
+                      assignments:
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto">
                       {getAvailableDriversForSelection().map((d) => (
                         <button
                           key={d.driver_id || d.id}
-                          onClick={() => handleSelectAlternateDriver(d.driver_id || d.id)}
+                          onClick={() =>
+                            handleSelectAlternateDriver(d.driver_id || d.id)
+                          }
                           className="flex items-center gap-2 p-2 bg-white border border-green-200 rounded-lg hover:bg-green-100 transition-colors text-left"
                         >
                           <User size={16} className="text-green-600" />
@@ -975,16 +1038,21 @@ export default function Assignments() {
                 {/* Stats Cards */}
                 <div className="p-6 grid grid-cols-2 md:grid-cols-4 gap-4 border-b border-gray-100">
                   <div className="bg-primarybg rounded-lg p-4">
-                    <p className="text-xs text-secondarytext uppercase tracking-wider">Duration</p>
+                    <p className="text-xs text-secondarytext uppercase tracking-wider">
+                      Duration
+                    </p>
                     <p className="text-2xl font-bold text-primarytext mt-1">
                       {evDetails.assignment?.days_total} days
                     </p>
                     <p className="text-xs text-secondarytext mt-1">
-                      {evDetails.assignment?.start_date} to {evDetails.assignment?.end_date}
+                      {evDetails.assignment?.start_date} to{" "}
+                      {evDetails.assignment?.end_date}
                     </p>
                   </div>
                   <div className="bg-green/10 rounded-lg p-4">
-                    <p className="text-xs text-green uppercase tracking-wider">Completed</p>
+                    <p className="text-xs text-green uppercase tracking-wider">
+                      Completed
+                    </p>
                     <p className="text-2xl font-bold text-green mt-1">
                       {evDetails.assignment?.days_completed} days
                     </p>
@@ -993,7 +1061,9 @@ export default function Assignments() {
                     </p>
                   </div>
                   <div className="bg-primary/10 rounded-lg p-4">
-                    <p className="text-xs text-primary uppercase tracking-wider">Total KM</p>
+                    <p className="text-xs text-primary uppercase tracking-wider">
+                      Total KM
+                    </p>
                     <p className="text-2xl font-bold text-primary mt-1">
                       {evDetails.total_vehicle_km?.toFixed(1) || 0} km
                     </p>
@@ -1002,7 +1072,9 @@ export default function Assignments() {
                     </p>
                   </div>
                   <div className="bg-pending/10 rounded-lg p-4">
-                    <p className="text-xs text-pending uppercase tracking-wider">Drivers</p>
+                    <p className="text-xs text-pending uppercase tracking-wider">
+                      Drivers
+                    </p>
                     <p className="text-2xl font-bold text-pending mt-1">
                       {evDetails.drivers?.length || 0}
                     </p>
@@ -1026,28 +1098,43 @@ export default function Assignments() {
                         >
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center text-sm font-bold">
-                              {driver.initials || driver.driver_name?.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                              {driver.initials ||
+                                driver.driver_name
+                                  ?.split(" ")
+                                  .map((n) => n[0])
+                                  .join("")
+                                  .substring(0, 2)}
                             </div>
                             <div>
-                              <p className="font-medium text-primarytext">{driver.driver_name}</p>
+                              <p className="font-medium text-primarytext">
+                                {driver.driver_name}
+                              </p>
                               <div className="flex items-center gap-2">
                                 {driver.on_leave ? (
-                                  <span className="text-xs text-pending font-medium">● On Leave</span>
+                                  <span className="text-xs text-pending font-medium">
+                                    ● On Leave
+                                  </span>
                                 ) : (
-                                  <span className="text-xs text-green font-medium">● Active</span>
+                                  <span className="text-xs text-green font-medium">
+                                    ● Active
+                                  </span>
                                 )}
                               </div>
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="font-bold text-primary">{driver.total_km?.toFixed(1) || 0} km</p>
+                            <p className="font-bold text-primary">
+                              {driver.total_km?.toFixed(1) || 0} km
+                            </p>
                             <p className="text-xs text-secondarytext">driven</p>
                           </div>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-center text-secondarytext py-4">No drivers in this cluster</p>
+                    <p className="text-center text-secondarytext py-4">
+                      No drivers in this cluster
+                    </p>
                   )}
                 </div>
 
@@ -1061,28 +1148,50 @@ export default function Assignments() {
                       <table className="w-full text-sm">
                         <thead className="bg-gray-50">
                           <tr>
-                            <th className="text-left p-3 font-medium text-secondarytext">Date</th>
-                            <th className="text-left p-3 font-medium text-secondarytext">Driver</th>
-                            <th className="text-right p-3 font-medium text-secondarytext">Start KM</th>
-                            <th className="text-right p-3 font-medium text-secondarytext">End KM</th>
-                            <th className="text-right p-3 font-medium text-secondarytext">Total</th>
+                            <th className="text-left p-3 font-medium text-secondarytext">
+                              Date
+                            </th>
+                            <th className="text-left p-3 font-medium text-secondarytext">
+                              Driver
+                            </th>
+                            <th className="text-right p-3 font-medium text-secondarytext">
+                              Start KM
+                            </th>
+                            <th className="text-right p-3 font-medium text-secondarytext">
+                              End KM
+                            </th>
+                            <th className="text-right p-3 font-medium text-secondarytext">
+                              Total
+                            </th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                           {evDetails.km_logs.map((log) => (
                             <tr key={log.id} className="hover:bg-gray-50">
-                              <td className="p-3 text-primarytext">{log.date}</td>
-                              <td className="p-3 text-primarytext">{log.driver_name}</td>
-                              <td className="p-3 text-right text-secondarytext">{log.start_km}</td>
-                              <td className="p-3 text-right text-secondarytext">{log.end_km}</td>
-                              <td className="p-3 text-right font-medium text-primary">{log.total_km} km</td>
+                              <td className="p-3 text-primarytext">
+                                {log.date}
+                              </td>
+                              <td className="p-3 text-primarytext">
+                                {log.driver_name}
+                              </td>
+                              <td className="p-3 text-right text-secondarytext">
+                                {log.start_km}
+                              </td>
+                              <td className="p-3 text-right text-secondarytext">
+                                {log.end_km}
+                              </td>
+                              <td className="p-3 text-right font-medium text-primary">
+                                {log.total_km} km
+                              </td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
                     </div>
                   ) : (
-                    <p className="text-center text-secondarytext py-4">No KM logs recorded yet</p>
+                    <p className="text-center text-secondarytext py-4">
+                      No KM logs recorded yet
+                    </p>
                   )}
                 </div>
               </>

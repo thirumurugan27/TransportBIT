@@ -404,20 +404,21 @@ func GetMyStopChangeRequests(c *gin.Context) {
 
 	rows, err := config.DB.Query(`
 		SELECT 
-			scr.id, scr.student_transport_id,
-			u.full_name, u.email,
-			scr.current_stop_id, cs.stop_name,
-			scr.requested_stop_id, rs.stop_name,
-			scr.current_fee, scr.new_fee, scr.fee_difference,
+			scr.id, COALESCE(scr.student_transport_id, 0),
+			COALESCE(u.full_name, 'Unknown Student'), COALESCE(u.email, ''),
+			COALESCE(scr.current_stop_id, 0), COALESCE(cs.stop_name, gs.stop_name, 'Unknown Stop'),
+			COALESCE(scr.requested_stop_id, 0), COALESCE(rs.stop_name, 'Unknown Stop'),
+			COALESCE(scr.current_fee, 0), COALESCE(scr.new_fee, 0), COALESCE(scr.fee_difference, 0),
 			COALESCE(scr.reason, ''), scr.status,
 			COALESCE(scr.admin_remarks, ''),
 			scr.processed_by, COALESCE(admin.full_name, ''),
-			scr.processed_at, DATE_FORMAT(scr.created_at, '%Y-%m-%d %H:%i')
+			DATE_FORMAT(scr.processed_at, '%Y-%m-%d %H:%i'), DATE_FORMAT(scr.created_at, '%Y-%m-%d %H:%i')
 		FROM stop_change_requests scr
 		JOIN student_transport st ON scr.student_transport_id = st.id
 		JOIN users u ON st.user_id = u.id
-		JOIN stops cs ON scr.current_stop_id = cs.id
-		JOIN stops rs ON scr.requested_stop_id = rs.id
+		LEFT JOIN bus_stops cs ON scr.current_stop_id = cs.id
+		LEFT JOIN stops gs ON scr.current_stop_id = gs.id
+		LEFT JOIN bus_stops rs ON scr.requested_stop_id = rs.id
 		LEFT JOIN users admin ON scr.processed_by = admin.id
 		WHERE st.user_id = ?
 		ORDER BY scr.created_at DESC
@@ -434,6 +435,8 @@ func GetMyStopChangeRequests(c *gin.Context) {
 		var r models.StopChangeRequest
 		var processedAt sql.NullString
 		var processedBy sql.NullInt64
+		var createdAt sql.NullString
+
 		err := rows.Scan(
 			&r.ID, &r.StudentTransportID,
 			&r.StudentName, &r.StudentEmail,
@@ -443,10 +446,13 @@ func GetMyStopChangeRequests(c *gin.Context) {
 			&r.Reason, &r.Status,
 			&r.AdminRemarks,
 			&processedBy, &r.ProcessedByName,
-			&processedAt, &r.CreatedAt,
+			&processedAt, &createdAt,
 		)
+		if createdAt.Valid {
+			r.CreatedAt = createdAt.String
+		}
 		if err != nil {
-			log.Printf("Error scanning request: %v", err)
+			log.Printf("Error scanning: %v", err)
 			continue
 		}
 		if processedBy.Valid {

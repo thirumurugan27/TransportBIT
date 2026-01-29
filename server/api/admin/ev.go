@@ -49,10 +49,12 @@ type ClusterDriverInfo struct {
 */
 func GetEVVehicles(c *gin.Context) {
 	rows, err := config.DB.Query(`
-		SELECT id, vehicle_number, vehicle_type, fuel_type, seating_capacity, status
-		FROM vehicles 
-		WHERE fuel_type = 'EV'
-		ORDER BY vehicle_number
+		SELECT v.id, v.vehicle_number, v.vehicle_type, v.fuel_type, v.seating_capacity, v.status,
+		       COALESCE(v.name, b.bus_name, v.vehicle_number) as bus_name
+		FROM vehicles v
+		LEFT JOIN buses b ON b.vehicle_id = v.id
+		WHERE v.fuel_type = 'EV'
+		ORDER BY v.vehicle_number
 	`)
 	if err != nil {
 		log.Printf("Get EV vehicles error: %v", err)
@@ -64,7 +66,7 @@ func GetEVVehicles(c *gin.Context) {
 	var vehicles []models.Vehicle
 	for rows.Next() {
 		var v models.Vehicle
-		rows.Scan(&v.ID, &v.VehicleNumber, &v.VehicleType, &v.FuelType, &v.SeatingCapacity, &v.Status)
+		rows.Scan(&v.ID, &v.VehicleNumber, &v.VehicleType, &v.FuelType, &v.SeatingCapacity, &v.Status, &v.BusName)
 		vehicles = append(vehicles, v)
 	}
 

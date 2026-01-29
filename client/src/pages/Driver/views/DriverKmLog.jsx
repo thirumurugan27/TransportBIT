@@ -1,6 +1,7 @@
 import React, {useState, useEffect} from "react";
 import {useAuth} from "../../../context/AuthContext";
 import {apiGet, apiPost, getToday} from "../../../utils/api";
+import {useToast} from "../../../context/ToastContext";
 import {
   Map,
   Route,
@@ -13,6 +14,7 @@ import {
 } from "lucide-react";
 
 export default function DriverKmLog() {
+  const {showToast} = useToast();
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -26,6 +28,7 @@ export default function DriverKmLog() {
     end_km: 0,
     vehicle_type: "BUS",
     vehicle_id: "",
+    assignment_id: "",
     remarks: "",
   });
 
@@ -44,7 +47,9 @@ export default function DriverKmLog() {
 
   const fetchLastLogDetails = async (vehId) => {
     try {
-      const res = await apiGet(`/api/driver/vehicle-last-log?vehicle_id=${vehId}`);
+      const res = await apiGet(
+        `/api/driver/vehicle-last-log?vehicle_id=${vehId}`,
+      );
       if (res.ok) {
         const data = await res.json();
         // If existing end_km is found, use it as start_km
@@ -84,23 +89,25 @@ export default function DriverKmLog() {
         // Extract unique vehicles from assignments
         const uniqueVehicles = [];
         const seenIds = new Set();
-        (assignments || []).forEach(a => {
+        (assignments || []).forEach((a) => {
           if (a.vehicle_id && !seenIds.has(a.vehicle_id)) {
             seenIds.add(a.vehicle_id);
             uniqueVehicles.push({
               id: a.vehicle_id,
               vehicle_number: a.vehicle_number,
               vehicle_type: a.vehicle_type || "BUS",
+              assignment_id: a.id,
             });
           }
         });
         setVehicles(uniqueVehicles);
         // Set default vehicle if available
         if (uniqueVehicles.length > 0) {
-          setForm(prev => ({
+          setForm((prev) => ({
             ...prev,
             vehicle_id: uniqueVehicles[0].id,
             vehicle_type: uniqueVehicles[0].vehicle_type,
+            assignment_id: uniqueVehicles[0].assignment_id || "",
           }));
         }
       }
@@ -114,12 +121,12 @@ export default function DriverKmLog() {
     try {
       // Basic validation
       if (parseFloat(form.end_km) <= parseFloat(form.start_km)) {
-        alert("End KM must be greater than Start KM");
+        showToast("End KM must be greater than Start KM", "warning");
         return;
       }
 
       if (!form.vehicle_id) {
-        alert("Please select a vehicle");
+        showToast("Please select a vehicle", "warning");
         return;
       }
 
@@ -130,6 +137,7 @@ export default function DriverKmLog() {
         end_km: parseFloat(form.end_km),
         vehicle_type: form.vehicle_type,
         vehicle_id: parseInt(form.vehicle_id),
+        assignment_id: form.assignment_id ? parseInt(form.assignment_id) : null,
         remarks: form.remarks,
         total_km: parseFloat(form.end_km) - parseFloat(form.start_km),
       };
@@ -137,7 +145,7 @@ export default function DriverKmLog() {
       const res = await apiPost("/api/driver/km-log/add", payload);
 
       if (res.ok) {
-        alert("Log added!");
+        showToast("Log added!", "success");
         setShowModal(false);
         fetchLogs();
         setForm({
@@ -148,7 +156,10 @@ export default function DriverKmLog() {
         });
       } else {
         const errData = await res.json();
-        alert("Failed to add log: " + (errData.error || "Unknown error"));
+        showToast(
+          "Failed to add log: " + (errData.error || "Unknown error"),
+          "error",
+        );
       }
     } catch (err) {
       console.error(err);
@@ -451,16 +462,21 @@ export default function DriverKmLog() {
                   className="w-full border border-gray-300 px-3 py-2.5 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none bg-white"
                   value={form.vehicle_id}
                   onChange={(e) => {
-                    const selectedVehicle = vehicles.find(v => v.id === parseInt(e.target.value));
+                    const selectedVehicle = vehicles.find(
+                      (v) => v.id === parseInt(e.target.value),
+                    );
                     setForm({
-                      ...form, 
+                      ...form,
                       vehicle_id: e.target.value,
-                      vehicle_type: selectedVehicle?.vehicle_type || form.vehicle_type
+                      vehicle_type:
+                        selectedVehicle?.vehicle_type || form.vehicle_type,
+                      assignment_id:
+                        selectedVehicle?.assignment_id?.toString() || "",
                     });
                   }}
                 >
                   <option value="">Select Vehicle</option>
-                  {vehicles.map(v => (
+                  {vehicles.map((v) => (
                     <option key={v.id} value={v.id}>
                       {v.vehicle_number} ({v.vehicle_type})
                     </option>

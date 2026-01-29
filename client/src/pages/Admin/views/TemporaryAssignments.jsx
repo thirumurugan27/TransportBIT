@@ -1,4 +1,6 @@
 import React, {useState, useEffect} from "react";
+import {showError, showConfirm} from "../../../utils/swal";
+import {formatVehicleLabel} from "../../../utils/vehicleLabel";
 import {
   Plus,
   Trash2,
@@ -16,10 +18,10 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
 // Helper to convert 24h time to 12h AM/PM format
 const formatTimeAMPM = (time24) => {
-  if (!time24) return '';
-  const [hours, minutes] = time24.split(':');
+  if (!time24) return "";
+  const [hours, minutes] = time24.split(":");
   const h = parseInt(hours, 10);
-  const ampm = h >= 12 ? 'PM' : 'AM';
+  const ampm = h >= 12 ? "PM" : "AM";
   const h12 = h % 12 || 12;
   return `${h12}:${minutes} ${ampm}`;
 };
@@ -88,7 +90,7 @@ export default function TemporaryAssignments() {
       !newTemp.shift_id ||
       !newTemp.vehicle_id
     ) {
-      alert("Please fill required fields");
+      showError("Error", "Please fill required fields");
       return;
     }
 
@@ -107,7 +109,7 @@ export default function TemporaryAssignments() {
             shift_id: parseInt(newTemp.shift_id) || 0,
             vehicle_id: parseInt(newTemp.vehicle_id) || 0,
           }),
-        }
+        },
       );
 
       if (res.ok) {
@@ -125,27 +127,30 @@ export default function TemporaryAssignments() {
         });
       } else {
         const err = await res.json();
-        alert("Error: " + (err.error || "Unknown error"));
+        showError("Error", err.error || "Unknown error");
       }
     } catch (err) {
-      alert("Error: " + err.message);
+      showError("Error", err.message);
     }
   };
 
   const handleCancel = async (id) => {
-    if (!window.confirm("Are you sure you want to cancel this assignment?"))
-      return;
+    const isConfirmed = await showConfirm(
+      "Are you sure?",
+      "Do you really want to cancel this assignment?",
+    );
+    if (!isConfirmed) return;
     try {
       const res = await fetch(
         `${API_BASE}/api/admin/temporary-assignments/${id}`,
         {
           method: "DELETE",
-        }
+        },
       );
       if (res.ok) {
         fetchTempAssignments();
       } else {
-        alert("Error cancelling");
+        showError("Error", "Error cancelling");
       }
     } catch (err) {
       console.error(err);
@@ -234,7 +239,7 @@ export default function TemporaryAssignments() {
                           <div className="flex items-center gap-1 mt-0.5">
                             <Truck size={12} className="text-gray-400" />
                             <span className="font-mono text-xs">
-                              {t.vehicle_number || "Default Vehicle"}
+                              {formatVehicleLabel(t)}
                             </span>
                           </div>
                         </div>
@@ -365,7 +370,7 @@ export default function TemporaryAssignments() {
                   <option value="">Select Substitute Driver</option>
                   {drivers
                     .filter(
-                      (d) => d.id !== parseInt(newTemp.original_driver_id)
+                      (d) => d.id !== parseInt(newTemp.original_driver_id),
                     )
                     .map((d) => (
                       <option key={d.id} value={d.id}>
@@ -391,7 +396,8 @@ export default function TemporaryAssignments() {
                     <option value="">Select Shift</option>
                     {shifts.map((s) => (
                       <option key={s.id} value={s.id}>
-                        {s.shift_name} ({formatTimeAMPM(s.start_time)}-{formatTimeAMPM(s.end_time)})
+                        {s.shift_name} ({formatTimeAMPM(s.start_time)}-
+                        {formatTimeAMPM(s.end_time)})
                       </option>
                     ))}
                   </select>
@@ -411,7 +417,7 @@ export default function TemporaryAssignments() {
                     <option value="">Select Vehicle</option>
                     {vehicles.map((v) => (
                       <option key={v.id} value={v.id}>
-                        {v.registration_number} ({v.vehicle_type})
+                        {formatVehicleLabel(v)} ({v.vehicle_type})
                       </option>
                     ))}
                   </select>

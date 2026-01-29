@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"transport-server/config"
@@ -933,6 +935,7 @@ func InchargeAddKmLog(c *gin.Context) {
 		Remarks     string  `json:"remarks"`
 		VehicleType string  `json:"vehicle_type"`
 		VehicleID   *int    `json:"vehicle_id"`
+		AssignmentID *int   `json:"assignment_id"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -940,13 +943,14 @@ func InchargeAddKmLog(c *gin.Context) {
 		return
 	}
 
-	// Verify incharge
+	// Verify incharge and fetch user metadata
 	var inchargeName string
+	var inchargeUserID int
 	err := config.DB.QueryRow(`
-		SELECT u.full_name FROM drivers d 
+		SELECT u.full_name, u.id FROM drivers d 
 		JOIN users u ON d.user_id = u.id 
 		WHERE d.id = ? AND d.is_incharge = 1
-	`, req.InchargeID).Scan(&inchargeName)
+	`, req.InchargeID).Scan(&inchargeName, &inchargeUserID)
 
 	if err != nil {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Incharge not found"})
@@ -956,6 +960,11 @@ func InchargeAddKmLog(c *gin.Context) {
 	// Validate
 	if req.DriverID == 0 || req.Date == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "driver_id and date required"})
+		return
+	}
+
+	if req.VehicleID == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "vehicle_id required"})
 		return
 	}
 
@@ -969,6 +978,28 @@ func InchargeAddKmLog(c *gin.Context) {
 		req.TotalKm = req.EndKm - req.StartKm
 	}
 
+	if req.VehicleType == "" {
+		config.DB.QueryRow(`SELECT vehicle_type FROM vehicles WHERE id = ?`, *req.VehicleID).Scan(&req.VehicleType)
+		if req.VehicleType == "" {
+			req.VehicleType = "BUS"
+		}
+	}
+
+	// Auto-detect assignment when not provided
+	if req.AssignmentID == nil {
+		var assignmentID sql.NullInt64
+		err = config.DB.QueryRow(`
+			SELECT id FROM assignments
+			WHERE driver_id = ? AND vehicle_id = ? AND ? BETWEEN start_date AND end_date
+			ORDER BY start_date DESC
+			LIMIT 1
+		`, req.DriverID, *req.VehicleID, req.Date).Scan(&assignmentID)
+		if err == nil && assignmentID.Valid {
+			val := int(assignmentID.Int64)
+			req.AssignmentID = &val
+		}
+	}
+
 	// Add remark about who filled it
 	remarks := req.Remarks
 	if remarks != "" {
@@ -977,11 +1008,25 @@ func InchargeAddKmLog(c *gin.Context) {
 		remarks = "Added by Incharge: " + inchargeName
 	}
 
-	// Insert into DB with vehicle_id
+	var vehicleID interface{}
+	if req.VehicleID != nil {
+		vehicleID = *req.VehicleID
+	}
+
+	var assignmentID interface{}
+	if req.AssignmentID != nil {
+		assignmentID = *req.AssignmentID
+	}
+
+	// Insert into DB capturing recorded metadata
 	result, err := config.DB.Exec(`
-		INSERT INTO km_logs (driver_id, date, start_km, end_km, total_km, remarks, vehicle_type, vehicle_id)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-	`, req.DriverID, req.Date, req.StartKm, req.EndKm, req.TotalKm, remarks, req.VehicleType, req.VehicleID)
+		INSERT INTO km_logs (
+			driver_id, date, start_km, end_km, total_km, remarks,
+			vehicle_type, vehicle_id, assignment_id,
+			recorded_by_user_id, recorded_by_role, recorded_by_name
+		)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'INCHARGE', ?)
+	`, req.DriverID, req.Date, req.StartKm, req.EndKm, req.TotalKm, remarks, req.VehicleType, vehicleID, assignmentID, inchargeUserID, inchargeName)
 
 	if err != nil {
 		log.Printf("Incharge add km log error: %v", err)
@@ -1155,43 +1200,79 @@ func GetDriverKmLogs(c *gin.Context) {
 */
 func GetInchargeKmSummary(c *gin.Context) {
 	period := c.DefaultQuery("period", "today")
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
+	driverParam := c.Query("driver_id")
+	vehicleParam := c.Query("vehicle_id")
+	limitParam := c.DefaultQuery("limit", "200")
 
-	var dateFilter string
-	switch period {
-	case "today":
-		dateFilter = "kl.date = CURDATE()"
-	case "week":
-		dateFilter = "YEARWEEK(kl.date) = YEARWEEK(CURDATE())"
-	case "month":
-		dateFilter = "MONTH(kl.date) = MONTH(CURDATE()) AND YEAR(kl.date) = YEAR(CURDATE())"
-	default:
-		dateFilter = "kl.date = CURDATE()"
+	limit, err := strconv.Atoi(limitParam)
+	if err != nil || limit <= 0 {
+		limit = 200
+	} else if limit > 500 {
+		limit = 500
 	}
 
-	// Get detailed KM logs with driver, vehicle, and shift info
+	var driverID *int
+	if driverParam != "" {
+		if id, err := strconv.Atoi(driverParam); err == nil {
+			driverID = &id
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid driver_id"})
+			return
+		}
+	}
+
+	var vehicleID *int
+	if vehicleParam != "" {
+		if id, err := strconv.Atoi(vehicleParam); err == nil {
+			vehicleID = &id
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid vehicle_id"})
+			return
+		}
+	}
+
+	filters := kmSummaryFilters{
+		Period:    period,
+		StartDate: startDate,
+		EndDate:   endDate,
+		DriverID:  driverID,
+		VehicleID: vehicleID,
+	}
+
+	whereClause, args := buildKmWhereClause(filters)
+	if whereClause == "" {
+		whereClause = "WHERE 1=1"
+	}
+
+	logArgs := append(copyArgs(args), limit)
 	rows, err := config.DB.Query(`
 		SELECT 
 			kl.id,
 			kl.driver_id,
 			u.full_name as driver_name,
-			kl.date,
+			DATE_FORMAT(kl.date, '%Y-%m-%d') as date,
 			kl.start_km,
 			kl.end_km,
 			kl.total_km,
 			kl.remarks,
 			COALESCE(kl.vehicle_type, 'UNKNOWN') as vehicle_type,
 			COALESCE(v.vehicle_number, 'N/A') as vehicle_number,
-			COALESCE(a.shift, 'N/A') as shift,
-			COALESCE(a.route_name, 'N/A') as route_name
+			COALESCE(s.name, 'N/A') as shift,
+			COALESCE(a.route_name, 'N/A') as route_name,
+			kl.recorded_by_name,
+			kl.recorded_by_role
 		FROM km_logs kl
 		JOIN drivers d ON kl.driver_id = d.id
 		JOIN users u ON d.user_id = u.id
 		LEFT JOIN vehicles v ON kl.vehicle_id = v.id
 		LEFT JOIN assignments a ON kl.assignment_id = a.id
-		WHERE ` + dateFilter + `
+		LEFT JOIN shifts s ON a.shift_id = s.id
+		`+whereClause+`
 		ORDER BY kl.date DESC, kl.id DESC
-		LIMIT 100
-	`)
+		LIMIT ?
+	`, logArgs...)
 
 	if err != nil {
 		log.Printf("Get incharge KM summary error: %v", err)
@@ -1201,50 +1282,243 @@ func GetInchargeKmSummary(c *gin.Context) {
 	defer rows.Close()
 
 	type DetailedKmLog struct {
-		ID            int     `json:"id"`
-		DriverID      int     `json:"driver_id"`
-		DriverName    string  `json:"driver_name"`
-		Date          string  `json:"date"`
-		StartKm       float64 `json:"start_km"`
-		EndKm         float64 `json:"end_km"`
-		TotalKm       float64 `json:"total_km"`
-		Remarks       *string `json:"remarks"`
-		VehicleType   string  `json:"vehicle_type"`
-		VehicleNumber string  `json:"vehicle_number"`
-		Shift         string  `json:"shift"`
-		RouteName     string  `json:"route_name"`
+		ID             int      `json:"id"`
+		DriverID       int      `json:"driver_id"`
+		DriverName     string   `json:"driver_name"`
+		Date           string   `json:"date"`
+		StartKm        float64  `json:"start_km"`
+		EndKm          float64  `json:"end_km"`
+		TotalKm        float64  `json:"total_km"`
+		Remarks        *string  `json:"remarks"`
+		VehicleType    string   `json:"vehicle_type"`
+		VehicleNumber  string   `json:"vehicle_number"`
+		Shift          string   `json:"shift"`
+		RouteName      string   `json:"route_name"`
+		RecordedByName *string  `json:"recorded_by_name"`
+		RecordedByRole *string  `json:"recorded_by_role"`
 	}
 
 	var logs []DetailedKmLog
-	var totalKm float64
+	var listedKm float64
 
 	for rows.Next() {
 		var l DetailedKmLog
-		rows.Scan(&l.ID, &l.DriverID, &l.DriverName, &l.Date, &l.StartKm, &l.EndKm,
-			&l.TotalKm, &l.Remarks, &l.VehicleType, &l.VehicleNumber, &l.Shift, &l.RouteName)
-		logs = append(logs, l)
-		totalKm += l.TotalKm
+		if err := rows.Scan(&l.ID, &l.DriverID, &l.DriverName, &l.Date, &l.StartKm, &l.EndKm,
+			&l.TotalKm, &l.Remarks, &l.VehicleType, &l.VehicleNumber, &l.Shift, &l.RouteName,
+			&l.RecordedByName, &l.RecordedByRole); err == nil {
+			logs = append(logs, l)
+			listedKm += l.TotalKm
+		}
 	}
 
-	// Get summary stats
-	var todayTotal, weekTotal, monthTotal float64
-	var todayTrips, weekTrips, monthTrips int
+	// Overall stats for the filter range
+	var totalKm float64
+	var totalTrips int
+	totalRow := config.DB.QueryRow(`
+		SELECT COALESCE(SUM(kl.total_km), 0), COUNT(*)
+		FROM km_logs kl
+		` + whereClause + `
+	`, args...)
+	totalRow.Scan(&totalKm, &totalTrips)
 
-	config.DB.QueryRow(`SELECT COALESCE(SUM(total_km), 0), COUNT(*) FROM km_logs WHERE date = CURDATE()`).Scan(&todayTotal, &todayTrips)
-	config.DB.QueryRow(`SELECT COALESCE(SUM(total_km), 0), COUNT(*) FROM km_logs WHERE YEARWEEK(date) = YEARWEEK(CURDATE())`).Scan(&weekTotal, &weekTrips)
-	config.DB.QueryRow(`SELECT COALESCE(SUM(total_km), 0), COUNT(*) FROM km_logs WHERE MONTH(date) = MONTH(CURDATE()) AND YEAR(date) = YEAR(CURDATE())`).Scan(&monthTotal, &monthTrips)
+	avgPerTrip := 0.0
+	if totalTrips > 0 {
+		avgPerTrip = totalKm / float64(totalTrips)
+	}
+
+	// Driver focus (top performer for filters)
+	var driverFocus interface{}
+	driverRow := config.DB.QueryRow(`
+		SELECT kl.driver_id, u.full_name, SUM(kl.total_km) as total_km, COUNT(*) as trips
+		FROM km_logs kl
+		JOIN drivers d ON kl.driver_id = d.id
+		JOIN users u ON d.user_id = u.id
+		` + whereClause + `
+		GROUP BY kl.driver_id, u.full_name
+		ORDER BY total_km DESC
+		LIMIT 1
+	`, args...)
+	var focusDriverID int
+	var focusDriverName string
+	var focusDriverKm float64
+	var focusDriverTrips int
+	if err := driverRow.Scan(&focusDriverID, &focusDriverName, &focusDriverKm, &focusDriverTrips); err == nil {
+		driverFocus = gin.H{
+			"driver_id":   focusDriverID,
+			"driver_name": focusDriverName,
+			"total_km":    focusDriverKm,
+			"trips":       focusDriverTrips,
+		}
+	}
+
+	// Vehicle focus (top vehicle for filters)
+	var vehicleFocus interface{}
+	vehicleRow := config.DB.QueryRow(`
+		SELECT kl.vehicle_id, COALESCE(v.vehicle_number, 'Unassigned') as vehicle_number,
+		       COALESCE(v.vehicle_type, 'UNKNOWN') as vehicle_type,
+		       SUM(kl.total_km) as total_km, COUNT(*) as trips
+		FROM km_logs kl
+		LEFT JOIN vehicles v ON kl.vehicle_id = v.id
+		` + whereClause + ` AND kl.vehicle_id IS NOT NULL
+		GROUP BY kl.vehicle_id, v.vehicle_number, v.vehicle_type
+		ORDER BY total_km DESC
+		LIMIT 1
+	`, args...)
+	var focusVehicleID int
+	var focusVehicleNumber string
+	var focusVehicleType string
+	var focusVehicleKm float64
+	var focusVehicleTrips int
+	if err := vehicleRow.Scan(&focusVehicleID, &focusVehicleNumber, &focusVehicleType, &focusVehicleKm, &focusVehicleTrips); err == nil {
+		vehicleFocus = gin.H{
+			"vehicle_id":     focusVehicleID,
+			"vehicle_number": focusVehicleNumber,
+			"vehicle_type":   focusVehicleType,
+			"total_km":       focusVehicleKm,
+			"trips":          focusVehicleTrips,
+		}
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"logs": logs,
 		"summary": gin.H{
-			"total_km":    totalKm,
-			"total_trips": len(logs),
-			"today_km":    todayTotal,
-			"today_trips": todayTrips,
-			"week_km":     weekTotal,
-			"week_trips":  weekTrips,
-			"month_km":    monthTotal,
-			"month_trips": monthTrips,
+			"total_km":        totalKm,
+			"total_trips":     totalTrips,
+			"avg_km_per_trip": avgPerTrip,
+			"listed_km":       listedKm,
+		},
+		"driver_focus":  driverFocus,
+		"vehicle_focus": vehicleFocus,
+		"filters": gin.H{
+			"period":     period,
+			"start_date": startDate,
+			"end_date":   endDate,
+			"driver_id":  driverParam,
+			"vehicle_id": vehicleParam,
 		},
 	})
+}
+
+// GetInchargeKmFilters returns dropdown data for drivers and vehicles
+func GetInchargeKmFilters(c *gin.Context) {
+	driverRows, err := config.DB.Query(`
+		SELECT d.id, u.full_name, COALESCE(c.name, 'Unassigned') as cluster_name
+		FROM drivers d
+		JOIN users u ON d.user_id = u.id
+		LEFT JOIN driver_clusters c ON d.cluster_id = c.id
+		WHERE d.is_incharge = 0
+		ORDER BY u.full_name
+	`)
+	if err != nil {
+		log.Printf("Get KM filter drivers error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to load driver filters"})
+		return
+	}
+	defer driverRows.Close()
+
+	type filterDriver struct {
+		ID      int     `json:"id"`
+		Name    string  `json:"name"`
+		Cluster *string `json:"cluster"`
+	}
+
+	var drivers []filterDriver
+	for driverRows.Next() {
+		var d filterDriver
+		if err := driverRows.Scan(&d.ID, &d.Name, &d.Cluster); err == nil {
+			drivers = append(drivers, d)
+		}
+	}
+
+	vehicleRows, err := config.DB.Query(`
+		SELECT v.id, v.vehicle_number, 
+		       COALESCE(v.vehicle_type, 'UNKNOWN') as vehicle_type,
+		       COALESCE(NULLIF(v.name, ''), v.vehicle_number) as bus_name
+		FROM vehicles v
+		WHERE v.status IN ('active', 'available')
+		ORDER BY v.vehicle_number
+	`)
+	if err != nil {
+		log.Printf("Get KM filter vehicles error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to load vehicle filters"})
+		return
+	}
+	defer vehicleRows.Close()
+
+	type filterVehicle struct {
+		ID            int    `json:"id"`
+		VehicleNumber string `json:"vehicle_number"`
+		VehicleType   string `json:"vehicle_type"`
+		BusName       string `json:"bus_name"`
+	}
+
+	var vehicles []filterVehicle
+	for vehicleRows.Next() {
+		var v filterVehicle
+		if err := vehicleRows.Scan(&v.ID, &v.VehicleNumber, &v.VehicleType, &v.BusName); err != nil {
+			log.Printf("Error scanning vehicle row: %v", err)
+			continue
+		}
+		vehicles = append(vehicles, v)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"drivers":  drivers,
+		"vehicles": vehicles,
+	})
+}
+
+type kmSummaryFilters struct {
+	Period    string
+	StartDate string
+	EndDate   string
+	DriverID  *int
+	VehicleID *int
+}
+
+func buildKmWhereClause(f kmSummaryFilters) (string, []interface{}) {
+	filters := []string{}
+	args := []interface{}{}
+
+	if f.StartDate != "" {
+		end := f.EndDate
+		if end == "" {
+			end = f.StartDate
+		}
+		filters = append(filters, "kl.date BETWEEN ? AND ?")
+		args = append(args, f.StartDate, end)
+	} else {
+		switch f.Period {
+		case "today":
+			filters = append(filters, "kl.date = CURDATE()")
+		case "week":
+			filters = append(filters, "YEARWEEK(kl.date) = YEARWEEK(CURDATE())")
+		case "month":
+			filters = append(filters, "MONTH(kl.date) = MONTH(CURDATE()) AND YEAR(kl.date) = YEAR(CURDATE())")
+		default:
+			filters = append(filters, "kl.date = CURDATE()")
+		}
+	}
+
+	if f.DriverID != nil {
+		filters = append(filters, "kl.driver_id = ?")
+		args = append(args, *f.DriverID)
+	}
+
+	if f.VehicleID != nil {
+		filters = append(filters, "kl.vehicle_id = ?")
+		args = append(args, *f.VehicleID)
+	}
+
+	if len(filters) == 0 {
+		return "", args
+	}
+
+	return "WHERE " + strings.Join(filters, " AND "), args
+}
+
+func copyArgs(args []interface{}) []interface{} {
+	dup := make([]interface{}, len(args))
+	copy(dup, args)
+	return dup
 }

@@ -1,9 +1,11 @@
 import React, {useState, useEffect} from "react";
 import {useAuth} from "../../../context/AuthContext";
 import {apiGet, apiPost, getToday} from "../../../utils/api";
+import {useToast} from "../../../context/ToastContext";
 
 export default function MarkAttendance() {
   const {user} = useAuth();
+  const {showToast} = useToast();
   const [clusterDrivers, setClusterDrivers] = useState([]);
   const [filteredDrivers, setFilteredDrivers] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -27,7 +29,7 @@ export default function MarkAttendance() {
     setLoading(true);
     try {
       const res = await apiGet(
-        `/api/incharge/cluster-drivers?incharge_id=${inchargeId}&date=${attendanceDate}`
+        `/api/incharge/cluster-drivers?incharge_id=${inchargeId}&date=${attendanceDate}`,
       );
       if (res.ok) {
         setClusterDrivers((await res.json()) || []);
@@ -47,7 +49,7 @@ export default function MarkAttendance() {
       result = result.filter(
         (driver) =>
           driver.full_name?.toLowerCase().includes(term) ||
-          driver.driver_id?.toString().includes(term)
+          driver.driver_id?.toString().includes(term),
       );
     }
 
@@ -89,10 +91,10 @@ export default function MarkAttendance() {
       if (res.ok) {
         fetchClusterDrivers();
       } else {
-        alert("Error: " + (await res.text()));
+        showToast("Error: " + (await res.text()), "error");
       }
     } catch (err) {
-      alert("Error: " + err.message);
+      showToast("Error: " + err.message, "error");
     }
   };
 
@@ -104,7 +106,7 @@ export default function MarkAttendance() {
       .length,
     pending: clusterDrivers.filter(
       (d) =>
-        d.attendance_status !== "present" && d.attendance_status !== "absent"
+        d.attendance_status !== "present" && d.attendance_status !== "absent",
     ).length,
   };
 
@@ -265,15 +267,15 @@ export default function MarkAttendance() {
                             d.attendance_status === "present"
                               ? "bg-green/10 text-green border-green/20"
                               : d.attendance_status === "absent"
-                              ? "bg-red/10 text-red border-red/20"
-                              : "bg-gray-100 text-secondarytext border-gray-200"
+                                ? "bg-red/10 text-red border-red/20"
+                                : "bg-gray-100 text-secondarytext border-gray-200"
                           }`}
                         >
                           {d.attendance_status === "present"
                             ? "Present"
                             : d.attendance_status === "absent"
-                            ? "Absent"
-                            : "Not Marked"}
+                              ? "Absent"
+                              : "Not Marked"}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-secondarytext text-sm">

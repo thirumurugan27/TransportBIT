@@ -138,6 +138,7 @@ func RegisterRoutes(r *gin.Engine) {
 	r.POST("/api/incharge/leave/apply", incharge.InchargeApplyLeave)
 	r.GET("/api/incharge/driver-km-logs", incharge.GetDriverKmLogs)
 	r.GET("/api/incharge/km-summary", incharge.GetInchargeKmSummary)
+	r.GET("/api/incharge/km-filters", incharge.GetInchargeKmFilters)
 
 	// =========================
 	// BUS FLEET MANAGEMENT
@@ -185,6 +186,9 @@ func RegisterRoutes(r *gin.Engine) {
 	r.GET("/api/admin/assignments/by-category", admin.GetAssignmentsByCategory)
 	r.GET("/api/admin/available-drivers", admin.GetAvailableDrivers)
 	r.GET("/api/admin/km-summary", admin.GetKMSummary)
+	r.GET("/api/admin/km-filters", admin.GetKmFilterMeta)
+	r.GET("/api/admin/km-logs", admin.GetAdminKmLogs)
+	r.POST("/api/admin/km-log/add", admin.AdminAddKmLog)
 
 	// =========================
 	// TEMPORARY ASSIGNMENTS (Separate Table)

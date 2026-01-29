@@ -23,16 +23,20 @@ import {
   AlertTriangle,
   Clock,
 } from "lucide-react";
+import {useToast} from "../../../context/ToastContext";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
 export default function AdminDrivers() {
+  const {showToast} = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState("table"); // 'table' or 'grid'
-  const [filterStatus, setFilterStatus] = useState(searchParams.get("status") || "all");
+  const [filterStatus, setFilterStatus] = useState(
+    searchParams.get("status") || "all",
+  );
 
   // Modal State
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -71,10 +75,10 @@ export default function AdminDrivers() {
   };
 
   const expiringLicenses = drivers.filter((d) =>
-    isLicenseExpiringSoon(d.license_expiry)
+    isLicenseExpiringSoon(d.license_expiry),
   );
   const expiredLicenses = drivers.filter((d) =>
-    isLicenseExpired(d.license_expiry)
+    isLicenseExpired(d.license_expiry),
   );
 
   // Stats
@@ -158,7 +162,7 @@ export default function AdminDrivers() {
       if (res.ok) {
         fetchDrivers();
       } else {
-        alert("Failed to delete driver");
+        showToast("Failed to delete driver", "error");
       }
     } catch (err) {
       console.error(err);
@@ -197,11 +201,11 @@ export default function AdminDrivers() {
         fetchDrivers();
       } else {
         const err = await res.json();
-        alert("Failed: " + (err.error || "Unknown error"));
+        showToast("Failed: " + (err.error || "Unknown error"), "error");
       }
     } catch (e) {
       console.error(e);
-      alert("Error saving driver");
+      showToast("Error saving driver", "error");
     }
   };
 
@@ -217,7 +221,7 @@ export default function AdminDrivers() {
       (d.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         d.phone.includes(searchTerm) ||
         d.license_number.toLowerCase().includes(searchTerm.toLowerCase())) &&
-      (filterStatus === "all" || d.status === filterStatus)
+      (filterStatus === "all" || d.status === filterStatus),
   );
 
   return (
@@ -375,8 +379,8 @@ export default function AdminDrivers() {
                   isLicenseExpired(driver.license_expiry)
                     ? "border-red/30"
                     : isLicenseExpiringSoon(driver.license_expiry)
-                    ? "border-pending/30"
-                    : "border-gray-100"
+                      ? "border-pending/30"
+                      : "border-gray-100"
                 }`}
               >
                 <div className="flex items-start justify-between mb-4">
@@ -403,15 +407,17 @@ export default function AdminDrivers() {
                       driver.status === "present"
                         ? "bg-green/10 text-green"
                         : driver.status === "absent"
-                        ? "bg-red/10 text-red"
-                        : driver.status === "on_leave"
-                        ? "bg-pending/10 text-pending"
-                        : driver.status === "not_marked"
-                        ? "bg-gray-200 text-gray-500"
-                        : "bg-gray-100 text-secondarytext"
+                          ? "bg-red/10 text-red"
+                          : driver.status === "on_leave"
+                            ? "bg-pending/10 text-pending"
+                            : driver.status === "not_marked"
+                              ? "bg-gray-200 text-gray-500"
+                              : "bg-gray-100 text-secondarytext"
                     }`}
                   >
-                    {driver.status === "not_marked" ? "NOT MARKED" : driver.status}
+                    {driver.status === "not_marked"
+                      ? "NOT MARKED"
+                      : driver.status}
                   </span>
                 </div>
 
@@ -429,8 +435,8 @@ export default function AdminDrivers() {
                       isLicenseExpired(driver.license_expiry)
                         ? "text-red font-medium"
                         : isLicenseExpiringSoon(driver.license_expiry)
-                        ? "text-pending font-medium"
-                        : ""
+                          ? "text-pending font-medium"
+                          : ""
                     }`}
                   >
                     <Clock size={14} className="text-gray-400" />
@@ -560,12 +566,12 @@ export default function AdminDrivers() {
                           driver.status === "present"
                             ? "bg-green-100 text-green-700"
                             : driver.status === "absent"
-                            ? "bg-red-100 text-red-700"
-                            : driver.status === "on_leave"
-                            ? "bg-orange-100 text-orange-700"
-                            : driver.status === "not_marked"
-                            ? "bg-gray-100 text-gray-500"
-                            : "bg-gray-100 text-gray-600"
+                              ? "bg-red-100 text-red-700"
+                              : driver.status === "on_leave"
+                                ? "bg-orange-100 text-orange-700"
+                                : driver.status === "not_marked"
+                                  ? "bg-gray-100 text-gray-500"
+                                  : "bg-gray-100 text-gray-600"
                         }`}
                         >
                           <span
@@ -573,13 +579,15 @@ export default function AdminDrivers() {
                               driver.status === "present"
                                 ? "bg-green-500"
                                 : driver.status === "absent"
-                                ? "bg-red-500"
-                                : driver.status === "on_leave"
-                                ? "bg-orange-500"
-                                : "bg-gray-400"
+                                  ? "bg-red-500"
+                                  : driver.status === "on_leave"
+                                    ? "bg-orange-500"
+                                    : "bg-gray-400"
                             }`}
                           ></span>
-                          {driver.status === "not_marked" ? "Not Marked" : driver.status}
+                          {driver.status === "not_marked"
+                            ? "Not Marked"
+                            : driver.status}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">

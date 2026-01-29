@@ -13,10 +13,13 @@ import {
   Phone,
   FileText,
 } from "lucide-react";
+import {useToast} from "../../../context/ToastContext";
+import {showConfirm} from "../../../utils/swal";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
 export default function Drivers() {
+  const {showToast} = useToast();
   const [loading, setLoading] = useState(true);
   const [drivers, setDrivers] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -40,19 +43,23 @@ export default function Drivers() {
   }, []);
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this driver?")) return;
+    const isConfirmed = await showConfirm(
+      "Are you sure?",
+      "Do you really want to delete this driver?",
+    );
+    if (!isConfirmed) return;
     try {
       const res = await fetch(`${API_BASE}/api/admin/drivers/delete?id=${id}`, {
         method: "DELETE",
       });
       if (res.ok) {
-        alert("Driver deleted!");
+        showToast("Driver deleted!", "success");
         fetchDrivers();
       } else {
-        alert("Failed to delete driver: " + (await res.text()));
+        showToast("Failed to delete driver: " + (await res.text()), "error");
       }
     } catch (err) {
-      alert("Error: " + err.message);
+      showToast("Error: " + err.message, "error");
     }
   };
 
@@ -64,7 +71,7 @@ export default function Drivers() {
   const filteredDrivers = drivers.filter(
     (d) =>
       d.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      d.license_number?.toLowerCase().includes(searchTerm.toLowerCase())
+      d.license_number?.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   return (

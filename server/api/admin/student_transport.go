@@ -182,6 +182,14 @@ func AssignStudentTransport(c *gin.Context) {
 			ORDER BY id DESC LIMIT 1
 		`, req.StopID).Scan(&feeAmount)
 	}
+	
+	// Fallback to bus_stops fee if not found in transport_fees
+	if err == sql.ErrNoRows {
+		err = config.DB.QueryRow(`
+			SELECT COALESCE(fee, 0) FROM bus_stops WHERE id = ?
+		`, req.StopID).Scan(&feeAmount)
+	}
+	
 	if err != nil && err != sql.ErrNoRows {
 		log.Printf("Error fetching fee: %v", err)
 	}
@@ -298,7 +306,7 @@ func GetTransportFees(c *gin.Context) {
 			tf.id, tf.stop_id, s.stop_name, tf.fee_amount, 
 			tf.academic_year, tf.is_active
 		FROM transport_fees tf
-		JOIN stops s ON tf.stop_id = s.id
+		JOIN bus_stops s ON tf.stop_id = s.id
 		ORDER BY s.stop_name
 	`)
 	if err != nil {
@@ -462,33 +470,37 @@ func RecordTransportPayment(c *gin.Context) {
 
 // GET /api/admin/stop-change-requests - Get all stop change requests
 func GetAllStopChangeRequests(c *gin.Context) {
-	status := c.DefaultQuery("status", "")
+	status := c.DefaultQuery("status", "pending")
 
 	query := `
 		SELECT 
-			scr.id, scr.student_transport_id,
-			u.full_name, u.email,
-			scr.current_stop_id, cs.stop_name,
-			scr.requested_stop_id, rs.stop_name,
-			scr.current_fee, scr.new_fee, scr.fee_difference,
+			scr.id, COALESCE(scr.student_transport_id, 0),
+			COALESCE(u.full_name, 'Unknown Student'), COALESCE(u.email, ''),
+			COALESCE(scr.current_stop_id, 0), COALESCE(cs.stop_name, gs.stop_name, 'Unknown Stop'),
+			COALESCE(scr.requested_stop_id, 0), COALESCE(rs.stop_name, 'Unknown Stop'),
+			COALESCE(scr.current_fee, 0), COALESCE(scr.new_fee, 0), COALESCE(scr.fee_difference, 0),
 			COALESCE(scr.reason, ''), scr.status,
 			COALESCE(scr.admin_remarks, ''),
 			scr.processed_by, COALESCE(admin.full_name, ''),
-			scr.processed_at, DATE_FORMAT(scr.created_at, '%Y-%m-%d %H:%i')
+			DATE_FORMAT(scr.processed_at, '%Y-%m-%d %H:%i'), DATE_FORMAT(scr.created_at, '%Y-%m-%d %H:%i')
 		FROM stop_change_requests scr
-		JOIN student_transport st ON scr.student_transport_id = st.id
-		JOIN users u ON st.user_id = u.id
-		JOIN stops cs ON scr.current_stop_id = cs.id
-		JOIN stops rs ON scr.requested_stop_id = rs.id
+		LEFT JOIN student_transport st ON scr.student_transport_id = st.id
+		LEFT JOIN users u ON st.user_id = u.id
+		LEFT JOIN bus_stops cs ON scr.current_stop_id = cs.id
+		LEFT JOIN stops gs ON scr.current_stop_id = gs.id
+		LEFT JOIN bus_stops rs ON scr.requested_stop_id = rs.id
 		LEFT JOIN users admin ON scr.processed_by = admin.id
 	`
 
-	if status != "" {
-		query += ` WHERE scr.status = '` + status + `'`
+	var args []interface{}
+	if status != "" && status != "all" {
+		query += ` WHERE scr.status = ?`
+		args = append(args, status)
 	}
 	query += ` ORDER BY scr.created_at DESC`
 
-	rows, err := config.DB.Query(query)
+	log.Printf("GetAllStopChangeRequests: status=%s, query=%s, args=%v", status, query, args)
+	rows, err := config.DB.Query(query, args...)
 	if err != nil {
 		log.Printf("Error fetching stop change requests: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch requests"})
@@ -501,6 +513,8 @@ func GetAllStopChangeRequests(c *gin.Context) {
 		var r models.StopChangeRequest
 		var processedAt sql.NullString
 		var processedBy sql.NullInt64
+		var createdAt sql.NullString
+
 		err := rows.Scan(
 			&r.ID, &r.StudentTransportID,
 			&r.StudentName, &r.StudentEmail,
@@ -510,11 +524,14 @@ func GetAllStopChangeRequests(c *gin.Context) {
 			&r.Reason, &r.Status,
 			&r.AdminRemarks,
 			&processedBy, &r.ProcessedByName,
-			&processedAt, &r.CreatedAt,
+			&processedAt, &createdAt,
 		)
 		if err != nil {
-			log.Printf("Error scanning: %v", err)
+			log.Printf("Error scanning stop change request: %v", err)
 			continue
+		}
+		if createdAt.Valid {
+			r.CreatedAt = createdAt.String
 		}
 		if processedBy.Valid {
 			id := int(processedBy.Int64)
@@ -526,6 +543,7 @@ func GetAllStopChangeRequests(c *gin.Context) {
 		requests = append(requests, r)
 	}
 
+	log.Printf("GetAllStopChangeRequests: Found %d requests", len(requests))
 	c.JSON(http.StatusOK, requests)
 }
 
@@ -627,7 +645,7 @@ func GetAllTransportRequests(c *gin.Context) {
 
 	query := `
 		SELECT 
-			tr.id, tr.user_id, tr.bus_id, tr.stop_id, tr.academic_year, COALESCE(tr.reason, ''),
+			tr.id, COALESCE(tr.user_id, 0), COALESCE(tr.bus_id, 0), COALESCE(tr.stop_id, 0), tr.academic_year, COALESCE(tr.reason, ''),
 			tr.status, COALESCE(tr.admin_remarks, ''), tr.processed_by, tr.processed_at,
 			tr.created_at,
 			COALESCE(u.full_name, u.username, '') as student_name, 

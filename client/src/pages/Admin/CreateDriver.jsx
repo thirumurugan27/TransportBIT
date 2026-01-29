@@ -1,9 +1,11 @@
 import React, {useState} from "react";
 import {X, User, Shield, Settings} from "lucide-react";
+import {useToast} from "../../context/ToastContext";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
 export default function CreateDriver({onClose}) {
+  const {showToast} = useToast();
   const [form, setForm] = useState({
     username: "",
     password: "",
@@ -30,7 +32,7 @@ export default function CreateDriver({onClose}) {
 
   const submitDriver = async () => {
     if (!form.username || !form.password || !form.full_name) {
-      alert("Username, password and name are required");
+      showToast("Username, password and name are required", "warning");
       return;
     }
 
@@ -49,14 +51,14 @@ export default function CreateDriver({onClose}) {
       });
 
       if (res.ok) {
-        alert("Driver created successfully");
+        showToast("Driver created successfully", "success");
         onClose();
       } else {
         const text = await res.text();
-        alert(`Failed (${res.status}): ${text}`);
+        showToast(`Failed (${res.status}): ${text}`, "error");
       }
     } catch (err) {
-      alert("Server error: " + err.message);
+      showToast("Server error: " + err.message, "error");
     }
   };
 
@@ -98,8 +100,8 @@ export default function CreateDriver({onClose}) {
           {/* Account Details Section */}
           <div className="mb-6">
             <h3 className="text-sm font-semibold text-gray-800 mb-4 flex items-center gap-2">
-              <div className="w-6 h-6 rounded-md bg-[var(--color-primary)]/10 flex items-center justify-center">
-                <User size={16} className="text-[var(--color-primary)]" />
+              <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center">
+                <User size={16} className="text-primary" />
               </div>
               Account Details
             </h3>
@@ -270,7 +272,7 @@ export default function CreateDriver({onClose}) {
                   name="is_incharge"
                   checked={form.is_incharge}
                   onChange={handleChange}
-                  className="w-5 h-5 rounded border-gray-300 text-[var(--color-primary)] focus:ring-[var(--color-primary)] cursor-pointer"
+                  className="w-5 h-5 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
                 />
                 <div>
                   <span className="text-sm font-medium text-gray-800">
@@ -295,7 +297,7 @@ export default function CreateDriver({onClose}) {
           </button>
           <button
             onClick={submitDriver}
-            className="flex-1 px-4 py-3 bg-[var(--color-primary)] text-white rounded-md hover:opacity-90 transition-all duration-200 font-semibold shadow-lg shadow-[var(--color-primary)]/25 hover:shadow-xl"
+            className="flex-1 px-4 py-3 bg-primary text-white rounded-md hover:opacity-90 transition-all duration-200 font-semibold shadow-lg shadow-[var(--color-primary)]/25 hover:shadow-xl"
           >
             Create Driver
           </button>

@@ -13,6 +13,7 @@ import (
 // DriverAssignment - assignment details for driver view
 type DriverAssignment struct {
 	ID                     int    `json:"id"`
+	VehicleID              int    `json:"vehicle_id"`
 	VehicleNumber          string `json:"vehicle_number"`
 	VehicleType            string `json:"vehicle_type"`
 	ShiftName              string `json:"shift_name"`
@@ -46,7 +47,7 @@ func GetDriverTodayAssignment(c *gin.Context) {
 	var assignment DriverAssignment
 	err := config.DB.QueryRow(`
 		SELECT 
-			a.id, v.vehicle_number, v.vehicle_type,
+			a.id, v.id as vehicle_id, v.vehicle_number, v.vehicle_type,
 			s.name as shift_name, 
 			TIME_FORMAT(s.start_time, '%H:%i') as start_time,
 			TIME_FORMAT(s.end_time, '%H:%i') as end_time,
@@ -58,7 +59,7 @@ func GetDriverTodayAssignment(c *gin.Context) {
 		WHERE a.driver_id = ? AND ? BETWEEN a.start_date AND a.end_date
 		LIMIT 1
 	`, driverID, date).Scan(
-		&assignment.ID, &assignment.VehicleNumber, &assignment.VehicleType,
+		&assignment.ID, &assignment.VehicleID, &assignment.VehicleNumber, &assignment.VehicleType,
 		&assignment.ShiftName, &assignment.StartTime, &assignment.EndTime,
 		&assignment.AssignedDate, &assignment.Status,
 	)
@@ -67,7 +68,7 @@ func GetDriverTodayAssignment(c *gin.Context) {
 		// Try temporary assignments
 		err = config.DB.QueryRow(`
 			SELECT 
-				ta.id, v.vehicle_number, v.vehicle_type,
+				ta.id, v.id as vehicle_id, v.vehicle_number, v.vehicle_type,
 				s.name as shift_name, 
 				TIME_FORMAT(s.start_time, '%H:%i') as start_time,
 				TIME_FORMAT(s.end_time, '%H:%i') as end_time,
@@ -81,7 +82,7 @@ func GetDriverTodayAssignment(c *gin.Context) {
 			  AND ta.status = 'active'
 			LIMIT 1
 		`, date, driverID, date).Scan(
-			&assignment.ID, &assignment.VehicleNumber, &assignment.VehicleType,
+			&assignment.ID, &assignment.VehicleID, &assignment.VehicleNumber, &assignment.VehicleType,
 			&assignment.ShiftName, &assignment.StartTime, &assignment.EndTime,
 			&assignment.AssignedDate, &assignment.Status,
 		)
@@ -124,7 +125,7 @@ func GetDriverTodayAssignments(c *gin.Context) {
 	// Check if today falls within the assignment date range (start_date to end_date)
 	rows, err := config.DB.Query(`
 		SELECT 
-			a.id, v.vehicle_number, v.vehicle_type,
+			a.id, v.id as vehicle_id, v.vehicle_number, v.vehicle_type,
 			s.name as shift_name, 
 			TIME_FORMAT(s.start_time, '%H:%i') as start_time,
 			TIME_FORMAT(s.end_time, '%H:%i') as end_time,
@@ -155,23 +156,25 @@ func GetDriverTodayAssignments(c *gin.Context) {
 	for rows.Next() {
 		var a DriverAssignment
 		var originalDriverID sql.NullInt64
-		err := rows.Scan(&a.ID, &a.VehicleNumber, &a.VehicleType,
+		err := rows.Scan(&a.ID, &a.VehicleID, &a.VehicleNumber, &a.VehicleType,
 			&a.ShiftName, &a.StartTime, &a.EndTime,
 			&a.AssignedDate, &a.StartDate, &a.EndDate, &a.Status,
 			&a.IsTemporaryReplacement, &originalDriverID, &a.OriginalDriverName)
+
 		if err == nil {
 			if originalDriverID.Valid {
 				id := int(originalDriverID.Int64)
 				a.OriginalDriverID = &id
 			}
 			assignments = append(assignments, a)
+		} else {
+			log.Printf("Scan error driver assignment: %v", err)
 		}
 	}
-
 	// 2. Get EV cluster assignments (driver belongs to a cluster assigned to EV)
 	evRows, err := config.DB.Query(`
 		SELECT 
-			ev.id, v.vehicle_number, v.vehicle_type,
+			ev.id, v.id as vehicle_id, v.vehicle_number, 'EV' as vehicle_type,
 			COALESCE(s.name, 'EV Duty') as shift_name, 
 			COALESCE(TIME_FORMAT(s.start_time, '%H:%i'), '08:00') as start_time,
 			COALESCE(TIME_FORMAT(s.end_time, '%H:%i'), '17:00') as end_time,
@@ -194,19 +197,18 @@ func GetDriverTodayAssignments(c *gin.Context) {
 		defer evRows.Close()
 		for evRows.Next() {
 			var a DriverAssignment
-			evRows.Scan(&a.ID, &a.VehicleNumber, &a.VehicleType,
+			if err := evRows.Scan(&a.ID, &a.VehicleID, &a.VehicleNumber, &a.VehicleType,
 				&a.ShiftName, &a.StartTime, &a.EndTime,
-				&a.AssignedDate, &a.Status)
-			// Mark as EV type for frontend display
-			a.VehicleType = "EV"
-			assignments = append(assignments, a)
+				&a.AssignedDate, &a.Status); err == nil {
+				assignments = append(assignments, a)
+			}
 		}
 	}
 
 	// 3. Get TEMPORARY assignments (where this driver is the REPLACEMENT)
 	tempRows, err := config.DB.Query(`
 		SELECT 
-			ta.id, v.vehicle_number, v.vehicle_type,
+			ta.id, v.id as vehicle_id, v.vehicle_number, v.vehicle_type,
 			s.name as shift_name, 
 			TIME_FORMAT(s.start_time, '%H:%i') as start_time,
 			TIME_FORMAT(s.end_time, '%H:%i') as end_time,
@@ -234,8 +236,8 @@ func GetDriverTodayAssignments(c *gin.Context) {
 		for tempRows.Next() {
 			var a DriverAssignment
 			var originalDriverID int
-			// Scan fields: ID, VehicleNumber, VehicleType, ShiftName, StartTime, EndTime, AssignedDate, StartDate, EndDate, Status, OriginalDriverID, OriginalDriverName
-			err := tempRows.Scan(&a.ID, &a.VehicleNumber, &a.VehicleType,
+			// Scan fields: ID, VehicleID, VehicleNumber, VehicleType, ShiftName, Start/End time, Assigned/Start/End date, Status, OriginalDriverID, OriginalDriverName
+			err := tempRows.Scan(&a.ID, &a.VehicleID, &a.VehicleNumber, &a.VehicleType,
 				&a.ShiftName, &a.StartTime, &a.EndTime,
 				&a.AssignedDate, &a.StartDate, &a.EndDate, &a.Status,
 				&originalDriverID, &a.OriginalDriverName)
@@ -274,7 +276,7 @@ func GetDriverAssignments(c *gin.Context) {
 	// 1. Get individual assignments (Bus, Car, etc.)
 	rows, err := config.DB.Query(`
 		SELECT 
-			a.id, v.vehicle_number, v.vehicle_type,
+			a.id, v.id as vehicle_id, v.vehicle_number, v.vehicle_type,
 			s.name as shift_name, 
 			TIME_FORMAT(s.start_time, '%H:%i') as start_time,
 			TIME_FORMAT(s.end_time, '%H:%i') as end_time,
@@ -305,7 +307,7 @@ func GetDriverAssignments(c *gin.Context) {
 		var a DriverAssignment
 		var originalDriverID sql.NullInt64
 		err := rows.Scan(
-			&a.ID, &a.VehicleNumber, &a.VehicleType,
+			&a.ID, &a.VehicleID, &a.VehicleNumber, &a.VehicleType,
 			&a.ShiftName, &a.StartTime, &a.EndTime,
 			&a.AssignedDate, &a.StartDate, &a.EndDate, &a.Status,
 			&a.IsTemporaryReplacement, &originalDriverID, &a.OriginalDriverName)
@@ -322,7 +324,7 @@ func GetDriverAssignments(c *gin.Context) {
 	// This generates one row per day in the date range
 	evRows, err := config.DB.Query(`
 		SELECT 
-			ev.id, v.vehicle_number, 'EV' as vehicle_type,
+			ev.id, v.id as vehicle_id, v.vehicle_number, 'EV' as vehicle_type,
 			COALESCE(s.name, 'EV Duty') as shift_name, 
 			COALESCE(TIME_FORMAT(s.start_time, '%H:%i'), TIME_FORMAT(dc.start_time, '%H:%i'), '08:00') as start_time,
 			COALESCE(TIME_FORMAT(s.end_time, '%H:%i'), TIME_FORMAT(dc.end_time, '%H:%i'), '17:00') as end_time,
@@ -347,7 +349,7 @@ func GetDriverAssignments(c *gin.Context) {
 			var a DriverAssignment
 			var endDate string
 			evRows.Scan(
-				&a.ID, &a.VehicleNumber, &a.VehicleType,
+				&a.ID, &a.VehicleID, &a.VehicleNumber, &a.VehicleType,
 				&a.ShiftName, &a.StartTime, &a.EndTime,
 				&a.AssignedDate, &endDate, &a.Status,
 			)
@@ -363,7 +365,7 @@ func GetDriverAssignments(c *gin.Context) {
 	// 3. Get temporary assignments
 	tempRows, err := config.DB.Query(`
 		SELECT 
-			ta.id, v.vehicle_number, v.vehicle_type,
+			ta.id, v.id as vehicle_id, v.vehicle_number, v.vehicle_type,
 			s.name as shift_name, 
 			TIME_FORMAT(s.start_time, '%H:%i') as start_time,
 			TIME_FORMAT(s.end_time, '%H:%i') as end_time,
@@ -389,7 +391,7 @@ func GetDriverAssignments(c *gin.Context) {
 			var a DriverAssignment
 			var originalDriverID int
 			err := tempRows.Scan(
-				&a.ID, &a.VehicleNumber, &a.VehicleType,
+				&a.ID, &a.VehicleID, &a.VehicleNumber, &a.VehicleType,
 				&a.ShiftName, &a.StartTime, &a.EndTime,
 				&a.StartDate, &a.EndDate, &a.Status,
 				&originalDriverID, &a.OriginalDriverName)

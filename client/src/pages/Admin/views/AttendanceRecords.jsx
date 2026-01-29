@@ -11,16 +11,18 @@ import {
   Clock,
   CalendarDays,
 } from "lucide-react";
+import {useToast} from "../../../context/ToastContext";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
 export default function AttendanceRecords() {
+  const {showToast} = useToast();
   const [attendanceHistory, setAttendanceHistory] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Default to today
   const today = new Date().toISOString().split("T")[0];
-  
+
   // Filters
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
@@ -58,7 +60,7 @@ export default function AttendanceRecords() {
 
   const downloadCSV = () => {
     if (!attendanceHistory || attendanceHistory.length === 0) {
-      alert("No data available to export.");
+      showToast("No data available to export.", "warning");
       return;
     }
 
@@ -72,7 +74,7 @@ export default function AttendanceRecords() {
           record.status,
           record.checkin_time || "-",
           record.checkout_time || "-",
-        ].join(",")
+        ].join(","),
       ),
     ].join("\n");
 
@@ -82,7 +84,7 @@ export default function AttendanceRecords() {
     link.setAttribute("href", url);
     link.setAttribute(
       "download",
-      `attendance_report_${startDate}_to_${endDate}.csv`
+      `attendance_report_${startDate}_to_${endDate}.csv`,
     );
     link.style.visibility = "hidden";
     document.body.appendChild(link);
@@ -179,7 +181,8 @@ export default function AttendanceRecords() {
         <div className="bg-blue-50 border border-blue-100 rounded-md p-4 flex items-center gap-3">
           <Calendar className="w-5 h-5 text-blue-600" />
           <p className="text-sm text-blue-700">
-            Showing attendance for <strong>{startDate}</strong> - All drivers are listed with their status
+            Showing attendance for <strong>{startDate}</strong> - All drivers
+            are listed with their status
           </p>
         </div>
       )}
@@ -236,8 +239,9 @@ export default function AttendanceRecords() {
               Not Marked
             </p>
             <p className="text-2xl font-bold text-gray-500">
-              {attendanceHistory?.filter((r) => r.status === "not_marked" || r.status === "on_leave").length ||
-                0}
+              {attendanceHistory?.filter(
+                (r) => r.status === "not_marked" || r.status === "on_leave",
+              ).length || 0}
             </p>
           </div>
           <div className="p-3 bg-gray-100 text-gray-500 rounded-md group-hover:bg-gray-200 transition-colors">
@@ -304,10 +308,10 @@ export default function AttendanceRecords() {
                             record.status === "present"
                               ? "bg-emerald-50 text-emerald-700 border-emerald-100"
                               : record.status === "absent"
-                              ? "bg-red-50 text-red-700 border-red-100"
-                              : record.status === "on_leave"
-                              ? "bg-orange-50 text-orange-700 border-orange-100"
-                              : "bg-gray-50 text-gray-500 border-gray-200"
+                                ? "bg-red-50 text-red-700 border-red-100"
+                                : record.status === "on_leave"
+                                  ? "bg-orange-50 text-orange-700 border-orange-100"
+                                  : "bg-gray-50 text-gray-500 border-gray-200"
                           }`}
                         >
                           {record.status === "present" ? (
@@ -315,10 +319,13 @@ export default function AttendanceRecords() {
                           ) : (
                             <UserX size={12} />
                           )}
-                          {record.status === "present" ? "Present" 
-                            : record.status === "absent" ? "Absent"
-                            : record.status === "on_leave" ? "On Leave"
-                            : "Not Marked"}
+                          {record.status === "present"
+                            ? "Present"
+                            : record.status === "absent"
+                              ? "Absent"
+                              : record.status === "on_leave"
+                                ? "On Leave"
+                                : "Not Marked"}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">

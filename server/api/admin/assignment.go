@@ -30,6 +30,7 @@ func GetAllAssignments(c *gin.Context) {
 		       TIME_FORMAT(s.start_time, '%H:%i') as start_time, 
 		       TIME_FORMAT(s.end_time, '%H:%i') as end_time,
 		       v.vehicle_number, v.vehicle_type,
+		       COALESCE(v.name, '') as bus_name,
 		       u.full_name AS driver_name,
 		       COALESCE(u_orig.full_name, '') as original_driver_name,
 		       CASE 
@@ -67,7 +68,7 @@ func GetAllAssignments(c *gin.Context) {
 			&a.AssignedDate, &a.StartDate, &a.EndDate, &a.Status,
 			&isTemp, &originalDriverID,
 			&a.ShiftName, &a.StartTime, &a.EndTime,
-			&a.VehicleNumber, &a.VehicleType,
+			&a.VehicleNumber, &a.VehicleType, &a.BusName,
 			&a.DriverName, &a.OriginalDriverName, &a.DriverStatus)
 		if err != nil {
 			log.Printf("Scan error: %v", err)
@@ -94,6 +95,7 @@ func GetAllAssignments(c *gin.Context) {
 		       TIME_FORMAT(s.start_time, '%H:%i') as start_time, 
 		       TIME_FORMAT(s.end_time, '%H:%i') as end_time,
 		       v.vehicle_number, v.vehicle_type,
+		       COALESCE(v.name, ''),
 		       u.full_name AS driver_name,
 		       COALESCE(u_orig.full_name, '') as original_driver_name
 		FROM temporary_assignments ta
@@ -122,7 +124,7 @@ func GetAllAssignments(c *gin.Context) {
 				&a.AssignedDate, &a.StartDate, &a.EndDate, &a.Status,
 				&originalDriverID,
 				&a.ShiftName, &a.StartTime, &a.EndTime,
-				&a.VehicleNumber, &a.VehicleType,
+				&a.VehicleNumber, &a.VehicleType, &a.BusName,
 				&a.DriverName, &a.OriginalDriverName)
 
 			if err != nil {
