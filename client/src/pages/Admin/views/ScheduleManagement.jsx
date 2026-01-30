@@ -26,6 +26,16 @@ const formatTimeAMPM = (time24) => {
   return `${h12}:${minutes} ${ampm}`;
 };
 
+// Helper to convert DD-MM-YYYY to YYYY-MM-DD for input[type="date"]
+const formatDateForInput = (dateStr) => {
+  if (!dateStr) return "";
+  const parts = dateStr.split("-");
+  if (parts.length === 3 && parts[0].length === 2 && parts[2].length === 4) {
+    return `${parts[2]}-${parts[1]}-${parts[0]}`;
+  }
+  return dateStr;
+};
+
 export default function ScheduleManagement() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("groups"); // groups, shifts
@@ -119,8 +129,8 @@ export default function ScheduleManagement() {
         description: item.description || "",
         start_time: item.start_time || "",
         end_time: item.end_time || "",
-        valid_from: item.valid_from || "",
-        valid_to: item.valid_to || "",
+        valid_from: formatDateForInput(item.valid_from) || "",
+        valid_to: formatDateForInput(item.valid_to) || "",
         driver_ids: currentDriverIds,
       });
     } else {

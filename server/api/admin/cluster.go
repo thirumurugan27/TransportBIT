@@ -49,7 +49,9 @@ func GetClusters(c *gin.Context) {
 		SELECT c.id, c.name, COALESCE(c.description, '') as description, 
 			   c.default_shift_id,
 			   (SELECT COUNT(*) FROM drivers d WHERE d.cluster_id = c.id) as driver_count,
-			   c.start_time, c.end_time, c.valid_from, c.valid_to
+			   c.start_time, c.end_time, 
+			   DATE_FORMAT(c.valid_from, '%d-%m-%Y'), 
+			   DATE_FORMAT(c.valid_to, '%d-%m-%Y')
 		FROM driver_clusters c
 		ORDER BY c.name
 	`)
