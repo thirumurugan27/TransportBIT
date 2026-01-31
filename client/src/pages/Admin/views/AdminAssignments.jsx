@@ -3,6 +3,7 @@ import TemporaryAssignments from "./TemporaryAssignments";
 import EVAssignmentsList from "./EVAssignmentsList";
 import {showError, showConfirm} from "../../../utils/swal";
 import {formatVehicleLabel} from "../../../utils/vehicleLabel";
+import SearchableSelect from "../../../components/ui/SearchableSelect";
 import {
   Calendar,
   User,
@@ -317,69 +318,65 @@ export default function AdminAssignments() {
                 <label className="text-sm font-medium text-gray-700">
                   Driver
                 </label>
-                <select
-                  className="w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                <SearchableSelect
                   value={editingAssignment.driver_id || ""}
-                  onChange={(e) =>
+                  onChange={(val) =>
                     setEditingAssignment({
                       ...editingAssignment,
-                      driver_id: e.target.value,
+                      driver_id: val,
                     })
                   }
-                >
-                  <option value="">Select Driver</option>
-                  {drivers.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.full_name}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Select Driver"
+                  options={drivers.map((d) => ({
+                    value: d.id,
+                    label: d.full_name,
+                  }))}
+                  emptyMessage="No drivers available"
+                />
               </div>
 
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-700">
                   Vehicle
                 </label>
-                <select
-                  className="w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                <SearchableSelect
                   value={editingAssignment.vehicle_id || ""}
-                  onChange={(e) =>
+                  onChange={(val) =>
                     setEditingAssignment({
                       ...editingAssignment,
-                      vehicle_id: e.target.value,
+                      vehicle_id: val,
                     })
                   }
-                >
-                  <option value="">Select Vehicle</option>
-                  {vehicles.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {formatVehicleLabel(v)}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Select Vehicle"
+                  options={vehicles.map((v) => ({
+                    value: v.id,
+                    label: formatVehicleLabel(v),
+                    subtitle: v.vehicle_type,
+                  }))}
+                  emptyMessage="No vehicles available"
+                />
               </div>
 
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-700">
                   Shift
                 </label>
-                <select
-                  className="w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                <SearchableSelect
                   value={editingAssignment.shift_id || ""}
-                  onChange={(e) =>
+                  onChange={(val) =>
                     setEditingAssignment({
                       ...editingAssignment,
-                      shift_id: e.target.value,
+                      shift_id: val,
                     })
                   }
-                >
-                  <option value="">Select Shift</option>
-                  {shifts.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.shift_name} ({s.start_time}-{s.end_time})
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Select Shift"
+                  options={shifts.map((s) => ({
+                    value: s.id,
+                    label: s.shift_name,
+                    subtitle: `${s.start_time}-${s.end_time}`,
+                  }))}
+                  emptyMessage="No shifts available"
+                />
               </div>
 
               <div className="pt-4 flex justify-end gap-3">

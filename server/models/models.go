@@ -53,12 +53,14 @@ type DriverResponse struct {
 	ID              int    `json:"id"`
 	UserID          int    `json:"user_id"`
 	FullName        string `json:"full_name"`
+	Role            string `json:"role"`
 	Phone           string `json:"phone"`
 	Email           string `json:"email"`
 	LicenseNumber   string `json:"license_number"`
 	LicenseType     string `json:"license_type"`
 	LicenseExpiry   string `json:"license_expiry"`
 	ExperienceYears int    `json:"experience_years"`
+	AllowedVehicleType string `json:"allowed_vehicle_type"`
 	HomeVehicleID   *int   `json:"home_vehicle_id"`
 	HomeStopID      *int   `json:"home_stop_id"`
 	IsIncharge      bool   `json:"is_incharge"`

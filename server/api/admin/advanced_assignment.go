@@ -123,6 +123,7 @@ func GetAssignmentsByCategory(c *gin.Context) {
 		           ELSE 'not_marked'
 		       END as driver_status,
 		       v.id as vehicle_id, v.vehicle_number, v.vehicle_type, v.fuel_type,
+		       COALESCE(v.name, b.bus_name, v.vehicle_number) as vehicle_name,
 		       s.id as shift_id, s.name as shift_name, 
 		       TIME_FORMAT(s.start_time, '%H:%i') as start_time, 
 		       TIME_FORMAT(s.end_time, '%H:%i') as end_time,
@@ -134,6 +135,7 @@ func GetAssignmentsByCategory(c *gin.Context) {
 		JOIN drivers d ON a.driver_id = d.id
 		JOIN users u ON d.user_id = u.id
 		JOIN vehicles v ON a.vehicle_id = v.id
+		LEFT JOIN buses b ON v.id = b.vehicle_id
 		JOIN shifts s ON a.shift_id = s.id
 		LEFT JOIN attendance att ON att.user_id = d.user_id AND att.date = a.assigned_date
 		WHERE v.vehicle_type = ?
@@ -147,33 +149,58 @@ func GetAssignmentsByCategory(c *gin.Context) {
 	}
 	defer rows.Close()
 
+	type ShiftSlot struct {
+		StartTime string `json:"start_time"`
+		EndTime   string `json:"end_time"`
+	}
+
 	type CategoryAssignment struct {
-		ID                     int     `json:"id"`
-		AssignedDate           string  `json:"assigned_date"`
-		Status                 string  `json:"status"`
-		DriverID               int     `json:"driver_id"`
-		DriverName             string  `json:"driver_name"`
-		DriverStatus           string  `json:"driver_status"`
-		VehicleID              int     `json:"vehicle_id"`
-		VehicleNumber          string  `json:"vehicle_number"`
-		VehicleType            string  `json:"vehicle_type"`
-		FuelType               string  `json:"fuel_type"`
-		ShiftID                int     `json:"shift_id"`
-		ShiftName              string  `json:"shift_name"`
-		StartTime              string  `json:"start_time"`
-		EndTime                string  `json:"end_time"`
-		OriginalDriverID       *int    `json:"original_driver_id"`
-		IsTemporaryReplacement bool    `json:"is_temporary_replacement"`
-		OriginalDriverName     *string `json:"original_driver_name"`
+		ID                     int         `json:"id"`
+		AssignedDate           string      `json:"assigned_date"`
+		Status                 string      `json:"status"`
+		DriverID               int         `json:"driver_id"`
+		DriverName             string      `json:"driver_name"`
+		DriverStatus           string      `json:"driver_status"`
+		VehicleID              int         `json:"vehicle_id"`
+		VehicleNumber          string      `json:"vehicle_number"`
+		VehicleName            string      `json:"vehicle_name"`
+		VehicleType            string      `json:"vehicle_type"`
+		FuelType               string      `json:"fuel_type"`
+		ShiftID                int         `json:"shift_id"`
+		ShiftName              string      `json:"shift_name"`
+		StartTime              string      `json:"start_time"`
+		EndTime                string      `json:"end_time"`
+		Slots                  []ShiftSlot `json:"slots"`
+		OriginalDriverID       *int        `json:"original_driver_id"`
+		IsTemporaryReplacement bool        `json:"is_temporary_replacement"`
+		OriginalDriverName     *string     `json:"original_driver_name"`
 	}
 
 	var assignments []CategoryAssignment
 	for rows.Next() {
 		var a CategoryAssignment
 		rows.Scan(&a.ID, &a.AssignedDate, &a.Status, &a.DriverID, &a.DriverName, &a.DriverStatus,
-			&a.VehicleID, &a.VehicleNumber, &a.VehicleType, &a.FuelType,
+			&a.VehicleID, &a.VehicleNumber, &a.VehicleType, &a.FuelType, &a.VehicleName,
 			&a.ShiftID, &a.ShiftName, &a.StartTime, &a.EndTime,
 			&a.OriginalDriverID, &a.IsTemporaryReplacement, &a.OriginalDriverName)
+		
+		// Fetch shift slots for this shift
+		slotRows, _ := config.DB.Query(`
+			SELECT TIME_FORMAT(start_time, '%H:%i'), TIME_FORMAT(end_time, '%H:%i')
+			FROM shift_slots
+			WHERE shift_id = ?
+			ORDER BY slot_order ASC
+		`, a.ShiftID)
+		
+		var slots []ShiftSlot
+		for slotRows.Next() {
+			var slot ShiftSlot
+			slotRows.Scan(&slot.StartTime, &slot.EndTime)
+			slots = append(slots, slot)
+		}
+		slotRows.Close()
+		a.Slots = slots
+		
 		assignments = append(assignments, a)
 	}
 

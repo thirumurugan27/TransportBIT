@@ -170,9 +170,9 @@ func AddDriverKmLog(c *gin.Context) {
 		INSERT INTO km_logs (
 			driver_id, date, start_km, end_km, total_km, remarks,
 			vehicle_type, vehicle_id, assignment_id,
-			recorded_by_user_id, recorded_by_role, recorded_by_name
+			recorded_by_user_id, recorded_by_name
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'DRIVER', ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, req.DriverID, req.Date, req.StartKm, req.EndKm, req.TotalKm, req.Remarks, req.VehicleType, vehicleID, assignmentID, recordedByUserID, recordedByName)
 
 	if err != nil {

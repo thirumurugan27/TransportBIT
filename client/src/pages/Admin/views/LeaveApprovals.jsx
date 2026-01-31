@@ -6,14 +6,19 @@ import {
   Clock,
   Search,
   Filter,
-  Eye,
   Loader2,
   AlertTriangle,
   X,
   FileText,
-  ChevronRight,
-  ChevronDown,
+  User,
+  ShieldCheck,
 } from "lucide-react";
+import {
+  formatDate,
+  formatTime,
+  calculateDuration,
+  getStatusLabel,
+} from "../../../utils/dateFormat";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
@@ -25,10 +30,7 @@ export default function LeaveApprovals() {
   const [searchQuery, setSearchQuery] = useState("");
   const [actionProcessing, setActionProcessing] = useState(null);
   const [statusFilter, setStatusFilter] = useState("ALL");
-
-  // Reassignment Feature
-  const [showReassignModal, setShowReassignModal] = useState(false);
-  const [reassignData, setReassignData] = useState([]);
+  const [remarks, setRemarks] = useState("");
 
   const fetchLeaveRequests = async () => {
     setLoading(true);
@@ -52,7 +54,7 @@ export default function LeaveApprovals() {
     fetchLeaveRequests();
   }, []);
 
-  const approveLeave = async (leaveId, status, remarks = "") => {
+  const approveLeave = async (leaveId, status) => {
     setActionProcessing(leaveId);
     try {
       const res = await fetch(`${API_BASE}/api/admin/leave/approve`, {
@@ -62,27 +64,25 @@ export default function LeaveApprovals() {
           leave_id: leaveId,
           approver_id: 1, // Admin ID
           status: status,
-          remarks: remarks,
+          remarks: remarks || "",
         }),
       });
       if (res.ok) {
         const data = await res.json();
-
-        // Check for affected assignments (automatic replacement suggestions)
-        if (
-          (status === "approved" || status === "admin_approved") &&
-          data.affected_assignments &&
-          data.affected_assignments.length > 0
-        ) {
-          setReassignData(data.affected_assignments);
-          setShowReassignModal(true);
-          setShowLeaveModal(false);
+        setShowLeaveModal(false);
+        setRemarks("");
+        fetchLeaveRequests();
+        if (status === "approved") {
+          showSuccess(
+            "Leave Approved",
+            "Leave request approved successfully. Attendance will be automatically marked as absent for the leave period.",
+          );
         } else {
-          setShowLeaveModal(false);
-          fetchLeaveRequests();
+          showSuccess("Leave Rejected", "Leave request has been rejected.");
         }
       } else {
-        showError("Error", "Failed: " + (await res.text()));
+        const errorText = await res.text();
+        showError("Error", "Failed: " + errorText);
       }
     } catch (err) {
       showError("Error", err.message);
@@ -91,49 +91,7 @@ export default function LeaveApprovals() {
     }
   };
 
-  const handleReassignDriver = async (
-    assignmentId,
-    newDriverId,
-    startDate,
-    endDate,
-  ) => {
-    try {
-      const res = await fetch(
-        `${API_BASE}/api/admin/assignments/reassign-for-leave`,
-        {
-          method: "POST",
-          headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({
-            assignment_id: assignmentId,
-            new_driver_id: newDriverId,
-            start_date: startDate,
-            end_date: endDate,
-          }),
-        },
-      );
-      if (res.ok) {
-        const remaining = reassignData.filter((a) => a.id !== assignmentId);
-        setReassignData(remaining);
-        if (remaining.length === 0) {
-          setShowReassignModal(false);
-          fetchLeaveRequests();
-          showSuccess("Success", "All affected assignments handled.");
-        }
-      } else {
-        showError("Error", "Failed to reassign: " + (await res.text()));
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const calculateDuration = (start, end) => {
-    const s = new Date(start);
-    const e = new Date(end);
-    const diffTime = Math.abs(e - s);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-    return `${diffDays} days`;
-  };
+  const getStatus = (leave) => (leave?.status || "").toLowerCase().trim();
 
   const filteredLeaves = leaveRequests.filter((leave) => {
     const matchesSearch =
@@ -141,492 +99,517 @@ export default function LeaveApprovals() {
       leave.leave_type?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       leave.reason?.toLowerCase().includes(searchQuery.toLowerCase());
 
+    const status = getStatus(leave);
     const matchesStatus =
-      statusFilter === "ALL"
-        ? true
-        : statusFilter === "PENDING"
-          ? leave.status === "incharge_approved" || leave.status === "pending"
-          : statusFilter === "APPROVED"
-            ? leave.status === "approved" || leave.status === "admin_approved"
-            : statusFilter === "REJECTED"
-              ? leave.status === "rejected"
-              : true;
+      statusFilter === "ALL" ||
+      status.toUpperCase() === statusFilter ||
+      (statusFilter === "PENDING" && status === "incharge_approved") ||
+      (statusFilter === "APPROVED" &&
+        (status === "admin_approved" || status === "approved")) ||
+      (statusFilter === "REJECTED" && status === "rejected");
 
     return matchesSearch && matchesStatus;
   });
+
+  const modalStatus = selectedLeave ? getStatus(selectedLeave) : "";
+  const modalInchargeApproved =
+    modalStatus === "incharge_approved" || modalStatus === "approved";
+  const modalAdminApproved =
+    modalStatus === "admin_approved" || modalStatus === "approved";
+  const modalInchargeRejected =
+    modalStatus === "rejected" && selectedLeave?.incharge_id;
+  const modalAdminRejected =
+    modalStatus === "rejected" && selectedLeave?.admin_id;
 
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-700">Leave Approvals</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Manage driver leave requests and replacements
+          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+            <ShieldCheck className="w-7 h-7 text-[#8b5cf6]" />
+            Leave Approvals - Admin
+          </h1>
+          <p className="text-sm text-gray-600 mt-1">
+            Final approval for driver leave requests
           </p>
         </div>
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100 flex flex-col sm:flex-row gap-4">
-        <div className="flex-1">
-          <label className="text-sm font-medium text-gray-700 mb-1 block">
-            Search
-          </label>
-          <div className="relative">
-            <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-              size={16}
-            />
+      <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
               type="text"
-              placeholder="Search by driver name, type or remarks..."
+              placeholder="Search by driver name, leave type, or reason..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-md focus:outline-none focus:border-[#8b5cf6] focus:ring-1 focus:ring-[#8b5cf6]/20 transition-all text-sm"
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8b5cf6]/30 focus:border-[#8b5cf6] text-sm"
             />
           </div>
-        </div>
-
-        <div className="w-full sm:w-48">
-          <label className="text-sm font-medium text-gray-700 mb-1 block">
-            Status
-          </label>
-          <div className="relative">
-            <Filter
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-              size={16}
-            />
+          <div className="flex items-center gap-3">
+            <Filter className="w-5 h-5 text-gray-500" />
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-md focus:outline-none focus:border-[#8b5cf6] focus:ring-1 focus:ring-[#8b5cf6]/20 transition-all text-sm appearance-none cursor-pointer"
+              className="px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8b5cf6]/30 focus:border-[#8b5cf6] text-sm bg-white"
             >
               <option value="ALL">All Status</option>
               <option value="PENDING">Pending</option>
               <option value="APPROVED">Approved</option>
               <option value="REJECTED">Rejected</option>
             </select>
-            <ChevronDown
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
-              size={14}
-            />
           </div>
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-lg border border-gray-100 shadow-sm overflow-hidden">
+      {/* Leave Requests Table */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center flex justify-center">
-            <Loader2 className="w-8 h-8 text-[#8b5cf6] animate-spin" />
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="w-8 h-8 animate-spin text-[#8b5cf6]" />
           </div>
         ) : filteredLeaves.length === 0 ? (
-          <div className="p-12 text-center">
-            <div className="bg-gray-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-              <FileText className="w-8 h-8 text-gray-400" />
-            </div>
-            <h3 className="text-gray-800 font-medium mb-1">
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <FileText className="w-12 h-12 text-gray-300 mb-3" />
+            <h3 className="text-lg font-semibold text-gray-800 mb-1">
               No Leave Requests
             </h3>
-            <p className="text-gray-500 text-sm">
-              All caught up! No pending leave requests.
+            <p className="text-sm text-gray-500">
+              There are no leave requests to display.
             </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left">
-              <thead className="bg-gray-50 text-gray-500 text-[11px] font-bold uppercase tracking-wider">
+              <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-6 py-4">Driver Name</th>
-                  <th className="px-6 py-4">Leave Type</th>
-                  <th className="px-6 py-4">From Date</th>
-                  <th className="px-6 py-4">To Date</th>
-                  <th className="px-6 py-4">Duration</th>
-                  <th className="px-6 py-4">Incharge Status</th>
-                  <th className="px-6 py-4">Admin Status</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    Driver Name
+                  </th>
+                  <th className="px-6 py-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    Type
+                  </th>
+                  <th className="px-6 py-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    From Date
+                  </th>
+                  <th className="px-6 py-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    To Date
+                  </th>
+                  <th className="px-6 py-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    Duration
+                  </th>
+                  <th className="px-6 py-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    Incharge Status
+                  </th>
+                  <th className="px-6 py-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    Admin Status
+                  </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
-                {filteredLeaves.map((leave, idx) => (
-                  <tr
-                    key={leave.id || idx}
-                    onClick={() => {
-                      setSelectedLeave(leave);
-                      setShowLeaveModal(true);
-                    }}
-                    className="hover:bg-gray-50/80 transition-colors group cursor-pointer"
-                  >
-                    <td className="px-6 py-4 text-sm font-medium text-gray-800">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-[#8b5cf6]/10 text-[#8b5cf6] flex items-center justify-center text-xs font-bold">
-                          {leave.driver_name?.charAt(0)}
+              <tbody className="divide-y divide-gray-100">
+                {filteredLeaves.map((leave, idx) => {
+                  const status = getStatus(leave);
+                  const inchargeApproved = !!(
+                    leave.incharge_approved_at ||
+                    status === "incharge_approved" ||
+                    status === "approved"
+                  );
+                  const adminApproved =
+                    status !== "rejected" &&
+                    !!(
+                      leave.admin_approved_at ||
+                      status === "admin_approved" ||
+                      status === "approved"
+                    );
+                  const inchargeRejected =
+                    status === "rejected" && leave.incharge_id;
+                  const adminRejected = status === "rejected" && leave.admin_id;
+
+                  return (
+                    <tr
+                      key={leave.id || idx}
+                      onClick={() => {
+                        setSelectedLeave(leave);
+                        setShowLeaveModal(true);
+                        setRemarks("");
+                      }}
+                      className="hover:bg-gray-50 transition-colors cursor-pointer"
+                    >
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-[#8b5cf6]/10 text-[#8b5cf6] flex items-center justify-center font-semibold text-sm">
+                            {leave.driver_name?.charAt(0) || "D"}
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-gray-800">
+                              {leave.driver_name || "Unknown"}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              ID: {leave.driver_id}
+                            </p>
+                          </div>
                         </div>
-                        <span>{leave.driver_name}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {leave.leave_type}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {leave.start_date}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {leave.end_date}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-800 font-medium">
-                      {calculateDuration(leave.start_date, leave.end_date)}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-1.5">
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-[#8b5cf6]/10 text-[#8b5cf6]">
+                          {leave.leave_type}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-700">
+                        <div className="flex flex-col">
+                          <span className="font-medium">
+                            {formatDate(leave.start_date)}
+                          </span>
+                          {leave.start_time && (
+                            <span className="text-xs text-gray-500">
+                              {formatTime(leave.start_time)}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-700">
+                        <div className="flex flex-col">
+                          <span className="font-medium">
+                            {formatDate(leave.end_date)}
+                          </span>
+                          {leave.end_time && (
+                            <span className="text-xs text-gray-500">
+                              {formatTime(leave.end_time)}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm font-semibold text-gray-800">
+                        {calculateDuration(leave.start_date, leave.end_date)}
+                      </td>
+                      <td className="px-6 py-4">
                         <span
-                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide border ${
-                            leave.status === "incharge_approved" ||
-                            leave.status === "admin_approved" ||
-                            leave.incharge_approved_at
-                              ? "bg-green/10 text-green border-green/20"
-                              : leave.status === "rejected" &&
-                                  leave.incharge_id &&
-                                  !leave.admin_id
-                                ? "bg-red/10 text-red border-red/20"
-                                : "bg-pending/10 text-pending border-pending/20"
+                          className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
+                            inchargeApproved
+                              ? "bg-green-100 text-green-700"
+                              : inchargeRejected
+                                ? "bg-red-100 text-red-700"
+                                : "bg-yellow-100 text-yellow-700"
                           }`}
                         >
-                          {leave.status === "incharge_approved" ||
-                          leave.status === "admin_approved" ||
-                          leave.incharge_approved_at
-                            ? "APPROVED"
-                            : leave.status === "rejected" &&
-                                leave.incharge_id &&
-                                !leave.admin_id
-                              ? "REJECTED"
-                              : "PENDING"}
+                          {inchargeApproved
+                            ? "Approved"
+                            : inchargeRejected
+                              ? "Rejected"
+                              : "Pending"}
                         </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-1.5">
+                      </td>
+                      <td className="px-6 py-4">
                         <span
-                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide border ${
-                            leave.status === "admin_approved"
-                              ? "bg-green/10 text-green border-green/20"
-                              : leave.status === "rejected" && leave.admin_id
-                                ? "bg-red/10 text-red border-red/20"
-                                : leave.status === "incharge_approved"
-                                  ? "bg-pending/10 text-pending border-pending/20"
-                                  : "bg-gray-100 text-gray-400 border-gray-200"
+                          className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
+                            adminApproved
+                              ? "bg-green-100 text-green-700"
+                              : adminRejected
+                                ? "bg-red-100 text-red-700"
+                                : inchargeApproved
+                                  ? "bg-blue-100 text-blue-700"
+                                  : "bg-gray-100 text-gray-500"
                           }`}
                         >
-                          {leave.status === "admin_approved"
-                            ? "APPROVED"
-                            : leave.status === "rejected" && leave.admin_id
-                              ? "REJECTED"
-                              : leave.status === "incharge_approved"
-                                ? "PENDING"
-                                : "WAITING"}
+                          {adminApproved
+                            ? "Approved"
+                            : adminRejected
+                              ? "Rejected"
+                              : inchargeApproved
+                                ? "Pending"
+                                : "Waiting"}
                         </span>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
-        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/30 text-xs text-gray-500 flex justify-between items-center">
-          <span>
-            Show{" "}
-            <select className="border border-gray-300 rounded px-1 py-0.5">
-              <option>10</option>
-              <option>50</option>
-            </select>{" "}
-            entries
-          </span>
-          <span>Showing {filteredLeaves.length} entries</span>
+        <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 text-xs text-gray-600 flex justify-between items-center">
+          <span>Total: {filteredLeaves.length} leave request(s)</span>
         </div>
       </div>
 
-      {/* Details Modal */}
+      {/* Leave Details Modal */}
       {showLeaveModal && selectedLeave && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-2xl rounded-lg shadow-2xl animate-scaleIn overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h3 className="text-lg font-bold text-gray-800">
-                Review Leave Request
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl animate-scaleIn overflow-hidden max-h-[90vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-[#8b5cf6]/5 to-transparent">
+              <h3 className="text-xl font-bold text-gray-800">
+                Leave Details - {selectedLeave.leave_type}
               </h3>
               <button
                 onClick={() => setShowLeaveModal(false)}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
               >
-                <X className="w-5 h-5" />
+                <X className="w-6 h-6" />
               </button>
             </div>
 
-            <div className="p-6">
-              <div className="flex items-center gap-4 mb-6">
-                <div className="w-12 h-12 bg-[#8b5cf6]/10 text-[#8b5cf6] rounded-full flex items-center justify-center text-lg font-bold">
-                  {selectedLeave.driver_name?.charAt(0)}
-                </div>
-                <div>
-                  <h4 className="text-lg font-bold text-gray-800">
-                    {selectedLeave.driver_name}
-                  </h4>
-                  <p className="text-sm text-gray-500">
-                    Driver ID: {selectedLeave.driver_id}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-y-6 gap-x-8 text-sm mb-8">
-                <div>
-                  <p className="text-gray-500 mb-1">Leave Type</p>
-                  <p className="font-medium text-gray-800">
-                    {selectedLeave.leave_type}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-gray-500 mb-1">Duration</p>
-                  <p className="font-medium text-gray-800">
-                    {calculateDuration(
-                      selectedLeave.start_date,
-                      selectedLeave.end_date,
-                    )}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-gray-500 mb-1">From Date</p>
-                  <p className="font-medium text-gray-800">
-                    {selectedLeave.start_date}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-gray-500 mb-1">To Date</p>
-                  <p className="font-medium text-gray-800">
-                    {selectedLeave.end_date}
-                  </p>
-                </div>
-                <div className="col-span-2">
-                  <p className="text-gray-500 mb-1">Reason</p>
-                  <div className="bg-gray-50 p-3 rounded text-gray-700 border border-gray-100 italic">
-                    {selectedLeave.reason || "No reason provided."}
-                  </div>
-                </div>
-              </div>
-
-              {/* Status Timeline */}
-              <div className="border-t border-gray-100 pt-6 mb-6">
-                <h5 className="text-sm font-semibold text-gray-800 mb-4">
-                  Approval Timeline
-                </h5>
-                <div className="flex gap-4">
-                  {/* Incharge Status */}
-                  <div
-                    className={`flex-1 p-3 rounded border border-l-4 ${
-                      selectedLeave.incharge_approved_at
-                        ? "bg-green/10 border-green/20 border-l-green"
-                        : "bg-gray-50 border-gray-200 border-l-gray-300"
-                    }`}
-                  >
-                    <p className="text-xs font-semibold uppercase tracking-wide mb-1 text-gray-500">
-                      Incharge Review
+            {/* Modal Body - Scrollable */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* Leave Information Section */}
+              <div>
+                <h4 className="text-base font-bold text-gray-800 mb-4">
+                  Leave Information
+                </h4>
+                <div className="grid grid-cols-2 gap-x-8 gap-y-5">
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                      Leave Type
                     </p>
-                    <div className="flex items-center gap-2">
-                      {selectedLeave.incharge_approved_at ? (
-                        <CheckCircle2 className="text-green w-4 h-4" />
-                      ) : (
-                        <Clock className="text-gray-400 w-4 h-4" />
-                      )}
-                      <span
-                        className={`text-sm font-bold ${
-                          selectedLeave.incharge_approved_at
-                            ? "text-green"
-                            : "text-gray-500"
-                        }`}
-                      >
-                        {selectedLeave.incharge_approved_at
-                          ? "Approved"
-                          : "Pending"}
-                      </span>
-                    </div>
-                    {selectedLeave.incharge_name && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        by{" "}
-                        <span className="font-medium">
-                          {selectedLeave.incharge_name}
-                        </span>
-                      </p>
-                    )}
-                    {selectedLeave.incharge_remarks && (
-                      <p className="text-xs text-gray-500 mt-2">
-                        "{selectedLeave.incharge_remarks}"
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Admin Status */}
-                  <div
-                    className={`flex-1 p-3 rounded border border-l-4 ${
-                      selectedLeave.admin_approved_at
-                        ? "bg-green/10 border-green/20 border-l-green"
-                        : "bg-indigo-50 border-indigo-200 border-l-[#8b5cf6]"
-                    }`}
-                  >
-                    <p className="text-xs font-semibold uppercase tracking-wide mb-1 text-gray-500">
-                      Admin Approval
+                    <p className="text-sm text-gray-800">
+                      {selectedLeave.leave_type}
                     </p>
-                    <div className="flex items-center gap-2">
-                      {selectedLeave.admin_approved_at ? (
-                        <CheckCircle2 className="text-green w-4 h-4" />
-                      ) : (
-                        <Clock className="text-[#8b5cf6] w-4 h-4" />
-                      )}
-                      <span
-                        className={`text-sm font-bold ${
-                          selectedLeave.admin_approved_at
-                            ? "text-green"
-                            : "text-[#8b5cf6]"
-                        }`}
-                      >
-                        {selectedLeave.admin_approved_at
-                          ? "Approved"
-                          : "Reviewing"}
-                      </span>
-                    </div>
-                    {selectedLeave.admin_name && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        by{" "}
-                        <span className="font-medium">
-                          {selectedLeave.admin_name}
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                      Type
+                    </p>
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-[#8b5cf6] text-white">
+                      {selectedLeave.leave_type}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                      From Date
+                    </p>
+                    <p className="text-sm font-medium text-gray-800">
+                      {formatDate(selectedLeave.start_date)}
+                      {selectedLeave.start_time && (
+                        <span className="text-gray-600">
+                          , {formatTime(selectedLeave.start_time)}
                         </span>
-                      </p>
-                    )}
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                      To Date
+                    </p>
+                    <p className="text-sm font-medium text-gray-800">
+                      {formatDate(selectedLeave.end_date)}
+                      {selectedLeave.end_time && (
+                        <span className="text-gray-600">
+                          , {formatTime(selectedLeave.end_time)}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                      Gate Out
+                    </p>
+                    <p className="text-sm text-gray-800">
+                      {selectedLeave.start_time
+                        ? formatTime(selectedLeave.start_time)
+                        : "-"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                      Gate In
+                    </p>
+                    <p className="text-sm text-gray-800">
+                      {selectedLeave.end_time
+                        ? formatTime(selectedLeave.end_time)
+                        : "-"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                      Duration
+                    </p>
+                    <p className="text-sm font-semibold text-gray-800">
+                      {calculateDuration(
+                        selectedLeave.start_date,
+                        selectedLeave.end_date,
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                      Status
+                    </p>
+                    <span
+                      className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(selectedLeave).bg} ${getStatusColor(selectedLeave).text}`}
+                    >
+                      {getStatusLabel(selectedLeave)}
+                    </span>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                      Remarks
+                    </p>
+                    <p className="text-sm text-gray-800">
+                      {selectedLeave.reason || "No remarks provided"}
+                    </p>
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
-                <button
-                  onClick={() => {
-                    const r = prompt("Reason for rejection:");
-                    if (r) approveLeave(selectedLeave.id, "rejected", r);
-                  }}
-                  disabled={actionProcessing === selectedLeave.id}
-                  className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-md font-medium text-sm transition-colors"
-                >
-                  Reject
-                </button>
-                <button
-                  onClick={() => approveLeave(selectedLeave.id, "approved")}
-                  disabled={
-                    actionProcessing === selectedLeave.id ||
-                    !selectedLeave.incharge_approved_at
-                  }
-                  title={
-                    !selectedLeave.incharge_approved_at
-                      ? "Incharge must approve first"
-                      : ""
-                  }
-                  className="px-6 py-2 bg-[#8b5cf6] hover:bg-[#7c3aed] disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-md font-medium text-sm shadow-sm transition-all flex items-center gap-2"
-                >
-                  {actionProcessing === selectedLeave.id && (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  )}
-                  Approve Request
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Reassignment Modal */}
-      {showReassignModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-scaleIn">
-            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100">
-              <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                <AlertTriangle className="text-amber-500 w-5 h-5" /> Driver
-                Replacement Required
-              </h3>
-              <button
-                onClick={() => setShowReassignModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="p-6">
-              <div className="bg-amber-50 border border-amber-100 rounded-md p-4 mb-6 text-sm text-gray-700">
-                The approved leave conflicts with active bus schedules. Please
-                assign a replacement driver.
-              </div>
-
-              <div className="space-y-4">
-                {reassignData.map((item) => (
-                  <div
-                    key={item.id}
-                    className="border border-gray-200 p-4 rounded-lg bg-gray-50/30"
-                  >
-                    <div className="flex justify-between items-start mb-3">
-                      <div>
-                        <h4 className="font-bold text-gray-800">
-                          {item.vehicle_number}
-                        </h4>
-                        <p className="text-xs text-gray-500">
-                          {item.shift_name}
+              {/* Approval Status Section */}
+              <div className="border-t border-gray-200 pt-5">
+                <h4 className="text-base font-bold text-gray-800 mb-4">
+                  Approval Status
+                </h4>
+                <div className="space-y-3">
+                  {/* Incharge Approval */}
+                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <div className="flex items-start gap-3">
+                      <User className="w-5 h-5 text-gray-600 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-gray-800 mb-1">
+                          Incharge Approval
                         </p>
+                        {selectedLeave.incharge_name ? (
+                          <div>
+                            <p className="text-sm text-gray-700">
+                              {selectedLeave.incharge_name}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {getStatus(selectedLeave) === "rejected" &&
+                              selectedLeave.incharge_id
+                                ? `Rejected by ${selectedLeave.incharge_name}`
+                                : selectedLeave.incharge_approved_at
+                                  ? `Approved by ${selectedLeave.incharge_name}`
+                                  : "Not yet reviewed"}
+                            </p>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-gray-500">
+                            Not yet reviewed
+                          </p>
+                        )}
                       </div>
-                      <span className="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded font-medium">
-                        {item.start_date} → {item.end_date}
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          modalInchargeApproved
+                            ? "bg-green-100 text-green-700"
+                            : modalInchargeRejected
+                              ? "bg-red-100 text-red-700"
+                              : "bg-yellow-100 text-yellow-700"
+                        }`}
+                      >
+                        {modalInchargeApproved
+                          ? "Approved"
+                          : modalInchargeRejected
+                            ? "Rejected"
+                            : "Pending"}
                       </span>
                     </div>
+                  </div>
 
-                    <div className="relative">
-                      <select
-                        className="w-full border border-gray-300 pl-3 pr-8 py-2 rounded focus:ring-2 focus:ring-[#8b5cf6]/20 focus:border-[#8b5cf6] outline-none bg-white text-sm appearance-none cursor-pointer"
-                        onChange={(e) => {
-                          if (e.target.value)
-                            handleReassignDriver(
-                              item.id,
-                              parseInt(e.target.value),
-                              item.start_date,
-                              item.end_date,
-                            );
-                        }}
-                        defaultValue=""
-                      >
-                        <option value="" disabled>
-                          -- Select Replacement Driver --
-                        </option>
-                        {item.available_drivers &&
-                        item.available_drivers.length > 0 ? (
-                          item.available_drivers.map((d) => (
-                            <option key={d.id} value={d.id}>
-                              {d.name} • {d.phone} ({d.license})
-                            </option>
-                          ))
+                  {/* Admin Approval */}
+                  <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <div className="flex items-start gap-3">
+                      <ShieldCheck className="w-5 h-5 text-blue-600 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-gray-800 mb-1">
+                          Admin Approval
+                        </p>
+                        {selectedLeave.admin_name ? (
+                          <div>
+                            <p className="text-sm text-gray-700">
+                              {selectedLeave.admin_name}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {getStatus(selectedLeave) === "rejected" &&
+                              selectedLeave.admin_id
+                                ? `Rejected by ${selectedLeave.admin_name}`
+                                : selectedLeave.admin_approved_at
+                                  ? `Approved by ${selectedLeave.admin_name}`
+                                  : "Not yet reviewed"}
+                            </p>
+                          </div>
                         ) : (
-                          <option disabled>No drivers available!</option>
+                          <p className="text-sm text-gray-500">
+                            Not yet reviewed
+                          </p>
                         )}
-                      </select>
-                      <ChevronDown
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
-                        size={14}
-                      />
+                      </div>
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          modalAdminApproved
+                            ? "bg-green-100 text-green-700"
+                            : modalAdminRejected
+                              ? "bg-red-100 text-red-700"
+                              : "bg-blue-100 text-blue-700"
+                        }`}
+                      >
+                        {modalAdminApproved
+                          ? "Approved"
+                          : modalAdminRejected
+                            ? "Rejected"
+                            : "Pending"}
+                      </span>
                     </div>
                   </div>
-                ))}
+                </div>
               </div>
+
+              {/* Action Buttons for Pending Requests */}
+              {!selectedLeave.admin_approved_at &&
+                getStatus(selectedLeave) !== "rejected" && (
+                  <div className="border-t border-gray-200 pt-5">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Remarks (Optional)
+                    </label>
+                    <textarea
+                      value={remarks}
+                      onChange={(e) => setRemarks(e.target.value)}
+                      placeholder="Add your remarks here..."
+                      rows="3"
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8b5cf6]/30 focus:border-[#8b5cf6] text-sm resize-none"
+                    />
+                  </div>
+                )}
             </div>
 
-            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end">
-              <button
-                onClick={() => setShowReassignModal(false)}
-                className="text-gray-500 hover:text-gray-800 text-sm font-medium underline"
-              >
-                Skip & Close
-              </button>
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-end gap-3">
+              {!selectedLeave.admin_approved_at &&
+              getStatus(selectedLeave) !== "rejected" ? (
+                <>
+                  <button
+                    onClick={() => approveLeave(selectedLeave.id, "rejected")}
+                    disabled={actionProcessing === selectedLeave.id}
+                    className="px-5 py-2.5 bg-white hover:bg-red-50 text-red-600 border border-red-200 rounded-lg font-semibold text-sm transition-colors disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {actionProcessing === selectedLeave.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <XCircle className="w-4 h-4" />
+                    )}
+                    Reject
+                  </button>
+                  <button
+                    onClick={() => approveLeave(selectedLeave.id, "approved")}
+                    disabled={actionProcessing === selectedLeave.id}
+                    className="px-6 py-2.5 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white rounded-lg font-semibold text-sm shadow-sm transition-all disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {actionProcessing === selectedLeave.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="w-4 h-4" />
+                    )}
+                    Approve Leave
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => setShowLeaveModal(false)}
+                  className="w-full py-3 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white rounded-lg font-semibold text-sm transition-colors"
+                >
+                  Close
+                </button>
+              )}
             </div>
           </div>
         </div>

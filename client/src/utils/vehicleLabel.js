@@ -12,8 +12,8 @@ export const formatVehicleLabel = (item = {}) => {
         item.vrn ||
         "";
 
-    if (name && number) {
-        return `${name} - ${number}`;
+    if (name && number && name !== number) {
+        return `${name} (${number})`;
     }
 
     return name || number || "Unnamed vehicle";

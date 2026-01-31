@@ -2,8 +2,11 @@ package admin
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
+	"strings"
+	"time"
 
 	"transport-server/config"
 
@@ -34,7 +37,9 @@ func GetLeaveHistory(c *gin.Context) {
 	rows, err := config.DB.Query(`
 		SELECT lr.id, lr.driver_id, u.full_name as driver_name, lr.leave_type,
 			   DATE_FORMAT(lr.start_date, '%Y-%m-%d') as start_date,
+			   TIME_FORMAT(lr.start_time, '%H:%i') as start_time,
 			   DATE_FORMAT(lr.end_date, '%Y-%m-%d') as end_date,
+			   TIME_FORMAT(lr.end_time, '%H:%i') as end_time,
 			   lr.reason, lr.status,
 			   lr.incharge_id, u_inc.full_name as incharge_name, lr.incharge_approved_at, lr.incharge_remarks,
 			   lr.admin_id, u_adm.full_name as admin_name, lr.admin_approved_at, lr.admin_remarks,
@@ -61,7 +66,9 @@ func GetLeaveHistory(c *gin.Context) {
 		DriverName         string  `json:"driver_name"`
 		LeaveType          string  `json:"leave_type"`
 		StartDate          string  `json:"start_date"`
+		StartTime          string  `json:"start_time"`
 		EndDate            string  `json:"end_date"`
+		EndTime            string  `json:"end_time"`
 		Reason             string  `json:"reason"`
 		Status             string  `json:"status"`
 		InchargeID         *int    `json:"incharge_id"`
@@ -78,14 +85,14 @@ func GetLeaveHistory(c *gin.Context) {
 	var requests []LeaveRequest
 	for rows.Next() {
 		var req LeaveRequest
-		var startDate, endDate, createdAt []byte
+		var startDate, startTime, endDate, endTime, createdAt []byte
 		var inchargeApprovedAt, adminApprovedAt sql.NullString
 		var inchargeRemarks, adminRemarks sql.NullString
 		var inchargeName, adminName sql.NullString
 		var inchargeID, adminID sql.NullInt64
 
 		err := rows.Scan(&req.ID, &req.DriverID, &req.DriverName, &req.LeaveType,
-			&startDate, &endDate, &req.Reason, &req.Status,
+			&startDate, &startTime, &endDate, &endTime, &req.Reason, &req.Status,
 			&inchargeID, &inchargeName, &inchargeApprovedAt, &inchargeRemarks,
 			&adminID, &adminName, &adminApprovedAt, &adminRemarks, &createdAt)
 
@@ -95,7 +102,9 @@ func GetLeaveHistory(c *gin.Context) {
 		}
 
 		req.StartDate = string(startDate)
+		req.StartTime = string(startTime)
 		req.EndDate = string(endDate)
+		req.EndTime = string(endTime)
 		req.CreatedAt = string(createdAt)
 
 		if inchargeID.Valid {
@@ -178,7 +187,9 @@ type LeaveRequest struct {
 	DriverName         string  `json:"driver_name"`
 	LeaveType          string  `json:"leave_type"`
 	StartDate          string  `json:"start_date"`
+	StartTime          string  `json:"start_time"`
 	EndDate            string  `json:"end_date"`
+	EndTime            string  `json:"end_time"`
 	Reason             string  `json:"reason"`
 	Status             string  `json:"status"`
 	InchargeID         *int    `json:"incharge_id"`
@@ -214,7 +225,8 @@ func GetPendingLeaveRequests(c *gin.Context) {
 
 	baseQuery := `
 			SELECT lr.id, lr.driver_id, u.full_name as driver_name, lr.leave_type, 
-				   DATE_FORMAT(lr.start_date, '%Y-%m-%d'), DATE_FORMAT(lr.end_date, '%Y-%m-%d'), lr.reason, lr.status,
+				   DATE_FORMAT(lr.start_date, '%Y-%m-%d'), TIME_FORMAT(lr.start_time, '%H:%i'),
+				   DATE_FORMAT(lr.end_date, '%Y-%m-%d'), TIME_FORMAT(lr.end_time, '%H:%i'), lr.reason, lr.status,
 				   lr.incharge_id, u_inc.full_name as incharge_name, lr.incharge_approved_at, lr.incharge_remarks,
 				   lr.admin_id, u_adm.full_name as admin_name, lr.admin_approved_at, lr.admin_remarks, lr.created_at
 			FROM leave_requests lr
@@ -245,14 +257,14 @@ func GetPendingLeaveRequests(c *gin.Context) {
 	var leaves []LeaveRequest = []LeaveRequest{}
 	for rows.Next() {
 		var req LeaveRequest
-		var startDate, endDate, createdAt []byte
+		var startDate, startTime, endDate, endTime, createdAt []byte
 		var inchargeApprovedAt, adminApprovedAt sql.NullString
 		var inchargeRemarks, adminRemarks sql.NullString
 		var inchargeName, adminName sql.NullString
 		var inchargeID, adminID sql.NullInt64
 
 		err := rows.Scan(&req.ID, &req.DriverID, &req.DriverName, &req.LeaveType,
-			&startDate, &endDate, &req.Reason, &req.Status,
+			&startDate, &startTime, &endDate, &endTime, &req.Reason, &req.Status,
 			&inchargeID, &inchargeName, &inchargeApprovedAt, &inchargeRemarks,
 			&adminID, &adminName, &adminApprovedAt, &adminRemarks, &createdAt)
 
@@ -262,7 +274,9 @@ func GetPendingLeaveRequests(c *gin.Context) {
 		}
 
 		req.StartDate = string(startDate)
+		req.StartTime = string(startTime)
 		req.EndDate = string(endDate)
+		req.EndTime = string(endTime)
 		req.CreatedAt = string(createdAt)
 
 		if inchargeID.Valid {
@@ -302,7 +316,7 @@ func GetPendingLeaveRequests(c *gin.Context) {
 =========================
 
 	POST /api/admin/leave/approve
-	Incharge or Admin approves/rejects leave
+	Admin approves/rejects leave (after incharge approval)
 
 =========================
 */
@@ -313,165 +327,279 @@ func ApproveLeave(c *gin.Context) {
 		return
 	}
 
-	// Get current leave status
+	status := strings.ToLower(strings.TrimSpace(req.Status))
+	if status != "approved" && status != "rejected" && status != "admin_approved" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid status. Use 'approved' or 'rejected'"})
+		return
+	}
+
+	// Get current leave status, incharge decision, and details
 	var currentStatus string
-	err := config.DB.QueryRow("SELECT status FROM leave_requests WHERE id = ?", req.LeaveID).Scan(&currentStatus)
+	var driverID int
+	var startDate, endDate string
+	var inchargeApprovedAt sql.NullString
+	var adminApprovedAt sql.NullString
+	err := config.DB.QueryRow(`
+		SELECT status, driver_id, 
+			DATE_FORMAT(start_date, '%Y-%m-%d'), 
+			DATE_FORMAT(end_date, '%Y-%m-%d'),
+			incharge_approved_at,
+			admin_approved_at
+		FROM leave_requests 
+		WHERE id = ?
+	`, req.LeaveID).Scan(&currentStatus, &driverID, &startDate, &endDate, &inchargeApprovedAt, &adminApprovedAt)
+	
 	if err != nil {
 		log.Printf("Get leave status error: %v", err)
 		c.JSON(http.StatusNotFound, gin.H{"error": "Leave request not found"})
 		return
 	}
 
-	var query string
-	var args []interface{}
-
-	if req.Status == "rejected" {
-		// Both incharge and admin can reject
-		if currentStatus == "pending" {
-			query = `UPDATE leave_requests SET status = 'rejected', 
-					 incharge_id = ?, incharge_approved_at = NOW(), incharge_remarks = ?
-					 WHERE id = ?`
-		} else {
-			query = `UPDATE leave_requests SET status = 'rejected', 
-					 admin_id = ?, admin_approved_at = NOW(), admin_remarks = ?
-					 WHERE id = ?`
-		}
-		args = []interface{}{req.ApproverID, req.Remarks, req.LeaveID}
-	} else if currentStatus == "pending" {
-		// Incharge approval - move to incharge_approved
-		query = `UPDATE leave_requests SET status = 'incharge_approved', 
-				 incharge_id = ?, incharge_approved_at = NOW(), incharge_remarks = ?
-				 WHERE id = ?`
-		args = []interface{}{req.ApproverID, req.Remarks, req.LeaveID}
-	} else if currentStatus == "incharge_approved" {
-		// Admin approval - move to admin_approved (final)
-		query = `UPDATE leave_requests SET status = 'admin_approved', 
-				 admin_id = ?, admin_approved_at = NOW(), admin_remarks = ?
-				 WHERE id = ?`
-		args = []interface{}{req.ApproverID, req.Remarks, req.LeaveID}
-
-		// Also update driver status to "on leave"
-		var driverID int
-		config.DB.QueryRow("SELECT driver_id FROM leave_requests WHERE id = ?", req.LeaveID).Scan(&driverID)
-		if driverID > 0 {
-			config.DB.Exec("UPDATE drivers SET status = 'on leave' WHERE id = ?", driverID)
-		}
-	} else {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Leave request already processed"})
+	// Check if admin already processed this request
+	if adminApprovedAt.Valid {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "This leave request has already been processed by admin"})
 		return
 	}
 
-	_, err = config.DB.Exec(query, args...)
+	// Determine new status based on admin decision and incharge decision
+	var newStatus string
+	if status == "rejected" {
+		// If admin rejects, the leave is rejected regardless of incharge decision
+		newStatus = "rejected"
+	} else {
+		// Admin approved - check if incharge has also approved
+		if inchargeApprovedAt.Valid && currentStatus != "rejected" {
+			// Both have approved - mark as fully approved
+			newStatus = "approved"
+		} else if currentStatus == "rejected" {
+			// Incharge already rejected, keep it rejected
+			newStatus = "rejected"
+		} else {
+			// Admin approved but incharge hasn't decided yet
+			newStatus = "admin_approved"
+		}
+	}
+
+	// Update leave request with admin decision
+	// Use NULL for admin_id if approver_id is 0 or invalid
+	var adminID interface{}
+	if req.ApproverID > 0 {
+		adminID = req.ApproverID
+	} else {
+		adminID = nil
+	}
+	
+	result, err := config.DB.Exec(`
+		UPDATE leave_requests 
+		SET status = ?, 
+			admin_id = ?, 
+			admin_approved_at = NOW(), 
+			admin_remarks = ?
+		WHERE id = ?
+	`, newStatus, adminID, req.Remarks, req.LeaveID)
+
 	if err != nil {
 		log.Printf("Approve leave error: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error processing leave request"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error processing leave request: " + err.Error()})
+		return
+	}
+	
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		log.Printf("No rows affected for leave_id: %d", req.LeaveID)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update leave request"})
 		return
 	}
 
-	// If admin approved and leave is final, check for affected assignments and suggest replacements
-	if currentStatus == "incharge_approved" && req.Status != "rejected" {
-		var driverID int
-		var startDate, endDate string
-		err = config.DB.QueryRow(`
-			SELECT driver_id, 
-				DATE_FORMAT(start_date, '%Y-%m-%d') as start_date,
-				DATE_FORMAT(end_date, '%Y-%m-%d') as end_date
-			FROM leave_requests WHERE id = ?
-		`, req.LeaveID).Scan(&driverID, &startDate, &endDate)
+	// If fully approved (both incharge and admin), automatically mark attendance as absent for the leave period
+	if newStatus == "approved" {
+		markAttendanceForLeave(driverID, startDate, endDate)
+	}
+
+	// Send notification to driver
+	var driverUserID int
+	config.DB.QueryRow("SELECT user_id FROM drivers WHERE id = ?", driverID).Scan(&driverUserID)
+
+	var notifTitle string
+	var notifMessage string
+	
+	if newStatus == "rejected" {
+		notifTitle = "Leave Request Rejected by Admin"
+		notifMessage = fmt.Sprintf("Your leave request from %s to %s has been rejected by admin. Reason: %s",
+			startDate, endDate, req.Remarks)
+	} else if newStatus == "approved" {
+		notifTitle = "Leave Request Approved"
+		notifMessage = fmt.Sprintf("Your leave request from %s to %s has been fully approved by both incharge and admin. Attendance will be automatically marked as absent.",
+			startDate, endDate)
+	} else {
+		notifTitle = "Leave Request - Admin Approved"
+		notifMessage = fmt.Sprintf("Your leave request from %s to %s has been approved by admin. Waiting for incharge approval.",
+			startDate, endDate)
+	}
+
+	_, _ = config.DB.Exec(`
+		INSERT INTO driver_notifications (driver_id, title, message, type, related_id)
+		VALUES (?, ?, ?, 'leave', ?)
+	`, driverID, notifTitle, notifMessage, req.LeaveID)
+
+	// If fully approved, check for affected assignments and suggest replacements
+	if newStatus == "approved" {
+		// Find affected assignments
+		affectedAssignments := []map[string]interface{}{}
+		rows, err := config.DB.Query(`
+			SELECT a.id, a.shift_id, a.vehicle_id, 
+				DATE_FORMAT(a.start_date, '%Y-%m-%d') as start_date,
+				DATE_FORMAT(a.end_date, '%Y-%m-%d') as end_date,
+				s.name as shift_name, v.vehicle_number
+			FROM assignments a
+			JOIN shifts s ON a.shift_id = s.id
+			JOIN vehicles v ON a.vehicle_id = v.id
+			WHERE a.driver_id = ? 
+			AND (
+				(a.start_date <= ? AND a.end_date >= ?) OR
+				(a.start_date <= ? AND a.end_date >= ?) OR
+				(a.start_date >= ? AND a.end_date <= ?)
+			)
+			AND a.status = 'active'
+		`, driverID, startDate, startDate, endDate, endDate, startDate, endDate)
 
 		if err == nil {
-			// Find affected assignments
-			affectedAssignments := []map[string]interface{}{}
-			rows, err := config.DB.Query(`
-				SELECT a.id, a.shift_id, a.vehicle_id, 
-					DATE_FORMAT(a.start_date, '%Y-%m-%d') as start_date,
-					DATE_FORMAT(a.end_date, '%Y-%m-%d') as end_date,
-					s.name as shift_name, v.vehicle_number
-				FROM assignments a
-				JOIN shifts s ON a.shift_id = s.id
-				JOIN vehicles v ON a.vehicle_id = v.id
-				WHERE a.driver_id = ? 
-				AND (
-					(a.start_date <= ? AND a.end_date >= ?) OR
-					(a.start_date <= ? AND a.end_date >= ?) OR
-					(a.start_date >= ? AND a.end_date <= ?)
-				)
-				AND a.status = 'active'
-			`, driverID, startDate, startDate, endDate, endDate, startDate, endDate)
+			defer rows.Close()
+			for rows.Next() {
+				assignment := make(map[string]interface{})
+				var id, shiftID, vehicleID int
+				var start, end, shiftName, vehicleNumber string
+				rows.Scan(&id, &shiftID, &vehicleID, &start, &end, &shiftName, &vehicleNumber)
 
-			if err == nil {
-				defer rows.Close()
-				for rows.Next() {
-					var assignment map[string]interface{} = make(map[string]interface{})
-					var id, shiftID, vehicleID int
-					var start, end, shiftName, vehicleNumber string
-					rows.Scan(&id, &shiftID, &vehicleID, &start, &end, &shiftName, &vehicleNumber)
+				assignment["id"] = id
+				assignment["shift_id"] = shiftID
+				assignment["vehicle_id"] = vehicleID
+				assignment["start_date"] = start
+				assignment["end_date"] = end
+				assignment["shift_name"] = shiftName
+				assignment["vehicle_number"] = vehicleNumber
 
-					assignment["id"] = id
-					assignment["shift_id"] = shiftID
-					assignment["vehicle_id"] = vehicleID
-					assignment["start_date"] = start
-					assignment["end_date"] = end
-					assignment["shift_name"] = shiftName
-					assignment["vehicle_number"] = vehicleNumber
-
-					// Find available drivers for this assignment
-					availableDrivers := []map[string]interface{}{}
-					driverRows, err := config.DB.Query(`
-						SELECT d.id, u.full_name, u.phone, d.license_number
-						FROM drivers d
-						JOIN users u ON d.user_id = u.id
-						WHERE d.status = 'present'
-						AND d.id != ?
-						AND d.id NOT IN (
-							SELECT driver_id FROM assignments
-							WHERE (
-								(start_date <= ? AND end_date >= ?) OR
-								(start_date <= ? AND end_date >= ?) OR
-								(start_date >= ? AND end_date <= ?)
-							)
-							AND status = 'active'
+				// Find available drivers for this assignment
+				availableDrivers := []map[string]interface{}{}
+				driverRows, err := config.DB.Query(`
+					SELECT d.id, u.full_name, u.phone, d.license_number
+					FROM drivers d
+					JOIN users u ON d.user_id = u.id
+					WHERE d.status = 'present'
+					AND d.id != ?
+					AND d.id NOT IN (
+						SELECT driver_id FROM assignments
+						WHERE (
+							(start_date <= ? AND end_date >= ?) OR
+							(start_date <= ? AND end_date >= ?) OR
+							(start_date >= ? AND end_date <= ?)
 						)
-						AND d.id NOT IN (
-							SELECT driver_id FROM leave_requests
-							WHERE status = 'admin_approved'
-							AND (
-								(start_date <= ? AND end_date >= ?) OR
-								(start_date <= ? AND end_date >= ?) OR
-								(start_date >= ? AND end_date <= ?)
-							)
+						AND status = 'active'
+					)
+					AND d.id NOT IN (
+						SELECT driver_id FROM leave_requests
+						WHERE status = 'admin_approved'
+						AND (
+							(start_date <= ? AND end_date >= ?) OR
+							(start_date <= ? AND end_date >= ?) OR
+							(start_date >= ? AND end_date <= ?)
 						)
-						LIMIT 10
-					`, driverID, startDate, startDate, endDate, endDate, startDate, endDate,
-						startDate, startDate, endDate, endDate, startDate, endDate)
+					)
+					LIMIT 10
+				`, driverID, startDate, startDate, endDate, endDate, startDate, endDate,
+					startDate, startDate, endDate, endDate, startDate, endDate)
 
-					if err == nil {
-						defer driverRows.Close()
-						for driverRows.Next() {
-							var driver map[string]interface{} = make(map[string]interface{})
-							var id int
-							var name, phone, license string
-							driverRows.Scan(&id, &name, &phone, &license)
-							driver["id"] = id
-							driver["name"] = name
-							driver["phone"] = phone
-							driver["license"] = license
-							availableDrivers = append(availableDrivers, driver)
-						}
+				if err == nil {
+					defer driverRows.Close()
+					for driverRows.Next() {
+						var driver map[string]interface{} = make(map[string]interface{})
+						var id int
+						var name, phone, license string
+						driverRows.Scan(&id, &name, &phone, &license)
+						driver["id"] = id
+						driver["name"] = name
+						driver["phone"] = phone
+						driver["license"] = license
+						availableDrivers = append(availableDrivers, driver)
 					}
-					assignment["available_drivers"] = availableDrivers
-					affectedAssignments = append(affectedAssignments, assignment)
 				}
+				assignment["available_drivers"] = availableDrivers
+				affectedAssignments = append(affectedAssignments, assignment)
 			}
-
-			// Return success with affected assignments and suggested drivers
-			c.JSON(http.StatusOK, gin.H{
-				"message":              "Leave request approved successfully",
-				"affected_assignments": affectedAssignments,
-			})
-			return
 		}
+
+		// Return success with affected assignments and suggested drivers
+		c.JSON(http.StatusOK, gin.H{
+			"message":              "Leave request approved successfully. Attendance will be automatically marked as absent.",
+			"affected_assignments": affectedAssignments,
+		})
+		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Leave request updated successfully"})
+}
+
+// markAttendanceForLeave automatically marks attendance as absent for approved leave period
+func markAttendanceForLeave(driverID int, startDateStr, endDateStr string) {
+	// Get user_id for the driver
+	var userID int
+	err := config.DB.QueryRow("SELECT user_id FROM drivers WHERE id = ?", driverID).Scan(&userID)
+	if err != nil {
+		log.Printf("Error getting user_id for driver %d: %v", driverID, err)
+		return
+	}
+
+	// Parse dates
+	startDate, err := time.Parse("2006-01-02", startDateStr)
+	if err != nil {
+		log.Printf("Error parsing start date %s: %v", startDateStr, err)
+		return
+	}
+
+	endDate, err := time.Parse("2006-01-02", endDateStr)
+	if err != nil {
+		log.Printf("Error parsing end date %s: %v", endDateStr, err)
+		return
+	}
+
+	// Mark attendance as absent for each day in the leave period
+	for date := startDate; !date.After(endDate); date = date.AddDate(0, 0, 1) {
+		dateStr := date.Format("2006-01-02")
+		
+		// Check if attendance already exists for this date
+		var existingStatus string
+		err := config.DB.QueryRow(`
+			SELECT status FROM attendance 
+			WHERE user_id = ? AND date = ?
+		`, userID, dateStr).Scan(&existingStatus)
+
+		if err == sql.ErrNoRows {
+			// No attendance record exists, insert new one
+			_, err = config.DB.Exec(`
+				INSERT INTO attendance (user_id, date, status, checkin_time, leave_approved)
+				VALUES (?, ?, 'absent', NULL, 1)
+			`, userID, dateStr)
+			if err != nil {
+				log.Printf("Error inserting attendance for user %d on %s: %v", userID, dateStr, err)
+			} else {
+				log.Printf("Automatically marked absent for user %d (driver %d) on %s due to approved leave", 
+					userID, driverID, dateStr)
+			}
+		} else if err == nil {
+			// Attendance record exists, update it if it's not already marked
+			if existingStatus == "not_marked" || existingStatus == "" {
+				_, err = config.DB.Exec(`
+					UPDATE attendance 
+					SET status = 'absent', leave_approved = 1
+					WHERE user_id = ? AND date = ?
+				`, userID, dateStr)
+				if err != nil {
+					log.Printf("Error updating attendance for user %d on %s: %v", userID, dateStr, err)
+				} else {
+					log.Printf("Updated attendance to absent for user %d (driver %d) on %s due to approved leave", 
+						userID, driverID, dateStr)
+				}
+			}
+		}
+	}
 }

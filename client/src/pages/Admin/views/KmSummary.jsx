@@ -16,10 +16,14 @@ import {
   Filter,
   RefreshCw,
   User,
+  X,
+  Calendar,
+  Clock,
+  ChevronRight,
 } from "lucide-react";
 
 const defaultFilters = {
-  period: "month",
+  period: "all",
   driverId: "",
   vehicleId: "",
   startDate: "",
@@ -31,6 +35,19 @@ const formatNumber = (value, fraction = 1) =>
     .toFixed(fraction)
     .replace(/\.0+$/, "");
 
+const getVehicleIcon = (type) => {
+  switch (type?.toUpperCase()) {
+    case "BUS":
+      return <Bus size={18} className="text-blue-600" />;
+    case "CAR":
+      return <Car size={18} className="text-green-600" />;
+    case "EV":
+      return <Zap size={18} className="text-purple-600" />;
+    default:
+      return <Truck size={18} className="text-gray-600" />;
+  }
+};
+
 export default function KmSummary() {
   const [kmSummary, setKmSummary] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -38,6 +55,11 @@ export default function KmSummary() {
   const [metaLoading, setMetaLoading] = useState(true);
   const [filterMeta, setFilterMeta] = useState({drivers: [], vehicles: []});
   const [error, setError] = useState("");
+
+  // Driver history modal state
+  const [showDriverModal, setShowDriverModal] = useState(false);
+  const [selectedDriverHistory, setSelectedDriverHistory] = useState(null);
+  const [driverHistoryLoading, setDriverHistoryLoading] = useState(false);
 
   useEffect(() => {
     loadFilterMeta();
@@ -100,7 +122,31 @@ export default function KmSummary() {
 
   const resetFilters = () => setFilters({...defaultFilters});
 
-  const getVehicleIcon = (type) => {
+  // Fetch driver KM history
+  const fetchDriverHistory = async (driverId) => {
+    try {
+      setDriverHistoryLoading(true);
+      setShowDriverModal(true);
+      const res = await apiGet(
+        `/api/admin/driver-km-history?driver_id=${driverId}&period=all`,
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setSelectedDriverHistory(data);
+      }
+    } catch (err) {
+      console.error("Error fetching driver history:", err);
+    } finally {
+      setDriverHistoryLoading(false);
+    }
+  };
+
+  const closeDriverModal = () => {
+    setShowDriverModal(false);
+    setSelectedDriverHistory(null);
+  };
+
+  const getVehicleIconLarge = (type) => {
     switch (type) {
       case "BUS":
         return <Bus size={24} className="text-primary" />;
@@ -123,6 +169,7 @@ export default function KmSummary() {
     {value: "today", label: "Today"},
     {value: "week", label: "This Week"},
     {value: "month", label: "This Month"},
+    {value: "all", label: "All Time"},
   ];
 
   const activeBadges = [];
@@ -596,7 +643,8 @@ export default function KmSummary() {
                   {summary.top_drivers?.map((d, i) => (
                     <div
                       key={d.driver_id}
-                      className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100 hover:border-primary/30 transition-all hover:bg-white hover:shadow-sm"
+                      onClick={() => fetchDriverHistory(d.driver_id)}
+                      className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100 hover:border-primary/30 transition-all hover:bg-white hover:shadow-sm cursor-pointer group"
                     >
                       <div
                         className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center font-bold text-xs ${
@@ -612,24 +660,30 @@ export default function KmSummary() {
                         {i + 1}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-gray-800 text-sm truncate">
+                        <p className="font-semibold text-gray-800 text-sm truncate group-hover:text-primary transition-colors">
                           {d.driver_name}
                         </p>
                         <p className="text-xs text-gray-500">
                           {d.trips} trips completed
                         </p>
                       </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-sm font-bold text-primary">
-                          {formatNumber(d.total_km, 0)} km
-                        </p>
-                        <p className="text-[10px] text-gray-400">
-                          {formatNumber(
-                            d.total_km / Math.max(d.trips || 1, 1),
-                            1,
-                          )}{" "}
-                          avg
-                        </p>
+                      <div className="text-right shrink-0 flex items-center gap-2">
+                        <div>
+                          <p className="text-sm font-bold text-primary">
+                            {formatNumber(d.total_km, 0)} km
+                          </p>
+                          <p className="text-[10px] text-gray-400">
+                            {formatNumber(
+                              d.total_km / Math.max(d.trips || 1, 1),
+                              1,
+                            )}{" "}
+                            avg
+                          </p>
+                        </div>
+                        <ChevronRight
+                          size={16}
+                          className="text-gray-300 group-hover:text-primary transition-colors"
+                        />
                       </div>
                     </div>
                   ))}
@@ -777,6 +831,258 @@ export default function KmSummary() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Driver KM History Modal */}
+      {showDriverModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-primary/5 to-transparent">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-primary/10 rounded-full">
+                  <User size={20} className="text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-gray-800">
+                    {driverHistoryLoading
+                      ? "Loading..."
+                      : selectedDriverHistory?.driver_name || "Driver"}{" "}
+                    KM History
+                  </h2>
+                  {selectedDriverHistory?.cluster_name && (
+                    <p className="text-xs text-gray-500">
+                      Cluster: {selectedDriverHistory.cluster_name}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={closeDriverModal}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X size={20} className="text-gray-500" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {driverHistoryLoading ? (
+                <div className="flex justify-center py-12">
+                  <Loader2 size={32} className="animate-spin text-primary" />
+                </div>
+              ) : selectedDriverHistory ? (
+                <div className="space-y-6">
+                  {/* Summary Stats */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-gray-50 rounded-lg p-4 text-center">
+                      <p className="text-xs text-gray-500 uppercase font-semibold">
+                        Total KM
+                      </p>
+                      <p className="text-2xl font-bold text-primary mt-1">
+                        {formatNumber(selectedDriverHistory.total_km)}
+                      </p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4 text-center">
+                      <p className="text-xs text-gray-500 uppercase font-semibold">
+                        Total Trips
+                      </p>
+                      <p className="text-2xl font-bold text-gray-800 mt-1">
+                        {selectedDriverHistory.total_trips || 0}
+                      </p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4 text-center">
+                      <p className="text-xs text-gray-500 uppercase font-semibold">
+                        Avg per Trip
+                      </p>
+                      <p className="text-2xl font-bold text-gray-800 mt-1">
+                        {formatNumber(selectedDriverHistory.avg_km_per_trip)} km
+                      </p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4 text-center">
+                      <p className="text-xs text-gray-500 uppercase font-semibold">
+                        Vehicles Driven
+                      </p>
+                      <p className="text-2xl font-bold text-gray-800 mt-1">
+                        {selectedDriverHistory.by_vehicle?.length || 0}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Date Range */}
+                  {(selectedDriverHistory.first_date ||
+                    selectedDriverHistory.last_date) && (
+                    <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
+                      <Calendar size={14} />
+                      <span>
+                        {selectedDriverHistory.first_date || "N/A"} to{" "}
+                        {selectedDriverHistory.last_date || "Present"}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Vehicles Driven */}
+                  {selectedDriverHistory.by_vehicle?.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                        <Truck size={16} className="text-primary" />
+                        Vehicles Driven
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {selectedDriverHistory.by_vehicle.map((v, idx) => (
+                          <div
+                            key={v.vehicle_id || idx}
+                            className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100"
+                          >
+                            <div className="p-2 bg-white rounded-lg shadow-sm">
+                              {getVehicleIcon(v.vehicle_type)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-gray-800 text-sm truncate">
+                                {v.vehicle_name || v.vehicle_number}
+                              </p>
+                              <div className="flex items-center gap-2 text-xs text-gray-500">
+                                <span
+                                  className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                    v.vehicle_type === "BUS"
+                                      ? "bg-blue-100 text-blue-700"
+                                      : v.vehicle_type === "CAR"
+                                        ? "bg-green-100 text-green-700"
+                                        : v.vehicle_type === "EV"
+                                          ? "bg-purple-100 text-purple-700"
+                                          : "bg-gray-100 text-gray-700"
+                                  }`}
+                                >
+                                  {v.vehicle_type}
+                                </span>
+                                <span>{v.total_trips} trips</span>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-bold text-primary text-sm">
+                                {formatNumber(v.total_km)} km
+                              </p>
+                              <p className="text-xs text-gray-400">
+                                {formatNumber(v.avg_km_per_trip)} avg
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Recent Logs */}
+                  {selectedDriverHistory.recent_logs?.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                        <Clock size={16} className="text-primary" />
+                        Recent KM Logs
+                      </h3>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-gray-50">
+                              <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500">
+                                Date
+                              </th>
+                              <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500">
+                                Vehicle
+                              </th>
+                              <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500">
+                                Start
+                              </th>
+                              <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500">
+                                End
+                              </th>
+                              <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500">
+                                Total
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-50">
+                            {selectedDriverHistory.recent_logs.map(
+                              (log, idx) => (
+                                <tr
+                                  key={log.id || idx}
+                                  className="hover:bg-gray-50"
+                                >
+                                  <td className="py-2 px-3 text-gray-700">
+                                    {log.date}
+                                  </td>
+                                  <td className="py-2 px-3">
+                                    <div className="flex items-center gap-1.5">
+                                      {getVehicleIcon(log.vehicle_type)}
+                                      <span className="text-gray-700">
+                                        {log.vehicle_number}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td className="py-2 px-3 text-right text-gray-600">
+                                    {formatNumber(log.start_km)}
+                                  </td>
+                                  <td className="py-2 px-3 text-right text-gray-600">
+                                    {formatNumber(log.end_km)}
+                                  </td>
+                                  <td className="py-2 px-3 text-right font-semibold text-primary">
+                                    {formatNumber(log.total_km)} km
+                                  </td>
+                                </tr>
+                              ),
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Monthly Trends */}
+                  {selectedDriverHistory.monthly_trends?.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                        <TrendingUp size={16} className="text-primary" />
+                        Monthly Trends
+                      </h3>
+                      <div className="flex flex-wrap gap-3">
+                        {selectedDriverHistory.monthly_trends.map((m, idx) => (
+                          <div
+                            key={m.month || idx}
+                            className="bg-gray-50 rounded-lg px-4 py-3 text-center min-w-[100px]"
+                          >
+                            <p className="text-xs text-gray-500 font-medium">
+                              {m.month}
+                            </p>
+                            <p className="text-lg font-bold text-primary">
+                              {formatNumber(m.total_km)}
+                            </p>
+                            <p className="text-xs text-gray-400">
+                              {m.trips} trips
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="py-12 text-center text-gray-400">
+                  <AlertCircle size={48} className="mx-auto mb-2 opacity-30" />
+                  <p>No history data available</p>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end">
+              <button
+                onClick={closeDriverModal}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

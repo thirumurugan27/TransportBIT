@@ -1,6 +1,6 @@
 import React, {useState, useEffect} from "react";
 import {useNavigate} from "react-router-dom";
-import bitLogo from "../../assets/bit_logo.png";
+import transportLogo from "../../assets/transportlogo.png";
 
 import {useAuth} from "../../context/AuthContext";
 
@@ -31,7 +31,7 @@ export default function Login() {
     window.open(
       `${API_BASE}/auth/google/login`,
       "Google_Login",
-      `width=${width},height=${height},top=${top},left=${left}`
+      `width=${width},height=${height},top=${top},left=${left}`,
     );
   };
 
@@ -64,30 +64,22 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-primarybg via-white to-primarybg flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      {/* Background decorative elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/20 rounded-full opacity-50 blur-3xl"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-primarydull/20 rounded-full opacity-50 blur-3xl"></div>
-      </div>
-
-      <div className="relative max-w-md w-full">
+    <div className="min-h-screen bg-primarybg flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full">
         {/* Login Card */}
-        <div className="bg-white rounded-md shadow-xl border border-gray-100 p-8 space-y-6">
+        <div className="bg-white rounded-md border border-gray-100 p-8 space-y-6">
           {/* Logo and Branding */}
           <div className="text-center">
             <div className="flex justify-center mb-4">
-              <div className="w-20 h-20 bg-linear-to-br from-primary to-primarydull rounded-md flex items-center justify-center shadow-lg shadow-primary/25">
+              <div className="w-24 h-24 bg-white rounded-md flex items-center justify-center border-2 border-primary/10">
                 <img
-                  src={bitLogo}
-                  alt="BIT Logo"
-                  className="w-14 h-14 object-contain"
+                  src={transportLogo}
+                  alt="Transport Logo"
+                  className="w-20 h-20 object-contain"
                 />
               </div>
             </div>
-            <h1 className="text-2xl font-bold bg-linear-to-r from-primary to-primarydull bg-clip-text text-transparent">
-              Transport BIT
-            </h1>
+            <h1 className="text-3xl font-bold text-primarytext">Transport BIT</h1>
             <p className="mt-2 text-sm text-secondarytext">
               Transport Management System
             </p>
@@ -132,7 +124,7 @@ export default function Login() {
                   name="username"
                   type="text"
                   required
-                  className="block w-full px-4 py-3 border border-gray-200 rounded-md text-primarytext placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200"
+                  className="block w-full px-4 py-3 border-2 border-gray-200 rounded-md text-primarytext placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/20  transition-all duration-200"
                   placeholder="Enter your username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
@@ -150,7 +142,7 @@ export default function Login() {
                   name="password"
                   type="password"
                   required
-                  className="block w-full px-4 py-3 border border-gray-200 rounded-md text-primarytext placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200"
+                  className="block w-full px-4 py-3 border-2 border-gray-200 rounded-md text-primarytext placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200"
                   placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -161,7 +153,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-primary text-white text-sm font-semibold rounded-md shadow-lg shadow-primary/25 hover:bg-primarydull focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-primary text-white text-sm font-semibold rounded-md hover:bg-primarydull focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
               {loading ? (
                 <>
@@ -224,7 +216,7 @@ export default function Login() {
           <button
             onClick={handleGoogleLogin}
             type="button"
-            className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-white border border-gray-200 rounded-md text-sm font-medium text-secondarytext hover:bg-gray-50 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-200 transition-all duration-200"
+            className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-white border-2 border-gray-200 rounded-md text-sm font-medium text-secondarytext hover:bg-gray-50 hover:border-primary/30 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary/20 transition-all duration-200"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path

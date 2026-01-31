@@ -10,7 +10,6 @@ import {
   AssignmentIcon,
   KmIcon,
   LeaveIcon,
-  AnalyticsIcon,
   ProfileIcon,
   AttendanceIcon,
   HistoryIcon,
@@ -62,10 +61,10 @@ export const adminMenuConfig = {
       path: "/all-assignments",
     },
     {
-      key: "kmSummary",
-      label: "KM Summary",
+      key: "kmManagement",
+      label: "KM Management",
       icon: <KmIcon />,
-      path: "/km-summary",
+      path: "/km-management",
     },
     {
       key: "leave",
@@ -96,12 +95,6 @@ export const adminMenuConfig = {
       label: "Student Transport",
       icon: <BusIcon />,
       path: "/student-transport",
-    },
-    {
-      key: "notifications",
-      label: "Notifications",
-      icon: <NotificationIcon />,
-      path: "/notifications",
     },
   ],
 };
@@ -137,12 +130,6 @@ export const driverMenuConfig = {
       path: "/apply-leave",
     },
     {
-      key: "notifications",
-      label: "Notifications",
-      icon: <NotificationIcon />,
-      path: "/notifications",
-    },
-    {
       key: "profile",
       label: "My Profile",
       icon: <ProfileIcon />,
@@ -176,8 +163,20 @@ export const inchargeMenuConfig = {
       path: "/driver-history",
     },
     {
+      key: "scheduleManagement",
+      label: "Schedule Management",
+      icon: <ScheduleIcon />,
+      path: "/schedule-management",
+    },
+    {
+      key: "assignmentManagement",
+      label: "Assignment Management",
+      icon: <AssignmentIcon />,
+      path: "/assignment-management",
+    },
+    {
       key: "assignments",
-      label: "All Assignments",
+      label: "My Assignments",
       icon: <AssignmentIcon />,
       path: "/assignments",
     },
@@ -188,10 +187,10 @@ export const inchargeMenuConfig = {
       path: "/leave-approvals",
     },
     {
-      key: "kmSummary",
-      label: "KM Summary",
+      key: "kmManagement",
+      label: "KM Management",
       icon: <KmIcon />,
-      path: "/km-summary",
+      path: "/km-management",
     },
     {
       key: "insuranceFCStatus",
@@ -204,12 +203,6 @@ export const inchargeMenuConfig = {
       label: "Driver Management",
       icon: <DriversIcon />,
       path: "/driver-management",
-    },
-    {
-      key: "notifications",
-      label: "Notifications",
-      icon: <NotificationIcon />,
-      path: "/notifications",
     },
   ],
 };

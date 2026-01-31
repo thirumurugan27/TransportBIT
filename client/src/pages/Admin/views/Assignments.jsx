@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import {useToast} from "../../../context/ToastContext";
 import {showConfirm, showError, showSuccess} from "../../../utils/swal";
+import SearchableSelect from "../../../components/ui/SearchableSelect";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
@@ -45,6 +46,7 @@ export default function Assignments() {
   const [vehicles, setVehicles] = useState([]);
   const [shifts, setShifts] = useState([]);
   const [availableDrivers, setAvailableDrivers] = useState([]);
+  const [clusters, setClusters] = useState([]);
 
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -53,6 +55,7 @@ export default function Assignments() {
   const [assignmentForm, setAssignmentForm] = useState({
     vehicle_id: 0,
     driver_id: 0,
+    cluster_id: 0,
     shift_id: 0,
     start_date: new Date().toISOString().split("T")[0],
     end_date: new Date().toISOString().split("T")[0],
@@ -65,6 +68,7 @@ export default function Assignments() {
   // Conflict Modal State
   const [conflictModal, setConflictModal] = useState(null); // { conflicts: [], message: '' }
   const [conflictPendingForm, setConflictPendingForm] = useState(null); // form data waiting for force assign
+  const [driverAvailabilityMap, setDriverAvailabilityMap] = useState({}); // Map of driver_id -> {available: boolean, conflicts: []}
 
   // EV Details Modal
   const [showEvDetailsModal, setShowEvDetailsModal] = useState(false);
@@ -94,7 +98,7 @@ export default function Assignments() {
   const fetchAllData = async () => {
     setLoading(true);
     try {
-      const [bus, car, ev, s, v, d] = await Promise.all([
+      const [bus, car, ev, s, v, d, c] = await Promise.all([
         fetch(
           `${API_BASE}/api/admin/assignments/by-category?category=BUS`,
         ).then((r) => r.json()),
@@ -105,6 +109,7 @@ export default function Assignments() {
         fetch(`${API_BASE}/api/admin/shifts`).then((r) => r.json()),
         fetch(`${API_BASE}/api/admin/vehicles`).then((r) => r.json()),
         fetch(`${API_BASE}/api/admin/drivers`).then((r) => r.json()),
+        fetch(`${API_BASE}/api/admin/clusters`).then((r) => r.json()),
       ]);
 
       setBusAssignments(bus || []);
@@ -113,6 +118,7 @@ export default function Assignments() {
       setShifts(s || []);
       setVehicles(v || []);
       setDrivers(d || []);
+      setClusters(c || []);
     } catch (err) {
       console.error("Error fetching assignments data:", err);
     } finally {
@@ -143,6 +149,7 @@ export default function Assignments() {
     setAssignmentForm({
       vehicle_id: 0,
       driver_id: 0,
+      cluster_id: 0,
       shift_id: 0,
       start_date: new Date().toISOString().split("T")[0],
       end_date: new Date().toISOString().split("T")[0],
@@ -152,14 +159,21 @@ export default function Assignments() {
   };
 
   const handleCreate = async (forceAssign = false) => {
-    if (
-      !assignmentForm.vehicle_id ||
-      !assignmentForm.driver_id ||
-      !assignmentForm.shift_id ||
-      !assignmentForm.start_date ||
-      !assignmentForm.end_date
-    ) {
-      showToast("Please fill all fields", "warning");
+    // Validate based on assignment type
+    const isValid =
+      createModalType === "ev"
+        ? assignmentForm.vehicle_id &&
+          assignmentForm.cluster_id &&
+          assignmentForm.start_date &&
+          assignmentForm.end_date
+        : assignmentForm.vehicle_id &&
+          assignmentForm.driver_id &&
+          assignmentForm.shift_id &&
+          assignmentForm.start_date &&
+          assignmentForm.end_date;
+
+    if (!isValid) {
+      showToast("Please fill all required fields", "warning");
       return;
     }
 
@@ -195,9 +209,18 @@ export default function Assignments() {
             message:
               data.message || "Driver is already assigned during this time",
             conflicts: data.conflicts || [],
+            conflicting_drivers: data.conflicting_drivers || null,
           });
         } else {
           showToast(data.message || "Conflict error", "error");
+        }
+      } else if (res.status === 400) {
+        const data = await res.json();
+        if (data.error === "cluster_configuration_error") {
+          showToast(data.message, "error");
+          setShowCreateModal(false);
+        } else {
+          showToast(data.error || "Invalid request", "error");
         }
       } else {
         const errorData = await res.json().catch(() => ({}));
@@ -261,6 +284,57 @@ export default function Assignments() {
       (d) => d.id !== conflictPendingForm.driver_id,
     );
   };
+
+  // Check driver availability and update availability map
+  const checkDriverAvailability = async (
+    drivers,
+    shiftId,
+    startDate,
+    endDate,
+  ) => {
+    if (!shiftId || !startDate) return;
+
+    const availabilityPromises = drivers.map(async (driver) => {
+      try {
+        const response = await fetch(
+          `${API_BASE}/api/admin/assignments/check-driver-conflict?driver_id=${driver.driver_id || driver.id}&shift_id=${shiftId}&date=${startDate}`,
+        );
+        const data = await response.json();
+        return {
+          driverId: driver.driver_id || driver.id,
+          available: !data.conflict,
+          conflicts: data.conflicts || [],
+        };
+      } catch (error) {
+        console.error("Error checking driver availability:", error);
+        return {
+          driverId: driver.driver_id || driver.id,
+          available: true,
+          conflicts: [],
+        };
+      }
+    });
+
+    const results = await Promise.all(availabilityPromises);
+    const availabilityMap = {};
+    results.forEach((result) => {
+      availabilityMap[result.driverId] = result;
+    });
+    setDriverAvailabilityMap(availabilityMap);
+  };
+
+  // Check availability when conflict modal opens
+  useEffect(() => {
+    if (conflictModal && conflictPendingForm) {
+      const driversToCheck = getAvailableDriversForSelection();
+      checkDriverAvailability(
+        driversToCheck,
+        conflictPendingForm.shift_id,
+        conflictPendingForm.start_date,
+        conflictPendingForm.end_date,
+      );
+    }
+  }, [conflictModal, conflictPendingForm]);
 
   // Select a different driver from conflict modal
   const handleSelectAlternateDriver = (driverId) => {
@@ -509,6 +583,9 @@ export default function Assignments() {
                       </div>
                       <div>
                         <p className="font-semibold text-primarytext">
+                          {a.vehicle_name || a.vehicle_number}
+                        </p>
+                        <p className="text-xs text-secondarytext">
                           {a.vehicle_number}
                         </p>
                         <p className="text-sm text-secondarytext">
@@ -525,10 +602,24 @@ export default function Assignments() {
                           {a.shift_name}
                         </span>
                       )}
-                      <span className="text-xs text-secondarytext">
-                        {formatTimeAMPM(a.start_time)} -{" "}
-                        {formatTimeAMPM(a.end_time)}
-                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        {a.slots && a.slots.length > 0 ? (
+                          a.slots.map((slot, idx) => (
+                            <span
+                              key={idx}
+                              className="text-xs text-secondarytext px-2 py-0.5 rounded bg-gray-100"
+                            >
+                              {formatTimeAMPM(slot.start_time)} -{" "}
+                              {formatTimeAMPM(slot.end_time)}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-secondarytext">
+                            {formatTimeAMPM(a.start_time)} -{" "}
+                            {formatTimeAMPM(a.end_time)}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {activeTab !== "ev" && (
@@ -683,93 +774,136 @@ export default function Assignments() {
                   />
                 </div>
               </div>
+              {createModalType !== "ev" && (
+                <div>
+                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
+                    Shift
+                  </label>
+                  <SearchableSelect
+                    value={assignmentForm.shift_id}
+                    onChange={(val) =>
+                      setAssignmentForm({
+                        ...assignmentForm,
+                        shift_id: parseInt(val) || 0,
+                      })
+                    }
+                    placeholder="Select Shift"
+                    options={shifts.map((s) => {
+                      const timeDisplay =
+                        s.slots && s.slots.length > 0
+                          ? s.slots
+                              .map(
+                                (slot) =>
+                                  `${formatTimeAMPM(slot.start_time)}-${formatTimeAMPM(slot.end_time)}`,
+                              )
+                              .join(", ")
+                          : `${formatTimeAMPM(s.start_time)}-${formatTimeAMPM(s.end_time)}`;
+                      return {
+                        value: s.id,
+                        label: s.name,
+                        subtitle: timeDisplay,
+                      };
+                    })}
+                    emptyMessage="No shifts available"
+                  />
+                </div>
+              )}
               <div>
-                <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1">
-                  Shift
-                </label>
-                <select
-                  className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  value={assignmentForm.shift_id}
-                  onChange={(e) =>
-                    setAssignmentForm({
-                      ...assignmentForm,
-                      shift_id: parseInt(e.target.value),
-                    })
-                  }
-                >
-                  <option value={0}>Select Shift</option>
-                  {shifts.map((s) => {
-                    // Show all time slots if available in AM/PM format
-                    const timeDisplay =
-                      s.slots && s.slots.length > 0
-                        ? s.slots
-                            .map(
-                              (slot) =>
-                                `${formatTimeAMPM(slot.start_time)}-${formatTimeAMPM(slot.end_time)}`,
-                            )
-                            .join(", ")
-                        : `${formatTimeAMPM(s.start_time)}-${formatTimeAMPM(s.end_time)}`;
-                    return (
-                      <option key={s.id} value={s.id}>
-                        {s.name} ({timeDisplay})
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1">
+                <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
                   Vehicle
                 </label>
-                <select
-                  className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                <SearchableSelect
                   value={assignmentForm.vehicle_id}
-                  onChange={(e) =>
+                  onChange={(val) =>
                     setAssignmentForm({
                       ...assignmentForm,
-                      vehicle_id: parseInt(e.target.value),
+                      vehicle_id: parseInt(val) || 0,
                     })
                   }
-                >
-                  <option value={0}>Select Vehicle</option>
-                  {vehicles
+                  placeholder="Select Vehicle"
+                  options={vehicles
                     .filter(
                       (v) =>
                         v.vehicle_type === createModalType.toUpperCase() ||
                         (createModalType === "ev" && v.fuel_type === "EV"),
                     )
-                    .map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {v.vehicle_number} ({v.model || v.vehicle_type})
-                      </option>
-                    ))}
-                </select>
+                    .map((v) => ({
+                      value: v.id,
+                      label: v.bus_name || v.vehicle_number,
+                      subtitle: `${v.vehicle_number} • ${v.vehicle_type}`,
+                    }))}
+                  emptyMessage="No vehicles available"
+                />
               </div>
-              <div>
-                <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1">
-                  Driver
-                </label>
-                <select
-                  className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  value={assignmentForm.driver_id}
-                  onChange={(e) =>
-                    setAssignmentForm({
-                      ...assignmentForm,
-                      driver_id: parseInt(e.target.value),
-                    })
-                  }
-                >
-                  <option value={0}>Select Driver</option>
-                  {availableDrivers.map((d) => (
-                    <option
-                      key={d.driver_id || d.id}
-                      value={d.driver_id || d.id}
-                    >
-                      {d.driver_name || d.full_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {createModalType === "ev" ? (
+                <div>
+                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
+                    Driver Group
+                  </label>
+                  <SearchableSelect
+                    value={assignmentForm.cluster_id}
+                    onChange={(val) =>
+                      setAssignmentForm({
+                        ...assignmentForm,
+                        cluster_id: parseInt(val) || 0,
+                      })
+                    }
+                    placeholder="Select Driver Group"
+                    options={clusters.map((c) => {
+                      const formatTime = (time) => {
+                        if (!time) return "";
+                        const [h, m] = time.split(":");
+                        const hour = parseInt(h);
+                        const ampm = hour >= 12 ? "PM" : "AM";
+                        const hour12 = hour % 12 || 12;
+                        return `${hour12}:${m} ${ampm}`;
+                      };
+
+                      let subtitle = `${c.driver_count || 0} drivers`;
+                      if (c.shift_name && c.shift_start && c.shift_end) {
+                        subtitle += ` • ${c.shift_name} (${formatTime(c.shift_start)}-${formatTime(c.shift_end)})`;
+                      } else if (c.shift_name) {
+                        subtitle += ` • ${c.shift_name}`;
+                      } else if (c.start_time && c.end_time) {
+                        subtitle += ` • ${formatTime(c.start_time)}-${formatTime(c.end_time)}`;
+                      } else {
+                        subtitle += " • No shift (configure required)";
+                      }
+
+                      return {
+                        value: c.id,
+                        label: c.name,
+                        subtitle: subtitle,
+                      };
+                    })}
+                    emptyMessage="No driver groups available"
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
+                    Driver
+                  </label>
+                  <SearchableSelect
+                    value={assignmentForm.driver_id}
+                    onChange={(val) =>
+                      setAssignmentForm({
+                        ...assignmentForm,
+                        driver_id: parseInt(val) || 0,
+                      })
+                    }
+                    placeholder="Select Driver"
+                    options={availableDrivers.map((d) => ({
+                      value: d.driver_id || d.id,
+                      label: d.driver_name || d.full_name,
+                      subtitle: d.license_type
+                        ? `License: ${d.license_type}`
+                        : undefined,
+                    }))}
+                    emptyMessage="No drivers available"
+                  />
+                </div>
+              )}
               <button
                 onClick={() => handleCreate()}
                 className="w-full bg-primary text-white rounded-md py-2.5 font-medium hover:bg-primary/90 transition-colors"
@@ -806,19 +940,20 @@ export default function Assignments() {
               Assigning new driver for {reassignModal.vehicle_number} on{" "}
               {reassignModal.assigned_date}
             </p>
-            <select
-              className="w-full border border-gray-200 rounded-md p-2.5 mb-4 bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+            <SearchableSelect
               value={reassignDriverId}
-              onChange={(e) => setReassignDriverId(parseInt(e.target.value))}
-            >
-              <option value={0}>Select Driver</option>
-              {availableDrivers.map((d) => (
-                <option key={d.driver_id || d.id} value={d.driver_id || d.id}>
-                  {d.driver_name || d.full_name}
-                </option>
-              ))}
-            </select>
-            <div className="flex gap-2 justify-end">
+              onChange={(val) => setReassignDriverId(parseInt(val) || 0)}
+              placeholder="Select Driver"
+              options={availableDrivers.map((d) => ({
+                value: d.driver_id || d.id,
+                label: d.driver_name || d.full_name,
+                subtitle: d.license_type
+                  ? `License: ${d.license_type}`
+                  : undefined,
+              }))}
+              emptyMessage="No drivers available"
+            />
+            <div className="flex gap-2 justify-end mt-4">
               <button
                 onClick={() => setReassignModal(null)}
                 className="px-4 py-2 text-secondarytext hover:bg-gray-100 rounded-md transition-colors"
@@ -874,7 +1009,62 @@ export default function Assignments() {
             </div>
 
             {/* Conflict Details */}
-            {conflictModal.conflicts && conflictModal.conflicts.length > 0 && (
+            {conflictModal.conflicting_drivers &&
+            conflictModal.conflicting_drivers.length > 0 ? (
+              <div className="mb-6">
+                <h4 className="text-sm font-semibold text-primarytext mb-3">
+                  Conflicting Drivers in Cluster:
+                </h4>
+                <div className="space-y-4">
+                  {conflictModal.conflicting_drivers.map(
+                    (driverConflict, idx) => (
+                      <div
+                        key={idx}
+                        className="bg-amber-50 border border-amber-200 rounded-lg p-3"
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <User size={16} className="text-amber-600" />
+                          <span className="font-medium text-amber-800">
+                            {driverConflict.driver_name}
+                          </span>
+                        </div>
+                        {driverConflict.conflicts &&
+                          driverConflict.conflicts.map((conflict, cIdx) => (
+                            <div
+                              key={cIdx}
+                              className="ml-6 mb-2 text-sm text-amber-700 space-y-1"
+                            >
+                              <div className="flex items-center gap-2">
+                                <Clock size={12} className="text-amber-600" />
+                                <span className="font-medium">
+                                  {conflict.shift_name || "Shift"}
+                                </span>
+                                <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded">
+                                  {conflict.assignment_type || "Assignment"}
+                                </span>
+                              </div>
+                              <p>
+                                <strong>Time:</strong>{" "}
+                                {formatTimeAMPM(conflict.start_time)} -{" "}
+                                {formatTimeAMPM(conflict.end_time)}
+                              </p>
+                              <p>
+                                <strong>Vehicle:</strong>{" "}
+                                {conflict.vehicle_number || "N/A"}
+                              </p>
+                              <p>
+                                <strong>Dates:</strong> {conflict.start_date} to{" "}
+                                {conflict.end_date}
+                              </p>
+                            </div>
+                          ))}
+                      </div>
+                    ),
+                  )}
+                </div>
+              </div>
+            ) : conflictModal.conflicts &&
+              conflictModal.conflicts.length > 0 ? (
               <div className="mb-6">
                 <h4 className="text-sm font-semibold text-primarytext mb-3">
                   Existing Assignments:
@@ -913,7 +1103,7 @@ export default function Assignments() {
                   ))}
                 </div>
               </div>
-            )}
+            ) : null}
 
             {/* Options */}
             <div className="border-t border-gray-200 pt-4">
@@ -942,36 +1132,85 @@ export default function Assignments() {
                 </div>
               </div>
 
-              {/* Option 2: Choose Different Driver */}
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <div className="flex items-start gap-3">
-                  <div className="flex-1">
-                    <h5 className="font-medium text-green-800 flex items-center gap-2">
-                      <CheckCircle size={16} /> Choose a Different Driver
-                    </h5>
-                    <p className="text-xs text-green-600 mt-1 mb-3">
-                      Select an available driver who doesn't have conflicting
-                      assignments:
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto">
-                      {getAvailableDriversForSelection().map((d) => (
-                        <button
-                          key={d.driver_id || d.id}
-                          onClick={() =>
-                            handleSelectAlternateDriver(d.driver_id || d.id)
-                          }
-                          className="flex items-center gap-2 p-2 bg-white border border-green-200 rounded-lg hover:bg-green-100 transition-colors text-left"
-                        >
-                          <User size={16} className="text-green-600" />
-                          <span className="text-sm text-green-800 font-medium truncate">
-                            {d.driver_name || d.full_name}
-                          </span>
-                        </button>
-                      ))}
+              {/* Option 2: Choose Different Driver (only for non-EV assignments) */}
+              {createModalType !== "ev" && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1">
+                      <h5 className="font-medium text-green-800 flex items-center gap-2">
+                        <CheckCircle size={16} /> Choose a Different Driver
+                      </h5>
+                      <p className="text-xs text-green-600 mt-1 mb-3">
+                        Select an available driver who doesn't have conflicting
+                        assignments:
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto">
+                        {getAvailableDriversForSelection().map((d) => {
+                          const driverId = d.driver_id || d.id;
+                          const availability = driverAvailabilityMap[
+                            driverId
+                          ] || {available: true, conflicts: []};
+                          const isAvailable = availability.available;
+
+                          return (
+                            <button
+                              key={driverId}
+                              onClick={() =>
+                                handleSelectAlternateDriver(driverId)
+                              }
+                              className={`flex items-center gap-2 p-3 border rounded-lg transition-all text-left ${
+                                isAvailable
+                                  ? "bg-green-50 border-green-300 hover:bg-green-100 hover:border-green-400"
+                                  : "bg-gray-100 border-gray-300 hover:bg-gray-200 opacity-75"
+                              }`}
+                              title={
+                                isAvailable
+                                  ? "Available - No conflicts"
+                                  : "Has conflicting assignments"
+                              }
+                            >
+                              <div
+                                className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                                  isAvailable ? "bg-green-500" : "bg-gray-400"
+                                }`}
+                              />
+                              <User
+                                size={16}
+                                className={
+                                  isAvailable
+                                    ? "text-green-600"
+                                    : "text-gray-500"
+                                }
+                              />
+                              <span
+                                className={`text-sm font-medium truncate flex-1 ${
+                                  isAvailable
+                                    ? "text-green-800"
+                                    : "text-gray-600"
+                                }`}
+                              >
+                                {d.driver_name || d.full_name}
+                              </span>
+                              {isAvailable && (
+                                <CheckCircle
+                                  size={14}
+                                  className="text-green-600 flex-shrink-0"
+                                />
+                              )}
+                              {!isAvailable && (
+                                <AlertTriangle
+                                  size={14}
+                                  className="text-gray-500 flex-shrink-0"
+                                />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Cancel Button */}

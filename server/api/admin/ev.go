@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"database/sql"
 	"log"
 	"net/http"
 	"strconv"
@@ -146,10 +147,11 @@ func GetEVAssignments(c *gin.Context) {
 */
 func CreateEVAssignment(c *gin.Context) {
 	var req struct {
-		VehicleID int    `json:"vehicle_id"`
-		ClusterID int    `json:"cluster_id"`
-		StartDate string `json:"start_date"`
-		EndDate   string `json:"end_date"`
+		VehicleID   int    `json:"vehicle_id"`
+		ClusterID   int    `json:"cluster_id"`
+		StartDate   string `json:"start_date"`
+		EndDate     string `json:"end_date"`
+		ForceAssign bool   `json:"force_assign"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -157,6 +159,158 @@ func CreateEVAssignment(c *gin.Context) {
 		return
 	}
 
+	// Validate required fields
+	if req.VehicleID == 0 || req.ClusterID == 0 || req.StartDate == "" || req.EndDate == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "All fields are required"})
+		return
+	}
+
+	// Get cluster details including shift times
+	var shiftID sql.NullInt64
+	var startTime, endTime sql.NullString
+	err := config.DB.QueryRow(`
+		SELECT default_shift_id, start_time, end_time 
+		FROM driver_clusters 
+		WHERE id = ?
+	`, req.ClusterID).Scan(&shiftID, &startTime, &endTime)
+
+	if err != nil {
+		log.Printf("Get cluster error: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid cluster"})
+		return
+	}
+
+	// Get all drivers in the cluster
+	driverRows, err := config.DB.Query(`
+		SELECT d.id, u.full_name 
+		FROM drivers d 
+		JOIN users u ON d.user_id = u.id 
+		WHERE d.cluster_id = ?
+	`, req.ClusterID)
+
+	if err != nil {
+		log.Printf("Get cluster drivers error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching cluster drivers"})
+		return
+	}
+	defer driverRows.Close()
+
+	type driverInfo struct {
+		id   int
+		name string
+	}
+	var drivers []driverInfo
+	for driverRows.Next() {
+		var d driverInfo
+		driverRows.Scan(&d.id, &d.name)
+		drivers = append(drivers, d)
+	}
+
+	if len(drivers) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Cluster has no drivers"})
+		return
+	}
+
+	// Gather time ranges to check (from cluster shift or default times)
+	type timeRange struct{ start, end string }
+	var ranges []timeRange
+
+	// Priority 1: Try to get times from cluster's default shift (including multi-slot shifts)
+	if shiftID.Valid {
+		// Try slots first (multi-slot shifts)
+		slotRows, slotErr := config.DB.Query(`SELECT start_time, end_time FROM shift_slots WHERE shift_id = ?`, int(shiftID.Int64))
+		if slotErr == nil {
+			defer slotRows.Close()
+			for slotRows.Next() {
+				var s, e sql.NullString
+				slotRows.Scan(&s, &e)
+				if s.Valid && e.Valid {
+					ranges = append(ranges, timeRange{start: s.String, end: e.String})
+				}
+			}
+		}
+		// If no slots, fall back to the main shift times
+		if len(ranges) == 0 {
+			var s, e sql.NullString
+			_ = config.DB.QueryRow(`SELECT start_time, end_time FROM shifts WHERE id = ?`, int(shiftID.Int64)).Scan(&s, &e)
+			if s.Valid && e.Valid {
+				ranges = append(ranges, timeRange{start: s.String, end: e.String})
+			}
+		}
+	}
+
+	// Priority 2: Use cluster's own start/end times if no shift times found
+	if len(ranges) == 0 && startTime.Valid && endTime.Valid {
+		ranges = append(ranges, timeRange{start: startTime.String, end: endTime.String})
+	}
+
+	// Priority 3: If cluster has no shift and no times, prevent assignment
+	if len(ranges) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "cluster_configuration_error",
+			"message": "This driver group must have a shift assigned before creating EV assignments. Please update the group in Schedule Management.",
+		})
+		return
+	}
+
+	// Check for conflicts across all drivers in the cluster
+	var conflictingDrivers []map[string]interface{}
+	hasConflict := false
+
+	for _, driver := range drivers {
+		// Check each date in the range
+		start, _ := time.Parse("2006-01-02", req.StartDate)
+		end, _ := time.Parse("2006-01-02", req.EndDate)
+		if end.Before(start) {
+			end = start
+		}
+
+		driverHasConflict := false
+		var driverConflicts []map[string]interface{}
+
+		for d := start; !d.After(end); d = d.Add(24 * time.Hour) {
+			checkDate := d.Format("2006-01-02")
+			for _, r := range ranges {
+				conflict, err := CheckDriverTimeConflict(driver.id, r.start, r.end, checkDate)
+				if err != nil {
+					log.Printf("Error checking time conflict for driver %d: %v", driver.id, err)
+					continue
+				}
+				if conflict {
+					driverHasConflict = true
+					hasConflict = true
+					// Get conflict details for this driver
+					checkRanges := []struct{ start, end string }{{start: r.start, end: r.end}}
+					conflicts, _ := getDriverConflictsDetails(driver.id, checkDate, checkRanges)
+					driverConflicts = append(driverConflicts, conflicts...)
+					break
+				}
+			}
+			if driverHasConflict {
+				break
+			}
+		}
+
+		if driverHasConflict {
+			conflictingDrivers = append(conflictingDrivers, map[string]interface{}{
+				"driver_id":   driver.id,
+				"driver_name": driver.name,
+				"conflicts":   driverConflicts,
+			})
+		}
+	}
+
+	// If conflicts found and not forcing, return conflict details
+	if hasConflict && !req.ForceAssign {
+		c.JSON(http.StatusConflict, gin.H{
+			"error":               "time_conflict",
+			"message":             "One or more drivers in the cluster have time conflicts",
+			"conflicting_drivers": conflictingDrivers,
+		})
+		return
+	}
+
+	// Create the EV assignment
 	result, err := config.DB.Exec(`
 		INSERT INTO ev_assignments (vehicle_id, cluster_id, start_date, end_date, status)
 		VALUES (?, ?, ?, ?, 'active')
@@ -169,10 +323,17 @@ func CreateEVAssignment(c *gin.Context) {
 	}
 
 	id, _ := result.LastInsertId()
-	c.JSON(http.StatusOK, gin.H{
-		"id":      id,
-		"message": "EV assignment created successfully",
-	})
+	if req.ForceAssign {
+		c.JSON(http.StatusOK, gin.H{
+			"id":      id,
+			"message": "EV assignment created successfully (forced)",
+		})
+	} else {
+		c.JSON(http.StatusOK, gin.H{
+			"id":      id,
+			"message": "EV assignment created successfully",
+		})
+	}
 }
 
 /*

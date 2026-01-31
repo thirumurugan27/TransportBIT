@@ -79,19 +79,34 @@ export default function SearchableSelect({
     }
   };
 
+  const handleKeyDown = (e) => {
+    if (disabled) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      setIsOpen((prev) => !prev);
+    }
+    if (e.key === "Escape") {
+      setIsOpen(false);
+    }
+  };
+
   return (
     <div ref={containerRef} className="relative w-full">
-      {/* Trigger Button */}
-      <button
-        type="button"
+      {/* Trigger */}
+      <div
+        role="button"
+        tabIndex={disabled ? -1 : 0}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        aria-disabled={disabled}
         onClick={handleToggle}
-        disabled={disabled}
-        className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 border rounded-lg text-sm text-left transition-all ${
+        onKeyDown={handleKeyDown}
+        className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 border rounded-lg text-sm text-left transition-all focus:outline-none ${
           disabled
             ? "bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed"
             : isOpen
               ? "border-primary ring-2 ring-primary/20 bg-white"
-              : "border-gray-200 bg-white hover:border-gray-300"
+              : "border-gray-200 bg-white hover:border-gray-300 focus:ring-2 focus:ring-primary/20"
         }`}
       >
         <span
@@ -126,7 +141,7 @@ export default function SearchableSelect({
             className={`text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
           />
         </div>
-      </button>
+      </div>
 
       {/* Dropdown Menu */}
       {isOpen && (

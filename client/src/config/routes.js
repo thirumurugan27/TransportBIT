@@ -20,7 +20,7 @@ export const adminRoutes = {
         { path: "drivers", element: "drivers" },
         { path: "schedule-management", element: "scheduleManagement" },
         { path: "all-assignments", element: "allAssignments" },
-        { path: "km-summary", element: "kmSummary" },
+        { path: "km-management", element: "kmManagement" },
         { path: "leave-approvals", element: "leave" },
         { path: "leave-analytics", element: "leaveHistory" },
         { path: "attendance-records", element: "attendanceHistory" },
@@ -80,7 +80,7 @@ export const getActivePageFromPath = (pathname, basePath) => {
         "drivers": "drivers",
         "schedule-management": "scheduleManagement",
         "all-assignments": "allAssignments",
-        "km-summary": "kmSummary",
+        "km-management": "kmManagement",
         // Handle leave-approvals based on role (admin uses "leave", incharge uses "leaves")
         "leave-approvals": basePath === "/incharge-dashboard" ? "leaves" : "leave",
         "leave-analytics": "leaveHistory",

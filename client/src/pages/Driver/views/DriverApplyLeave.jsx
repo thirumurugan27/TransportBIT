@@ -36,7 +36,9 @@ export default function DriverApplyLeave() {
 
   const [formData, setFormData] = useState({
     start_date: "",
+    start_time: "",
     end_date: "",
+    end_time: "",
     leave_type: "Leave", // Default as per screenshot
     reason: "",
   });
@@ -54,7 +56,7 @@ export default function DriverApplyLeave() {
       if (res.ok) {
         const data = await res.json();
         setLeaves(
-          Array.isArray(data) ? data : data && data.leaves ? data.leaves : []
+          Array.isArray(data) ? data : data && data.leaves ? data.leaves : [],
         );
       } else {
         console.error("Failed to fetch leaves");
@@ -75,7 +77,9 @@ export default function DriverApplyLeave() {
       const payload = {
         driver_id: parseInt(driverId),
         start_date: formData.start_date,
+        start_time: formData.start_time,
         end_date: formData.end_date,
+        end_time: formData.end_time,
         leave_type: formData.leave_type,
         reason: formData.reason,
       };
@@ -86,7 +90,9 @@ export default function DriverApplyLeave() {
         setShowModal(false);
         setFormData({
           start_date: "",
+          start_time: "",
           end_date: "",
+          end_time: "",
           leave_type: "Leave",
           reason: "",
         });
@@ -110,14 +116,22 @@ export default function DriverApplyLeave() {
     return `${diffDays} days`;
   };
 
+  const formatDateTime = (date, time) => {
+    if (!date) return "-";
+    if (!time) return date;
+    return `${date} ${time}`;
+  };
+
+  const getStatus = (leave) => (leave?.status || "").toLowerCase();
+
   const filteredLeaves = leaves.filter((leave) => {
     const matchesSearch =
       leave.reason?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       leave.leave_type?.toLowerCase().includes(searchQuery.toLowerCase());
 
+    const status = getStatus(leave);
     const matchesStatus =
-      statusFilter === "ALL" ||
-      (leave.status && leave.status.toUpperCase() === statusFilter);
+      statusFilter === "ALL" || status.toUpperCase() === statusFilter;
 
     return matchesSearch && matchesStatus;
   });
@@ -227,67 +241,67 @@ export default function DriverApplyLeave() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
-                      {leave.start_date}
+                      {formatDateTime(leave.start_date, leave.start_time)}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
-                      {leave.end_date}
+                      {formatDateTime(leave.end_date, leave.end_time)}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-800 font-medium">
                       {calculateDuration(leave.start_date, leave.end_date)}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600 max-w-[200px] truncate">
+                    <td className="px-6 py-4 text-sm text-gray-600 max-w-50 truncate">
                       {leave.reason}
                     </td>
                     <td className="px-6 py-4">
                       <span
                         className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
                           leave.incharge_approved_at ||
-                          leave.status === "incharge_approved" ||
-                          leave.status === "admin_approved" ||
-                          leave.status === "approved"
+                          getStatus(leave) === "incharge_approved" ||
+                          getStatus(leave) === "admin_approved" ||
+                          getStatus(leave) === "approved"
                             ? "bg-green/10 text-green border-green/20"
-                            : leave.status === "rejected" &&
-                              leave.incharge_id &&
-                              !leave.admin_id
-                            ? "bg-red/10 text-red border-red/20"
-                            : "bg-pending/10 text-pending border-pending/20"
+                            : getStatus(leave) === "rejected" &&
+                                leave.incharge_id &&
+                                !leave.admin_id
+                              ? "bg-red/10 text-red border-red/20"
+                              : "bg-pending/10 text-pending border-pending/20"
                         }`}
                       >
                         {leave.incharge_approved_at ||
-                        leave.status === "incharge_approved" ||
-                        leave.status === "admin_approved" ||
-                        leave.status === "approved"
+                        getStatus(leave) === "incharge_approved" ||
+                        getStatus(leave) === "admin_approved" ||
+                        getStatus(leave) === "approved"
                           ? "Approved"
-                          : leave.status === "rejected" &&
-                            leave.incharge_id &&
-                            !leave.admin_id
-                          ? "Rejected"
-                          : "Pending"}
+                          : getStatus(leave) === "rejected" &&
+                              leave.incharge_id &&
+                              !leave.admin_id
+                            ? "Rejected"
+                            : "Pending"}
                       </span>
                     </td>
                     <td className="px-6 py-4">
                       <span
                         className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
                           leave.admin_approved_at ||
-                          leave.status === "admin_approved" ||
-                          leave.status === "approved"
+                          getStatus(leave) === "admin_approved" ||
+                          getStatus(leave) === "approved"
                             ? "bg-green/10 text-green border-green/20"
-                            : leave.status === "rejected" && leave.admin_id
-                            ? "bg-red/10 text-red border-red/20"
-                            : leave.incharge_approved_at
-                            ? "bg-pending/10 text-pending border-pending/20"
-                            : "bg-gray-100 text-gray-400 border-gray-200"
+                            : getStatus(leave) === "rejected" && leave.admin_id
+                              ? "bg-red/10 text-red border-red/20"
+                              : leave.incharge_approved_at
+                                ? "bg-pending/10 text-pending border-pending/20"
+                                : "bg-gray-100 text-gray-400 border-gray-200"
                         }`}
                       >
                         {leave.admin_approved_at ||
-                        leave.status === "admin_approved" ||
-                        leave.status === "approved"
+                        getStatus(leave) === "admin_approved" ||
+                        getStatus(leave) === "approved"
                           ? "Approved"
-                          : leave.status === "rejected" && leave.admin_id
-                          ? "Rejected"
-                          : leave.incharge_approved_at
-                          ? "Pending"
-                          : "Waiting"}
+                          : getStatus(leave) === "rejected" && leave.admin_id
+                            ? "Rejected"
+                            : leave.incharge_approved_at
+                              ? "Pending"
+                              : "Waiting"}
                       </span>
                     </td>
                   </tr>
@@ -386,6 +400,40 @@ export default function DriverApplyLeave() {
                       <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
                     </div>
                   </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                      From Time
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="time"
+                        required
+                        value={formData.start_time}
+                        onChange={(e) =>
+                          setFormData({...formData, start_time: e.target.value})
+                        }
+                        className="w-full pl-4 pr-10 py-2.5 bg-gray-50/50 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#8b5cf6]/20 focus:border-[#8b5cf6] transition-all text-sm"
+                      />
+                      <Clock className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                      To Time
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="time"
+                        required
+                        value={formData.end_time}
+                        onChange={(e) =>
+                          setFormData({...formData, end_time: e.target.value})
+                        }
+                        className="w-full pl-4 pr-10 py-2.5 bg-gray-50/50 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#8b5cf6]/20 focus:border-[#8b5cf6] transition-all text-sm"
+                      />
+                      <Clock className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
+                    </div>
+                  </div>
                 </div>
 
                 <div>
@@ -462,13 +510,19 @@ export default function DriverApplyLeave() {
                 <div>
                   <p className="text-gray-500 mb-1">From Date</p>
                   <p className="font-medium text-gray-800">
-                    {selectedLeave.start_date}
+                    {formatDateTime(
+                      selectedLeave.start_date,
+                      selectedLeave.start_time,
+                    )}
                   </p>
                 </div>
                 <div>
                   <p className="text-gray-500 mb-1">To Date</p>
                   <p className="font-medium text-gray-800">
-                    {selectedLeave.end_date}
+                    {formatDateTime(
+                      selectedLeave.end_date,
+                      selectedLeave.end_time,
+                    )}
                   </p>
                 </div>
                 <div>
@@ -476,7 +530,7 @@ export default function DriverApplyLeave() {
                   <p className="font-medium text-gray-800">
                     {calculateDuration(
                       selectedLeave.start_date,
-                      selectedLeave.end_date
+                      selectedLeave.end_date,
                     )}
                   </p>
                 </div>
@@ -484,14 +538,14 @@ export default function DriverApplyLeave() {
                   <p className="text-gray-500 mb-1">Status</p>
                   <span
                     className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium text-white ${
-                      selectedLeave.status === "APPROVED"
+                      getStatus(selectedLeave) === "approved"
                         ? "bg-[#22c55e]"
-                        : selectedLeave.status === "REJECTED"
-                        ? "bg-[#ef4444]"
-                        : "bg-[#eab308]"
+                        : getStatus(selectedLeave) === "rejected"
+                          ? "bg-[#ef4444]"
+                          : "bg-[#eab308]"
                     }`}
                   >
-                    {selectedLeave.status || "Pending"}
+                    {(selectedLeave.status || "Pending").toString()}
                   </span>
                 </div>
                 <div className="col-span-2">

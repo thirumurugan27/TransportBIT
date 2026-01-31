@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"transport-server/config"
@@ -30,7 +31,7 @@ func GetAllAssignments(c *gin.Context) {
 		       TIME_FORMAT(s.start_time, '%H:%i') as start_time, 
 		       TIME_FORMAT(s.end_time, '%H:%i') as end_time,
 		       v.vehicle_number, v.vehicle_type,
-		       COALESCE(v.name, '') as bus_name,
+		       COALESCE(v.name, b.bus_name, v.vehicle_number) as bus_name,
 		       u.full_name AS driver_name,
 		       COALESCE(u_orig.full_name, '') as original_driver_name,
 		       CASE 
@@ -46,6 +47,7 @@ func GetAllAssignments(c *gin.Context) {
 		FROM assignments a
 		JOIN shifts s ON a.shift_id = s.id
 		JOIN vehicles v ON a.vehicle_id = v.id
+		LEFT JOIN buses b ON v.id = b.vehicle_id
 		JOIN drivers d ON a.driver_id = d.id
 		JOIN users u ON d.user_id = u.id
 		LEFT JOIN drivers d_orig ON a.original_driver_id = d_orig.id
@@ -652,4 +654,92 @@ func getDriverConflictsDetails(driverID int, checkDate string, checkRanges []str
 	}
 
 	return out, nil
+}
+
+/* =========================
+   GET /api/admin/assignments/check-driver-conflict
+   Check if a specific driver has conflicts for a given shift and date
+========================= */
+func CheckDriverConflictAPI(c *gin.Context) {
+	driverIDStr := c.Query("driver_id")
+	shiftIDStr := c.Query("shift_id")
+	checkDate := c.Query("date")
+
+	if driverIDStr == "" || shiftIDStr == "" || checkDate == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "driver_id, shift_id, and date are required"})
+		return
+	}
+
+	driverID, err := strconv.Atoi(driverIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid driver_id"})
+		return
+	}
+
+	shiftID, err := strconv.Atoi(shiftIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid shift_id"})
+		return
+	}
+
+	// Get shift time ranges (including slots)
+	type timeRange struct{ start, end string }
+	var ranges []timeRange
+
+	// Try slots first (multi-slot shifts)
+	slotRows, slotErr := config.DB.Query(`SELECT start_time, end_time FROM shift_slots WHERE shift_id = ?`, shiftID)
+	if slotErr == nil {
+		defer slotRows.Close()
+		for slotRows.Next() {
+			var s, e sql.NullString
+			slotRows.Scan(&s, &e)
+			if s.Valid && e.Valid {
+				ranges = append(ranges, timeRange{start: s.String, end: e.String})
+			}
+		}
+	}
+
+	// If no slots, fall back to the main shift times
+	if len(ranges) == 0 {
+		var s, e sql.NullString
+		_ = config.DB.QueryRow(`SELECT start_time, end_time FROM shifts WHERE id = ?`, shiftID).Scan(&s, &e)
+		if s.Valid && e.Valid {
+			ranges = append(ranges, timeRange{start: s.String, end: e.String})
+		}
+	}
+
+	if len(ranges) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Could not determine shift times"})
+		return
+	}
+
+	// Check for conflicts
+	hasConflict := false
+	for _, r := range ranges {
+		conflict, err := CheckDriverTimeConflict(driverID, r.start, r.end, checkDate)
+		if err != nil {
+			log.Printf("Error checking driver conflict: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error checking conflict"})
+			return
+		}
+		if conflict {
+			hasConflict = true
+			break
+		}
+	}
+
+	// Get conflict details if there are conflicts
+	var conflicts []map[string]interface{}
+	if hasConflict {
+		checkRanges := make([]struct{ start, end string }, len(ranges))
+		for i, r := range ranges {
+			checkRanges[i] = struct{ start, end string }{start: r.start, end: r.end}
+		}
+		conflicts, _ = getDriverConflictsDetails(driverID, checkDate, checkRanges)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"conflict":  hasConflict,
+		"conflicts": conflicts,
+	})
 }

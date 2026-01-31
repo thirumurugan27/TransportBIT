@@ -20,9 +20,17 @@ func GetDrivers(c *gin.Context) {
 	// Get today's attendance status for each driver
 	// Priority: on_leave (from approved leave) > attendance record > not_marked
 	rows, err := config.DB.Query(`
-		SELECT d.id, u.full_name, u.phone, u.email,
-		       d.license_number, d.license_type,
-		       d.experience_years, d.home_vehicle_id,
+		SELECT d.id, d.user_id,
+		       COALESCE(u.full_name, '') as full_name,
+		       COALESCE(u.role, '') as role,
+		       COALESCE(u.phone, '') as phone,
+		       COALESCE(u.email, '') as email,
+		       COALESCE(d.license_number, '') as license_number,
+		       COALESCE(d.license_type, '') as license_type,
+		       COALESCE(DATE_FORMAT(d.license_expiry, '%Y-%m-%d'), '') as license_expiry,
+		       COALESCE(d.experience_years, 0) as experience_years,
+		       COALESCE(d.allowed_vehicle_type, '') as allowed_vehicle_type,
+		       d.home_vehicle_id, d.home_stop_id, COALESCE(d.is_incharge, 0) as is_incharge,
 		       CASE 
 		           WHEN lr.id IS NOT NULL AND lr.status = 'admin_approved' 
 		               AND CURDATE() BETWEEN lr.start_date AND lr.end_date THEN 'on_leave'
@@ -50,13 +58,19 @@ func GetDrivers(c *gin.Context) {
 		var d models.DriverResponse
 		if err := rows.Scan(
 			&d.ID,
+			&d.UserID,
 			&d.FullName,
+			&d.Role,
 			&d.Phone,
 			&d.Email,
 			&d.LicenseNumber,
 			&d.LicenseType,
+			&d.LicenseExpiry,
 			&d.ExperienceYears,
+			&d.AllowedVehicleType,
 			&d.HomeVehicleID,
+			&d.HomeStopID,
+			&d.IsIncharge,
 			&d.Status,
 			&d.ClusterID,
 			&d.ClusterName,
@@ -77,8 +91,19 @@ func CreateDriver(c *gin.Context) {
 		return
 	}
 
+	tx, err := config.DB.Begin()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+		return
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
 	// Insert into users table
-	result, err := config.DB.Exec(`
+	result, err := tx.Exec(`
 		INSERT INTO users (username, password, full_name, phone, email, role)
 		VALUES (?, ?, ?, ?, ?, 'DRIVER')
 	`,
@@ -89,18 +114,27 @@ func CreateDriver(c *gin.Context) {
 		req.Email,
 	)
 	if err != nil {
+		_ = tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	userID, err := result.LastInsertId()
 	if err != nil {
+		_ = tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user ID"})
 		return
 	}
 
+	var licenseExpiry interface{}
+	if req.LicenseExpiry == "" {
+		licenseExpiry = nil
+	} else {
+		licenseExpiry = req.LicenseExpiry
+	}
+
 	// Insert into drivers table
-	_, err = config.DB.Exec(`
+	_, err = tx.Exec(`
 		INSERT INTO drivers (
 			user_id, license_number, license_type, license_expiry,
 			experience_years, allowed_vehicle_type,
@@ -111,7 +145,7 @@ func CreateDriver(c *gin.Context) {
 		userID,
 		req.LicenseNumber,
 		req.LicenseType,
-		req.LicenseExpiry,
+		licenseExpiry,
 		req.ExperienceYears,
 		req.AllowedVehicleType,
 		req.HomeVehicleID,
@@ -120,7 +154,13 @@ func CreateDriver(c *gin.Context) {
 	)
 
 	if err != nil {
+		_ = tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err = tx.Commit(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
 		return
 	}
 
@@ -135,11 +175,40 @@ func UpdateDriver(c *gin.Context) {
 		return
 	}
 
+	// Resolve driver ID (from query or body)
+	idStr := c.Query("id")
+	if idStr != "" {
+		if id, convErr := strconv.Atoi(idStr); convErr == nil {
+			req.ID = id
+		}
+	}
+	if req.ID == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Driver ID required"})
+		return
+	}
+
+	// Resolve user ID if not provided
+	if req.UserID == 0 {
+		var userID int
+		if err := config.DB.QueryRow("SELECT user_id FROM drivers WHERE id=?", req.ID).Scan(&userID); err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Driver not found"})
+			return
+		}
+		req.UserID = userID
+	}
+
+	var licenseExpiry interface{}
+	if req.LicenseExpiry == "" {
+		licenseExpiry = nil
+	} else {
+		licenseExpiry = req.LicenseExpiry
+	}
+
 	// Update users table
 	_, err := config.DB.Exec(`
-		UPDATE users SET full_name=?, phone=?, email=?, status=?
+		UPDATE users SET full_name=?, phone=?, email=?
 		WHERE id=?
-	`, req.FullName, req.Phone, req.Email, req.Status, req.UserID)
+	`, req.FullName, req.Phone, req.Email, req.UserID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -148,10 +217,10 @@ func UpdateDriver(c *gin.Context) {
 	// Update drivers table
 	_, err = config.DB.Exec(`
 		UPDATE drivers SET license_number=?, license_type=?, license_expiry=?,
-		       experience_years=?, home_vehicle_id=?, home_stop_id=?, is_incharge=?
+		       experience_years=?, allowed_vehicle_type=?, home_vehicle_id=?, home_stop_id=?, is_incharge=?
 		WHERE id=?
-	`, req.LicenseNumber, req.LicenseType, req.LicenseExpiry,
-		req.ExperienceYears, req.HomeVehicleID, req.HomeStopID, req.IsIncharge, req.ID)
+	`, req.LicenseNumber, req.LicenseType, licenseExpiry,
+		req.ExperienceYears, req.AllowedVehicleType, req.HomeVehicleID, req.HomeStopID, req.IsIncharge, req.ID)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

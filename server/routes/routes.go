@@ -36,6 +36,7 @@ func RegisterRoutes(r *gin.Engine) {
 	r.GET("/api/admin/drivers", admin.GetDrivers)
 	r.POST("/api/admin/drivers/create", admin.CreateDriver)
 	r.POST("/api/admin/drivers/update", admin.UpdateDriver)
+	r.PUT("/api/admin/drivers/update", admin.UpdateDriver)
 	r.DELETE("/api/admin/drivers/delete", admin.DeleteDriver)
 	// =========================
 	// VEHICLE MANAGEMENT
@@ -66,6 +67,7 @@ func RegisterRoutes(r *gin.Engine) {
 	r.POST("/api/admin/assignments/update", admin.UpdateAssignment)
 	r.DELETE("/api/admin/assignments/delete", admin.DeleteAssignment)
 	r.POST("/api/admin/assignments/reassign-for-leave", admin.ReassignForLeave)
+	r.GET("/api/admin/assignments/check-driver-conflict", admin.CheckDriverConflictAPI)
 
 	// =========================
 	// DUTY MANAGEMENT
@@ -136,6 +138,8 @@ func RegisterRoutes(r *gin.Engine) {
 	r.GET("/api/incharge/all-drivers", incharge.GetAllDriversForIncharge)
 	r.POST("/api/incharge/km-log/add", incharge.InchargeAddKmLog)
 	r.POST("/api/incharge/leave/apply", incharge.InchargeApplyLeave)
+	r.GET("/api/incharge/leave/pending", incharge.GetPendingLeaveRequests)
+	r.POST("/api/incharge/leave/approve", incharge.ApproveLeave)
 	r.GET("/api/incharge/driver-km-logs", incharge.GetDriverKmLogs)
 	r.GET("/api/incharge/km-summary", incharge.GetInchargeKmSummary)
 	r.GET("/api/incharge/km-filters", incharge.GetInchargeKmFilters)
@@ -186,9 +190,12 @@ func RegisterRoutes(r *gin.Engine) {
 	r.GET("/api/admin/assignments/by-category", admin.GetAssignmentsByCategory)
 	r.GET("/api/admin/available-drivers", admin.GetAvailableDrivers)
 	r.GET("/api/admin/km-summary", admin.GetKMSummary)
+	r.GET("/api/admin/km-vehicle-summary", admin.GetVehicleKmSummary)
 	r.GET("/api/admin/km-filters", admin.GetKmFilterMeta)
 	r.GET("/api/admin/km-logs", admin.GetAdminKmLogs)
 	r.POST("/api/admin/km-log/add", admin.AdminAddKmLog)
+	r.GET("/api/admin/driver-assigned-vehicles", admin.GetDriverAssignedVehicles)
+	r.GET("/api/admin/driver-km-history", admin.GetDriverKmHistory)
 
 	// =========================
 	// TEMPORARY ASSIGNMENTS (Separate Table)

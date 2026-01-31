@@ -1,5 +1,6 @@
 import React, {useState, useEffect} from "react";
 import {showError, showConfirm, showSuccess} from "../../../utils/swal";
+import SearchableSelect from "../../../components/ui/SearchableSelect";
 import {
   Loader2,
   Plus,
@@ -56,6 +57,7 @@ export default function ScheduleManagement() {
   const [clusterForm, setClusterForm] = useState({
     name: "",
     description: "",
+    shift_id: "",
     start_time: "",
     end_time: "",
     valid_from: "",
@@ -127,6 +129,7 @@ export default function ScheduleManagement() {
       setClusterForm({
         name: item.name,
         description: item.description || "",
+        shift_id: item.default_shift_id || "",
         start_time: item.start_time || "",
         end_time: item.end_time || "",
         valid_from: formatDateForInput(item.valid_from) || "",
@@ -179,6 +182,7 @@ export default function ScheduleManagement() {
         setClusterForm({
           name: "",
           description: "",
+          shift_id: "",
           start_time: "",
           end_time: "",
           valid_from: "",
@@ -629,40 +633,92 @@ export default function ScheduleManagement() {
                         ></textarea>
                       </div>
                       <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-[10px] font-bold text-secondarytext uppercase tracking-widest mb-1">
-                              Start Time
-                            </label>
-                            <input
-                              type="time"
-                              className="w-full px-3 py-2 rounded-md border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm"
-                              value={clusterForm.start_time}
-                              onChange={(e) =>
+                        <div>
+                          <label className="block text-[10px] font-bold text-secondarytext uppercase tracking-widest mb-1.5">
+                            Select Shift
+                          </label>
+                          <SearchableSelect
+                            value={clusterForm.shift_id}
+                            onChange={(val) => {
+                              const selectedShift = shifts.find(
+                                (s) => s.id === parseInt(val),
+                              );
+                              if (selectedShift) {
                                 setClusterForm({
                                   ...clusterForm,
-                                  start_time: e.target.value,
-                                })
-                              }
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-bold text-secondarytext uppercase tracking-widest mb-1">
-                              End Time
-                            </label>
-                            <input
-                              type="time"
-                              className="w-full px-3 py-2 rounded-md border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm"
-                              value={clusterForm.end_time}
-                              onChange={(e) =>
+                                  shift_id: val,
+                                  start_time: selectedShift.start_time || "",
+                                  end_time: selectedShift.end_time || "",
+                                });
+                              } else {
                                 setClusterForm({
                                   ...clusterForm,
-                                  end_time: e.target.value,
-                                })
+                                  shift_id: "",
+                                  start_time: "",
+                                  end_time: "",
+                                });
                               }
-                            />
-                          </div>
+                            }}
+                            placeholder="Select a shift..."
+                            options={shifts.map((shift) => {
+                              const hasSlots =
+                                shift.slots && shift.slots.length > 0;
+                              const timeDisplay = hasSlots
+                                ? shift.slots
+                                    .map(
+                                      (slot) =>
+                                        `${formatTimeAMPM(slot.start_time)} - ${formatTimeAMPM(slot.end_time)}`,
+                                    )
+                                    .join(", ")
+                                : `${formatTimeAMPM(shift.start_time)} - ${formatTimeAMPM(shift.end_time)}`;
+                              return {
+                                value: shift.id,
+                                label: shift.name,
+                                subtitle: timeDisplay,
+                              };
+                            })}
+                            emptyMessage="No shifts available"
+                          />
                         </div>
+                        {clusterForm.shift_id &&
+                          (() => {
+                            const selectedShift = shifts.find(
+                              (s) => s.id === parseInt(clusterForm.shift_id),
+                            );
+                            const hasSlots =
+                              selectedShift?.slots &&
+                              selectedShift.slots.length > 0;
+                            const slotsToDisplay = hasSlots
+                              ? selectedShift.slots
+                              : [
+                                  {
+                                    start_time: selectedShift?.start_time,
+                                    end_time: selectedShift?.end_time,
+                                  },
+                                ];
+
+                            return (
+                              <div>
+                                <label className="block text-[10px] font-bold text-secondarytext uppercase tracking-widest mb-1">
+                                  Shift Timings
+                                </label>
+                                <div className="space-y-2">
+                                  {slotsToDisplay.map((slot, idx) => (
+                                    <div
+                                      key={idx}
+                                      className="flex items-center gap-2 px-3 py-2 rounded-md border border-gray-200 bg-gray-50 text-sm"
+                                    >
+                                      <Clock className="w-4 h-4 text-primary" />
+                                      <span className="font-medium">
+                                        {formatTimeAMPM(slot.start_time)} -{" "}
+                                        {formatTimeAMPM(slot.end_time)}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })()}
                         <div className="grid grid-cols-2 gap-3">
                           <div>
                             <label className="block text-[10px] font-bold text-secondarytext uppercase tracking-widest mb-1">

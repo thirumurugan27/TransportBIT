@@ -1,6 +1,7 @@
 import React, {useState, useEffect} from "react";
 import {showError, showConfirm} from "../../../utils/swal";
 import {formatVehicleLabel} from "../../../utils/vehicleLabel";
+import SearchableSelect from "../../../components/ui/SearchableSelect";
 import {
   Plus,
   Trash2,
@@ -334,50 +335,46 @@ export default function TemporaryAssignments() {
                 <label className="text-sm font-medium text-gray-700">
                   Original Driver (Unavailable) *
                 </label>
-                <select
-                  required
+                <SearchableSelect
                   value={newTemp.original_driver_id}
-                  onChange={(e) =>
-                    setNewTemp({...newTemp, original_driver_id: e.target.value})
+                  onChange={(val) =>
+                    setNewTemp({...newTemp, original_driver_id: val})
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                >
-                  <option value="">Select Original Driver</option>
-                  {drivers.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.full_name}{" "}
-                      {d.cluster_id ? `(Cluster ${d.cluster_id})` : ""}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Select Original Driver"
+                  options={drivers.map((d) => ({
+                    value: d.id,
+                    label: d.full_name,
+                    subtitle: d.cluster_id
+                      ? `Cluster ${d.cluster_id}`
+                      : undefined,
+                  }))}
+                  emptyMessage="No drivers available"
+                />
               </div>
 
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-700">
                   Replacement Driver *
                 </label>
-                <select
-                  required
+                <SearchableSelect
                   value={newTemp.replacement_driver_id}
-                  onChange={(e) =>
+                  onChange={(val) =>
                     setNewTemp({
                       ...newTemp,
-                      replacement_driver_id: e.target.value,
+                      replacement_driver_id: val,
                     })
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                >
-                  <option value="">Select Substitute Driver</option>
-                  {drivers
+                  placeholder="Select Substitute Driver"
+                  options={drivers
                     .filter(
                       (d) => d.id !== parseInt(newTemp.original_driver_id),
                     )
-                    .map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.full_name}
-                      </option>
-                    ))}
-                </select>
+                    .map((d) => ({
+                      value: d.id,
+                      label: d.full_name,
+                    }))}
+                  emptyMessage="No drivers available"
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -385,42 +382,35 @@ export default function TemporaryAssignments() {
                   <label className="text-sm font-medium text-gray-700">
                     Shift *
                   </label>
-                  <select
-                    required
+                  <SearchableSelect
                     value={newTemp.shift_id}
-                    onChange={(e) =>
-                      setNewTemp({...newTemp, shift_id: e.target.value})
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                  >
-                    <option value="">Select Shift</option>
-                    {shifts.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.shift_name} ({formatTimeAMPM(s.start_time)}-
-                        {formatTimeAMPM(s.end_time)})
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(val) => setNewTemp({...newTemp, shift_id: val})}
+                    placeholder="Select Shift"
+                    options={shifts.map((s) => ({
+                      value: s.id,
+                      label: s.shift_name,
+                      subtitle: `${formatTimeAMPM(s.start_time)}-${formatTimeAMPM(s.end_time)}`,
+                    }))}
+                    emptyMessage="No shifts available"
+                  />
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700">
                     Vehicle *
                   </label>
-                  <select
-                    required
+                  <SearchableSelect
                     value={newTemp.vehicle_id}
-                    onChange={(e) =>
-                      setNewTemp({...newTemp, vehicle_id: e.target.value})
+                    onChange={(val) =>
+                      setNewTemp({...newTemp, vehicle_id: val})
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                  >
-                    <option value="">Select Vehicle</option>
-                    {vehicles.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {formatVehicleLabel(v)} ({v.vehicle_type})
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="Select Vehicle"
+                    options={vehicles.map((v) => ({
+                      value: v.id,
+                      label: formatVehicleLabel(v),
+                      subtitle: v.vehicle_type,
+                    }))}
+                    emptyMessage="No vehicles available"
+                  />
                 </div>
               </div>
 

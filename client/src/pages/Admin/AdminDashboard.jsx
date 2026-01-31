@@ -10,11 +10,10 @@ import Assignments from "./views/Assignments";
 import TemporaryAssignments from "./views/TemporaryAssignments";
 import LeaveApprovals from "./views/LeaveApprovals";
 import ScheduleManagement from "./views/ScheduleManagement";
-import KmSummary from "./views/KmSummary";
+import KmManagement from "./views/KmManagement";
 import AttendanceRecords from "./views/AttendanceRecords";
 import InsuranceFCStatus from "./views/InsuranceFCStatus";
 import FCReplacementManagement from "./views/FCReplacementManagement";
-import Notifications from "./views/Notifications";
 import AdminStudentTransport from "./views/AdminStudentTransport";
 import ComingSoon from "./views/ComingSoon";
 
@@ -34,7 +33,7 @@ export default function AdminDashboard() {
       try {
         const today = new Date().toISOString().split("T")[0];
         const res = await fetch(
-          `${API_BASE}/api/admin/assignments/absent-alerts?date=${today}`
+          `${API_BASE}/api/admin/assignments/absent-alerts?date=${today}`,
         );
         const data = await res.json();
         setAbsentAlerts(data || []);
@@ -92,14 +91,18 @@ export default function AdminDashboard() {
               element={<ScheduleManagement />}
             />
             <Route path="all-assignments" element={<Assignments />} />
-            {/* Temporary assignments route removed as it's now a tab in all-assignments */}
-            <Route path="km-summary" element={<KmSummary />} />
+            <Route path="km-management" element={<KmManagement />} />
             <Route path="leave-approvals" element={<LeaveApprovals />} />
             <Route path="attendance-records" element={<AttendanceRecords />} />
             <Route path="insurance-fc-status" element={<InsuranceFCStatus />} />
-            <Route path="fc-replacement" element={<FCReplacementManagement />} />
-            <Route path="notifications" element={<Notifications />} />
-            <Route path="student-transport" element={<AdminStudentTransport />} />
+            <Route
+              path="fc-replacement"
+              element={<FCReplacementManagement />}
+            />
+            <Route
+              path="student-transport"
+              element={<AdminStudentTransport />}
+            />
             <Route path="*" element={<AdminHome />} />
           </Routes>
         </main>

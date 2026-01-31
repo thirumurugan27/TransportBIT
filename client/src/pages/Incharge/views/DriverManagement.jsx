@@ -49,7 +49,9 @@ export default function DriverManagement() {
   const [leaveForm, setLeaveForm] = useState({
     leave_type: "CASUAL",
     start_date: getToday(),
+    start_time: "",
     end_date: getToday(),
+    end_time: "",
     reason: "",
   });
 
@@ -188,7 +190,7 @@ export default function DriverManagement() {
   };
 
   const handleApplyLeave = async () => {
-    if (!leaveForm.reason) {
+    if (!leaveForm.reason || !leaveForm.start_time || !leaveForm.end_time) {
       showToast("Please enter a reason for leave", "warning");
       return;
     }
@@ -200,12 +202,22 @@ export default function DriverManagement() {
         driver_id: selectedDriver.driver_id,
         leave_type: leaveForm.leave_type,
         start_date: leaveForm.start_date,
+        start_time: leaveForm.start_time,
         end_date: leaveForm.end_date,
+        end_time: leaveForm.end_time,
         reason: leaveForm.reason,
       });
 
       if (res.ok) {
         showToast("Leave request submitted successfully", "success");
+        setLeaveForm({
+          leave_type: "CASUAL",
+          start_date: getToday(),
+          start_time: "",
+          end_date: getToday(),
+          end_time: "",
+          reason: "",
+        });
         setShowLeaveModal(false);
       } else {
         const data = await res.json();
@@ -745,6 +757,38 @@ export default function DriverManagement() {
                     }
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-primary"
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-secondarytext mb-1">
+                    Start Time
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="time"
+                      value={leaveForm.start_time}
+                      onChange={(e) =>
+                        setLeaveForm({...leaveForm, start_time: e.target.value})
+                      }
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-primary"
+                    />
+                    <Clock className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-secondarytext mb-1">
+                    End Time
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="time"
+                      value={leaveForm.end_time}
+                      onChange={(e) =>
+                        setLeaveForm({...leaveForm, end_time: e.target.value})
+                      }
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-primary"
+                    />
+                    <Clock className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
+                  </div>
                 </div>
               </div>
 

@@ -1,12 +1,12 @@
 import React from "react";
 import Toast from "./Toast";
 
-const ToastContainer = ({toasts, removeToast}) => {
+const ToastContainer = ({alert, clearAlert}) => {
+  if (!alert) return null;
+
   return (
-    <div className="fixed top-5 right-5 z-[999] flex flex-col gap-2">
-      {toasts.map((toast) => (
-        <Toast key={toast.id} {...toast} removeToast={removeToast} />
-      ))}
+    <div className="fixed top-4 inset-x-0 z-[80] px-4 flex justify-center">
+      <Toast {...alert} onClose={clearAlert} />
     </div>
   );
 };

@@ -7,10 +7,12 @@ import LeaveApprovals from "./views/LeaveApprovals";
 import InchargeAssignments from "./views/InchargeAssignments";
 import MarkAttendance from "./views/MarkAttendance";
 import DriverHistory from "./views/DriverHistory";
-import KmSummary from "./views/KmSummary";
+import KmManagement from "./views/KmManagement";
 import InsuranceFCStatus from "./views/InsuranceFCStatus";
 import DriverManagement from "./views/DriverManagement";
 import Notifications from "./views/Notifications";
+import ScheduleManagement from "./views/ScheduleManagement";
+import Assignments from "./views/Assignments";
 import {useAuth} from "../../context/AuthContext";
 
 export default function InchargeDashboard() {
@@ -35,10 +37,15 @@ export default function InchargeDashboard() {
             <Route path="driver-history" element={<DriverHistory />} />
             <Route path="assignments" element={<InchargeAssignments />} />
             <Route path="leave-approvals" element={<LeaveApprovals />} />
-            <Route path="km-summary" element={<KmSummary />} />
+            <Route path="km-management" element={<KmManagement />} />
             <Route path="insurance-fc-status" element={<InsuranceFCStatus />} />
             <Route path="driver-management" element={<DriverManagement />} />
             <Route path="notifications" element={<Notifications />} />
+            <Route
+              path="schedule-management"
+              element={<ScheduleManagement />}
+            />
+            <Route path="assignment-management" element={<Assignments />} />
             <Route path="*" element={<InchargeHome />} />
           </Routes>
         </main>

@@ -1023,9 +1023,9 @@ func InchargeAddKmLog(c *gin.Context) {
 		INSERT INTO km_logs (
 			driver_id, date, start_km, end_km, total_km, remarks,
 			vehicle_type, vehicle_id, assignment_id,
-			recorded_by_user_id, recorded_by_role, recorded_by_name
+			recorded_by_user_id, recorded_by_name
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'INCHARGE', ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, req.DriverID, req.Date, req.StartKm, req.EndKm, req.TotalKm, remarks, req.VehicleType, vehicleID, assignmentID, inchargeUserID, inchargeName)
 
 	if err != nil {
@@ -1066,7 +1066,9 @@ func InchargeApplyLeave(c *gin.Context) {
 		DriverID   int    `json:"driver_id"`
 		LeaveType  string `json:"leave_type"`
 		StartDate  string `json:"start_date"`
+		StartTime  string `json:"start_time"`
 		EndDate    string `json:"end_date"`
+		EndTime    string `json:"end_time"`
 		Reason     string `json:"reason"`
 	}
 
@@ -1088,14 +1090,14 @@ func InchargeApplyLeave(c *gin.Context) {
 		return
 	}
 
-	if req.DriverID == 0 || req.StartDate == "" || req.EndDate == "" {
+	if req.DriverID == 0 || req.StartDate == "" || req.EndDate == "" || req.StartTime == "" || req.EndTime == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing required fields"})
 		return
 	}
 
 	leaveType := req.LeaveType
 	if leaveType == "" {
-		leaveType = "CASUAL"
+		leaveType = "Leave"
 	}
 
 	// Add note about who raised it
@@ -1107,12 +1109,18 @@ func InchargeApplyLeave(c *gin.Context) {
 	}
 
 	result, err := config.DB.Exec(`
-		INSERT INTO leave_requests (driver_id, leave_type, start_date, end_date, reason, status)
-		VALUES (?, ?, ?, ?, ?, 'pending')
-	`, req.DriverID, leaveType, req.StartDate, req.EndDate, reason)
+		INSERT INTO leave_requests (driver_id, leave_type, start_date, start_time, end_date, end_time, reason, status)
+		VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')
+	`, req.DriverID, leaveType, req.StartDate, req.StartTime, req.EndDate, req.EndTime, reason)
 
 	if err != nil {
 		log.Printf("Incharge apply leave error: %v", err)
+		if strings.Contains(err.Error(), "Unknown column") && (strings.Contains(err.Error(), "start_time") || strings.Contains(err.Error(), "end_time")) {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "Database schema missing start_time/end_time. Run migration 20260131_add_leave_time_fields.sql",
+			})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error applying for leave"})
 		return
 	}
@@ -1121,8 +1129,8 @@ func InchargeApplyLeave(c *gin.Context) {
 
 	// Send notification to the driver
 	notifTitle := "Leave Request Submitted by Incharge"
-	notifMessage := fmt.Sprintf("Incharge %s has submitted a %s leave request on your behalf from %s to %s. Status: Pending approval.",
-		inchargeName, leaveType, req.StartDate, req.EndDate)
+	notifMessage := fmt.Sprintf("Incharge %s has submitted a %s leave request on your behalf from %s %s to %s %s. Status: Pending approval.",
+		inchargeName, leaveType, req.StartDate, req.StartTime, req.EndDate, req.EndTime)
 	_, _ = config.DB.Exec(`
 		INSERT INTO driver_notifications (driver_id, title, message, type, related_id)
 		VALUES (?, ?, ?, 'leave', ?)
@@ -1261,8 +1269,7 @@ func GetInchargeKmSummary(c *gin.Context) {
 			COALESCE(v.vehicle_number, 'N/A') as vehicle_number,
 			COALESCE(s.name, 'N/A') as shift,
 			COALESCE(a.route_name, 'N/A') as route_name,
-			kl.recorded_by_name,
-			kl.recorded_by_role
+			kl.recorded_by_name
 		FROM km_logs kl
 		JOIN drivers d ON kl.driver_id = d.id
 		JOIN users u ON d.user_id = u.id
@@ -1295,7 +1302,6 @@ func GetInchargeKmSummary(c *gin.Context) {
 		Shift          string   `json:"shift"`
 		RouteName      string   `json:"route_name"`
 		RecordedByName *string  `json:"recorded_by_name"`
-		RecordedByRole *string  `json:"recorded_by_role"`
 	}
 
 	var logs []DetailedKmLog
@@ -1305,7 +1311,7 @@ func GetInchargeKmSummary(c *gin.Context) {
 		var l DetailedKmLog
 		if err := rows.Scan(&l.ID, &l.DriverID, &l.DriverName, &l.Date, &l.StartKm, &l.EndKm,
 			&l.TotalKm, &l.Remarks, &l.VehicleType, &l.VehicleNumber, &l.Shift, &l.RouteName,
-			&l.RecordedByName, &l.RecordedByRole); err == nil {
+			&l.RecordedByName); err == nil {
 			logs = append(logs, l)
 			listedKm += l.TotalKm
 		}

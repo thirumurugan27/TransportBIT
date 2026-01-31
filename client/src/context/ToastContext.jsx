@@ -1,4 +1,10 @@
-import React, {createContext, useContext, useState, useCallback} from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useRef,
+} from "react";
 import ToastContainer from "../components/ui/ToastContainer";
 
 const ToastContext = createContext();
@@ -12,26 +18,38 @@ export const useToast = () => {
 };
 
 export const ToastProvider = ({children}) => {
-  const [toasts, setToasts] = useState([]);
+  const [alert, setAlert] = useState(null);
+  const timeoutRef = useRef(null);
 
-  const showToast = useCallback((message, type = "info") => {
-    const id = Date.now().toString();
-    setToasts((prev) => [...prev, {id, message, type}]);
-
-    // Auto remove after 3 seconds
-    setTimeout(() => {
-      removeToast(id);
-    }, 3000);
+  const clearAlert = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    setAlert(null);
   }, []);
 
-  const removeToast = useCallback((id) => {
-    setToasts((prev) => prev.filter((toast) => toast.id !== id));
-  }, []);
+  const showToast = useCallback(
+    (message, type = "info") => {
+      if (!message) return;
+      const id = Date.now().toString();
+      setAlert({id, message, type});
+
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+
+      timeoutRef.current = setTimeout(() => {
+        clearAlert();
+      }, 3500);
+    },
+    [clearAlert],
+  );
 
   return (
-    <ToastContext.Provider value={{showToast}}>
+    <ToastContext.Provider value={{showToast, clearAlert}}>
       {children}
-      <ToastContainer toasts={toasts} removeToast={removeToast} />
+      <ToastContainer alert={alert} clearAlert={clearAlert} />
     </ToastContext.Provider>
   );
 };

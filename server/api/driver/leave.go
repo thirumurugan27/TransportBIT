@@ -17,7 +17,9 @@ type LeaveRequest struct {
 	DriverName         string  `json:"driver_name"`
 	LeaveType          string  `json:"leave_type"`
 	StartDate          string  `json:"start_date"`
+	StartTime          string  `json:"start_time"`
 	EndDate            string  `json:"end_date"`
+	EndTime            string  `json:"end_time"`
 	Reason             string  `json:"reason"`
 	Status             string  `json:"status"`
 	InchargeID         *int    `json:"incharge_id"`
@@ -36,7 +38,9 @@ type ApplyLeaveRequest struct {
 	DriverID  int    `json:"driver_id"`
 	LeaveType string `json:"leave_type"`
 	StartDate string `json:"start_date"`
+	StartTime string `json:"start_time"`
 	EndDate   string `json:"end_date"`
+	EndTime   string `json:"end_time"`
 	Reason    string `json:"reason"`
 }
 
@@ -47,35 +51,65 @@ type ApplyLeaveRequest struct {
 
 =========================
 */
+
 func ApplyLeave(c *gin.Context) {
 	var req ApplyLeaveRequest
+
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
 
-	if req.DriverID == 0 || req.StartDate == "" || req.EndDate == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing required fields"})
+	if req.DriverID == 0 ||
+		req.StartDate == "" ||
+		req.EndDate == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing required fields: driver_id, start_date, end_date"})
 		return
+	}
+
+	// Set default times if not provided
+	startTime := req.StartTime
+	if startTime == "" {
+		startTime = "09:00:00"
+	}
+	endTime := req.EndTime
+	if endTime == "" {
+		endTime = "17:00:00"
 	}
 
 	leaveType := req.LeaveType
 	if leaveType == "" {
-		leaveType = "CASUAL"
+		leaveType = "Leave"
 	}
 
-	result, err := config.DB.Exec(`
-		INSERT INTO leave_requests (driver_id, leave_type, start_date, end_date, reason, status)
-		VALUES (?, ?, ?, ?, ?, 'pending')
-	`, req.DriverID, leaveType, req.StartDate, req.EndDate, req.Reason)
+	query := `
+		INSERT INTO transport_bit.leave_requests
+		(driver_id, leave_type, start_date, start_time, end_date, end_time, reason, status, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
+	`
+
+	result, err := config.DB.Exec(
+		query,
+		req.DriverID,
+		leaveType,
+		req.StartDate,
+		startTime,
+		req.EndDate,
+		endTime,
+		req.Reason,
+		"PENDING", // ENUM-safe
+	)
 
 	if err != nil {
-		log.Printf("Apply leave error: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error applying for leave"})
+		log.Println("ApplyLeave DB Error:", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(), // TEMP: keep during debugging
+		})
 		return
 	}
 
 	id, _ := result.LastInsertId()
+
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Leave request submitted successfully",
 		"id":      id,
@@ -97,7 +131,7 @@ func GetMyLeaveRequests(c *gin.Context) {
 	}
 
 	rows, err := config.DB.Query(`
-		SELECT lr.id, lr.driver_id, lr.leave_type, lr.start_date, lr.end_date, lr.reason, lr.status,
+		SELECT lr.id, lr.driver_id, lr.leave_type, lr.start_date, lr.start_time, lr.end_date, lr.end_time, lr.reason, lr.status,
 			   lr.incharge_id, u_inc.full_name as incharge_name, lr.incharge_approved_at, lr.incharge_remarks,
 			   lr.admin_id, u_adm.full_name as admin_name, lr.admin_approved_at, lr.admin_remarks, lr.created_at
 		FROM leave_requests lr
@@ -117,13 +151,13 @@ func GetMyLeaveRequests(c *gin.Context) {
 	var leaves []LeaveRequest
 	for rows.Next() {
 		var l LeaveRequest
-		var startDate, endDate, createdAt []byte
+		var startDate, startTime, endDate, endTime, createdAt []byte
 		var inchargeApprovedAt, adminApprovedAt sql.NullString
 		var inchargeRemarks, adminRemarks sql.NullString
 		var inchargeName, adminName sql.NullString
 		var inchargeID, adminID sql.NullInt64
 
-		err := rows.Scan(&l.ID, &l.DriverID, &l.LeaveType, &startDate, &endDate, &l.Reason, &l.Status,
+		err := rows.Scan(&l.ID, &l.DriverID, &l.LeaveType, &startDate, &startTime, &endDate, &endTime, &l.Reason, &l.Status,
 			&inchargeID, &inchargeName, &inchargeApprovedAt, &inchargeRemarks,
 			&adminID, &adminName, &adminApprovedAt, &adminRemarks, &createdAt)
 		if err != nil {
@@ -132,7 +166,9 @@ func GetMyLeaveRequests(c *gin.Context) {
 		}
 
 		l.StartDate = string(startDate)
+		l.StartTime = string(startTime)
 		l.EndDate = string(endDate)
+		l.EndTime = string(endTime)
 		l.CreatedAt = string(createdAt)
 
 		if inchargeID.Valid {
