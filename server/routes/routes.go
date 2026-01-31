@@ -63,11 +63,13 @@ func RegisterRoutes(r *gin.Engine) {
 	// ASSIGNMENT MANAGEMENT
 	// =========================
 	r.GET("/api/admin/assignments", admin.GetAllAssignments)
+	r.GET("/api/admin/assignments/:id", admin.GetAssignmentDetails)
 	r.POST("/api/admin/assignments/create", admin.CreateAssignment)
 	r.POST("/api/admin/assignments/update", admin.UpdateAssignment)
 	r.DELETE("/api/admin/assignments/delete", admin.DeleteAssignment)
 	r.POST("/api/admin/assignments/reassign-for-leave", admin.ReassignForLeave)
 	r.GET("/api/admin/assignments/check-driver-conflict", admin.CheckDriverConflictAPI)
+	r.GET("/api/admin/assignments/check-vehicle-conflict", admin.CheckVehicleConflictAPI)
 
 	// =========================
 	// DUTY MANAGEMENT
@@ -162,6 +164,8 @@ func RegisterRoutes(r *gin.Engine) {
 	r.POST("/api/admin/leave/approve", admin.ApproveLeave)
 	r.GET("/api/admin/leave/history", admin.GetLeaveHistory)
 	r.GET("/api/admin/leave/stats", admin.GetLeaveStats)
+	r.GET("/api/admin/leave/:id/affected-assignments", admin.GetLeaveAffectedAssignments)
+	r.POST("/api/admin/leave/approve-with-assignments", admin.ApproveLeaveWithAssignments)
 
 	// =========================
 	// CLUSTER MANAGEMENT

@@ -12,15 +12,30 @@ import {
   FileText,
   User,
   ShieldCheck,
+  Truck,
+  Users,
+  ArrowRight,
+  Calendar,
 } from "lucide-react";
 import {
   formatDate,
   formatTime,
   calculateDuration,
   getStatusLabel,
+  getStatusColor,
 } from "../../../utils/dateFormat";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
+
+// Helper to convert 24h time to 12h AM/PM format
+const formatTimeAMPM = (time24) => {
+  if (!time24) return "";
+  const [hours, minutes] = time24.split(":");
+  const h = parseInt(hours, 10);
+  const ampm = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 || 12;
+  return `${h12}:${minutes} ${ampm}`;
+};
 
 export default function LeaveApprovals() {
   const [loading, setLoading] = useState(false);
@@ -31,6 +46,13 @@ export default function LeaveApprovals() {
   const [actionProcessing, setActionProcessing] = useState(null);
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [remarks, setRemarks] = useState("");
+
+  // New states for temporary assignment workflow
+  const [showAssignmentModal, setShowAssignmentModal] = useState(false);
+  const [affectedAssignments, setAffectedAssignments] = useState([]);
+  const [availableDrivers, setAvailableDrivers] = useState([]);
+  const [tempAssignments, setTempAssignments] = useState({});
+  const [loadingAssignments, setLoadingAssignments] = useState(false);
 
   const fetchLeaveRequests = async () => {
     setLoading(true);
@@ -53,6 +75,91 @@ export default function LeaveApprovals() {
   useEffect(() => {
     fetchLeaveRequests();
   }, []);
+
+  // Fetch affected assignments for a leave request
+  const fetchAffectedAssignments = async (leaveId) => {
+    setLoadingAssignments(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/leave/${leaveId}/affected-assignments`);
+      if (res.ok) {
+        const data = await res.json();
+        setAffectedAssignments(data.assignments || []);
+        setAvailableDrivers(data.available_drivers || []);
+        // Initialize temp assignments state
+        const initial = {};
+        (data.assignments || []).forEach((a) => {
+          initial[a.id] = {
+            assignment_id: a.id,
+            shift_id: a.shift_id,
+            vehicle_id: a.vehicle_id,
+            replacement_driver_id: "",
+            start_date: data.start_date,
+            end_date: data.end_date,
+          };
+        });
+        setTempAssignments(initial);
+      }
+    } catch (err) {
+      console.error("Error fetching affected assignments:", err);
+    } finally {
+      setLoadingAssignments(false);
+    }
+  };
+
+  // Handle clicking "Approve" button - check for assignments first
+  const handleApproveClick = async (leave) => {
+    setSelectedLeave(leave);
+    await fetchAffectedAssignments(leave.id);
+    setShowAssignmentModal(true);
+  };
+
+  // Approve leave with temporary assignments
+  const approveWithAssignments = async () => {
+    setActionProcessing(selectedLeave.id);
+    try {
+      // Prepare temporary assignments array
+      const tempAssignmentsArray = Object.values(tempAssignments)
+        .filter((ta) => ta.replacement_driver_id)
+        .map((ta) => ({
+          assignment_id: ta.assignment_id,
+          shift_id: ta.shift_id,
+          vehicle_id: ta.vehicle_id,
+          replacement_driver_id: parseInt(ta.replacement_driver_id),
+          start_date: ta.start_date,
+          end_date: ta.end_date,
+        }));
+
+      const res = await fetch(`${API_BASE}/api/admin/leave/approve-with-assignments`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          leave_id: selectedLeave.id,
+          approver_id: 1,
+          remarks: remarks || "",
+          temporary_assignments: tempAssignmentsArray,
+        }),
+      });
+
+      if (res.ok) {
+        setShowAssignmentModal(false);
+        setShowLeaveModal(false);
+        setRemarks("");
+        setTempAssignments({});
+        fetchLeaveRequests();
+        showSuccess(
+          "Leave Approved",
+          `Leave request approved successfully.${tempAssignmentsArray.length > 0 ? ` ${tempAssignmentsArray.length} temporary assignment(s) created.` : ""} Attendance will be automatically marked as absent.`
+        );
+      } else {
+        const errorData = await res.json();
+        showError("Error", errorData.error || "Failed to approve leave");
+      }
+    } catch (err) {
+      showError("Error", err.message);
+    } finally {
+      setActionProcessing(null);
+    }
+  };
 
   const approveLeave = async (leaveId, status) => {
     setActionProcessing(leaveId);
@@ -590,7 +697,7 @@ export default function LeaveApprovals() {
                     Reject
                   </button>
                   <button
-                    onClick={() => approveLeave(selectedLeave.id, "approved")}
+                    onClick={() => handleApproveClick(selectedLeave)}
                     disabled={actionProcessing === selectedLeave.id}
                     className="px-6 py-2.5 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white rounded-lg font-semibold text-sm shadow-sm transition-all disabled:opacity-50 flex items-center gap-2"
                   >
@@ -610,6 +717,214 @@ export default function LeaveApprovals() {
                   Close
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Temporary Assignment Modal */}
+      {showAssignmentModal && selectedLeave && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-4xl rounded-xl shadow-2xl animate-scaleIn overflow-hidden max-h-[90vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-[#8b5cf6]/5 to-transparent">
+              <div>
+                <h3 className="text-xl font-bold text-gray-800">
+                  Assign Temporary Replacements
+                </h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  Driver: <span className="font-semibold">{selectedLeave.driver_name}</span> | 
+                  Leave: <span className="font-semibold">{formatDate(selectedLeave.start_date)} - {formatDate(selectedLeave.end_date)}</span>
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowAssignmentModal(false);
+                  setTempAssignments({});
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {loadingAssignments ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-8 h-8 animate-spin text-[#8b5cf6]" />
+                </div>
+              ) : affectedAssignments.length === 0 ? (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
+                  <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto mb-3" />
+                  <h4 className="text-lg font-semibold text-green-800 mb-2">No Active Assignments</h4>
+                  <p className="text-sm text-green-700">
+                    This driver has no active assignments during the leave period. You can proceed to approve the leave directly.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-semibold text-amber-800">
+                        {affectedAssignments.length} Assignment{affectedAssignments.length > 1 ? 's' : ''} Affected
+                      </p>
+                      <p className="text-xs text-amber-700 mt-1">
+                        Please assign temporary replacement drivers for the following assignments. You can skip assignments if no replacement is needed.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    {affectedAssignments.map((assignment) => (
+                      <div 
+                        key={assignment.id} 
+                        className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow"
+                      >
+                        {/* Assignment Info */}
+                        <div className="flex items-start gap-4">
+                          <div className="w-12 h-12 rounded-xl bg-[#8b5cf6]/10 flex items-center justify-center flex-shrink-0">
+                            <Truck className="w-6 h-6 text-[#8b5cf6]" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="font-bold text-gray-800 text-lg">
+                                {assignment.bus_name || assignment.vehicle_number}
+                              </p>
+                              <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
+                                {assignment.vehicle_type}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-500 mt-1">
+                              {assignment.vehicle_number}
+                            </p>
+                            <div className="flex flex-wrap gap-4 mt-3 text-sm">
+                              <div className="flex items-center gap-1.5 text-gray-600">
+                                <Clock className="w-4 h-4 text-[#8b5cf6]" />
+                                <span className="font-medium">{assignment.shift_name}</span>
+                                <span className="text-gray-400">
+                                  ({formatTimeAMPM(assignment.shift_start_time)} - {formatTimeAMPM(assignment.shift_end_time)})
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5 text-gray-600">
+                                <Calendar className="w-4 h-4 text-[#8b5cf6]" />
+                                <span>{assignment.start_date} to {assignment.end_date}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                        </div>
+
+                        {/* Replacement Driver Selection - List Style */}
+                        <div className="mt-4 pt-4 border-t border-gray-100">
+                          <div className="flex items-center gap-2 mb-3">
+                            <Users className="w-4 h-4 text-[#8b5cf6]" />
+                            <label className="text-sm font-semibold text-gray-700">
+                              Choose a Replacement Driver
+                            </label>
+                          </div>
+                          <p className="text-xs text-gray-500 mb-3">
+                            Select an available driver who doesn't have conflicting assignments:
+                          </p>
+                          <div className="border border-gray-200 rounded-lg overflow-hidden divide-y divide-gray-100">
+                            {availableDrivers.map((driver) => {
+                              const isSelected = tempAssignments[assignment.id]?.replacement_driver_id === String(driver.id);
+                              return (
+                                <div
+                                  key={driver.id}
+                                  onClick={() => {
+                                    setTempAssignments((prev) => ({
+                                      ...prev,
+                                      [assignment.id]: {
+                                        ...prev[assignment.id],
+                                        replacement_driver_id: isSelected ? "" : String(driver.id),
+                                      },
+                                    }));
+                                  }}
+                                  className={`flex items-center justify-between px-4 py-3 cursor-pointer transition-all ${
+                                    isSelected
+                                      ? "bg-[#8b5cf6]/5 border-l-4 border-l-[#8b5cf6]"
+                                      : "bg-white hover:bg-gray-50 border-l-4 border-l-transparent"
+                                  }`}
+                                >
+                                  <div className="flex flex-col">
+                                    <span className={`text-sm font-semibold ${isSelected ? "text-[#8b5cf6]" : "text-gray-800"}`}>
+                                      {driver.full_name}
+                                    </span>
+                                    <span className="text-xs text-gray-500">
+                                      License: {driver.license_type || 'N/A'}
+                                    </span>
+                                  </div>
+                                  {isSelected && (
+                                    <CheckCircle2 className="w-5 h-5 text-[#8b5cf6] flex-shrink-0" />
+                                  )}
+                                </div>
+                              );
+                            })}
+                            {availableDrivers.length === 0 && (
+                              <div className="px-4 py-6 text-center text-sm text-gray-500">
+                                No available drivers found for this period
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* Remarks Section */}
+              <div className="border-t border-gray-200 pt-5">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Approval Remarks (Optional)
+                </label>
+                <textarea
+                  value={remarks}
+                  onChange={(e) => setRemarks(e.target.value)}
+                  placeholder="Add any remarks for this leave approval..."
+                  rows="2"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8b5cf6]/30 focus:border-[#8b5cf6] text-sm resize-none"
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
+              <div className="text-sm text-gray-600">
+                {Object.values(tempAssignments).filter(ta => ta.replacement_driver_id).length > 0 && (
+                  <span className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-green-500" />
+                    {Object.values(tempAssignments).filter(ta => ta.replacement_driver_id).length} replacement(s) assigned
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    setShowAssignmentModal(false);
+                    setTempAssignments({});
+                  }}
+                  className="px-5 py-2.5 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 rounded-lg font-semibold text-sm transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={approveWithAssignments}
+                  disabled={actionProcessing === selectedLeave.id}
+                  className="px-6 py-2.5 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white rounded-lg font-semibold text-sm shadow-sm transition-all disabled:opacity-50 flex items-center gap-2"
+                >
+                  {actionProcessing === selectedLeave.id ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="w-4 h-4" />
+                  )}
+                  {affectedAssignments.length > 0 
+                    ? "Approve & Create Assignments" 
+                    : "Approve Leave"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

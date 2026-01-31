@@ -743,3 +743,349 @@ func CheckDriverConflictAPI(c *gin.Context) {
 		"conflicts": conflicts,
 	})
 }
+
+/* =========================
+   GET /api/admin/assignments/check-vehicle-conflict
+   Check if a specific vehicle has conflicts for a given shift and date
+========================= */
+func CheckVehicleConflictAPI(c *gin.Context) {
+	vehicleIDStr := c.Query("vehicle_id")
+	shiftIDStr := c.Query("shift_id")
+	checkDate := c.Query("date")
+
+	if vehicleIDStr == "" || shiftIDStr == "" || checkDate == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "vehicle_id, shift_id, and date are required"})
+		return
+	}
+
+	vehicleID, err := strconv.Atoi(vehicleIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid vehicle_id"})
+		return
+	}
+
+	shiftID, err := strconv.Atoi(shiftIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid shift_id"})
+		return
+	}
+
+	// Get shift time ranges (including slots)
+	type timeRange struct{ start, end string }
+	var ranges []timeRange
+
+	// Try slots first (multi-slot shifts)
+	slotRows, slotErr := config.DB.Query(`SELECT start_time, end_time FROM shift_slots WHERE shift_id = ?`, shiftID)
+	if slotErr == nil {
+		defer slotRows.Close()
+		for slotRows.Next() {
+			var s, e sql.NullString
+			slotRows.Scan(&s, &e)
+			if s.Valid && e.Valid {
+				ranges = append(ranges, timeRange{start: s.String, end: e.String})
+			}
+		}
+	}
+
+	// If no slots, fall back to the main shift times
+	if len(ranges) == 0 {
+		var s, e sql.NullString
+		_ = config.DB.QueryRow(`SELECT start_time, end_time FROM shifts WHERE id = ?`, shiftID).Scan(&s, &e)
+		if s.Valid && e.Valid {
+			ranges = append(ranges, timeRange{start: s.String, end: e.String})
+		}
+	}
+
+	if len(ranges) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Could not determine shift times"})
+		return
+	}
+
+	// Check for conflicts - vehicle already assigned during the same time range
+	hasConflict := false
+	var conflicts []map[string]interface{}
+
+	for _, r := range ranges {
+		// Check regular assignments
+		rows, err := config.DB.Query(`
+			SELECT a.id, s.name as shift_name, s.start_time, s.end_time, 
+			       a.start_date, a.end_date, u.full_name as driver_name,
+			       'assignment' as assignment_type
+			FROM assignments a
+			JOIN shifts s ON a.shift_id = s.id
+			JOIN drivers d ON a.driver_id = d.id
+			JOIN users u ON d.user_id = u.id
+			WHERE a.vehicle_id = ?
+			  AND a.status IN ('active', 'assigned')
+			  AND ? BETWEEN a.start_date AND a.end_date
+			  AND (
+			    (s.start_time < ? AND s.end_time > ?) OR
+			    (s.start_time < ? AND s.end_time > ?) OR
+			    (s.start_time >= ? AND s.end_time <= ?)
+			  )
+		`, vehicleID, checkDate, r.end, r.start, r.end, r.start, r.start, r.end)
+		
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var conflict struct {
+					ID             int
+					ShiftName      string
+					StartTime      string
+					EndTime        string
+					StartDate      string
+					EndDate        string
+					DriverName     string
+					AssignmentType string
+				}
+				rows.Scan(&conflict.ID, &conflict.ShiftName, &conflict.StartTime, &conflict.EndTime,
+					&conflict.StartDate, &conflict.EndDate, &conflict.DriverName, &conflict.AssignmentType)
+				hasConflict = true
+				conflicts = append(conflicts, map[string]interface{}{
+					"id":              conflict.ID,
+					"shift_name":      conflict.ShiftName,
+					"start_time":      conflict.StartTime,
+					"end_time":        conflict.EndTime,
+					"start_date":      conflict.StartDate,
+					"end_date":        conflict.EndDate,
+					"driver_name":     conflict.DriverName,
+					"assignment_type": conflict.AssignmentType,
+				})
+			}
+		}
+
+		// Check temporary assignments
+		tempRows, err := config.DB.Query(`
+			SELECT ta.id, s.name as shift_name, s.start_time, s.end_time,
+			       ta.start_date, ta.end_date, u.full_name as driver_name,
+			       'temporary' as assignment_type
+			FROM temporary_assignments ta
+			JOIN shifts s ON ta.shift_id = s.id
+			JOIN drivers d ON ta.replacement_driver_id = d.id
+			JOIN users u ON d.user_id = u.id
+			WHERE ta.vehicle_id = ?
+			  AND ta.status = 'active'
+			  AND ? BETWEEN ta.start_date AND ta.end_date
+			  AND (
+			    (s.start_time < ? AND s.end_time > ?) OR
+			    (s.start_time < ? AND s.end_time > ?) OR
+			    (s.start_time >= ? AND s.end_time <= ?)
+			  )
+		`, vehicleID, checkDate, r.end, r.start, r.end, r.start, r.start, r.end)
+		
+		if err == nil {
+			defer tempRows.Close()
+			for tempRows.Next() {
+				var conflict struct {
+					ID             int
+					ShiftName      string
+					StartTime      string
+					EndTime        string
+					StartDate      string
+					EndDate        string
+					DriverName     string
+					AssignmentType string
+				}
+				tempRows.Scan(&conflict.ID, &conflict.ShiftName, &conflict.StartTime, &conflict.EndTime,
+					&conflict.StartDate, &conflict.EndDate, &conflict.DriverName, &conflict.AssignmentType)
+				hasConflict = true
+				conflicts = append(conflicts, map[string]interface{}{
+					"id":              conflict.ID,
+					"shift_name":      conflict.ShiftName,
+					"start_time":      conflict.StartTime,
+					"end_time":        conflict.EndTime,
+					"start_date":      conflict.StartDate,
+					"end_date":        conflict.EndDate,
+					"driver_name":     conflict.DriverName,
+					"assignment_type": conflict.AssignmentType,
+				})
+			}
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"conflict":  hasConflict,
+		"conflicts": conflicts,
+	})
+}
+
+/* =========================
+   GET /api/admin/assignments/:id
+   Get detailed view of a single assignment
+========================= */
+func GetAssignmentDetails(c *gin.Context) {
+	idStr := c.Param("id")
+	assignmentID, err := strconv.Atoi(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid assignment ID"})
+		return
+	}
+
+	// Check if it's a temporary assignment first
+	isTemp := c.Query("is_temp")
+	
+	if isTemp == "true" {
+		// Fetch temporary assignment details
+		var a struct {
+			ID                    int    `json:"id"`
+			ShiftID               int    `json:"shift_id"`
+			VehicleID             int    `json:"vehicle_id"`
+			OriginalDriverID      int    `json:"original_driver_id"`
+			ReplacementDriverID   int    `json:"replacement_driver_id"`
+			StartDate             string `json:"start_date"`
+			EndDate               string `json:"end_date"`
+			Reason                string `json:"reason"`
+			Status                string `json:"status"`
+			CreatedAt             string `json:"created_at"`
+			CreatedBy             *int   `json:"created_by"`
+			ShiftName             string `json:"shift_name"`
+			StartTime             string `json:"start_time"`
+			EndTime               string `json:"end_time"`
+			VehicleNumber         string `json:"vehicle_number"`
+			VehicleType           string `json:"vehicle_type"`
+			BusName               string `json:"bus_name"`
+			OriginalDriverName    string `json:"original_driver_name"`
+			ReplacementDriverName string `json:"replacement_driver_name"`
+			CreatedByName         string `json:"created_by_name"`
+		}
+
+		var createdBy sql.NullInt64
+		var createdByName sql.NullString
+
+		err := config.DB.QueryRow(`
+			SELECT ta.id, ta.shift_id, ta.vehicle_id, ta.original_driver_id, ta.replacement_driver_id,
+			       DATE_FORMAT(ta.start_date, '%Y-%m-%d') as start_date,
+			       DATE_FORMAT(ta.end_date, '%Y-%m-%d') as end_date,
+			       COALESCE(ta.reason, '') as reason,
+			       ta.status,
+			       DATE_FORMAT(ta.created_at, '%Y-%m-%d %H:%i:%s') as created_at,
+			       ta.created_by,
+			       s.name AS shift_name,
+			       TIME_FORMAT(s.start_time, '%H:%i') as start_time,
+			       TIME_FORMAT(s.end_time, '%H:%i') as end_time,
+			       v.vehicle_number, v.vehicle_type,
+			       COALESCE(v.name, v.vehicle_number) as bus_name,
+			       u_orig.full_name as original_driver_name,
+			       u_repl.full_name as replacement_driver_name,
+			       COALESCE(u_created.full_name, '') as created_by_name
+			FROM temporary_assignments ta
+			JOIN shifts s ON ta.shift_id = s.id
+			JOIN vehicles v ON ta.vehicle_id = v.id
+			JOIN drivers d_orig ON ta.original_driver_id = d_orig.id
+			JOIN users u_orig ON d_orig.user_id = u_orig.id
+			JOIN drivers d_repl ON ta.replacement_driver_id = d_repl.id
+			JOIN users u_repl ON d_repl.user_id = u_repl.id
+			LEFT JOIN users u_created ON ta.created_by = u_created.id
+			WHERE ta.id = ?
+		`, assignmentID).Scan(
+			&a.ID, &a.ShiftID, &a.VehicleID, &a.OriginalDriverID, &a.ReplacementDriverID,
+			&a.StartDate, &a.EndDate, &a.Reason, &a.Status, &a.CreatedAt,
+			&createdBy, &a.ShiftName, &a.StartTime, &a.EndTime,
+			&a.VehicleNumber, &a.VehicleType, &a.BusName,
+			&a.OriginalDriverName, &a.ReplacementDriverName, &createdByName,
+		)
+
+		if err != nil {
+			if err == sql.ErrNoRows {
+				c.JSON(http.StatusNotFound, gin.H{"error": "Temporary assignment not found"})
+				return
+			}
+			log.Printf("Error fetching temp assignment details: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch assignment details"})
+			return
+		}
+
+		if createdBy.Valid {
+			id := int(createdBy.Int64)
+			a.CreatedBy = &id
+		}
+		if createdByName.Valid {
+			a.CreatedByName = createdByName.String
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"assignment":     a,
+			"is_temporary":   true,
+			"assignment_type": "temporary",
+		})
+		return
+	}
+
+	// Fetch regular assignment details
+	var a models.Assignment
+	var createdBy sql.NullInt64
+	var createdAt sql.NullString
+	var createdByName sql.NullString
+	var originalDriverID sql.NullInt64
+	var isTemporary int
+
+	err = config.DB.QueryRow(`
+		SELECT a.id, a.shift_id, a.vehicle_id, a.driver_id,
+		       DATE_FORMAT(a.assigned_date, '%Y-%m-%d') as assigned_date,
+		       DATE_FORMAT(a.start_date, '%Y-%m-%d') as start_date,
+		       DATE_FORMAT(a.end_date, '%Y-%m-%d') as end_date,
+		       a.status,
+		       a.is_temporary_replacement,
+		       a.original_driver_id,
+		       a.created_by,
+		       DATE_FORMAT(COALESCE(a.created_at, a.assigned_date), '%Y-%m-%d %H:%i:%s') as created_at,
+		       s.name AS shift_name,
+		       TIME_FORMAT(s.start_time, '%H:%i') as start_time,
+		       TIME_FORMAT(s.end_time, '%H:%i') as end_time,
+		       v.vehicle_number, v.vehicle_type,
+		       COALESCE(v.name, b.bus_name, v.vehicle_number) as bus_name,
+		       u.full_name AS driver_name,
+		       COALESCE(u_orig.full_name, '') as original_driver_name,
+		       COALESCE(u_created.full_name, '') as created_by_name
+		FROM assignments a
+		JOIN shifts s ON a.shift_id = s.id
+		JOIN vehicles v ON a.vehicle_id = v.id
+		LEFT JOIN buses b ON v.id = b.vehicle_id
+		JOIN drivers d ON a.driver_id = d.id
+		JOIN users u ON d.user_id = u.id
+		LEFT JOIN drivers d_orig ON a.original_driver_id = d_orig.id
+		LEFT JOIN users u_orig ON d_orig.user_id = u_orig.id
+		LEFT JOIN users u_created ON a.created_by = u_created.id
+		WHERE a.id = ?
+	`, assignmentID).Scan(
+		&a.ID, &a.ShiftID, &a.VehicleID, &a.DriverID,
+		&a.AssignedDate, &a.StartDate, &a.EndDate, &a.Status,
+		&isTemporary, &originalDriverID,
+		&createdBy, &createdAt,
+		&a.ShiftName, &a.StartTime, &a.EndTime,
+		&a.VehicleNumber, &a.VehicleType, &a.BusName,
+		&a.DriverName, &a.OriginalDriverName, &createdByName,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Assignment not found"})
+			return
+		}
+		log.Printf("Error fetching assignment details: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch assignment details"})
+		return
+	}
+
+	a.IsTemporaryReplacement = isTemporary == 1
+	if createdBy.Valid {
+		id := int(createdBy.Int64)
+		a.CreatedBy = &id
+	}
+	if createdAt.Valid {
+		a.CreatedAt = createdAt.String
+	}
+	if createdByName.Valid {
+		a.CreatedByName = createdByName.String
+	}
+	if originalDriverID.Valid {
+		id := int(originalDriverID.Int64)
+		a.OriginalDriverID = &id
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"assignment":      a,
+		"is_temporary":    a.IsTemporaryReplacement,
+		"assignment_type": "regular",
+	})
+}

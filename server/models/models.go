@@ -173,6 +173,7 @@ type Assignment struct {
 	IsTemporaryReplacement bool   `json:"is_temporary_replacement"`
 	OriginalDriverID       *int   `json:"original_driver_id"`
 	CreatedBy              *int   `json:"created_by"`
+	CreatedAt              string `json:"created_at"`
 	// Joined fields
 	ShiftName          string `json:"shift_name"`
 	StartTime          string `json:"start_time"`
@@ -183,6 +184,7 @@ type Assignment struct {
 	DriverName         string `json:"driver_name"`
 	OriginalDriverName string `json:"original_driver_name"`
 	DriverStatus       string `json:"driver_status"`
+	CreatedByName      string `json:"created_by_name"`
 }
 
 type CreateAssignmentRequest struct {

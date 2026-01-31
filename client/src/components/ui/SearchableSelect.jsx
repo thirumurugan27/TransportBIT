@@ -1,15 +1,16 @@
 import React, {useState, useRef, useEffect} from "react";
-import {Search, ChevronDown, X, Check} from "lucide-react";
+import {Search, ChevronDown, X, Check, AlertCircle} from "lucide-react";
 
 /**
  * SearchableSelect - Professional searchable dropdown component
  * @param {Object} props
- * @param {Array} props.options - Array of {value, label, subtitle?} objects
+ * @param {Array} props.options - Array of {value, label, subtitle?, available?, availableText?} objects
  * @param {string} props.value - Currently selected value
  * @param {Function} props.onChange - Callback when selection changes
  * @param {string} props.placeholder - Placeholder text
  * @param {boolean} props.disabled - Disable the select
  * @param {string} props.emptyMessage - Message when no options match
+ * @param {boolean} props.showAvailability - Whether to show availability indicators
  */
 export default function SearchableSelect({
   options = [],
@@ -18,6 +19,7 @@ export default function SearchableSelect({
   placeholder = "Select...",
   disabled = false,
   emptyMessage = "No options available",
+  showAvailability = false,
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -170,22 +172,44 @@ export default function SearchableSelect({
               <div className="py-1">
                 {filteredOptions.map((option) => {
                   const isSelected = String(option.value) === String(value);
+                  const isAvailable = option.available !== false; // Default to available if not specified
+                  const showStatus = showAvailability && option.available !== undefined;
+                  
                   return (
                     <button
                       key={option.value}
                       type="button"
                       onClick={() => handleSelect(option.value)}
-                      className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 text-sm text-left transition-colors ${
+                      className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 text-sm text-left transition-colors border-l-4 ${
                         isSelected
-                          ? "bg-primary/10 text-primary font-medium"
-                          : "text-gray-700 hover:bg-gray-50"
+                          ? "bg-primary/10 text-primary font-medium border-l-primary"
+                          : showStatus && !isAvailable
+                            ? "bg-red-50/50 text-gray-500 hover:bg-red-50 border-l-red-300"
+                            : "text-gray-700 hover:bg-gray-50 border-l-transparent"
                       }`}
                     >
                       <span className="flex-1 flex flex-col">
-                        <span>{option.label}</span>
+                        <span className={`flex items-center gap-2 ${showStatus && !isAvailable ? "text-gray-500" : ""}`}>
+                          {option.label}
+                          {showStatus && (
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                              isAvailable 
+                                ? "bg-green-100 text-green-700" 
+                                : "bg-red-100 text-red-600"
+                            }`}>
+                              {isAvailable ? "Available" : (option.availableText || "Assigned")}
+                            </span>
+                          )}
+                        </span>
                         {option.subtitle && (
                           <span
-                            className={`text-xs ${isSelected ? "text-primary/70" : "text-gray-500"}`}
+                            className={`text-xs ${
+                              isSelected 
+                                ? "text-primary/70" 
+                                : showStatus && !isAvailable 
+                                  ? "text-gray-400" 
+                                  : "text-gray-500"
+                            }`}
                           >
                             {option.subtitle}
                           </span>

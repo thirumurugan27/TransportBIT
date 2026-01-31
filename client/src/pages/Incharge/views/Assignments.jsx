@@ -69,6 +69,7 @@ export default function Assignments() {
   const [conflictModal, setConflictModal] = useState(null); // { conflicts: [], message: '' }
   const [conflictPendingForm, setConflictPendingForm] = useState(null); // form data waiting for force assign
   const [driverAvailabilityMap, setDriverAvailabilityMap] = useState({}); // Map of driver_id -> {available: boolean, conflicts: []}
+  const [vehicleAvailabilityMap, setVehicleAvailabilityMap] = useState({}); // Map of vehicle_id -> {available: boolean, conflicts: []}
 
   // EV Details Modal
   const [showEvDetailsModal, setShowEvDetailsModal] = useState(false);
@@ -322,6 +323,71 @@ export default function Assignments() {
     });
     setDriverAvailabilityMap(availabilityMap);
   };
+
+  // Check vehicle availability and update availability map
+  const checkVehicleAvailability = async (
+    vehicleList,
+    shiftId,
+    startDate,
+  ) => {
+    if (!shiftId || !startDate) return;
+
+    const availabilityPromises = vehicleList.map(async (vehicle) => {
+      try {
+        const response = await fetch(
+          `${API_BASE}/api/admin/assignments/check-vehicle-conflict?vehicle_id=${vehicle.id}&shift_id=${shiftId}&date=${startDate}`,
+        );
+        const data = await response.json();
+        return {
+          vehicleId: vehicle.id,
+          available: !data.conflict,
+          conflicts: data.conflicts || [],
+        };
+      } catch (error) {
+        console.error("Error checking vehicle availability:", error);
+        return {
+          vehicleId: vehicle.id,
+          available: true,
+          conflicts: [],
+        };
+      }
+    });
+
+    const results = await Promise.all(availabilityPromises);
+    const availabilityMap = {};
+    results.forEach((result) => {
+      availabilityMap[result.vehicleId] = result;
+    });
+    setVehicleAvailabilityMap(availabilityMap);
+  };
+
+  // Check availability when shift or date changes for create modal
+  useEffect(() => {
+    if (showCreateModal && createModalType !== "ev" && assignmentForm.shift_id && assignmentForm.start_date) {
+      checkDriverAvailability(
+        availableDrivers,
+        assignmentForm.shift_id,
+        assignmentForm.start_date,
+        assignmentForm.end_date,
+      );
+    }
+  }, [showCreateModal, assignmentForm.shift_id, assignmentForm.start_date, assignmentForm.end_date, availableDrivers]);
+
+  // Check vehicle availability when shift or date changes in create modal
+  useEffect(() => {
+    if (showCreateModal && assignmentForm.shift_id && assignmentForm.start_date && vehicles.length > 0) {
+      const filteredVehicles = vehicles.filter(
+        (v) =>
+          v.vehicle_type === createModalType?.toUpperCase() ||
+          (createModalType === "ev" && v.fuel_type === "EV"),
+      );
+      checkVehicleAvailability(
+        filteredVehicles,
+        assignmentForm.shift_id,
+        assignmentForm.start_date,
+      );
+    }
+  }, [showCreateModal, assignmentForm.shift_id, assignmentForm.start_date, vehicles, createModalType]);
 
   // Check availability when conflict modal opens
   useEffect(() => {
@@ -821,17 +887,35 @@ export default function Assignments() {
                     })
                   }
                   placeholder="Select Vehicle"
+                  showAvailability={true}
                   options={vehicles
                     .filter(
                       (v) =>
                         v.vehicle_type === createModalType.toUpperCase() ||
                         (createModalType === "ev" && v.fuel_type === "EV"),
                     )
-                    .map((v) => ({
-                      value: v.id,
-                      label: v.bus_name || v.vehicle_number,
-                      subtitle: `${v.vehicle_number} • ${v.vehicle_type}`,
-                    }))}
+                    .map((v) => {
+                      const availability = vehicleAvailabilityMap[v.id];
+                      const hasAvailabilityData = assignmentForm.shift_id > 0 && assignmentForm.start_date && availability !== undefined;
+                      const isAvailable = hasAvailabilityData ? availability?.available !== false : true;
+                      
+                      // Build conflict info for subtitle
+                      let conflictInfo = `${v.vehicle_number} • ${v.vehicle_type}`;
+                      if (hasAvailabilityData && !isAvailable && availability?.conflicts?.length > 0) {
+                        const conflict = availability.conflicts[0];
+                        conflictInfo = `${v.vehicle_number} • Assigned: ${conflict.start_date} to ${conflict.end_date}`;
+                      }
+                      
+                      return {
+                        value: v.id,
+                        label: v.bus_name || v.vehicle_number,
+                        subtitle: conflictInfo,
+                        available: isAvailable,
+                        availableText: hasAvailabilityData && !isAvailable 
+                          ? `Assigned to ${availability.conflicts?.[0]?.driver_name || 'driver'}` 
+                          : undefined,
+                      };
+                    })}
                   emptyMessage="No vehicles available"
                 />
               </div>
@@ -893,13 +977,21 @@ export default function Assignments() {
                       })
                     }
                     placeholder="Select Driver"
-                    options={availableDrivers.map((d) => ({
-                      value: d.driver_id || d.id,
-                      label: d.driver_name || d.full_name,
-                      subtitle: d.license_type
-                        ? `License: ${d.license_type}`
-                        : undefined,
-                    }))}
+                    showAvailability={true}
+                    options={availableDrivers.map((d) => {
+                      const driverId = d.driver_id || d.id;
+                      const availability = driverAvailabilityMap[driverId];
+                      const hasAvailabilityData = assignmentForm.shift_id > 0 && assignmentForm.start_date && availability !== undefined;
+                      return {
+                        value: driverId,
+                        label: d.driver_name || d.full_name,
+                        subtitle: d.license_type
+                          ? `License: ${d.license_type}`
+                          : undefined,
+                        available: hasAvailabilityData ? availability?.available !== false : true,
+                        availableText: hasAvailabilityData && availability?.available === false ? "Has Conflict" : undefined,
+                      };
+                    })}
                     emptyMessage="No drivers available"
                   />
                 </div>
@@ -944,13 +1036,20 @@ export default function Assignments() {
               value={reassignDriverId}
               onChange={(val) => setReassignDriverId(parseInt(val) || 0)}
               placeholder="Select Driver"
-              options={availableDrivers.map((d) => ({
-                value: d.driver_id || d.id,
-                label: d.driver_name || d.full_name,
-                subtitle: d.license_type
-                  ? `License: ${d.license_type}`
-                  : undefined,
-              }))}
+              showAvailability={true}
+              options={availableDrivers.map((d) => {
+                const driverId = d.driver_id || d.id;
+                const availability = driverAvailabilityMap[driverId];
+                return {
+                  value: driverId,
+                  label: d.driver_name || d.full_name,
+                  subtitle: d.license_type
+                    ? `License: ${d.license_type}`
+                    : undefined,
+                  available: availability?.available !== false,
+                  availableText: availability?.available === false ? "Has Conflict" : undefined,
+                };
+              })}
               emptyMessage="No drivers available"
             />
             <div className="flex gap-2 justify-end mt-4">
