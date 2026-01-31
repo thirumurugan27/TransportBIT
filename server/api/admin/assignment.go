@@ -656,10 +656,13 @@ func getDriverConflictsDetails(driverID int, checkDate string, checkRanges []str
 	return out, nil
 }
 
-/* =========================
-   GET /api/admin/assignments/check-driver-conflict
-   Check if a specific driver has conflicts for a given shift and date
-========================= */
+/*
+	=========================
+	  GET /api/admin/assignments/check-driver-conflict
+	  Check if a specific driver has conflicts for a given shift and date
+
+=========================
+*/
 func CheckDriverConflictAPI(c *gin.Context) {
 	driverIDStr := c.Query("driver_id")
 	shiftIDStr := c.Query("shift_id")
@@ -744,10 +747,13 @@ func CheckDriverConflictAPI(c *gin.Context) {
 	})
 }
 
-/* =========================
-   GET /api/admin/assignments/check-vehicle-conflict
-   Check if a specific vehicle has conflicts for a given shift and date
-========================= */
+/*
+	=========================
+	  GET /api/admin/assignments/check-vehicle-conflict
+	  Check if a specific vehicle has conflicts for a given shift and date
+
+=========================
+*/
 func CheckVehicleConflictAPI(c *gin.Context) {
 	vehicleIDStr := c.Query("vehicle_id")
 	shiftIDStr := c.Query("shift_id")
@@ -824,7 +830,7 @@ func CheckVehicleConflictAPI(c *gin.Context) {
 			    (s.start_time >= ? AND s.end_time <= ?)
 			  )
 		`, vehicleID, checkDate, r.end, r.start, r.end, r.start, r.start, r.end)
-		
+
 		if err == nil {
 			defer rows.Close()
 			for rows.Next() {
@@ -872,7 +878,7 @@ func CheckVehicleConflictAPI(c *gin.Context) {
 			    (s.start_time >= ? AND s.end_time <= ?)
 			  )
 		`, vehicleID, checkDate, r.end, r.start, r.end, r.start, r.start, r.end)
-		
+
 		if err == nil {
 			defer tempRows.Close()
 			for tempRows.Next() {
@@ -909,10 +915,13 @@ func CheckVehicleConflictAPI(c *gin.Context) {
 	})
 }
 
-/* =========================
-   GET /api/admin/assignments/:id
-   Get detailed view of a single assignment
-========================= */
+/*
+	=========================
+	  GET /api/admin/assignments/:id
+	  Get detailed view of a single assignment
+
+=========================
+*/
 func GetAssignmentDetails(c *gin.Context) {
 	idStr := c.Param("id")
 	assignmentID, err := strconv.Atoi(idStr)
@@ -923,7 +932,7 @@ func GetAssignmentDetails(c *gin.Context) {
 
 	// Check if it's a temporary assignment first
 	isTemp := c.Query("is_temp")
-	
+
 	if isTemp == "true" {
 		// Fetch temporary assignment details
 		var a struct {
@@ -1004,8 +1013,8 @@ func GetAssignmentDetails(c *gin.Context) {
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"assignment":     a,
-			"is_temporary":   true,
+			"assignment":      a,
+			"is_temporary":    true,
 			"assignment_type": "temporary",
 		})
 		return

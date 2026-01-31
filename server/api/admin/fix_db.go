@@ -2,6 +2,7 @@ package admin
 
 import (
 	"log"
+	"time"
 	"transport-server/config"
 )
 
@@ -79,4 +80,77 @@ func FixDatabaseSchema() {
 	} else {
 		log.Println("Schema Fix: temporary_assignments.created_by added")
 	}
+
+	// 9. Mark attendance as absent for all approved leaves that haven't been marked yet
+	fixApprovedLeaveAttendance()
+}
+
+// fixApprovedLeaveAttendance marks attendance as absent for all approved leaves
+func fixApprovedLeaveAttendance() {
+	log.Println("Checking for approved leaves that need attendance marked...")
+
+	// Get all approved leaves (admin_approved or approved)
+	rows, err := config.DB.Query(`
+		SELECT lr.id, lr.driver_id, d.user_id,
+		       DATE_FORMAT(lr.start_date, '%Y-%m-%d') as start_date,
+		       DATE_FORMAT(lr.end_date, '%Y-%m-%d') as end_date
+		FROM leave_requests lr
+		JOIN drivers d ON lr.driver_id = d.id
+		WHERE lr.status IN ('approved', 'admin_approved')
+	`)
+	if err != nil {
+		log.Printf("Error fetching approved leaves: %v", err)
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var leaveID, driverID, userID int
+		var startDateStr, endDateStr string
+		if err := rows.Scan(&leaveID, &driverID, &userID, &startDateStr, &endDateStr); err != nil {
+			log.Printf("Error scanning leave: %v", err)
+			continue
+		}
+
+		// Parse dates
+		startDate, err1 := time.Parse("2006-01-02", startDateStr)
+		endDate, err2 := time.Parse("2006-01-02", endDateStr)
+		if err1 != nil || err2 != nil {
+			log.Printf("Error parsing dates for leave %d: %v, %v", leaveID, err1, err2)
+			continue
+		}
+
+		// Mark attendance for each day in the leave period
+		for date := startDate; !date.After(endDate); date = date.AddDate(0, 0, 1) {
+			dateStr := date.Format("2006-01-02")
+
+			// Check if attendance needs to be marked
+			var existingStatus string
+			err := config.DB.QueryRow(`
+				SELECT COALESCE(status, '') FROM attendance 
+				WHERE user_id = ? AND date = ?
+			`, userID, dateStr).Scan(&existingStatus)
+
+			if err != nil && err.Error() != "sql: no rows in result set" {
+				continue
+			}
+
+			if existingStatus == "" || existingStatus == "not_marked" {
+				// Insert or update attendance to absent
+				_, err = config.DB.Exec(`
+					INSERT INTO attendance (user_id, date, status)
+					VALUES (?, ?, 'absent')
+					ON DUPLICATE KEY UPDATE status = 'absent'
+				`, userID, dateStr)
+				if err != nil {
+					log.Printf("Error marking attendance for user %d on %s: %v", userID, dateStr, err)
+				} else {
+					log.Printf("Fixed: Marked attendance as absent for user %d (driver %d) on %s for leave %d",
+						userID, driverID, dateStr, leaveID)
+				}
+			}
+		}
+	}
+
+	log.Println("Approved leave attendance check complete")
 }

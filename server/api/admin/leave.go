@@ -348,7 +348,7 @@ func ApproveLeave(c *gin.Context) {
 		FROM leave_requests 
 		WHERE id = ?
 	`, req.LeaveID).Scan(&currentStatus, &driverID, &startDate, &endDate, &inchargeApprovedAt, &adminApprovedAt)
-	
+
 	if err != nil {
 		log.Printf("Get leave status error: %v", err)
 		c.JSON(http.StatusNotFound, gin.H{"error": "Leave request not found"})
@@ -388,7 +388,7 @@ func ApproveLeave(c *gin.Context) {
 	} else {
 		adminID = nil
 	}
-	
+
 	result, err := config.DB.Exec(`
 		UPDATE leave_requests 
 		SET status = ?, 
@@ -403,7 +403,7 @@ func ApproveLeave(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error processing leave request: " + err.Error()})
 		return
 	}
-	
+
 	rowsAffected, _ := result.RowsAffected()
 	if rowsAffected == 0 {
 		log.Printf("No rows affected for leave_id: %d", req.LeaveID)
@@ -411,8 +411,8 @@ func ApproveLeave(c *gin.Context) {
 		return
 	}
 
-	// If fully approved (both incharge and admin), automatically mark attendance as absent for the leave period
-	if newStatus == "approved" {
+	// If admin approved (either fully approved or admin_approved), automatically mark attendance as absent for the leave period
+	if newStatus == "approved" || newStatus == "admin_approved" {
 		markAttendanceForLeave(driverID, startDate, endDate)
 	}
 
@@ -422,7 +422,7 @@ func ApproveLeave(c *gin.Context) {
 
 	var notifTitle string
 	var notifMessage string
-	
+
 	if newStatus == "rejected" {
 		notifTitle = "Leave Request Rejected by Admin"
 		notifMessage = fmt.Sprintf("Your leave request from %s to %s has been rejected by admin. Reason: %s",
@@ -701,9 +701,9 @@ type TempAssignmentInput struct {
 }
 
 type ApproveWithAssignmentsRequest struct {
-	LeaveID             int                   `json:"leave_id"`
-	ApproverID          int                   `json:"approver_id"`
-	Remarks             string                `json:"remarks"`
+	LeaveID              int                   `json:"leave_id"`
+	ApproverID           int                   `json:"approver_id"`
+	Remarks              string                `json:"remarks"`
 	TemporaryAssignments []TempAssignmentInput `json:"temporary_assignments"`
 }
 
@@ -720,7 +720,7 @@ func ApproveLeaveWithAssignments(c *gin.Context) {
 	var currentStatus string
 	var inchargeApprovedAt sql.NullString
 	var adminApprovedAt sql.NullString
-	
+
 	err := config.DB.QueryRow(`
 		SELECT driver_id, 
 			DATE_FORMAT(start_date, '%Y-%m-%d'), 
@@ -825,8 +825,8 @@ func ApproveLeaveWithAssignments(c *gin.Context) {
 		return
 	}
 
-	// Mark attendance as absent if fully approved
-	if newStatus == "approved" {
+	// Mark attendance as absent if admin approved (either fully approved or admin_approved)
+	if newStatus == "approved" || newStatus == "admin_approved" {
 		markAttendanceForLeave(driverID, startDate, endDate)
 	}
 
@@ -849,9 +849,9 @@ func ApproveLeaveWithAssignments(c *gin.Context) {
 	`, driverID, notifTitle, notifMessage, req.LeaveID)
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":              "Leave approved and temporary assignments created successfully",
-		"status":               newStatus,
-		"assignments_created":  len(req.TemporaryAssignments),
+		"message":             "Leave approved and temporary assignments created successfully",
+		"status":              newStatus,
+		"assignments_created": len(req.TemporaryAssignments),
 	})
 }
 
@@ -881,7 +881,7 @@ func markAttendanceForLeave(driverID int, startDateStr, endDateStr string) {
 	// Mark attendance as absent for each day in the leave period
 	for date := startDate; !date.After(endDate); date = date.AddDate(0, 0, 1) {
 		dateStr := date.Format("2006-01-02")
-		
+
 		// Check if attendance already exists for this date
 		var existingStatus string
 		err := config.DB.QueryRow(`
@@ -892,13 +892,13 @@ func markAttendanceForLeave(driverID int, startDateStr, endDateStr string) {
 		if err == sql.ErrNoRows {
 			// No attendance record exists, insert new one
 			_, err = config.DB.Exec(`
-				INSERT INTO attendance (user_id, date, status, checkin_time, leave_approved)
-				VALUES (?, ?, 'absent', NULL, 1)
+				INSERT INTO attendance (user_id, date, status, checkin_time)
+				VALUES (?, ?, 'absent', NULL)
 			`, userID, dateStr)
 			if err != nil {
 				log.Printf("Error inserting attendance for user %d on %s: %v", userID, dateStr, err)
 			} else {
-				log.Printf("Automatically marked absent for user %d (driver %d) on %s due to approved leave", 
+				log.Printf("Automatically marked absent for user %d (driver %d) on %s due to approved leave",
 					userID, driverID, dateStr)
 			}
 		} else if err == nil {
@@ -906,13 +906,13 @@ func markAttendanceForLeave(driverID int, startDateStr, endDateStr string) {
 			if existingStatus == "not_marked" || existingStatus == "" {
 				_, err = config.DB.Exec(`
 					UPDATE attendance 
-					SET status = 'absent', leave_approved = 1
+					SET status = 'absent'
 					WHERE user_id = ? AND date = ?
 				`, userID, dateStr)
 				if err != nil {
 					log.Printf("Error updating attendance for user %d on %s: %v", userID, dateStr, err)
 				} else {
-					log.Printf("Updated attendance to absent for user %d (driver %d) on %s due to approved leave", 
+					log.Printf("Updated attendance to absent for user %d (driver %d) on %s due to approved leave",
 						userID, driverID, dateStr)
 				}
 			}
