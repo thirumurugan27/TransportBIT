@@ -87,21 +87,21 @@ func GetAllAssignments(c *gin.Context) {
 
 	// Get Temporary Assignments and append to list
 	tempRows, err := config.DB.Query(`
-		SELECT ta.id, ta.shift_id, ta.vehicle_id, ta.replacement_driver_id, 
+		SELECT ta.id, COALESCE(ta.shift_id, 0) as shift_id, ta.vehicle_id, ta.replacement_driver_id, 
 		       DATE_FORMAT(ta.start_date, '%Y-%m-%d') as assigned_date,
 		       DATE_FORMAT(ta.start_date, '%Y-%m-%d') as start_date,
 		       DATE_FORMAT(ta.end_date, '%Y-%m-%d') as end_date,
 		       ta.status,
 		       ta.original_driver_id,
-		       s.name AS shift_name, 
-		       TIME_FORMAT(s.start_time, '%H:%i') as start_time, 
-		       TIME_FORMAT(s.end_time, '%H:%i') as end_time,
+		       COALESCE(s.name, 'EV Cluster') AS shift_name, 
+		       COALESCE(TIME_FORMAT(s.start_time, '%H:%i'), '08:00') as start_time, 
+		       COALESCE(TIME_FORMAT(s.end_time, '%H:%i'), '17:00') as end_time,
 		       v.vehicle_number, v.vehicle_type,
 		       COALESCE(v.name, ''),
 		       u.full_name AS driver_name,
 		       COALESCE(u_orig.full_name, '') as original_driver_name
 		FROM temporary_assignments ta
-		JOIN shifts s ON ta.shift_id = s.id
+		LEFT JOIN shifts s ON ta.shift_id = s.id
 		JOIN vehicles v ON ta.vehicle_id = v.id
 		JOIN drivers d ON ta.replacement_driver_id = d.id
 		JOIN users u ON d.user_id = u.id
@@ -155,10 +155,11 @@ func CreateAssignment(c *gin.Context) {
 
 	// If this is a temporary assignment, redirect to temporary assignments handler
 	if req.IsTemporaryReplacement && req.OriginalDriverID != nil {
+		shiftID := req.ShiftID
 		tempReq := models.CreateTemporaryAssignmentRequest{
 			OriginalDriverID:    *req.OriginalDriverID,
 			ReplacementDriverID: req.DriverID,
-			ShiftID:             req.ShiftID,
+			ShiftID:             &shiftID,
 			VehicleID:           req.VehicleID,
 			StartDate:           req.StartDate,
 			EndDate:             req.EndDate,

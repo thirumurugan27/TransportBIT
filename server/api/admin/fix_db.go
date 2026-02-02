@@ -50,6 +50,14 @@ func FixDatabaseSchema() {
 		log.Println("Schema Fix: temporary_assignments.status updated to VARCHAR")
 	}
 
+	// 6. Make shift_id nullable in temporary_assignments for EV cluster replacements
+	_, err = config.DB.Exec("ALTER TABLE temporary_assignments MODIFY COLUMN shift_id INT NULL")
+	if err != nil {
+		log.Printf("Schema Fix (temporary_assignments shift_id): %v", err)
+	} else {
+		log.Println("Schema Fix: temporary_assignments.shift_id now nullable for EV clusters")
+	}
+
 	// 6. Fix leave_requests status - needs to accept 'pending', 'approved', 'rejected', 'admin_approved', 'incharge_approved'
 	_, err = config.DB.Exec("ALTER TABLE leave_requests MODIFY COLUMN status VARCHAR(50) DEFAULT 'pending'")
 	if err != nil {

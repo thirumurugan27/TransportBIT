@@ -27,20 +27,21 @@ func GetTemporaryAssignments(c *gin.Context) {
 		       ta.reason, ta.status,
 		       DATE_FORMAT(ta.created_at, '%Y-%m-%d %H:%i:%s') as created_at,
 		       u_orig.full_name as original_driver_name,
-		       u_repl.full_name as replacement_driver_name,
-		       s.name as shift_name,
-		       TIME_FORMAT(s.start_time, '%H:%i') as start_time,
-		       TIME_FORMAT(s.end_time, '%H:%i') as end_time,
+		       COALESCE(u_repl.full_name, 'Not Assigned') as replacement_driver_name,
+		       COALESCE(s.name, 'EV Cluster') as shift_name,
+		       COALESCE(TIME_FORMAT(s.start_time, '%H:%i'), '') as start_time,
+		       COALESCE(TIME_FORMAT(s.end_time, '%H:%i'), '') as end_time,
 		       v.vehicle_number, v.vehicle_type, COALESCE(v.name, '') as bus_name
 		FROM temporary_assignments ta
 		JOIN drivers d_orig ON ta.original_driver_id = d_orig.id
 		JOIN users u_orig ON d_orig.user_id = u_orig.id
-		JOIN drivers d_repl ON ta.replacement_driver_id = d_repl.id
-		JOIN users u_repl ON d_repl.user_id = u_repl.id
-		JOIN shifts s ON ta.shift_id = s.id
+		LEFT JOIN drivers d_repl ON ta.replacement_driver_id = d_repl.id
+		LEFT JOIN users u_repl ON d_repl.user_id = u_repl.id
+		LEFT JOIN shifts s ON ta.shift_id = s.id
 		JOIN vehicles v ON ta.vehicle_id = v.id
-		WHERE CURDATE() BETWEEN ta.start_date AND ta.end_date
-		   OR ta.start_date >= CURDATE()
+		WHERE (CURDATE() BETWEEN ta.start_date AND ta.end_date
+		   OR ta.start_date >= CURDATE())
+		AND ta.status = 'active'
 		ORDER BY ta.start_date DESC, ta.id DESC
 	`)
 	if err != nil {
@@ -60,12 +61,14 @@ func GetTemporaryAssignments(c *gin.Context) {
 			&ta.ShiftName, &ta.StartTime, &ta.EndTime,
 			&ta.VehicleNumber, &ta.VehicleType, &ta.BusName)
 		if err != nil {
-			log.Printf("Scan error: %v", err)
+			log.Printf("Scan error for temporary assignment: %v", err)
 			continue
 		}
+		log.Printf("Found temporary assignment: ID=%d, ShiftID=%v, VehicleID=%d", ta.ID, ta.ShiftID, ta.VehicleID)
 		list = append(list, ta)
 	}
 
+	log.Printf("Returning %d temporary assignments", len(list))
 	c.JSON(http.StatusOK, list)
 }
 
@@ -149,12 +152,18 @@ func CreateTemporaryAssignment(c *gin.Context) {
 	}
 
 	// Insert into temporary_assignments
+	var shiftID interface{}
+	if req.ShiftID != nil && *req.ShiftID > 0 {
+		shiftID = *req.ShiftID
+	} else {
+		shiftID = nil
+	}
 	result, err := config.DB.Exec(`
 		INSERT INTO temporary_assignments (
 			original_driver_id, replacement_driver_id, shift_id, vehicle_id,
 			start_date, end_date, reason, status
 		) VALUES (?, ?, ?, ?, ?, ?, ?, 'active')
-	`, req.OriginalDriverID, req.ReplacementDriverID, req.ShiftID, req.VehicleID,
+	`, req.OriginalDriverID, req.ReplacementDriverID, shiftID, req.VehicleID,
 		req.StartDate, req.EndDate, req.Reason)
 
 	if err != nil {

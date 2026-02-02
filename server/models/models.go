@@ -204,8 +204,8 @@ type CreateAssignmentRequest struct {
 type TemporaryAssignment struct {
 	ID                  int    `json:"id"`
 	OriginalDriverID    int    `json:"original_driver_id"`
-	ReplacementDriverID int    `json:"replacement_driver_id"`
-	ShiftID             int    `json:"shift_id"`
+	ReplacementDriverID *int   `json:"replacement_driver_id"`
+	ShiftID             *int   `json:"shift_id"`
 	VehicleID           int    `json:"vehicle_id"`
 	StartDate           string `json:"start_date"`
 	EndDate             string `json:"end_date"`
@@ -226,7 +226,7 @@ type TemporaryAssignment struct {
 type CreateTemporaryAssignmentRequest struct {
 	OriginalDriverID    int    `json:"original_driver_id"`
 	ReplacementDriverID int    `json:"replacement_driver_id"`
-	ShiftID             int    `json:"shift_id"`
+	ShiftID             *int   `json:"shift_id"`
 	VehicleID           int    `json:"vehicle_id"`
 	StartDate           string `json:"start_date"`
 	EndDate             string `json:"end_date"`

@@ -584,8 +584,12 @@ func GetLeaveAffectedAssignments(c *gin.Context) {
 		VehicleNumber  string `json:"vehicle_number"`
 		VehicleType    string `json:"vehicle_type"`
 		BusName        string `json:"bus_name"`
+		IsEVCluster    bool   `json:"is_ev_cluster"`
+		ClusterID      int    `json:"cluster_id"`
+		ClusterName    string `json:"cluster_name"`
 	}
 
+	// Query regular assignments
 	rows, err := config.DB.Query(`
 		SELECT a.id, a.shift_id, a.vehicle_id, 
 			DATE_FORMAT(a.start_date, '%Y-%m-%d') as start_date,
@@ -594,7 +598,8 @@ func GetLeaveAffectedAssignments(c *gin.Context) {
 			TIME_FORMAT(s.start_time, '%H:%i') as shift_start_time,
 			TIME_FORMAT(s.end_time, '%H:%i') as shift_end_time,
 			v.vehicle_number, v.vehicle_type,
-			COALESCE(v.name, b.bus_name, '') as bus_name
+			COALESCE(v.name, b.bus_name, '') as bus_name,
+			0 as is_ev_cluster, 0 as cluster_id, '' as cluster_name
 		FROM assignments a
 		JOIN shifts s ON a.shift_id = s.id
 		JOIN vehicles v ON a.vehicle_id = v.id
@@ -621,12 +626,56 @@ func GetLeaveAffectedAssignments(c *gin.Context) {
 		var a AffectedAssignment
 		err := rows.Scan(&a.ID, &a.ShiftID, &a.VehicleID, &a.StartDate, &a.EndDate,
 			&a.ShiftName, &a.ShiftStartTime, &a.ShiftEndTime,
-			&a.VehicleNumber, &a.VehicleType, &a.BusName)
+			&a.VehicleNumber, &a.VehicleType, &a.BusName,
+			&a.IsEVCluster, &a.ClusterID, &a.ClusterName)
 		if err != nil {
 			log.Printf("Scan error: %v", err)
 			continue
 		}
 		assignments = append(assignments, a)
+	}
+
+	// Also check for EV cluster assignments where this driver is a member
+	evRows, err := config.DB.Query(`
+		SELECT ev.id, 0 as shift_id, ev.vehicle_id,
+			DATE_FORMAT(ev.start_date, '%Y-%m-%d') as start_date,
+			DATE_FORMAT(ev.end_date, '%Y-%m-%d') as end_date,
+			COALESCE(dc.name, 'EV Assignment') as shift_name,
+			COALESCE(TIME_FORMAT(dc.start_time, '%H:%i'), '') as shift_start_time,
+			COALESCE(TIME_FORMAT(dc.end_time, '%H:%i'), '') as shift_end_time,
+			v.vehicle_number, v.vehicle_type,
+			COALESCE(v.name, v.vehicle_number) as bus_name,
+			1 as is_ev_cluster, dc.id as cluster_id, dc.name as cluster_name
+		FROM ev_assignments ev
+		JOIN vehicles v ON ev.vehicle_id = v.id
+		JOIN driver_clusters dc ON ev.cluster_id = dc.id
+		JOIN drivers d ON d.cluster_id = dc.id
+		WHERE d.id = ?
+		AND ev.status = 'active'
+		AND (
+			(ev.start_date <= ? AND ev.end_date >= ?) OR
+			(ev.start_date <= ? AND ev.end_date >= ?) OR
+			(ev.start_date >= ? AND ev.end_date <= ?)
+		)
+		ORDER BY ev.start_date
+	`, driverID, startDate, startDate, endDate, endDate, startDate, endDate)
+
+	if err != nil {
+		log.Printf("Get EV cluster assignments error: %v", err)
+	} else {
+		defer evRows.Close()
+		for evRows.Next() {
+			var a AffectedAssignment
+			err := evRows.Scan(&a.ID, &a.ShiftID, &a.VehicleID, &a.StartDate, &a.EndDate,
+				&a.ShiftName, &a.ShiftStartTime, &a.ShiftEndTime,
+				&a.VehicleNumber, &a.VehicleType, &a.BusName,
+				&a.IsEVCluster, &a.ClusterID, &a.ClusterName)
+			if err != nil {
+				log.Printf("Scan EV assignment error: %v", err)
+				continue
+			}
+			assignments = append(assignments, a)
+		}
 	}
 
 	// Get available drivers for replacement (not on leave, not the same driver)
@@ -778,12 +827,20 @@ func ApproveLeaveWithAssignments(c *gin.Context) {
 			taEndDate = endDate
 		}
 
+		// For EV cluster assignments (shift_id = 0), insert NULL instead
+		var shiftIDValue interface{}
+		if ta.ShiftID == 0 {
+			shiftIDValue = nil
+		} else {
+			shiftIDValue = ta.ShiftID
+		}
+
 		_, err := tx.Exec(`
 			INSERT INTO temporary_assignments (
 				original_driver_id, replacement_driver_id, shift_id, vehicle_id,
 				start_date, end_date, reason, status
 			) VALUES (?, ?, ?, ?, ?, ?, ?, 'active')
-		`, driverID, ta.ReplacementDriverID, ta.ShiftID, ta.VehicleID,
+		`, driverID, ta.ReplacementDriverID, shiftIDValue, ta.VehicleID,
 			taStartDate, taEndDate, "Leave replacement")
 
 		if err != nil {
@@ -792,6 +849,27 @@ func ApproveLeaveWithAssignments(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error creating temporary assignment: " + err.Error()})
 			return
 		}
+
+		// Send notification to replacement driver
+		var vehicleNumber string
+		config.DB.QueryRow("SELECT vehicle_number FROM vehicles WHERE id = ?", ta.VehicleID).Scan(&vehicleNumber)
+
+		var shiftInfo string
+		if ta.ShiftID > 0 {
+			var shiftName string
+			config.DB.QueryRow("SELECT name FROM shifts WHERE id = ?", ta.ShiftID).Scan(&shiftName)
+			shiftInfo = fmt.Sprintf(" - %s", shiftName)
+		} else {
+			shiftInfo = " - EV Cluster"
+		}
+
+		_, _ = tx.Exec(`
+			INSERT INTO driver_notifications (driver_id, title, message, type)
+			VALUES (?, ?, ?, 'assignment')
+		`, ta.ReplacementDriverID,
+			"Temporary Assignment Created",
+			fmt.Sprintf("You have been assigned to vehicle %s%s from %s to %s (covering for another driver on leave)",
+				vehicleNumber, shiftInfo, taStartDate, taEndDate))
 	}
 
 	// Approve the leave

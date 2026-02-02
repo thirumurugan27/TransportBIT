@@ -69,14 +69,14 @@ func GetDriverTodayAssignment(c *gin.Context) {
 		err = config.DB.QueryRow(`
 			SELECT 
 				ta.id, v.id as vehicle_id, v.vehicle_number, v.vehicle_type,
-				s.name as shift_name, 
-				TIME_FORMAT(s.start_time, '%H:%i') as start_time,
-				TIME_FORMAT(s.end_time, '%H:%i') as end_time,
+				COALESCE(s.name, 'EV Duty') as shift_name, 
+				COALESCE(TIME_FORMAT(s.start_time, '%H:%i'), '08:00') as start_time,
+				COALESCE(TIME_FORMAT(s.end_time, '%H:%i'), '17:00') as end_time,
 				DATE_FORMAT(?, '%Y-%m-%d') as assigned_date,
 				ta.status
 			FROM temporary_assignments ta
 			JOIN vehicles v ON ta.vehicle_id = v.id
-			JOIN shifts s ON ta.shift_id = s.id
+			LEFT JOIN shifts s ON ta.shift_id = s.id
 			WHERE ta.replacement_driver_id = ? 
 			  AND ? BETWEEN ta.start_date AND ta.end_date
 			  AND ta.status = 'active'
@@ -209,9 +209,9 @@ func GetDriverTodayAssignments(c *gin.Context) {
 	tempRows, err := config.DB.Query(`
 		SELECT 
 			ta.id, v.id as vehicle_id, v.vehicle_number, v.vehicle_type,
-			s.name as shift_name, 
-			TIME_FORMAT(s.start_time, '%H:%i') as start_time,
-			TIME_FORMAT(s.end_time, '%H:%i') as end_time,
+			COALESCE(s.name, 'EV Duty') as shift_name, 
+			COALESCE(TIME_FORMAT(s.start_time, '%H:%i'), '08:00') as start_time,
+			COALESCE(TIME_FORMAT(s.end_time, '%H:%i'), '17:00') as end_time,
 			? as assigned_date,
 			DATE_FORMAT(ta.start_date, '%Y-%m-%d') as start_date,
 			DATE_FORMAT(ta.end_date, '%Y-%m-%d') as end_date,
@@ -220,7 +220,7 @@ func GetDriverTodayAssignments(c *gin.Context) {
 			COALESCE(u_orig.full_name, '') as original_driver_name
 		FROM temporary_assignments ta
 		JOIN vehicles v ON ta.vehicle_id = v.id
-		JOIN shifts s ON ta.shift_id = s.id
+		LEFT JOIN shifts s ON ta.shift_id = s.id
 		LEFT JOIN drivers d_orig ON ta.original_driver_id = d_orig.id
 		LEFT JOIN users u_orig ON d_orig.user_id = u_orig.id
 		WHERE ta.replacement_driver_id = ? 
@@ -235,7 +235,7 @@ func GetDriverTodayAssignments(c *gin.Context) {
 		defer tempRows.Close()
 		for tempRows.Next() {
 			var a DriverAssignment
-			var originalDriverID int
+			var originalDriverID sql.NullInt64
 			// Scan fields: ID, VehicleID, VehicleNumber, VehicleType, ShiftName, Start/End time, Assigned/Start/End date, Status, OriginalDriverID, OriginalDriverName
 			err := tempRows.Scan(&a.ID, &a.VehicleID, &a.VehicleNumber, &a.VehicleType,
 				&a.ShiftName, &a.StartTime, &a.EndTime,
@@ -245,7 +245,10 @@ func GetDriverTodayAssignments(c *gin.Context) {
 			if err == nil {
 				a.Status = "Temporary"
 				a.IsTemporaryReplacement = true
-				a.OriginalDriverID = &originalDriverID
+				if originalDriverID.Valid {
+					id := int(originalDriverID.Int64)
+					a.OriginalDriverID = &id
+				}
 				assignments = append(assignments, a)
 			} else {
 				log.Printf("Scan error temporary assignment: %v", err)
@@ -366,9 +369,9 @@ func GetDriverAssignments(c *gin.Context) {
 	tempRows, err := config.DB.Query(`
 		SELECT 
 			ta.id, v.id as vehicle_id, v.vehicle_number, v.vehicle_type,
-			s.name as shift_name, 
-			TIME_FORMAT(s.start_time, '%H:%i') as start_time,
-			TIME_FORMAT(s.end_time, '%H:%i') as end_time,
+			COALESCE(s.name, 'EV Duty') as shift_name, 
+			COALESCE(TIME_FORMAT(s.start_time, '%H:%i'), '08:00') as start_time,
+			COALESCE(TIME_FORMAT(s.end_time, '%H:%i'), '17:00') as end_time,
 			DATE_FORMAT(ta.start_date, '%Y-%m-%d') as start_date,
 			DATE_FORMAT(ta.end_date, '%Y-%m-%d') as end_date,
 			ta.status,
@@ -376,7 +379,7 @@ func GetDriverAssignments(c *gin.Context) {
 			COALESCE(u_orig.full_name, '') as original_driver_name
 		FROM temporary_assignments ta
 		JOIN vehicles v ON ta.vehicle_id = v.id
-		JOIN shifts s ON ta.shift_id = s.id
+		LEFT JOIN shifts s ON ta.shift_id = s.id
 		LEFT JOIN drivers d_orig ON ta.original_driver_id = d_orig.id
 		LEFT JOIN users u_orig ON d_orig.user_id = u_orig.id
 		WHERE ta.replacement_driver_id = ?
@@ -389,7 +392,7 @@ func GetDriverAssignments(c *gin.Context) {
 		defer tempRows.Close()
 		for tempRows.Next() {
 			var a DriverAssignment
-			var originalDriverID int
+			var originalDriverID sql.NullInt64
 			err := tempRows.Scan(
 				&a.ID, &a.VehicleID, &a.VehicleNumber, &a.VehicleType,
 				&a.ShiftName, &a.StartTime, &a.EndTime,
@@ -397,7 +400,10 @@ func GetDriverAssignments(c *gin.Context) {
 				&originalDriverID, &a.OriginalDriverName)
 			if err == nil {
 				a.IsTemporaryReplacement = true
-				a.OriginalDriverID = &originalDriverID
+				if originalDriverID.Valid {
+					id := int(originalDriverID.Int64)
+					a.OriginalDriverID = &id
+				}
 				// Use start date as assigned date for sorting/display
 				a.AssignedDate = a.StartDate
 				assignments = append(assignments, a)
