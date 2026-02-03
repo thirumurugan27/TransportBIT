@@ -49,3 +49,8 @@ export const hasRole = (allowedRoles) => {
     const role = localStorage.getItem("role");
     return allowedRoles.includes(role);
 };
+
+export const getAuthHeaders = () => {
+    const token = localStorage.getItem("token");
+    return token ? { Authorization: `Bearer ${token}` } : {};
+};

@@ -1,63 +1,57 @@
-import React, {useState, useEffect} from "react";
-import {showError, showConfirm, showSuccess} from "../../../utils/swal";
-import SearchableSelect from "../../../components/ui/SearchableSelect";
+import React, {useEffect, useState} from "react";
 import {
-  Loader2,
   Plus,
   Edit2,
   Trash2,
+  Calendar,
   Users,
   Clock,
-  Calendar,
-  Search,
-  Check,
+  Loader2,
   X,
+  Search,
   Filter,
+  Check,
 } from "lucide-react";
+import {showError, showSuccess, showConfirm} from "../../../utils/swal";
+import {getAuthHeaders} from "../../../utils/auth";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
+const API_BASE = import.meta.env.VITE_API_BASE;
 
-// Helper to convert 24h time to 12h AM/PM format
-const formatTimeAMPM = (time24) => {
+function formatTimeAMPM(time24) {
   if (!time24) return "";
   const [hours, minutes] = time24.split(":");
-  const h = parseInt(hours, 10);
-  const ampm = h >= 12 ? "PM" : "AM";
-  const h12 = h % 12 || 12;
-  return `${h12}:${minutes} ${ampm}`;
-};
+  const h = parseInt(hours);
+  const period = h >= 12 ? "PM" : "AM";
+  const h12 = h > 12 ? h - 12 : h === 0 ? 12 : h;
+  return `${h12}:${minutes} ${period}`;
+}
 
-// Helper to convert DD-MM-YYYY to YYYY-MM-DD for input[type="date"]
-const formatDateForInput = (dateStr) => {
+function formatDateForInput(dateStr) {
   if (!dateStr) return "";
-  const parts = dateStr.split("-");
-  if (parts.length === 3 && parts[0].length === 2 && parts[2].length === 4) {
-    return `${parts[2]}-${parts[1]}-${parts[0]}`;
-  }
-  return dateStr;
-};
+  const d = new Date(dateStr);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
 
 export default function ScheduleManagement() {
+  const [activeTab, setActiveTab] = useState("groups");
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("groups"); // groups, vehicle-groups, shifts
   const [clusters, setClusters] = useState([]);
   const [vehicleGroups, setVehicleGroups] = useState([]);
   const [shifts, setShifts] = useState([]);
   const [drivers, setDrivers] = useState([]);
   const [vehicles, setVehicles] = useState([]);
-
-  // Search state for drivers/vehicles selection
-  const [driverSearch, setDriverSearch] = useState("");
-  const [vehicleSearch, setVehicleSearch] = useState("");
-  const [showOnlyUnassigned, setShowOnlyUnassigned] = useState(false);
-  const [showOnlyUnassignedVehicles, setShowOnlyUnassignedVehicles] =
-    useState(false);
-
-  // Modal State
   const [showModal, setShowModal] = useState(false);
-  const [modalType, setModalType] = useState(null); // 'cluster', 'vehicle-group', 'shift'
+  const [modalType, setModalType] = useState("cluster");
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [driverSearch, setDriverSearch] = useState("");
+  const [showOnlyUnassigned, setShowOnlyUnassigned] = useState(false);
+  const [vehicleSearch, setVehicleSearch] = useState("");
+  const [showOnlyUnassignedVehicles, setShowOnlyUnassignedVehicles] =
+    useState(false);
 
   const [clusterForm, setClusterForm] = useState({
     name: "",
@@ -74,6 +68,8 @@ export default function ScheduleManagement() {
     name: "",
     description: "",
     vehicle_ids: [],
+    valid_from: "",
+    valid_to: "",
   });
 
   const [shiftForm, setShiftForm] = useState({
@@ -82,62 +78,77 @@ export default function ScheduleManagement() {
     slots: [{start_time: "09:00", end_time: "17:00"}],
   });
 
-  const getAuthHeaders = () => {
-    const token = localStorage.getItem("token");
-    return token ? {Authorization: `Bearer ${token}`} : {};
-  };
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [c, vg, s, d, v] = await Promise.all([
+      const [
+        clustersRes,
+        vehicleGroupsRes,
+        shiftsRes,
+        driversRes,
+        vehiclesRes,
+      ] = await Promise.all([
         fetch(`${API_BASE}/api/admin/clusters`, {
           credentials: "include",
           headers: getAuthHeaders(),
-        }).then((r) => r.json()),
+        }),
         fetch(`${API_BASE}/api/admin/vehicle-groups`, {
           credentials: "include",
           headers: getAuthHeaders(),
-        }).then((r) => r.json()),
+        }),
         fetch(`${API_BASE}/api/admin/shifts`, {
           credentials: "include",
           headers: getAuthHeaders(),
-        }).then((r) => r.json()),
+        }),
         fetch(`${API_BASE}/api/admin/drivers`, {
           credentials: "include",
           headers: getAuthHeaders(),
-        }).then((r) => r.json()),
+        }),
         fetch(`${API_BASE}/api/admin/vehicles`, {
           credentials: "include",
           headers: getAuthHeaders(),
-        }).then((r) => r.json()),
+        }),
       ]);
-      setClusters(c || []);
-      setVehicleGroups(vg || []);
-      setShifts(s || []);
-      setDrivers(d || []);
-      setVehicles(
-        (v || []).filter(
-          (vehicle) => vehicle.vehicle_type === "BATTERY_VEHICLE",
-        ),
-      );
+
+      if (clustersRes.ok) {
+        const data = await clustersRes.json();
+        setClusters(data || []);
+      }
+      if (vehicleGroupsRes.ok) {
+        const data = await vehicleGroupsRes.json();
+        setVehicleGroups(data || []);
+      }
+      if (shiftsRes.ok) {
+        const data = await shiftsRes.json();
+        setShifts(data || []);
+      }
+      if (driversRes.ok) {
+        const data = await driversRes.json();
+        setDrivers(data || []);
+      }
+      if (vehiclesRes.ok) {
+        const data = await vehiclesRes.json();
+        setVehicles(data || []);
+      }
     } catch (err) {
-      console.error(err);
+      console.error("Error fetching data:", err);
+      showError("Error", "Failed to load data");
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
   const handleDelete = async (endpoint, id) => {
     const isConfirmed = await showConfirm(
       "Are you sure?",
-      "Do you really want to delete this item?",
+      "This action cannot be undone.",
     );
     if (!isConfirmed) return;
+
     try {
       const res = await fetch(`${API_BASE}${endpoint}?id=${id}`, {
         method: "DELETE",
@@ -145,7 +156,7 @@ export default function ScheduleManagement() {
         headers: getAuthHeaders(),
       });
       if (res.ok) {
-        showSuccess("Success", "Deleted successfully");
+        showSuccess("Success", "Deleted successfully!");
         fetchData();
       } else {
         showError("Error", "Failed to delete");
@@ -162,39 +173,30 @@ export default function ScheduleManagement() {
     setEditingId(item.id);
 
     if (type === "cluster") {
-      // Find drivers belonging to this group to pre-fill the form
-      const currentDriverIds = drivers
-        .filter((d) => d.cluster_id === item.id)
-        .map((d) => d.id);
-
       setClusterForm({
         name: item.name,
         description: item.description || "",
-        shift_id: item.default_shift_id || "",
+        shift_id: item.shift_id || "",
         start_time: item.start_time || "",
         end_time: item.end_time || "",
-        valid_from: formatDateForInput(item.valid_from) || "",
-        valid_to: formatDateForInput(item.valid_to) || "",
-        driver_ids: currentDriverIds,
+        valid_from: item.valid_from ? formatDateForInput(item.valid_from) : "",
+        valid_to: item.valid_to ? formatDateForInput(item.valid_to) : "",
+        driver_ids: item.driver_ids || [],
       });
     } else if (type === "vehicle-group") {
-      // Find vehicles belonging to this group to pre-fill the form
-      const currentVehicleIds = vehicles
-        .filter((v) => v.group_id === item.id)
-        .map((v) => v.id);
-
       setVehicleGroupForm({
         name: item.name,
         description: item.description || "",
-        vehicle_ids: currentVehicleIds,
+        vehicle_ids: item.vehicle_ids || [],
+        valid_from: item.valid_from ? formatDateForInput(item.valid_from) : "",
+        valid_to: item.valid_to ? formatDateForInput(item.valid_to) : "",
       });
-    } else {
-      // Convert existing shift to slots format
+    } else if (type === "shift") {
       const existingSlots =
         item.slots && item.slots.length > 0
-          ? item.slots.map((s) => ({
-              start_time: s.start_time,
-              end_time: s.end_time,
+          ? item.slots.map((slot) => ({
+              start_time: slot.start_time,
+              end_time: slot.end_time,
             }))
           : [{start_time: item.start_time, end_time: item.end_time}];
 
@@ -216,7 +218,15 @@ export default function ScheduleManagement() {
     const endpoint = isEditing
       ? "/api/admin/clusters/update"
       : "/api/admin/clusters/create-with-schedule";
-    const payload = isEditing ? {...clusterForm, id: editingId} : clusterForm;
+
+    const basePayload = isEditing
+      ? {...clusterForm, id: editingId}
+      : clusterForm;
+    const payload = {
+      ...basePayload,
+      shift_id:
+        basePayload.shift_id === "" ? null : parseInt(basePayload.shift_id),
+    };
 
     try {
       const res = await fetch(`${API_BASE}${endpoint}`, {
@@ -260,7 +270,6 @@ export default function ScheduleManagement() {
       return;
     }
 
-    // Validate all slots have start and end time
     for (const slot of shiftForm.slots) {
       if (!slot.start_time || !slot.end_time) {
         showError("Error", "Please fill all time slots completely");
@@ -272,7 +281,6 @@ export default function ScheduleManagement() {
       ? "/api/admin/shifts/update"
       : "/api/admin/shifts/create";
 
-    // Format payload for backend
     const payload = isEditing
       ? {
           id: editingId,
@@ -323,7 +331,6 @@ export default function ScheduleManagement() {
       let groupId = editingId;
 
       if (isEditing) {
-        // Update existing group
         const res = await fetch(
           `${API_BASE}/api/admin/vehicle-groups/${editingId}`,
           {
@@ -333,6 +340,8 @@ export default function ScheduleManagement() {
             body: JSON.stringify({
               name: vehicleGroupForm.name,
               description: vehicleGroupForm.description,
+              valid_from: vehicleGroupForm.valid_from,
+              valid_to: vehicleGroupForm.valid_to,
             }),
           },
         );
@@ -345,7 +354,6 @@ export default function ScheduleManagement() {
           return;
         }
       } else {
-        // Create new group
         const res = await fetch(`${API_BASE}/api/admin/vehicle-groups/create`, {
           method: "POST",
           credentials: "include",
@@ -353,6 +361,8 @@ export default function ScheduleManagement() {
           body: JSON.stringify({
             name: vehicleGroupForm.name,
             description: vehicleGroupForm.description,
+            valid_from: vehicleGroupForm.valid_from,
+            valid_to: vehicleGroupForm.valid_to,
           }),
         });
         if (!res.ok) {
@@ -367,7 +377,6 @@ export default function ScheduleManagement() {
         groupId = result.id;
       }
 
-      // Assign vehicles to group if any selected
       if (vehicleGroupForm.vehicle_ids.length > 0) {
         const assignRes = await fetch(
           `${API_BASE}/api/admin/vehicle-groups/${groupId}/assign-vehicles`,
@@ -395,6 +404,8 @@ export default function ScheduleManagement() {
         name: "",
         description: "",
         vehicle_ids: [],
+        valid_from: "",
+        valid_to: "",
       });
     } catch (err) {
       console.error(err);
@@ -402,7 +413,6 @@ export default function ScheduleManagement() {
     }
   };
 
-  // Filter drivers for selection
   const filteredDrivers = drivers.filter((driver) => {
     if (!driver) return false;
     const driverName = driver.full_name || driver.name || "";
@@ -418,120 +428,138 @@ export default function ScheduleManagement() {
   });
 
   return (
-    <div className="space-y-8 pb-12 font-sans text-primarytext">
+    <div className="space-y-6 pb-12 font-sans text-primarytext">
       {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-primarytext">
-            Schedule Management
-          </h1>
-          <p className="text-secondarytext mt-2 font-medium">
-            Manage driver groups, vehicle groups, shifts and schedules
-          </p>
+      <div className="bg-linear-to-r from-primary/5 to-primarydull/5 rounded-md p-6 border border-primary/10">
+        <h1 className="text-3xl font-bold text-primarytext flex items-center gap-3">
+          <Clock className="w-8 h-8 text-primary" />
+          Schedule Management
+        </h1>
+        <p className="text-secondarytext mt-2 text-sm">
+          Manage driver groups, vehicle groups, shifts and schedules for
+          efficient operations
+        </p>
+      </div>
+
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="bg-secondarybg rounded-md p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-secondarytext uppercase tracking-wide">
+                Driver Groups
+              </p>
+              <p className="text-2xl font-bold text-primarytext mt-1">
+                {clusters.length}
+              </p>
+            </div>
+            <div className="p-3 bg-primary/10 rounded-md">
+              <Users className="w-6 h-6 text-primary" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-secondarybg rounded-md p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-secondarytext uppercase tracking-wide">
+                Vehicle Groups
+              </p>
+              <p className="text-2xl font-bold text-primarytext mt-1">
+                {vehicleGroups.length}
+              </p>
+            </div>
+            <div className="p-3 bg-pending/10 rounded-md">
+              <Users className="w-6 h-6 text-pending" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-secondarybg rounded-md p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-secondarytext uppercase tracking-wide">
+                Active Shifts
+              </p>
+              <p className="text-2xl font-bold text-primarytext mt-1">
+                {shifts.length}
+              </p>
+            </div>
+            <div className="p-3 bg-primary/10 rounded-md">
+              <Clock className="w-6 h-6 text-primary" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-secondarybg rounded-md p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-secondarytext uppercase tracking-wide">
+                Assigned Drivers
+              </p>
+              <p className="text-2xl font-bold text-primarytext mt-1">
+                {drivers.filter((d) => d.cluster_id).length}
+              </p>
+            </div>
+            <div className="p-3 bg-green/10 rounded-md">
+              <Check className="w-6 h-6 text-green" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-secondarybg rounded-md p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-secondarytext uppercase tracking-wide">
+                Available Drivers
+              </p>
+              <p className="text-2xl font-bold text-primarytext mt-1">
+                {drivers.filter((d) => !d.cluster_id).length}
+              </p>
+            </div>
+            <div className="p-3 bg-primary/10 rounded-md">
+              <Users className="w-6 h-6 text-primary" />
+            </div>
+          </div>
         </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-        <div className="bg-secondarybg rounded-md p-6 shadow-sm border border-gray-100 flex items-center justify-between">
-          <div>
-            <h4 className="text-xs font-bold text-secondarytext uppercase tracking-widest mb-1">
+
+      {/* Tabs and Create Button */}
+      <div className="bg-secondarybg rounded-md border border-gray-100 shadow-sm">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 p-4">
+          <div className="flex gap-2">
+            <button
+              onClick={() => setActiveTab("groups")}
+              className={`px-6 py-2.5 rounded-md text-sm font-bold transition-all ${
+                activeTab === "groups"
+                  ? "bg-primary text-white shadow-md"
+                  : "bg-primarybg text-secondarytext hover:bg-primary/10"
+              }`}
+            >
               Driver Groups
-            </h4>
-            <div className="text-3xl font-bold text-primarytext">
-              {clusters.length}
-            </div>
-          </div>
-          <div className="p-3 bg-primarybg rounded-md text-primary shadow-sm">
-            <Users className="w-6 h-6" />
-          </div>
-        </div>
-        <div className="bg-secondarybg rounded-md p-6 shadow-sm border border-gray-100 flex items-center justify-between">
-          <div>
-            <h4 className="text-xs font-bold text-secondarytext uppercase tracking-widest mb-1">
+            </button>
+            <button
+              onClick={() => setActiveTab("vehicle-groups")}
+              className={`px-6 py-2.5 rounded-md text-sm font-bold transition-all ${
+                activeTab === "vehicle-groups"
+                  ? "bg-primary text-white shadow-md"
+                  : "bg-primarybg text-secondarytext hover:bg-primary/10"
+              }`}
+            >
               Vehicle Groups
-            </h4>
-            <div className="text-3xl font-bold text-primarytext">
-              {vehicleGroups.length}
-            </div>
+            </button>
+            <button
+              onClick={() => setActiveTab("shifts")}
+              className={`px-6 py-2.5 rounded-md text-sm font-bold transition-all ${
+                activeTab === "shifts"
+                  ? "bg-primary text-white shadow-md"
+                  : "bg-primarybg text-secondarytext hover:bg-primary/10"
+              }`}
+            >
+              Shifts & Timings
+            </button>
           </div>
-          <div className="p-3 bg-pending/10 rounded-md text-pending shadow-sm">
-            <Users className="w-6 h-6" />
-          </div>
-        </div>
-        <div className="bg-secondarybg rounded-md p-6 shadow-sm border border-gray-100 flex items-center justify-between">
-          <div>
-            <h4 className="text-xs font-bold text-secondarytext uppercase tracking-widest mb-1">
-              Active Shifts
-            </h4>
-            <div className="text-3xl font-bold text-primarytext">
-              {shifts.length}
-            </div>
-          </div>
-          <div className="p-3 bg-primarybg rounded-md text-primary shadow-sm">
-            <Clock className="w-6 h-6" />
-          </div>
-        </div>
-        <div className="bg-secondarybg rounded-md p-6 shadow-sm border border-gray-100 flex items-center justify-between">
-          <div>
-            <h4 className="text-xs font-bold text-secondarytext uppercase tracking-widest mb-1">
-              Assigned Drivers
-            </h4>
-            <div className="text-3xl font-bold text-primarytext">
-              {drivers.filter((d) => d.cluster_id).length}
-            </div>
-          </div>
-          <div className="p-3 bg-green/10 rounded-md text-green shadow-sm">
-            <Check className="w-6 h-6" />
-          </div>
-        </div>
-        <div className="bg-secondarybg rounded-md p-6 shadow-sm border border-gray-100 flex items-center justify-between">
-          <div>
-            <h4 className="text-xs font-bold text-secondarytext uppercase tracking-widest mb-1">
-              Unassigned Drivers
-            </h4>
-            <div className="text-3xl font-bold text-primarytext">
-              {drivers.filter((d) => !d.cluster_id).length}
-            </div>
-          </div>
-          <div className="p-3 bg-primarybg rounded-md text-primary shadow-sm">
-            <Users className="w-6 h-6" />
-          </div>
-        </div>
-      </div>
-      {/* Tabs and Actions */}
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 border-b border-gray-200 pb-1">
-        <div className="flex gap-8">
-          <button
-            onClick={() => setActiveTab("groups")}
-            className={`pb-3 text-sm font-bold tracking-wide border-b-2 transition-colors ${
-              activeTab === "groups"
-                ? "border-primary text-primary"
-                : "border-transparent text-gray-400 hover:text-gray-600"
-            }`}
-          >
-            Driver Groups
-          </button>
-          <button
-            onClick={() => setActiveTab("vehicle-groups")}
-            className={`pb-3 text-sm font-bold tracking-wide border-b-2 transition-colors ${
-              activeTab === "vehicle-groups"
-                ? "border-primary text-primary"
-                : "border-transparent text-gray-400 hover:text-gray-600"
-            }`}
-          >
-            Vehicle Groups
-          </button>
-          <button
-            onClick={() => setActiveTab("shifts")}
-            className={`pb-3 text-sm font-bold tracking-wide border-b-2 transition-colors ${
-              activeTab === "shifts"
-                ? "border-primary text-primary"
-                : "border-transparent text-gray-400 hover:text-gray-600"
-            }`}
-          >
-            Shifts & Timings
-          </button>
-        </div>
-        <div className="mb-2">
+
           <button
             onClick={() => {
               setModalType(
@@ -556,6 +584,8 @@ export default function ScheduleManagement() {
                 name: "",
                 description: "",
                 vehicle_ids: [],
+                valid_from: "",
+                valid_to: "",
               });
               setShiftForm({
                 name: "",
@@ -566,7 +596,7 @@ export default function ScheduleManagement() {
               setShowOnlyUnassigned(false);
               setShowModal(true);
             }}
-            className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primarydull transition-colors font-medium flex items-center gap-2 text-sm shadow-sm"
+            className="px-5 py-2.5 bg-primary text-white rounded-md hover:bg-primarydull transition-all font-bold flex items-center gap-2 text-sm shadow-md hover:shadow-lg"
           >
             <Plus className="w-4 h-4" />
             Create{" "}
@@ -578,25 +608,30 @@ export default function ScheduleManagement() {
           </button>
         </div>
       </div>
-      {/* Content */}
-      <div className="bg-secondarybg rounded-md border border-gray-100 shadow-sm overflow-hidden p-6 min-h-75">
+
+      {/* Content Area */}
+      <div className="bg-secondarybg rounded-md border border-gray-100 shadow-sm p-6 min-h-100">
         {loading ? (
-          <div className="flex justify-center items-center h-48">
-            <Loader2 className="w-8 h-8 text-primary animate-spin" />
+          <div className="flex flex-col justify-center items-center h-96">
+            <Loader2 className="w-10 h-10 text-primary animate-spin mb-3" />
+            <p className="text-secondarytext text-sm">Loading data...</p>
           </div>
         ) : (
           <>
+            {/* Driver Groups Tab */}
             {activeTab === "groups" && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {clusters.map((cluster) => (
                   <div
                     key={cluster.id}
-                    className="bg-white rounded-md p-6 shadow-sm hover:shadow-md transition-shadow group relative border border-gray-100 flex flex-col h-full"
+                    className="bg-white rounded-md p-5 shadow-sm hover:shadow-md transition-all group border border-gray-100 relative"
                   >
-                    <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {/* Action Buttons */}
+                    <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={() => openEditModal(cluster, "cluster")}
-                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md"
+                        className="p-2 text-primary hover:bg-primary/10 rounded-md transition-colors"
+                        title="Edit"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
@@ -604,38 +639,33 @@ export default function ScheduleManagement() {
                         onClick={() =>
                           handleDelete("/api/admin/clusters/delete", cluster.id)
                         }
-                        className="p-1.5 text-red-500 hover:bg-red-50 rounded-md"
+                        className="p-2 text-red hover:bg-red/10 rounded-md transition-colors"
+                        title="Delete"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
+
+                    {/* Content */}
                     <div className="mb-4">
-                      <h3 className="text-lg font-bold text-primarytext">
+                      <h3 className="text-lg font-bold text-primarytext mb-1">
                         {cluster.name}
                       </h3>
-                      <p className="text-sm text-secondarytext mt-1 line-clamp-2 min-h-5">
-                        {cluster.description || "No description provided."}
+                      <p className="text-sm text-secondarytext line-clamp-2 min-h-10">
+                        {cluster.description || "No description provided"}
                       </p>
                     </div>
 
-                    <div className="space-y-3 mt-auto">
-                      <div className="flex items-center gap-3 text-sm text-secondarytext bg-gray-50 p-2 rounded-md">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-3 text-sm bg-primarybg px-3 py-2 rounded-md">
                         <Users className="w-4 h-4 text-primary shrink-0" />
-                        <span className="font-medium">
+                        <span className="font-semibold text-primarytext">
                           {cluster.driver_count || 0} Drivers
                         </span>
                       </div>
-                      <div className="flex items-center gap-3 text-sm text-secondarytext bg-gray-50 p-2 rounded-md">
-                        <Clock className="w-4 h-4 text-primary shrink-0" />
-                        <span>
-                          {cluster.start_time && cluster.end_time
-                            ? `${formatTimeAMPM(cluster.start_time)} - ${formatTimeAMPM(cluster.end_time)}`
-                            : "No schedule"}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3 text-sm text-secondarytext bg-gray-50 p-2 rounded-md">
+                      <div className="flex items-center gap-3 text-sm bg-primarybg px-3 py-2 rounded-md">
                         <Calendar className="w-4 h-4 text-primary shrink-0" />
-                        <span>
+                        <span className="text-secondarytext">
                           {cluster.valid_from && cluster.valid_to
                             ? `${cluster.valid_from} to ${cluster.valid_to}`
                             : "Permanent"}
@@ -644,31 +674,35 @@ export default function ScheduleManagement() {
                     </div>
                   </div>
                 ))}
+
                 {clusters.length === 0 && (
-                  <div className="col-span-full flex flex-col items-center justify-center py-16 text-secondarytext bg-gray-50 rounded-md border border-dashed border-gray-200">
-                    <Users className="w-12 h-12 mb-4 text-gray-300" />
-                    <p className="text-lg font-medium">
+                  <div className="col-span-full flex flex-col items-center justify-center py-20 bg-primarybg rounded-md border-2 border-dashed border-gray-200">
+                    <Users className="w-16 h-16 mb-4 text-gray-300" />
+                    <p className="text-lg font-bold text-secondarytext mb-1">
                       No driver groups found
                     </p>
-                    <p className="text-sm">
-                      Create a group to organize your drivers and schedules.
+                    <p className="text-sm text-secondarytext">
+                      Create a group to organize your drivers and schedules
                     </p>
                   </div>
                 )}
               </div>
             )}
 
+            {/* Vehicle Groups Tab */}
             {activeTab === "vehicle-groups" && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {vehicleGroups.map((group) => (
                   <div
                     key={group.id}
-                    className="bg-white rounded-md p-6 shadow-sm hover:shadow-md transition-shadow group relative border border-gray-100 flex flex-col h-full"
+                    className="bg-white rounded-md p-5 shadow-sm hover:shadow-md transition-all group border border-gray-100 relative"
                   >
-                    <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {/* Action Buttons */}
+                    <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={() => openEditModal(group, "vehicle-group")}
-                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md"
+                        className="p-2 text-primary hover:bg-primary/10 rounded-md transition-colors"
+                        title="Edit"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
@@ -699,136 +733,139 @@ export default function ScheduleManagement() {
                             showError("Error", "Error deleting group");
                           }
                         }}
-                        className="p-1.5 text-red-500 hover:bg-red-50 rounded-md"
+                        className="p-2 text-red hover:bg-red/10 rounded-md transition-colors"
+                        title="Delete"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
+
+                    {/* Content */}
                     <div className="mb-4">
-                      <h3 className="text-lg font-bold text-primarytext">
+                      <h3 className="text-lg font-bold text-primarytext mb-1">
                         {group.name}
                       </h3>
-                      <p className="text-sm text-secondarytext mt-1 line-clamp-2 min-h-5">
-                        {group.description || "No description provided."}
+                      <p className="text-sm text-secondarytext line-clamp-2 min-h-10">
+                        {group.description || "No description provided"}
                       </p>
                     </div>
 
-                    <div className="space-y-3 mt-auto">
-                      <div className="flex items-center gap-3 text-sm text-secondarytext bg-gray-50 p-2 rounded-md">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-3 text-sm bg-primarybg px-3 py-2 rounded-md">
                         <Users className="w-4 h-4 text-pending shrink-0" />
-                        <span className="font-medium">
+                        <span className="font-semibold text-primarytext">
                           {group.vehicle_count || 0} EV Vehicles
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 text-sm bg-primarybg px-3 py-2 rounded-md">
+                        <Calendar className="w-4 h-4 text-primary shrink-0" />
+                        <span className="text-secondarytext">
+                          {group.valid_from && group.valid_to
+                            ? `${group.valid_from} to ${group.valid_to}`
+                            : "Permanent"}
                         </span>
                       </div>
                     </div>
                   </div>
                 ))}
+
                 {vehicleGroups.length === 0 && (
-                  <div className="col-span-full py-16 text-center text-secondarytext italic bg-gray-50 rounded-md">
-                    <Users className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                    <p>No vehicle groups found</p>
+                  <div className="col-span-full flex flex-col items-center justify-center py-20 bg-primarybg rounded-md border-2 border-dashed border-gray-200">
+                    <Users className="w-16 h-16 mb-4 text-gray-300" />
+                    <p className="text-lg font-bold text-secondarytext mb-1">
+                      No vehicle groups found
+                    </p>
+                    <p className="text-sm text-secondarytext">
+                      Create a group to organize your EV vehicles
+                    </p>
                   </div>
                 )}
               </div>
             )}
 
+            {/* Shifts Tab */}
             {activeTab === "shifts" && (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="py-4 px-4 text-xs font-bold text-secondarytext uppercase tracking-widest bg-gray-50 rounded-tl-md">
-                        Shift Name
-                      </th>
-                      <th className="py-4 px-4 text-xs font-bold text-secondarytext uppercase tracking-widest bg-gray-50">
-                        Timing
-                      </th>
-                      <th className="py-4 px-4 text-xs font-bold text-secondarytext uppercase tracking-widest bg-gray-50">
-                        Description
-                      </th>
-                      <th className="py-4 px-4 text-right text-xs font-bold text-secondarytext uppercase tracking-widest bg-gray-50 rounded-tr-md">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {shifts.map((shift) => (
-                      <tr
-                        key={shift.id}
-                        className="hover:bg-primarybg/30 transition-colors"
-                      >
-                        <td className="py-4 px-4 font-bold text-primarytext">
+              <div className="space-y-3">
+                {shifts.map((shift) => (
+                  <div
+                    key={shift.id}
+                    className="bg-white rounded-md p-5 shadow-sm hover:shadow-md transition-all border border-gray-100 group"
+                  >
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div className="flex-1">
+                        <h3 className="text-lg font-bold text-primarytext mb-2">
                           {shift.name}
-                        </td>
-                        <td className="py-4 px-4 text-sm text-secondarytext">
-                          <div className="flex flex-wrap gap-1.5">
-                            {shift.slots && shift.slots.length > 0 ? (
-                              shift.slots.map((slot, idx) => (
-                                <span
-                                  key={idx}
-                                  className="bg-white border border-gray-200 px-3 py-1 rounded-full text-xs font-medium text-primary shadow-sm"
-                                >
-                                  {formatTimeAMPM(slot.start_time)} -{" "}
-                                  {formatTimeAMPM(slot.end_time)}
-                                </span>
-                              ))
-                            ) : (
-                              <span className="bg-white border border-gray-200 px-3 py-1 rounded-full text-xs font-medium text-primary shadow-sm">
-                                {formatTimeAMPM(shift.start_time)} -{" "}
-                                {formatTimeAMPM(shift.end_time)}
+                        </h3>
+                        <p className="text-sm text-secondarytext mb-3">
+                          {shift.description || "No description"}
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {shift.slots && shift.slots.length > 0 ? (
+                            shift.slots.map((slot, idx) => (
+                              <span
+                                key={idx}
+                                className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-md text-sm font-semibold border border-primary/20"
+                              >
+                                <Clock className="w-3.5 h-3.5" />
+                                {formatTimeAMPM(slot.start_time)} -{" "}
+                                {formatTimeAMPM(slot.end_time)}
                               </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-4 px-4 text-sm text-secondarytext">
-                          {shift.description || "-"}
-                        </td>
-                        <td className="py-4 px-4 text-right">
-                          <div className="flex justify-end gap-2">
-                            <button
-                              onClick={() => openEditModal(shift, "shift")}
-                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() =>
-                                handleDelete(
-                                  "/api/admin/shifts/delete",
-                                  shift.id,
-                                )
-                              }
-                              className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                    {shifts.length === 0 && (
-                      <tr>
-                        <td
-                          colSpan="4"
-                          className="py-16 text-center text-secondarytext italic bg-gray-50 rounded-b-md"
+                            ))
+                          ) : (
+                            <span className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-md text-sm font-semibold border border-primary/20">
+                              <Clock className="w-3.5 h-3.5" />
+                              {formatTimeAMPM(shift.start_time)} -{" "}
+                              {formatTimeAMPM(shift.end_time)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => openEditModal(shift, "shift")}
+                          className="p-2.5 text-primary hover:bg-primary/10 rounded-md transition-colors"
+                          title="Edit"
                         >
-                          <Clock className="w-10 h-10 mx-auto mb-3 text-gray-300" />
-                          No shifts created yet.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+                          <Edit2 className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() =>
+                            handleDelete("/api/admin/shifts/delete", shift.id)
+                          }
+                          className="p-2.5 text-red hover:bg-red/10 rounded-md transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {shifts.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-20 bg-primarybg rounded-md border-2 border-dashed border-gray-200">
+                    <Clock className="w-16 h-16 mb-4 text-gray-300" />
+                    <p className="text-lg font-bold text-secondarytext mb-1">
+                      No shifts created yet
+                    </p>
+                    <p className="text-sm text-secondarytext">
+                      Create a shift to manage driver timings
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </>
         )}
       </div>
-      {/* MODAL */}
+
+      {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-md shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
-            <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-md shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-gray-100 bg-primarybg flex justify-between items-center">
               <div>
                 <h3 className="text-xl font-bold text-primarytext">
                   {isEditing ? "Edit" : "Create"}{" "}
@@ -838,371 +875,302 @@ export default function ScheduleManagement() {
                       ? "Vehicle Group"
                       : "Shift"}
                 </h3>
-                <p className="text-xs text-secondarytext mt-0.5">
+                <p className="text-xs text-secondarytext mt-1">
                   {modalType === "cluster"
                     ? "Configure group details and assign drivers"
                     : modalType === "vehicle-group"
                       ? "Configure group details and assign EV vehicles"
-                      : "Set up timing and description"}
+                      : "Set up shift timings and description"}
                 </p>
               </div>
               <button
                 onClick={() => setShowModal(false)}
-                className="text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-200 rounded-md transition-colors"
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-md transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-6 overflow-y-auto custom-scrollbar">
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto">
               {modalType === "cluster" ? (
-                <div className="space-y-6">
-                  {/* Basic Info Section */}
-                  <div className="space-y-4">
-                    <h4 className="text-sm font-bold text-primary border-b border-gray-100 pb-2 mb-4">
-                      Group Details
-                    </h4>
+                // Driver Group Form
+                <div className="space-y-5">
+                  <div>
+                    <label className="block text-xs font-bold text-secondarytext uppercase tracking-wide mb-2">
+                      Group Name *
+                    </label>
+                    <input
+                      className="w-full px-4 py-2.5 rounded-md border border-gray-200 bg-primarybg focus:bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-sm"
+                      placeholder="e.g. Morning Batch A"
+                      value={clusterForm.name}
+                      onChange={(e) =>
+                        setClusterForm({...clusterForm, name: e.target.value})
+                      }
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-secondarytext uppercase tracking-wide mb-2">
+                      Description
+                    </label>
+                    <textarea
+                      className="w-full px-4 py-2.5 rounded-md border border-gray-200 bg-primarybg focus:bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-sm resize-none"
+                      placeholder="Details about this group..."
+                      rows="3"
+                      value={clusterForm.description}
+                      onChange={(e) =>
+                        setClusterForm({
+                          ...clusterForm,
+                          description: e.target.value,
+                        })
+                      }
+                    ></textarea>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-secondarytext uppercase tracking-widest mb-1.5">
-                        Group Name
+                      <label className="block text-xs font-bold text-secondarytext uppercase tracking-wide mb-2">
+                        Valid From
                       </label>
                       <input
-                        className="w-full px-4 py-2.5 rounded-md border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all text-sm"
-                        placeholder="e.g. Morning Batch A"
-                        value={clusterForm.name}
+                        type="date"
+                        className="w-full px-4 py-2.5 rounded-md border border-gray-200 bg-primarybg focus:bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-sm"
+                        value={clusterForm.valid_from}
                         onChange={(e) =>
-                          setClusterForm({...clusterForm, name: e.target.value})
+                          setClusterForm({
+                            ...clusterForm,
+                            valid_from: e.target.value,
+                          })
                         }
                       />
                     </div>
-
-                    <div className="grid grid-cols-2 gap-5">
-                      <div>
-                        <label className="block text-xs font-bold text-secondarytext uppercase tracking-widest mb-1.5">
-                          Description (Optional)
-                        </label>
-                        <textarea
-                          className="w-full px-4 py-2.5 rounded-md border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all text-sm"
-                          placeholder="Details about this group..."
-                          rows="4"
-                          value={clusterForm.description}
-                          onChange={(e) =>
-                            setClusterForm({
-                              ...clusterForm,
-                              description: e.target.value,
-                            })
-                          }
-                        ></textarea>
-                      </div>
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-[10px] font-bold text-secondarytext uppercase tracking-widest mb-1.5">
-                            Select Shift
-                          </label>
-                          <SearchableSelect
-                            value={clusterForm.shift_id}
-                            onChange={(val) => {
-                              const selectedShift = shifts.find(
-                                (s) => s.id === parseInt(val),
-                              );
-                              if (selectedShift) {
-                                setClusterForm({
-                                  ...clusterForm,
-                                  shift_id: val,
-                                  start_time: selectedShift.start_time || "",
-                                  end_time: selectedShift.end_time || "",
-                                });
-                              } else {
-                                setClusterForm({
-                                  ...clusterForm,
-                                  shift_id: "",
-                                  start_time: "",
-                                  end_time: "",
-                                });
-                              }
-                            }}
-                            placeholder="Select a shift..."
-                            options={shifts.map((shift) => {
-                              const hasSlots =
-                                shift.slots && shift.slots.length > 0;
-                              const timeDisplay = hasSlots
-                                ? shift.slots
-                                    .map(
-                                      (slot) =>
-                                        `${formatTimeAMPM(slot.start_time)} - ${formatTimeAMPM(slot.end_time)}`,
-                                    )
-                                    .join(", ")
-                                : `${formatTimeAMPM(shift.start_time)} - ${formatTimeAMPM(shift.end_time)}`;
-                              return {
-                                value: shift.id,
-                                label: shift.name,
-                                subtitle: timeDisplay,
-                              };
-                            })}
-                            emptyMessage="No shifts available"
-                          />
-                        </div>
-                        {clusterForm.shift_id &&
-                          (() => {
-                            const selectedShift = shifts.find(
-                              (s) => s.id === parseInt(clusterForm.shift_id),
-                            );
-                            const hasSlots =
-                              selectedShift?.slots &&
-                              selectedShift.slots.length > 0;
-                            const slotsToDisplay = hasSlots
-                              ? selectedShift.slots
-                              : [
-                                  {
-                                    start_time: selectedShift?.start_time,
-                                    end_time: selectedShift?.end_time,
-                                  },
-                                ];
-
-                            return (
-                              <div>
-                                <label className="block text-[10px] font-bold text-secondarytext uppercase tracking-widest mb-1">
-                                  Shift Timings
-                                </label>
-                                <div className="space-y-2">
-                                  {slotsToDisplay.map((slot, idx) => (
-                                    <div
-                                      key={idx}
-                                      className="flex items-center gap-2 px-3 py-2 rounded-md border border-gray-200 bg-gray-50 text-sm"
-                                    >
-                                      <Clock className="w-4 h-4 text-primary" />
-                                      <span className="font-medium">
-                                        {formatTimeAMPM(slot.start_time)} -{" "}
-                                        {formatTimeAMPM(slot.end_time)}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            );
-                          })()}
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-[10px] font-bold text-secondarytext uppercase tracking-widest mb-1">
-                              Valid From
-                            </label>
-                            <input
-                              type="date"
-                              className="w-full px-3 py-2 rounded-md border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm"
-                              value={clusterForm.valid_from}
-                              onChange={(e) =>
-                                setClusterForm({
-                                  ...clusterForm,
-                                  valid_from: e.target.value,
-                                })
-                              }
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-bold text-secondarytext uppercase tracking-widest mb-1">
-                              Valid To
-                            </label>
-                            <input
-                              type="date"
-                              className="w-full px-3 py-2 rounded-md border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm"
-                              value={clusterForm.valid_to}
-                              onChange={(e) =>
-                                setClusterForm({
-                                  ...clusterForm,
-                                  valid_to: e.target.value,
-                                })
-                              }
-                            />
-                          </div>
-                        </div>
-                      </div>
+                    <div>
+                      <label className="block text-xs font-bold text-secondarytext uppercase tracking-wide mb-2">
+                        Valid To
+                      </label>
+                      <input
+                        type="date"
+                        className="w-full px-4 py-2.5 rounded-md border border-gray-200 bg-primarybg focus:bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-sm"
+                        value={clusterForm.valid_to}
+                        onChange={(e) =>
+                          setClusterForm({
+                            ...clusterForm,
+                            valid_to: e.target.value,
+                          })
+                        }
+                      />
                     </div>
                   </div>
 
-                  {/* Driver Selection Section */}
-                  <div>
-                    <h4 className="flex justify-between items-center text-sm font-bold text-primary border-b border-gray-100 pb-2 mb-4 mt-6">
-                      <span>Select Drivers</span>
-                      <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
+                  {/* Driver Selection */}
+                  <div className="pt-4 border-t border-gray-100">
+                    <div className="flex justify-between items-center mb-3">
+                      <label className="text-xs font-bold text-secondarytext uppercase tracking-wide">
+                        Assign Drivers
+                      </label>
+                      <span className="text-xs bg-primary/10 text-primary px-3 py-1 rounded-md font-bold">
                         {clusterForm.driver_ids.length} Selected
                       </span>
-                    </h4>
+                    </div>
 
-                    <div className="bg-gray-50 rounded-md border border-gray-200 p-3">
-                      {/* Search and Filter */}
-                      <div className="flex gap-3 mb-3">
-                        <div className="relative flex-1">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                          <input
-                            type="text"
-                            placeholder="Search drivers..."
-                            className="w-full pl-9 pr-3 py-2 rounded-md border border-gray-200 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                            value={driverSearch}
-                            onChange={(e) => setDriverSearch(e.target.value)}
-                          />
-                        </div>
-                        <button
-                          onClick={() =>
-                            setShowOnlyUnassigned(!showOnlyUnassigned)
-                          }
-                          className={`px-3 py-2 rounded-md border text-xs font-medium flex items-center gap-2 transition-colors ${
-                            showOnlyUnassigned
-                              ? "bg-primary text-white border-primary"
-                              : "bg-white text-secondarytext border-gray-200 hover:bg-gray-100"
-                          }`}
-                        >
-                          <Filter className="w-3 h-3" />
-                          Unassigned Only
-                        </button>
+                    {/* Search and Filter */}
+                    <div className="flex gap-3 mb-3">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                          type="text"
+                          placeholder="Search drivers..."
+                          className="w-full pl-10 pr-4 py-2.5 rounded-md border border-gray-200 bg-primarybg focus:bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-sm"
+                          value={driverSearch}
+                          onChange={(e) => setDriverSearch(e.target.value)}
+                        />
                       </div>
+                      <button
+                        onClick={() =>
+                          setShowOnlyUnassigned(!showOnlyUnassigned)
+                        }
+                        className={`px-4 py-2.5 rounded-md text-xs font-bold flex items-center gap-2 transition-all ${
+                          showOnlyUnassigned
+                            ? "bg-primary text-white"
+                            : "bg-primarybg text-secondarytext hover:bg-gray-200"
+                        }`}
+                      >
+                        <Filter className="w-3.5 h-3.5" />
+                        Unassigned
+                      </button>
+                    </div>
 
-                      {/* Driver List */}
-                      <div className="h-60 overflow-y-auto pr-1 custom-scrollbar space-y-2">
-                        {filteredDrivers.length > 0 ? (
-                          filteredDrivers.map((driver) => {
-                            const isSelected = clusterForm.driver_ids.includes(
-                              driver.id,
-                            );
-                            return (
-                              <label
-                                key={driver.id}
-                                className={`flex items-center justify-between p-3 rounded-md cursor-pointer transition-all border ${
-                                  isSelected
-                                    ? "bg-white border-primary shadow-sm ring-1 ring-primary/50"
-                                    : "bg-white border-gray-100 hover:border-gray-300"
-                                }`}
-                              >
-                                <div className="flex items-center gap-3">
-                                  <div
-                                    className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${
-                                      isSelected
-                                        ? "bg-primary border-primary"
-                                        : "bg-white border-gray-300"
-                                    }`}
-                                  >
-                                    {isSelected && (
-                                      <Check className="w-3 h-3 text-white" />
-                                    )}
-                                    <input
-                                      type="checkbox"
-                                      className="hidden"
-                                      checked={isSelected}
-                                      onChange={(e) => {
-                                        if (e.target.checked) {
-                                          setClusterForm((prev) => ({
-                                            ...prev,
-                                            driver_ids: [
-                                              ...prev.driver_ids,
-                                              driver.id,
-                                            ],
-                                          }));
-                                        } else {
-                                          setClusterForm((prev) => ({
-                                            ...prev,
-                                            driver_ids: prev.driver_ids.filter(
-                                              (id) => id !== driver.id,
-                                            ),
-                                          }));
-                                        }
-                                      }}
-                                    />
-                                  </div>
-                                  <div>
-                                    <p
-                                      className={`text-sm font-medium ${
-                                        isSelected
-                                          ? "text-primarytext"
-                                          : "text-gray-600"
-                                      }`}
-                                    >
-                                      {driver.full_name || driver.name}
-                                    </p>
-                                    <p className="text-xs text-secondarytext">
-                                      {driver.cluster_id
-                                        ? `Assigned to ${driver.cluster_name}`
-                                        : "Available"}
-                                    </p>
-                                  </div>
+                    {/* Driver List */}
+                    <div className="h-64 overflow-y-auto space-y-2 bg-primarybg rounded-md p-3 border border-gray-100">
+                      {filteredDrivers.length > 0 ? (
+                        filteredDrivers.map((driver) => {
+                          const isSelected = clusterForm.driver_ids.includes(
+                            driver.id,
+                          );
+                          return (
+                            <label
+                              key={driver.id}
+                              className={`flex items-center justify-between p-3 rounded-md cursor-pointer transition-all border ${
+                                isSelected
+                                  ? "bg-primary/10 border-primary shadow-sm"
+                                  : "bg-white border-gray-200 hover:border-gray-300"
+                              }`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div
+                                  className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${
+                                    isSelected
+                                      ? "bg-primary border-primary"
+                                      : "bg-white border-gray-300"
+                                  }`}
+                                >
+                                  {isSelected && (
+                                    <Check className="w-3 h-3 text-white" />
+                                  )}
+                                  <input
+                                    type="checkbox"
+                                    className="hidden"
+                                    checked={isSelected}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setClusterForm((prev) => ({
+                                          ...prev,
+                                          driver_ids: [
+                                            ...prev.driver_ids,
+                                            driver.id,
+                                          ],
+                                        }));
+                                      } else {
+                                        setClusterForm((prev) => ({
+                                          ...prev,
+                                          driver_ids: prev.driver_ids.filter(
+                                            (id) => id !== driver.id,
+                                          ),
+                                        }));
+                                      }
+                                    }}
+                                  />
                                 </div>
-
-                                {driver.cluster_id && !isSelected && (
-                                  <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-1 rounded-sm">
-                                    Assigned
-                                  </span>
-                                )}
-                              </label>
-                            );
-                          })
-                        ) : (
-                          <div className="text-center py-8 text-secondarytext text-sm">
-                            No drivers match your search.
-                          </div>
-                        )}
-                      </div>
+                                <div>
+                                  <p className="text-sm font-semibold text-primarytext">
+                                    {driver.full_name || driver.name}
+                                  </p>
+                                  <p className="text-xs text-secondarytext">
+                                    {driver.cluster_id
+                                      ? `Assigned to ${driver.cluster_name || "a group"}`
+                                      : "Available"}
+                                  </p>
+                                </div>
+                              </div>
+                              {driver.cluster_id && !isSelected && (
+                                <span className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-md">
+                                  Assigned
+                                </span>
+                              )}
+                            </label>
+                          );
+                        })
+                      ) : (
+                        <div className="text-center py-12 text-secondarytext text-sm">
+                          No drivers match your search
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
               ) : modalType === "vehicle-group" ? (
                 // Vehicle Group Form
-                <div className="space-y-6">
-                  {/* Basic Info Section */}
-                  <div className="space-y-4">
-                    <h4 className="text-sm font-bold text-primary border-b border-gray-100 pb-2 mb-4">
-                      Group Details
-                    </h4>
+                <div className="space-y-5">
+                  <div>
+                    <label className="block text-xs font-bold text-secondarytext uppercase tracking-wide mb-2">
+                      Group Name *
+                    </label>
+                    <input
+                      className="w-full px-4 py-2.5 rounded-md border border-gray-200 bg-primarybg focus:bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-sm"
+                      placeholder="e.g. EV Group A"
+                      value={vehicleGroupForm.name}
+                      onChange={(e) =>
+                        setVehicleGroupForm({
+                          ...vehicleGroupForm,
+                          name: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-secondarytext uppercase tracking-wide mb-2">
+                      Description
+                    </label>
+                    <textarea
+                      rows="3"
+                      className="w-full px-4 py-2.5 rounded-md border border-gray-200 bg-primarybg focus:bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-sm resize-none"
+                      placeholder="Details about this group..."
+                      value={vehicleGroupForm.description}
+                      onChange={(e) =>
+                        setVehicleGroupForm({
+                          ...vehicleGroupForm,
+                          description: e.target.value,
+                        })
+                      }
+                    ></textarea>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-secondarytext uppercase tracking-widest mb-1.5">
-                        Group Name
+                      <label className="block text-xs font-bold text-secondarytext uppercase tracking-wide mb-2">
+                        Valid From
                       </label>
                       <input
-                        className="w-full px-4 py-2.5 rounded-md border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all text-sm"
-                        placeholder="e.g. EV Group A"
-                        value={vehicleGroupForm.name}
+                        type="date"
+                        className="w-full px-4 py-2.5 rounded-md border border-gray-200 bg-primarybg focus:bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-sm"
+                        value={vehicleGroupForm.valid_from}
                         onChange={(e) =>
                           setVehicleGroupForm({
                             ...vehicleGroupForm,
-                            name: e.target.value,
+                            valid_from: e.target.value,
                           })
                         }
                       />
                     </div>
-
                     <div>
-                      <label className="block text-xs font-bold text-secondarytext uppercase tracking-widest mb-1.5">
-                        Description (Optional)
+                      <label className="block text-xs font-bold text-secondarytext uppercase tracking-wide mb-2">
+                        Valid To
                       </label>
-                      <textarea
-                        rows="3"
-                        className="w-full px-4 py-2.5 rounded-md border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all text-sm resize-none"
-                        placeholder="Details about this group..."
-                        value={vehicleGroupForm.description}
+                      <input
+                        type="date"
+                        className="w-full px-4 py-2.5 rounded-md border border-gray-200 bg-primarybg focus:bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-sm"
+                        value={vehicleGroupForm.valid_to}
                         onChange={(e) =>
                           setVehicleGroupForm({
                             ...vehicleGroupForm,
-                            description: e.target.value,
+                            valid_to: e.target.value,
                           })
                         }
-                      ></textarea>
+                      />
                     </div>
                   </div>
 
-                  {/* Vehicle Selection Section */}
-                  <div>
+                  {/* Vehicle Selection */}
+                  <div className="pt-4 border-t border-gray-100">
                     <div className="flex justify-between items-center mb-3">
-                      <h4 className="text-sm font-bold text-primary">
-                        Select Vehicles
-                      </h4>
-                      <span className="text-xs bg-primary/10 text-primary px-2.5 py-1 rounded-full font-bold">
+                      <label className="text-xs font-bold text-secondarytext uppercase tracking-wide">
+                        Assign Vehicles
+                      </label>
+                      <span className="text-xs bg-primary/10 text-primary px-3 py-1 rounded-md font-bold">
                         {vehicleGroupForm.vehicle_ids.length} Selected
                       </span>
                     </div>
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="flex-1 relative">
+
+                    {/* Search and Filter */}
+                    <div className="flex gap-3 mb-3">
+                      <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                         <input
                           type="text"
                           placeholder="Search vehicles..."
-                          className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-md bg-gray-50 focus:bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all text-sm"
+                          className="w-full pl-10 pr-4 py-2.5 rounded-md border border-gray-200 bg-primarybg focus:bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-sm"
                           value={vehicleSearch}
                           onChange={(e) => setVehicleSearch(e.target.value)}
                         />
@@ -1213,17 +1181,19 @@ export default function ScheduleManagement() {
                             !showOnlyUnassignedVehicles,
                           )
                         }
-                        className={`px-3 py-2 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 shrink-0 ${
+                        className={`px-4 py-2.5 rounded-md text-xs font-bold flex items-center gap-2 transition-all ${
                           showOnlyUnassignedVehicles
                             ? "bg-primary text-white"
-                            : "bg-gray-100 text-secondarytext hover:bg-gray-200"
+                            : "bg-primarybg text-secondarytext hover:bg-gray-200"
                         }`}
                       >
-                        <Filter className="w-3 h-3" />
-                        Unassigned Only
+                        <Filter className="w-3.5 h-3.5" />
+                        Unassigned
                       </button>
                     </div>
-                    <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar border border-gray-200 rounded-md p-3 bg-gray-50">
+
+                    {/* Vehicle List */}
+                    <div className="h-64 overflow-y-auto space-y-2 bg-primarybg rounded-md p-3 border border-gray-100">
                       {vehicles
                         .filter((vehicle) => {
                           const matchesSearch =
@@ -1244,44 +1214,55 @@ export default function ScheduleManagement() {
                           return (
                             <label
                               key={vehicle.id}
-                              className={`flex items-center justify-between p-3 rounded-md border-2 cursor-pointer transition-all ${
+                              className={`flex items-center justify-between p-3 rounded-md cursor-pointer transition-all border ${
                                 isSelected
-                                  ? "bg-primary/5 border-primary"
+                                  ? "bg-primary/10 border-primary shadow-sm"
                                   : "bg-white border-gray-200 hover:border-gray-300"
                               }`}
                             >
                               <div className="flex items-center gap-3">
-                                <input
-                                  type="checkbox"
-                                  checked={isSelected}
-                                  onChange={(e) => {
-                                    const checked = e.target.checked;
-                                    setVehicleGroupForm({
-                                      ...vehicleGroupForm,
-                                      vehicle_ids: checked
-                                        ? [
-                                            ...vehicleGroupForm.vehicle_ids,
-                                            vehicle.id,
-                                          ]
-                                        : vehicleGroupForm.vehicle_ids.filter(
-                                            (id) => id !== vehicle.id,
-                                          ),
-                                    });
-                                  }}
-                                  className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary focus:ring-offset-0"
-                                />
+                                <div
+                                  className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${
+                                    isSelected
+                                      ? "bg-primary border-primary"
+                                      : "bg-white border-gray-300"
+                                  }`}
+                                >
+                                  {isSelected && (
+                                    <Check className="w-3 h-3 text-white" />
+                                  )}
+                                  <input
+                                    type="checkbox"
+                                    className="hidden"
+                                    checked={isSelected}
+                                    onChange={(e) => {
+                                      const checked = e.target.checked;
+                                      setVehicleGroupForm({
+                                        ...vehicleGroupForm,
+                                        vehicle_ids: checked
+                                          ? [
+                                              ...vehicleGroupForm.vehicle_ids,
+                                              vehicle.id,
+                                            ]
+                                          : vehicleGroupForm.vehicle_ids.filter(
+                                              (id) => id !== vehicle.id,
+                                            ),
+                                      });
+                                    }}
+                                  />
+                                </div>
                                 <div>
                                   <p className="text-sm font-semibold text-primarytext">
                                     {vehicle.vehicle_number}
                                   </p>
                                   <p className="text-xs text-secondarytext">
                                     {vehicle.registration_number ||
-                                      "No reg number"}
+                                      "No registration"}
                                   </p>
                                 </div>
                               </div>
                               {vehicle.group_id && !isSelected && (
-                                <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-1 rounded-sm">
+                                <span className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-md">
                                   Assigned
                                 </span>
                               )}
@@ -1292,14 +1273,14 @@ export default function ScheduleManagement() {
                   </div>
                 </div>
               ) : (
-                // Shift Form with Multiple Time Slots
+                // Shift Form
                 <div className="space-y-5">
                   <div>
-                    <label className="block text-xs font-bold text-secondarytext uppercase tracking-widest mb-1.5">
-                      Shift Name
+                    <label className="block text-xs font-bold text-secondarytext uppercase tracking-wide mb-2">
+                      Shift Name *
                     </label>
                     <input
-                      className="w-full px-4 py-2.5 rounded-md border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all text-sm"
+                      className="w-full px-4 py-2.5 rounded-md border border-gray-200 bg-primarybg focus:bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-sm"
                       placeholder="e.g. General Shift"
                       value={shiftForm.name}
                       onChange={(e) =>
@@ -1308,14 +1289,32 @@ export default function ScheduleManagement() {
                     />
                   </div>
 
-                  {/* Time Slots Section */}
                   <div>
+                    <label className="block text-xs font-bold text-secondarytext uppercase tracking-wide mb-2">
+                      Description
+                    </label>
+                    <textarea
+                      className="w-full px-4 py-2.5 rounded-md border border-gray-200 bg-primarybg focus:bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-sm resize-none"
+                      rows="3"
+                      placeholder="Optional description for this shift..."
+                      value={shiftForm.description}
+                      onChange={(e) =>
+                        setShiftForm({
+                          ...shiftForm,
+                          description: e.target.value,
+                        })
+                      }
+                    ></textarea>
+                  </div>
+
+                  {/* Time Slots */}
+                  <div className="pt-4 border-t border-gray-100">
                     <div className="flex justify-between items-center mb-3">
-                      <label className="block text-xs font-bold text-secondarytext uppercase tracking-widest">
+                      <label className="text-xs font-bold text-secondarytext uppercase tracking-wide">
                         Time Slots
                       </label>
-                      <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-medium">
-                        {shiftForm.slots.length} slot
+                      <span className="text-xs bg-primary/10 text-primary px-3 py-1 rounded-md font-bold">
+                        {shiftForm.slots.length} Slot
                         {shiftForm.slots.length !== 1 ? "s" : ""}
                       </span>
                     </div>
@@ -1324,19 +1323,19 @@ export default function ScheduleManagement() {
                       {shiftForm.slots.map((slot, index) => (
                         <div
                           key={index}
-                          className="flex items-center gap-3 bg-gray-50 p-3 rounded-md border border-gray-200"
+                          className="flex items-center gap-3 bg-primarybg p-4 rounded-md border border-gray-200"
                         >
-                          <span className="text-xs font-bold text-secondarytext w-6">
+                          <span className="text-xs font-bold text-secondarytext bg-white px-2 py-1 rounded-md">
                             #{index + 1}
                           </span>
                           <div className="flex-1 grid grid-cols-2 gap-3">
                             <div>
-                              <label className="block text-[10px] font-bold text-secondarytext uppercase mb-1">
+                              <label className="block text-xs font-bold text-secondarytext uppercase mb-1.5">
                                 Start Time
                               </label>
                               <input
                                 type="time"
-                                className="w-full px-3 py-2 rounded-md border border-gray-200 bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm"
+                                className="w-full px-3 py-2 rounded-md border border-gray-200 bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-sm"
                                 value={slot.start_time}
                                 onChange={(e) => {
                                   const newSlots = [...shiftForm.slots];
@@ -1346,12 +1345,12 @@ export default function ScheduleManagement() {
                               />
                             </div>
                             <div>
-                              <label className="block text-[10px] font-bold text-secondarytext uppercase mb-1">
+                              <label className="block text-xs font-bold text-secondarytext uppercase mb-1.5">
                                 End Time
                               </label>
                               <input
                                 type="time"
-                                className="w-full px-3 py-2 rounded-md border border-gray-200 bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm"
+                                className="w-full px-3 py-2 rounded-md border border-gray-200 bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-sm"
                                 value={slot.end_time}
                                 onChange={(e) => {
                                   const newSlots = [...shiftForm.slots];
@@ -1370,7 +1369,7 @@ export default function ScheduleManagement() {
                                 );
                                 setShiftForm({...shiftForm, slots: newSlots});
                               }}
-                              className="p-2 text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                              className="p-2 text-red hover:bg-red/10 rounded-md transition-colors"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -1390,38 +1389,21 @@ export default function ScheduleManagement() {
                           ],
                         });
                       }}
-                      className="mt-3 w-full px-4 py-2.5 border-2 border-dashed border-gray-300 rounded-md text-sm font-medium text-secondarytext hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2"
+                      className="mt-3 w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-md text-sm font-bold text-secondarytext hover:border-primary hover:text-primary hover:bg-primary/5 transition-all flex items-center justify-center gap-2"
                     >
                       <Plus className="w-4 h-4" />
                       Add Another Time Slot
                     </button>
                   </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-secondarytext uppercase tracking-widest mb-1.5">
-                      Description
-                    </label>
-                    <textarea
-                      className="w-full px-4 py-2.5 rounded-md border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all text-sm"
-                      rows="3"
-                      placeholder="Optional description for this shift..."
-                      value={shiftForm.description}
-                      onChange={(e) =>
-                        setShiftForm({
-                          ...shiftForm,
-                          description: e.target.value,
-                        })
-                      }
-                    ></textarea>
-                  </div>
                 </div>
               )}
             </div>
 
-            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+            {/* Modal Footer */}
+            <div className="px-6 py-4 bg-primarybg border-t border-gray-100 flex justify-end gap-3">
               <button
                 onClick={() => setShowModal(false)}
-                className="px-4 py-2.5 bg-white text-gray-700 border border-gray-200 rounded-md font-medium hover:bg-gray-50 transition-colors text-sm shadow-sm"
+                className="px-5 py-2.5 bg-white text-secondarytext border border-gray-200 rounded-md font-semibold hover:bg-gray-50 transition-colors text-sm shadow-sm"
               >
                 Cancel
               </button>
@@ -1433,9 +1415,9 @@ export default function ScheduleManagement() {
                       ? handleCreateOrUpdateVehicleGroup
                       : handleCreateOrUpdateShift
                 }
-                className="px-4 py-2.5 bg-primary text-white rounded-md font-bold hover:bg-primarydull transition-all shadow-md hover:shadow-lg text-sm"
+                className="px-5 py-2.5 bg-primary text-white rounded-md font-bold hover:bg-primarydull transition-all shadow-md hover:shadow-lg text-sm"
               >
-                {isEditing ? "Update Details" : "Create Now"}
+                {isEditing ? "Update" : "Create"}
               </button>
             </div>
           </div>

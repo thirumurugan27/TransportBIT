@@ -262,7 +262,7 @@ func activateFCReplacement(requestID int, req FCReplacementRequest) {
 		log.Printf("No regular assignment found, checking EV cluster assignment")
 		// Get the cluster's default shift or use default
 		err = config.DB.QueryRow(`
-			SELECT COALESCE(dc.default_shift_id, 0)
+			SELECT COALESCE(ev.shift_id, 0)
 			FROM ev_assignments ev
 			JOIN driver_clusters dc ON ev.cluster_id = dc.id
 			JOIN drivers d ON d.cluster_id = dc.id
@@ -701,12 +701,12 @@ func GetVehicleDrivers(c *gin.Context) {
 	evRows, err := config.DB.Query(`
 		SELECT DISTINCT d.id, u.full_name, d.cluster_id, 
 			   COALESCE(dc.name, '') as cluster_name, d.is_incharge,
-			   dc.default_shift_id as shift_id, COALESCE(s.name, 'EV Duty') as shift_name, TRUE as is_ev
+			   ev.shift_id as shift_id, COALESCE(s.name, 'EV Duty') as shift_name, TRUE as is_ev
 		FROM ev_assignments ev
 		JOIN driver_clusters dc ON ev.cluster_id = dc.id
 		JOIN drivers d ON d.cluster_id = dc.id
 		JOIN users u ON d.user_id = u.id
-		LEFT JOIN shifts s ON dc.default_shift_id = s.id
+		LEFT JOIN shifts s ON ev.shift_id = s.id
 		WHERE ev.vehicle_id = ?
 		  AND CURDATE() BETWEEN ev.start_date AND ev.end_date
 		  AND ev.status = 'active'

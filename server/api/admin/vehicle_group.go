@@ -22,6 +22,8 @@ type VehicleGroup struct {
 	Name         string  `json:"name"`
 	Description  string  `json:"description"`
 	VehicleCount int     `json:"vehicle_count"`
+	ValidFrom    *string `json:"valid_from"`
+	ValidTo      *string `json:"valid_to"`
 	CreatedAt    *string `json:"created_at"`
 	UpdatedAt    *string `json:"updated_at"`
 }
@@ -43,6 +45,8 @@ func GetVehicleGroups(c *gin.Context) {
 	rows, err := config.DB.Query(`
 		SELECT vg.id, vg.name, COALESCE(vg.description, '') as description,
 			   (SELECT COUNT(*) FROM vehicles v WHERE v.group_id = vg.id AND v.vehicle_type = 'BATTERY_VEHICLE') as vehicle_count,
+			   DATE_FORMAT(vg.valid_from, '%d-%m-%Y'),
+			   DATE_FORMAT(vg.valid_to, '%d-%m-%Y'),
 			   DATE_FORMAT(vg.created_at, '%Y-%m-%d %H:%i:%s'),
 			   DATE_FORMAT(vg.updated_at, '%Y-%m-%d %H:%i:%s')
 		FROM vehicle_groups vg
@@ -58,12 +62,14 @@ func GetVehicleGroups(c *gin.Context) {
 	var groups []VehicleGroup
 	for rows.Next() {
 		var group VehicleGroup
-		var createdAt, updatedAt *string
-		err := rows.Scan(&group.ID, &group.Name, &group.Description, &group.VehicleCount, &createdAt, &updatedAt)
+		var validFrom, validTo, createdAt, updatedAt *string
+		err := rows.Scan(&group.ID, &group.Name, &group.Description, &group.VehicleCount, &validFrom, &validTo, &createdAt, &updatedAt)
 		if err != nil {
 			log.Printf("Scan vehicle group error: %v", err)
 			continue
 		}
+		group.ValidFrom = validFrom
+		group.ValidTo = validTo
 		group.CreatedAt = createdAt
 		group.UpdatedAt = updatedAt
 		groups = append(groups, group)
@@ -81,6 +87,8 @@ func CreateVehicleGroup(c *gin.Context) {
 	var req struct {
 		Name        string `json:"name"`
 		Description string `json:"description"`
+		ValidFrom   string `json:"valid_from"`
+		ValidTo     string `json:"valid_to"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -94,9 +102,9 @@ func CreateVehicleGroup(c *gin.Context) {
 	}
 
 	result, err := config.DB.Exec(`
-		INSERT INTO vehicle_groups (name, description)
-		VALUES (?, ?)
-	`, req.Name, req.Description)
+		INSERT INTO vehicle_groups (name, description, valid_from, valid_to)
+		VALUES (?, ?, ?, ?)
+	`, req.Name, req.Description, req.ValidFrom, req.ValidTo)
 
 	if err != nil {
 		log.Printf("Create vehicle group error: %v", err)
@@ -124,6 +132,8 @@ func UpdateVehicleGroup(c *gin.Context) {
 	var req struct {
 		Name        string `json:"name"`
 		Description string `json:"description"`
+		ValidFrom   string `json:"valid_from"`
+		ValidTo     string `json:"valid_to"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -133,9 +143,9 @@ func UpdateVehicleGroup(c *gin.Context) {
 
 	_, err = config.DB.Exec(`
 		UPDATE vehicle_groups 
-		SET name = ?, description = ?
+		SET name = ?, description = ?, valid_from = ?, valid_to = ?
 		WHERE id = ?
-	`, req.Name, req.Description, id)
+	`, req.Name, req.Description, req.ValidFrom, req.ValidTo, id)
 
 	if err != nil {
 		log.Printf("Update vehicle group error: %v", err)
@@ -193,15 +203,17 @@ func GetVehicleGroupDetails(c *gin.Context) {
 
 	// Get group details
 	var group VehicleGroup
-	var createdAt, updatedAt *string
+	var validFrom, validTo, createdAt, updatedAt *string
 	err = config.DB.QueryRow(`
 		SELECT vg.id, vg.name, COALESCE(vg.description, '') as description,
 			   (SELECT COUNT(*) FROM vehicles v WHERE v.group_id = vg.id AND v.vehicle_type = 'BATTERY_VEHICLE') as vehicle_count,
+			   DATE_FORMAT(vg.valid_from, '%d-%m-%Y'),
+			   DATE_FORMAT(vg.valid_to, '%d-%m-%Y'),
 			   DATE_FORMAT(vg.created_at, '%Y-%m-%d %H:%i:%s'),
 			   DATE_FORMAT(vg.updated_at, '%Y-%m-%d %H:%i:%s')
 		FROM vehicle_groups vg
 		WHERE vg.id = ?
-	`, id).Scan(&group.ID, &group.Name, &group.Description, &group.VehicleCount, &createdAt, &updatedAt)
+	`, id).Scan(&group.ID, &group.Name, &group.Description, &group.VehicleCount, &validFrom, &validTo, &createdAt, &updatedAt)
 
 	if err != nil {
 		log.Printf("Get vehicle group details error: %v", err)
@@ -209,8 +221,8 @@ func GetVehicleGroupDetails(c *gin.Context) {
 		return
 	}
 
-	group.CreatedAt = createdAt
-	group.UpdatedAt = updatedAt
+	group.ValidFrom = validFrom
+	group.ValidTo = validTo
 
 	// Get vehicles in this group
 	rows, err := config.DB.Query(`

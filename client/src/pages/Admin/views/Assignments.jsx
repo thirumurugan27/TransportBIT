@@ -1473,33 +1473,11 @@ export default function Assignments() {
                       })
                     }
                     placeholder="Select Driver Group"
-                    options={clusters.map((c) => {
-                      const formatTime = (time) => {
-                        if (!time) return "";
-                        const [h, m] = time.split(":");
-                        const hour = parseInt(h);
-                        const ampm = hour >= 12 ? "PM" : "AM";
-                        const hour12 = hour % 12 || 12;
-                        return `${hour12}:${m} ${ampm}`;
-                      };
-
-                      let subtitle = `${c.driver_count || 0} drivers`;
-                      if (c.shift_name && c.shift_start && c.shift_end) {
-                        subtitle += ` • ${c.shift_name} (${formatTime(c.shift_start)}-${formatTime(c.shift_end)})`;
-                      } else if (c.shift_name) {
-                        subtitle += ` • ${c.shift_name}`;
-                      } else if (c.start_time && c.end_time) {
-                        subtitle += ` • ${formatTime(c.start_time)}-${formatTime(c.end_time)}`;
-                      } else {
-                        subtitle += " • No shift (configure required)";
-                      }
-
-                      return {
-                        value: c.id,
-                        label: c.name,
-                        subtitle: subtitle,
-                      };
-                    })}
+                    options={clusters.map((c) => ({
+                      value: c.id,
+                      label: c.name,
+                      subtitle: `${c.driver_count || 0} drivers`,
+                    }))}
                     emptyMessage="No driver groups available"
                   />
                 </div>

@@ -177,15 +177,15 @@ func GetDriverTodayAssignments(c *gin.Context) {
 		SELECT 
 			ev.id, v.id as vehicle_id, v.vehicle_number, 'EV' as vehicle_type,
 			COALESCE(s.name, 'EV Duty') as shift_name, 
-			COALESCE(TIME_FORMAT(s.start_time, '%H:%i'), '08:00') as start_time,
-			COALESCE(TIME_FORMAT(s.end_time, '%H:%i'), '17:00') as end_time,
+			COALESCE(TIME_FORMAT(s.start_time, '%H:%i'), TIME_FORMAT(dc.start_time, '%H:%i'), '08:00') as start_time,
+			COALESCE(TIME_FORMAT(s.end_time, '%H:%i'), TIME_FORMAT(dc.end_time, '%H:%i'), '17:00') as end_time,
 			? as assigned_date,
 			ev.status
 		FROM ev_assignments ev
 		JOIN vehicles v ON ev.vehicle_id = v.id
 		JOIN driver_clusters dc ON ev.cluster_id = dc.id
 		JOIN drivers d ON d.cluster_id = dc.id
-		LEFT JOIN shifts s ON s.id = dc.default_shift_id
+		LEFT JOIN shifts s ON s.id = ev.shift_id
 		WHERE d.id = ? 
 		  AND ? BETWEEN ev.start_date AND ev.end_date
 		  AND ev.status = 'active'
@@ -339,7 +339,7 @@ func GetDriverAssignments(c *gin.Context) {
 		JOIN vehicles v ON ev.vehicle_id = v.id
 		JOIN driver_clusters dc ON ev.cluster_id = dc.id
 		JOIN drivers d ON d.cluster_id = dc.id
-		LEFT JOIN shifts s ON s.id = dc.default_shift_id
+		LEFT JOIN shifts s ON s.id = ev.shift_id
 		WHERE d.id = ?
 		ORDER BY ev.start_date DESC
 	`, driverID)

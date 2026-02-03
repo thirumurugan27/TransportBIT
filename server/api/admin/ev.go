@@ -245,15 +245,9 @@ func CreateEVAssignment(c *gin.Context) {
 		return
 	}
 
-	// Get cluster details
-	var shiftID sql.NullInt64
-	var startTime, endTime sql.NullString
-	err := config.DB.QueryRow(`
-		SELECT default_shift_id, start_time, end_time 
-		FROM driver_clusters 
-		WHERE id = ?
-	`, req.ClusterID).Scan(&shiftID, &startTime, &endTime)
-
+	// Verify cluster exists
+	var clusterExists int
+	err := config.DB.QueryRow(`SELECT 1 FROM driver_clusters WHERE id = ?`, req.ClusterID).Scan(&clusterExists)
 	if err != nil {
 		log.Printf("Get cluster error: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid cluster"})
@@ -299,8 +293,6 @@ func CreateEVAssignment(c *gin.Context) {
 	targetShiftID := 0
 	if req.ShiftID > 0 {
 		targetShiftID = req.ShiftID
-	} else if shiftID.Valid {
-		targetShiftID = int(shiftID.Int64)
 	}
 
 	if targetShiftID > 0 {
@@ -315,9 +307,7 @@ func CreateEVAssignment(c *gin.Context) {
 	}
 
 	// Priority 2: Use cluster's own start/end times if no shift times found
-	if len(ranges) == 0 && startTime.Valid && endTime.Valid {
-		ranges = append(ranges, timeRange{start: startTime.String, end: endTime.String})
-	}
+	// Removed cluster timing default as per requirement
 
 	// Priority 3: If no valid time range found
 	if len(ranges) == 0 {
