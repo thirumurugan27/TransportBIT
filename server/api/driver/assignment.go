@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
+	"strconv"
 
 	"transport-server/config"
 
@@ -514,4 +515,181 @@ func GetDriverVehicleAlerts(c *gin.Context) {
 		"critical": critical,
 		"total":    len(alerts),
 	})
+}
+
+// VerifyCarAssignmentOTPRequest - request body for verifying car assignment OTP
+type VerifyCarAssignmentOTPRequest struct {
+	AssignmentID int    `json:"assignment_id"`
+	OTP          string `json:"otp"`
+}
+
+/*
+=========================
+
+	POST /api/driver/assignment/verify-otp
+
+=========================
+*/
+func VerifyCarAssignmentOTP(c *gin.Context) {
+	driverID := c.Query("driver_id")
+	if driverID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "driver_id required"})
+		return
+	}
+
+	var req VerifyCarAssignmentOTPRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	// Get assignment details
+	var assignmentDriverID int
+	var storedOTP sql.NullString
+	var status, startDate, vehicleType string
+	err := config.DB.QueryRow(`
+		SELECT a.driver_id, a.otp, a.status, DATE_FORMAT(a.start_date, '%Y-%m-%d'), v.vehicle_type 
+		FROM assignments a
+		JOIN vehicles v ON a.vehicle_id = v.id
+		WHERE a.id = ?
+	`, req.AssignmentID).Scan(&assignmentDriverID, &storedOTP, &status, &startDate, &vehicleType)
+
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Assignment not found"})
+		return
+	}
+	if err != nil {
+		log.Printf("Error fetching assignment: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+
+	// Verify this is a CAR assignment
+	if vehicleType != "CAR" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "OTP verification is only for car assignments"})
+		return
+	}
+
+	// Verify driver is assigned
+	if driverID != "" {
+		var dID int
+		dID, _ = strconv.Atoi(driverID)
+		if assignmentDriverID != dID {
+			c.JSON(http.StatusForbidden, gin.H{"error": "You are not assigned to this vehicle"})
+			return
+		}
+	}
+
+	// Check assignment status
+	if status != "onhold" {
+		if status == "assigned" || status == "active" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "This assignment is already verified"})
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "This assignment cannot be verified"})
+		}
+		return
+	}
+
+	// Verify OTP
+	if !storedOTP.Valid || req.OTP != storedOTP.String {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid OTP"})
+		return
+	}
+
+	// Update assignment status to 'assigned'
+	_, err = config.DB.Exec(`
+		UPDATE assignments SET status = 'assigned', otp_verified_at = NOW(), updated_at = NOW() WHERE id = ?
+	`, req.AssignmentID)
+
+	if err != nil {
+		log.Printf("Error updating assignment: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to verify assignment"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "OTP verified successfully. Assignment confirmed!",
+	})
+}
+
+/*
+=========================
+
+	GET /api/driver/assignment/car-assignments
+
+=========================
+*/
+func GetDriverCarAssignments(c *gin.Context) {
+	driverID := c.Query("driver_id")
+	if driverID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "driver_id required"})
+		return
+	}
+
+	rows, err := config.DB.Query(`
+		SELECT a.id, a.vehicle_id, v.vehicle_number, v.vehicle_type,
+		       COALESCE(s.name, 'Custom') as shift_name,
+		       COALESCE(a.start_time, TIME_FORMAT(s.start_time, '%H:%i')) as start_time,
+		       COALESCE(a.end_time, TIME_FORMAT(s.end_time, '%H:%i')) as end_time,
+		       DATE_FORMAT(a.assigned_date, '%Y-%m-%d') as assigned_date,
+		       DATE_FORMAT(a.start_date, '%Y-%m-%d') as start_date,
+		       DATE_FORMAT(a.end_date, '%Y-%m-%d') as end_date,
+		       a.status, a.otp,
+		       COALESCE(a.purpose, '') as purpose,
+		       COALESCE(a.destination, '') as destination
+		FROM assignments a
+		JOIN vehicles v ON a.vehicle_id = v.id
+		LEFT JOIN shifts s ON a.shift_id = s.id
+		WHERE a.driver_id = ? 
+		AND v.vehicle_type = 'CAR'
+		AND a.start_date >= CURDATE()
+		ORDER BY a.start_date ASC
+	`, driverID)
+
+	if err != nil {
+		log.Printf("Error fetching car assignments: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+	defer rows.Close()
+
+	type CarAssignment struct {
+		ID            int            `json:"id"`
+		VehicleID     int            `json:"vehicle_id"`
+		VehicleNumber string         `json:"vehicle_number"`
+		VehicleType   string         `json:"vehicle_type"`
+		ShiftName     string         `json:"shift_name"`
+		StartTime     string         `json:"start_time"`
+		EndTime       string         `json:"end_time"`
+		AssignedDate  string         `json:"assigned_date"`
+		StartDate     string         `json:"start_date"`
+		EndDate       string         `json:"end_date"`
+		Status        string         `json:"status"`
+		OTP           sql.NullString `json:"-"`
+		OTPDisplay    string         `json:"otp,omitempty"`
+		Purpose       string         `json:"purpose"`
+		Destination   string         `json:"destination"`
+	}
+
+	var assignments []CarAssignment
+	for rows.Next() {
+		var a CarAssignment
+		if err := rows.Scan(&a.ID, &a.VehicleID, &a.VehicleNumber, &a.VehicleType,
+			&a.ShiftName, &a.StartTime, &a.EndTime, &a.AssignedDate,
+			&a.StartDate, &a.EndDate, &a.Status, &a.OTP, &a.Purpose, &a.Destination); err != nil {
+			log.Printf("Error scanning car assignment: %v", err)
+			continue
+		}
+		// Only show OTP for onhold status
+		if a.Status == "onhold" && a.OTP.Valid {
+			a.OTPDisplay = a.OTP.String
+		}
+		assignments = append(assignments, a)
+	}
+
+	if assignments == nil {
+		assignments = []CarAssignment{}
+	}
+
+	c.JSON(http.StatusOK, assignments)
 }

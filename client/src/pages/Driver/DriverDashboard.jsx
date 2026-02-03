@@ -7,6 +7,7 @@ import DriverAssignments from "./views/DriverAssignments";
 import DriverKmLog from "./views/DriverKmLog";
 import DriverApplyLeave from "./views/DriverApplyLeave";
 import DriverProfile from "./views/DriverProfile";
+import DriverCarBookings from "./views/DriverCarBookings";
 import Notifications from "./views/Notifications";
 import ComingSoon from "./views/ComingSoon";
 import { useAuth } from "../../context/AuthContext";
@@ -33,6 +34,7 @@ export default function DriverDashboard() {
             <Route path="assignments" element={<DriverAssignments />} />
             <Route path="km-log" element={<DriverKmLog />} />
             <Route path="apply-leave" element={<DriverApplyLeave />} />
+            <Route path="car-bookings" element={<DriverCarBookings />} />
             <Route path="notifications" element={<Notifications />} />
             <Route path="profile" element={<DriverProfile />} />
             <Route path="*" element={<DriverHome />} />

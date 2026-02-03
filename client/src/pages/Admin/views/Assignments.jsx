@@ -1,5 +1,6 @@
 import React, {useState, useEffect} from "react";
 import TemporaryAssignments from "./TemporaryAssignments";
+import CarBookingManagement from "./CarBookingManagement";
 import {
   Bus,
   Car,
@@ -73,6 +74,7 @@ export default function Assignments() {
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createModalType, setCreateModalType] = useState(null); // bus, car, ev
+  const [createdOTP, setCreatedOTP] = useState(null); // OTP shown after car assignment creation
 
   const [assignmentForm, setAssignmentForm] = useState({
     vehicle_id: 0,
@@ -82,6 +84,11 @@ export default function Assignments() {
     shift_id: 0,
     start_date: new Date().toISOString().split("T")[0],
     end_date: new Date().toISOString().split("T")[0],
+    // CAR assignment specific fields
+    start_time: "",
+    end_time: "",
+    purpose: "",
+    destination: "",
   });
 
   // Reassign Modal
@@ -368,6 +375,7 @@ export default function Assignments() {
 
   const openCreateModal = (type) => {
     setCreateModalType(type);
+    setCreatedOTP(null); // Reset OTP state
     setAssignmentForm({
       vehicle_id: 0,
       vehicle_group_id: 0,
@@ -376,6 +384,11 @@ export default function Assignments() {
       shift_id: 0,
       start_date: new Date().toISOString().split("T")[0],
       end_date: new Date().toISOString().split("T")[0],
+      // CAR specific
+      start_time: "",
+      end_time: "",
+      purpose: "",
+      destination: "",
     });
     fetchAvailableDrivers();
     setShowCreateModal(true);
@@ -395,6 +408,11 @@ export default function Assignments() {
           assignmentForm.start_date &&
           assignmentForm.end_date;
 
+    // For CAR assignments, shift is optional if custom times are provided
+    if (createModalType === "car" && assignmentForm.start_time && assignmentForm.end_time) {
+      isValid = assignmentForm.vehicle_id && assignmentForm.driver_id && assignmentForm.start_date && assignmentForm.end_date;
+    }
+
     if (!isValid) {
       showToast("Please fill all required fields", "warning");
       return;
@@ -407,6 +425,7 @@ export default function Assignments() {
 
     const payload = {
       ...assignmentForm,
+      vehicle_category: createModalType.toUpperCase(),
       force_assign: forceAssign,
       created_by: getCreatorIdFromToken() || undefined,
     };
@@ -420,8 +439,17 @@ export default function Assignments() {
       });
 
       if (res.ok) {
-        showToast("Assignment created successfully!", "success");
-        setShowCreateModal(false);
+        const data = await res.json();
+        
+        // For CAR assignments, show OTP
+        if (createModalType === "car" && data.otp) {
+          setCreatedOTP(data.otp);
+          showToast("Car assignment created! OTP: " + data.otp, "success");
+        } else {
+          showToast("Assignment created successfully!", "success");
+          setShowCreateModal(false);
+        }
+        
         setConflictModal(null);
         setConflictPendingForm(null);
         fetchAllData();
@@ -827,14 +855,6 @@ export default function Assignments() {
               <Plus size={16} /> Assign Driver to Bus
             </button>
           )}
-          {activeTab === "car" && (
-            <button
-              onClick={() => openCreateModal("car")}
-              className="px-4 py-2.5 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors font-medium shadow-sm flex items-center gap-2"
-            >
-              <Plus size={16} /> Assign Driver to Car
-            </button>
-          )}
           {activeTab === "ev" && (
             <button
               onClick={() => openCreateModal("ev")}
@@ -858,7 +878,7 @@ export default function Assignments() {
       </div>
 
       {/* Search, Sort, and Filter Bar */}
-      {activeTab !== "temporary" && (
+      {activeTab !== "temporary" && activeTab !== "car" && (
         <div className="bg-secondarybg rounded-md border border-gray-100 shadow-sm p-4 mb-4">
           <div className="flex flex-wrap items-center gap-3">
             {/* Search */}
@@ -982,6 +1002,10 @@ export default function Assignments() {
       <div className="bg-secondarybg rounded-md border border-gray-100 shadow-sm overflow-hidden min-h-[400px]">
         {activeTab === "temporary" ? (
           <TemporaryAssignments openModal={openTempModal} />
+        ) : activeTab === "car" ? (
+          <div className="p-0">
+            <CarBookingManagement />
+          </div>
         ) : loading ? (
           <div className="p-12 text-center text-secondarytext">
             Loading assignments...
@@ -1246,7 +1270,82 @@ export default function Assignments() {
                 </div>
               </div>
 
-              {/* Shift Selection */}
+              {/* CAR-specific: Custom Time, Purpose, Destination */}
+              {createModalType === "car" && (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1">
+                        Start Time <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="time"
+                        className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        value={assignmentForm.start_time}
+                        onChange={(e) =>
+                          setAssignmentForm({
+                            ...assignmentForm,
+                            start_time: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1">
+                        End Time <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="time"
+                        className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        value={assignmentForm.end_time}
+                        onChange={(e) =>
+                          setAssignmentForm({
+                            ...assignmentForm,
+                            end_time: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1">
+                      Purpose
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g., Guest pickup, Site visit"
+                      className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      value={assignmentForm.purpose}
+                      onChange={(e) =>
+                        setAssignmentForm({
+                          ...assignmentForm,
+                          purpose: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1">
+                      Destination
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g., Airport, Railway Station"
+                      className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      value={assignmentForm.destination}
+                      onChange={(e) =>
+                        setAssignmentForm({
+                          ...assignmentForm,
+                          destination: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* Shift Selection - Only for non-CAR or if CAR without custom times */}
+              {createModalType !== "car" && (
               <div>
                 <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
                   Shift
@@ -1279,6 +1378,7 @@ export default function Assignments() {
                   emptyMessage="No shifts available"
                 />
               </div>
+              )}
 
               {createModalType === "ev" ? (
                 <div>
@@ -1445,12 +1545,41 @@ export default function Assignments() {
                   />
                 </div>
               )}
+              
+              {/* Show OTP after car assignment creation */}
+              {createdOTP && createModalType === "car" ? (
+                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CheckCircle className="text-green-600" size={20} />
+                    <span className="font-semibold text-green-800">Assignment Created!</span>
+                  </div>
+                  <p className="text-sm text-green-700 mb-3">Share this OTP with the driver for verification:</p>
+                  <div className="text-center">
+                    <span className="text-3xl font-mono font-bold tracking-wider text-green-800 bg-green-100 px-6 py-2 rounded-lg inline-block">
+                      {createdOTP}
+                    </span>
+                  </div>
+                  <p className="text-xs text-green-600 mt-3 text-center">
+                    Driver must verify this OTP on the assignment date to confirm.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setCreatedOTP(null);
+                      setShowCreateModal(false);
+                    }}
+                    className="w-full mt-4 bg-green-600 text-white rounded-md py-2.5 font-medium hover:bg-green-700 transition-colors"
+                  >
+                    Done
+                  </button>
+                </div>
+              ) : (
               <button
                 onClick={() => handleCreate()}
                 className="w-full bg-primary text-white rounded-md py-2.5 font-medium hover:bg-primary/90 transition-colors"
               >
-                Create Assignment
+                {createModalType === "car" ? "Create Assignment & Generate OTP" : "Create Assignment"}
               </button>
+              )}
             </div>
           </div>
         </div>

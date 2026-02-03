@@ -175,6 +175,12 @@ type Assignment struct {
 	OriginalDriverID       *int   `json:"original_driver_id"`
 	CreatedBy              *int   `json:"created_by"`
 	CreatedAt              string `json:"created_at,omitempty"`
+	// OTP fields for CAR assignments
+	OTP            string  `json:"otp,omitempty"`
+	OTPGeneratedAt *string `json:"otp_generated_at,omitempty"`
+	OTPVerifiedAt  *string `json:"otp_verified_at,omitempty"`
+	Purpose        string  `json:"purpose,omitempty"`
+	Destination    string  `json:"destination,omitempty"`
 	// Joined fields
 	ShiftName          string `json:"shift_name"`
 	StartTime          string `json:"start_time"`
@@ -200,6 +206,11 @@ type CreateAssignmentRequest struct {
 	CreatedBy              *int   `json:"created_by,omitempty"`
 	// If true, create even when a time conflict exists
 	ForceAssign bool `json:"force_assign"`
+	// CAR assignment specific fields
+	StartTime   string `json:"start_time"`  // For CAR: custom start time
+	EndTime     string `json:"end_time"`    // For CAR: custom end time
+	Purpose     string `json:"purpose"`     // For CAR: purpose of trip
+	Destination string `json:"destination"` // For CAR: destination
 }
 
 // TemporaryAssignment - Separate table for temporary driver replacements
@@ -215,15 +226,15 @@ type TemporaryAssignment struct {
 	Status              string `json:"status"`
 	CreatedAt           string `json:"created_at"`
 	// Joined fields
-	OriginalDriverName    string `json:"original_driver_name"`
-	ReplacementDriverName string `json:"replacement_driver_name"`
-	ShiftName             string `json:"shift_name"`
-	StartTime             string `json:"start_time"`
-	EndTime               string `json:"end_time"`
+	OriginalDriverName    string      `json:"original_driver_name"`
+	ReplacementDriverName string      `json:"replacement_driver_name"`
+	ShiftName             string      `json:"shift_name"`
+	StartTime             string      `json:"start_time"`
+	EndTime               string      `json:"end_time"`
 	Slots                 []ShiftSlot `json:"slots,omitempty"`
-	VehicleNumber         string `json:"vehicle_number"`
-	VehicleType           string `json:"vehicle_type"`
-	BusName               string `json:"bus_name"`
+	VehicleNumber         string      `json:"vehicle_number"`
+	VehicleType           string      `json:"vehicle_type"`
+	BusName               string      `json:"bus_name"`
 }
 
 type CreateTemporaryAssignmentRequest struct {
@@ -568,4 +579,110 @@ type ProcessTransportRequest struct {
 	RequestID    int    `json:"request_id"`
 	Status       string `json:"status"` // approved or rejected
 	AdminRemarks string `json:"admin_remarks"`
+}
+
+/* =========================
+   FACULTY & CAR BOOKING MODELS
+========================= */
+
+// Faculty - Faculty user profile
+type Faculty struct {
+	ID          int    `json:"id"`
+	UserID      int    `json:"user_id"`
+	FullName    string `json:"full_name"`
+	Email       string `json:"email"`
+	Phone       string `json:"phone"`
+	Department  string `json:"department"`
+	Designation string `json:"designation"`
+}
+
+type CreateFacultyRequest struct {
+	Username    string `json:"username"`
+	Password    string `json:"password"`
+	FullName    string `json:"full_name"`
+	Email       string `json:"email"`
+	Phone       string `json:"phone"`
+	Department  string `json:"department"`
+	Designation string `json:"designation"`
+}
+
+type UpdateFacultyRequest struct {
+	ID          int    `json:"id"`
+	FullName    string `json:"full_name"`
+	Email       string `json:"email"`
+	Phone       string `json:"phone"`
+	Department  string `json:"department"`
+	Designation string `json:"designation"`
+}
+
+// CarBooking - Faculty car booking request
+type CarBooking struct {
+	ID             int     `json:"id"`
+	FacultyID      int     `json:"faculty_id"`
+	FacultyUserID  int     `json:"faculty_user_id"`
+	FacultyName    string  `json:"faculty_name"`
+	FacultyEmail   string  `json:"faculty_email"`
+	FacultyPhone   string  `json:"faculty_phone"`
+	Department     string  `json:"department"`
+	VehicleID      *int    `json:"vehicle_id"`
+	VehicleNumber  string  `json:"vehicle_number"`
+	DriverID       *int    `json:"driver_id"`
+	DriverName     string  `json:"driver_name"`
+	BookingDate    string  `json:"booking_date"`
+	StartTime      string  `json:"start_time"`
+	EndTime        string  `json:"end_time"`
+	Purpose        string  `json:"purpose"`
+	Destination    string  `json:"destination"`
+	PassengerCount int     `json:"passenger_count"`
+	Status         string  `json:"status"` // pending, approved, onhold, booked, rejected, cancelled, completed
+	OTP            string  `json:"otp"`
+	OTPGeneratedAt *string `json:"otp_generated_at"`
+	OTPVerifiedAt  *string `json:"otp_verified_at"`
+	AdminRemarks   string  `json:"admin_remarks"`
+	ApprovedBy     *int    `json:"approved_by"`
+	ApprovedByName string  `json:"approved_by_name"`
+	ApprovedAt     *string `json:"approved_at"`
+	CreatedAt      string  `json:"created_at"`
+	UpdatedAt      string  `json:"updated_at"`
+}
+
+type CreateCarBookingRequest struct {
+	BookingDate    string `json:"booking_date"`
+	StartTime      string `json:"start_time"`
+	EndTime        string `json:"end_time"`
+	Purpose        string `json:"purpose"`
+	Destination    string `json:"destination"`
+	PassengerCount int    `json:"passenger_count"`
+}
+
+type ApproveCarBookingRequest struct {
+	BookingID    int    `json:"booking_id"`
+	VehicleID    int    `json:"vehicle_id"`
+	DriverID     int    `json:"driver_id"`
+	AdminRemarks string `json:"admin_remarks"`
+}
+
+type RejectCarBookingRequest struct {
+	BookingID    int    `json:"booking_id"`
+	AdminRemarks string `json:"admin_remarks"`
+}
+
+type VerifyCarBookingOTPRequest struct {
+	BookingID int    `json:"booking_id"`
+	OTP       string `json:"otp"`
+}
+
+type CompleteCarBookingRequest struct {
+	BookingID int    `json:"booking_id"`
+	Remarks   string `json:"remarks"`
+}
+
+// AvailableCar - Car availability info for faculty view
+type AvailableCar struct {
+	ID              int    `json:"id"`
+	VehicleNumber   string `json:"vehicle_number"`
+	SeatingCapacity int    `json:"seating_capacity"`
+	Status          string `json:"status"`
+	FuelType        string `json:"fuel_type"`
+	IsAvailable     bool   `json:"is_available"`
 }

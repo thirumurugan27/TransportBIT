@@ -5,6 +5,7 @@ import AdminDashboard from "./pages/Admin/AdminDashboard";
 import DriverDashboard from "./pages/Driver/DriverDashboard";
 import InchargeDashboard from "./pages/Incharge/InchargeDashboard";
 import StudentDashboard from "./pages/Student/StudentDashboard";
+import FacultyDashboard from "./pages/Faculty/FacultyDashboard";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 import {AuthProvider} from "./context/AuthContext";
@@ -72,6 +73,16 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={["STUDENT"]}>
                   <StudentDashboard />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Faculty Dashboard - Protected with nested routes */}
+            <Route
+              path="/faculty-dashboard/*"
+              element={
+                <ProtectedRoute allowedRoles={["FACULTY"]}>
+                  <FacultyDashboard />
                 </ProtectedRoute>
               }
             />

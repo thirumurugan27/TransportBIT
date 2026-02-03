@@ -96,6 +96,12 @@ export const adminMenuConfig = {
       icon: <BusIcon />,
       path: "/student-transport",
     },
+    {
+      key: "carBookings",
+      label: "Car Bookings",
+      icon: <VehicleIcon />,
+      path: "/car-bookings",
+    },
   ],
 };
 
@@ -116,6 +122,12 @@ export const driverMenuConfig = {
       label: "My Assignments",
       icon: <AssignmentIcon />,
       path: "/assignments",
+    },
+    {
+      key: "carBookings",
+      label: "Car Bookings",
+      icon: <VehicleIcon />,
+      path: "/car-bookings",
     },
     {
       key: "km-log",
@@ -246,6 +258,39 @@ export const studentMenuConfig = {
   ],
 };
 
+// Faculty Menu Configuration
+export const facultyMenuConfig = {
+  portalName: "Transport BIT",
+  portalSubtitle: "Faculty Portal",
+  basePath: "/faculty-dashboard",
+  items: [
+    {
+      key: "dashboard",
+      label: "Dashboard",
+      icon: <DashboardIcon />,
+      path: "",
+    },
+    {
+      key: "bookCar",
+      label: "Book a Car",
+      icon: <VehicleIcon />,
+      path: "/book-car",
+    },
+    {
+      key: "myBookings",
+      label: "My Bookings",
+      icon: <AssignmentIcon />,
+      path: "/my-bookings",
+    },
+    {
+      key: "profile",
+      label: "My Profile",
+      icon: <ProfileIcon />,
+      path: "/profile",
+    },
+  ],
+};
+
 // Role-based menu getter
 export const getMenuConfigByRole = (role) => {
   const configs = {
@@ -253,6 +298,7 @@ export const getMenuConfigByRole = (role) => {
     DRIVER: driverMenuConfig,
     INCHARGE: inchargeMenuConfig,
     STUDENT: studentMenuConfig,
+    FACULTY: facultyMenuConfig,
   };
   return configs[role] || studentMenuConfig;
 };
@@ -263,5 +309,6 @@ export default {
   driverMenuConfig,
   inchargeMenuConfig,
   studentMenuConfig,
+  facultyMenuConfig,
   getMenuConfigByRole,
 };

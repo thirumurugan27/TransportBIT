@@ -318,7 +318,44 @@ func CreateAssignment(c *gin.Context) {
 		return
 	}
 
-	// Create regular assignment
+	// For CAR assignments, generate OTP and use custom times
+	if category == "CAR" {
+		otp := generateOTP()
+		now := time.Now().Format("2006-01-02 15:04:05")
+
+		// Use custom start/end time for CAR, or default to shift times
+		startTime := req.StartTime
+		endTime := req.EndTime
+		if startTime == "" && len(ranges) > 0 {
+			startTime = ranges[0].start
+		}
+		if endTime == "" && len(ranges) > 0 {
+			endTime = ranges[len(ranges)-1].end
+		}
+
+		_, err = config.DB.Exec(`
+			INSERT INTO assignments (shift_id, vehicle_id, driver_id, assigned_date, start_date, end_date, 
+			                         vehicle_category, status, created_by, otp, otp_generated_at, 
+			                         purpose, destination, start_time, end_time)
+			VALUES (?, ?, ?, ?, ?, ?, ?, 'onhold', ?, ?, ?, ?, ?, ?, ?)
+		`, req.ShiftID, req.VehicleID, req.DriverID, req.StartDate, req.StartDate, req.EndDate,
+			category, createdBy, otp, now, req.Purpose, req.Destination, startTime, endTime)
+
+		if err != nil {
+			log.Printf("Create CAR assignment error: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Car assignment created successfully",
+			"otp":     otp,
+			"status":  "onhold",
+		})
+		return
+	}
+
+	// Create regular assignment (BUS/EV)
 	_, err = config.DB.Exec(`
 		INSERT INTO assignments (shift_id, vehicle_id, driver_id, assigned_date, start_date, end_date, vehicle_category, status, created_by)
 		VALUES (?, ?, ?, ?, ?, ?, ?, 'assigned', ?)
@@ -1043,7 +1080,7 @@ func GetAssignmentDetails(c *gin.Context) {
 			WHERE shift_id = ?
 			ORDER BY slot_order ASC
 		`, a.ShiftID)
-		
+
 		var slots []ShiftSlot
 		for slotRows.Next() {
 			var slot ShiftSlot
@@ -1140,7 +1177,7 @@ func GetAssignmentDetails(c *gin.Context) {
 		WHERE shift_id = ?
 		ORDER BY slot_order ASC
 	`, a.ShiftID)
-	
+
 	var slots []ShiftSlot
 	for slotRows.Next() {
 		var slot ShiftSlot

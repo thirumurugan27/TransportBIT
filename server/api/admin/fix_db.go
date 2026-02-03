@@ -89,7 +89,27 @@ func FixDatabaseSchema() {
 		log.Println("Schema Fix: temporary_assignments.created_by added")
 	}
 
-	// 9. Mark attendance as absent for all approved leaves that haven't been marked yet
+	// 9. Create user_notifications table for faculty and other user notifications
+	_, err = config.DB.Exec(`
+		CREATE TABLE IF NOT EXISTS user_notifications (
+			id INT AUTO_INCREMENT PRIMARY KEY,
+			user_id INT NOT NULL,
+			title VARCHAR(255) NOT NULL,
+			message TEXT,
+			type VARCHAR(50) DEFAULT 'general',
+			related_id INT NULL,
+			is_read BOOLEAN DEFAULT FALSE,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		)
+	`)
+	if err != nil {
+		log.Printf("Schema Fix (user_notifications table): %v", err)
+	} else {
+		log.Println("Schema Fix: user_notifications table created/verified")
+	}
+
+	// 10. Mark attendance as absent for all approved leaves that haven't been marked yet
 	fixApprovedLeaveAttendance()
 }
 

@@ -109,6 +109,9 @@ export const AuthProvider = ({children}) => {
       case "STUDENT":
         navigate("/student-dashboard");
         break;
+      case "FACULTY":
+        navigate("/faculty-dashboard");
+        break;
       default:
         navigate("/dashboard");
     }

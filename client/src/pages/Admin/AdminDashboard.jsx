@@ -15,6 +15,7 @@ import AttendanceRecords from "./views/AttendanceRecords";
 import InsuranceFCStatus from "./views/InsuranceFCStatus";
 import FCReplacementManagement from "./views/FCReplacementManagement";
 import AdminStudentTransport from "./views/AdminStudentTransport";
+import CarBookingManagement from "./views/CarBookingManagement";
 import ComingSoon from "./views/ComingSoon";
 
 import {useAuth} from "../../context/AuthContext";
@@ -102,6 +103,10 @@ export default function AdminDashboard() {
             <Route
               path="student-transport"
               element={<AdminStudentTransport />}
+            />
+            <Route
+              path="car-bookings"
+              element={<CarBookingManagement />}
             />
             <Route path="*" element={<AdminHome />} />
           </Routes>

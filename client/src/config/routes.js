@@ -34,6 +34,7 @@ export const driverRoutes = {
     routes: [
         { path: "", element: "dashboard" },
         { path: "assignments", element: "assignments" },
+        { path: "car-bookings", element: "carBookings" },
         { path: "km-log", element: "km-log" },
         { path: "apply-leave", element: "leave" },
         { path: "leave-history", element: "leaveHistory" },
@@ -68,6 +69,18 @@ export const studentRoutes = {
     ],
 };
 
+// Faculty route configuration
+export const facultyRoutes = {
+    basePath: "/faculty-dashboard",
+    allowedRoles: ["FACULTY"],
+    routes: [
+        { path: "", element: "dashboard" },
+        { path: "book-car", element: "bookCar" },
+        { path: "my-bookings", element: "myBookings" },
+        { path: "profile", element: "profile" },
+    ],
+};
+
 // Helper to get active page from URL path
 export const getActivePageFromPath = (pathname, basePath) => {
     const path = pathname.replace(basePath, "").replace(/^\//, "");
@@ -96,6 +109,8 @@ export const getActivePageFromPath = (pathname, basePath) => {
         "my-bus": "myBus",
         "track-bus": "trackBus",
         "bus-pass": "busPass",
+        "book-car": "bookCar",
+        "my-bookings": "myBookings",
     };
 
     return pathToKeyMap[path] || "dashboard";
@@ -106,5 +121,6 @@ export default {
     driverRoutes,
     inchargeRoutes,
     studentRoutes,
+    facultyRoutes,
     getActivePageFromPath,
 };
