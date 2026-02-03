@@ -829,9 +829,9 @@ func GetDriverAssignments(c *gin.Context) {
 			v.vehicle_number,
 			'EV' as vehicle_type,
 			s.id as shift_id,
-			s.name as shift_name,
-			TIME_FORMAT(s.start_time, '%H:%i') as start_time,
-			TIME_FORMAT(s.end_time, '%H:%i') as end_time,
+			COALESCE(s.name, 'EV Duty') as shift_name,
+			COALESCE(TIME_FORMAT(s.start_time, '%H:%i'), TIME_FORMAT(c.start_time, '%H:%i')) as start_time,
+			COALESCE(TIME_FORMAT(s.end_time, '%H:%i'), TIME_FORMAT(c.end_time, '%H:%i')) as end_time,
 			ev.status as assignment_status,
 			c.name as cluster_name
 		FROM ev_assignments ev
@@ -839,7 +839,7 @@ func GetDriverAssignments(c *gin.Context) {
 		JOIN driver_clusters c ON ev.cluster_id = c.id
 		JOIN drivers d ON d.cluster_id = c.id AND d.is_incharge = 0
 		JOIN users u ON d.user_id = u.id
-		LEFT JOIN shifts s ON s.id = c.default_shift_id
+		LEFT JOIN shifts s ON s.id = ev.shift_id
 		WHERE ev.status = 'active'
 		  AND ? BETWEEN ev.start_date AND ev.end_date
 		ORDER BY u.full_name

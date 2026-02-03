@@ -494,15 +494,17 @@ func CheckDriverTimeConflict(driverID int, shiftStartTime, shiftEndTime, checkDa
 		UNION ALL
 
 		-- EV cluster assignments impacting this driver via cluster membership
+		-- Now using shift_id from ev_assignments as cluster timing is redundant
 		SELECT 
-			COALESCE(s.start_time, dc.start_time, '08:00:00') as start_time,
-			COALESCE(s.end_time,   dc.end_time,   '17:00:00') as end_time,
-			NULL as slot_start,
-			NULL as slot_end
+			s.start_time,
+			s.end_time,
+			ss.start_time as slot_start,
+			ss.end_time as slot_end
 		FROM ev_assignments ev
 		JOIN driver_clusters dc ON ev.cluster_id = dc.id
 		JOIN drivers d ON d.cluster_id = dc.id
-		LEFT JOIN shifts s ON s.id = dc.default_shift_id
+		JOIN shifts s ON ev.shift_id = s.id
+		LEFT JOIN shift_slots ss ON s.id = ss.shift_id AND ss.slot_order = 1
 		WHERE d.id = ?
 		AND ? BETWEEN ev.start_date AND ev.end_date
 		AND ev.status IN ('active')
@@ -599,9 +601,9 @@ func getDriverConflictsDetails(driverID int, checkDate string, checkRanges []str
 		
 		UNION ALL
 		
-		SELECT ev.id, v.vehicle_number, v.vehicle_type, COALESCE(s.name, 'EV Duty') as shift_name,
-		       COALESCE(s.start_time, dc.start_time, '08:00:00') as start_time,
-		       COALESCE(s.end_time,   dc.end_time,   '17:00:00') as end_time,
+		SELECT ev.id, v.vehicle_number, v.vehicle_type, 'EV Duty' as shift_name,
+		       COALESCE(dc.start_time, '08:00:00') as start_time,
+		       COALESCE(dc.end_time,   '17:00:00') as end_time,
 		       NULL as slot_start,
 		       NULL as slot_end,
 		       ev.start_date, ev.end_date, 'EV_CLUSTER' as assignment_type
@@ -609,7 +611,6 @@ func getDriverConflictsDetails(driverID int, checkDate string, checkRanges []str
 		JOIN vehicles v ON ev.vehicle_id = v.id
 		JOIN driver_clusters dc ON ev.cluster_id = dc.id
 		JOIN drivers d ON d.cluster_id = dc.id
-		LEFT JOIN shifts s ON s.id = dc.default_shift_id
 		WHERE d.id = ?
 		AND ? BETWEEN ev.start_date AND ev.end_date
 		AND ev.status IN ('active')

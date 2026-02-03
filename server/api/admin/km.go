@@ -148,7 +148,7 @@ func GetDriverAssignedVehicles(c *gin.Context) {
 		JOIN vehicles v ON ev.vehicle_id = v.id
 		JOIN driver_clusters dc ON ev.cluster_id = dc.id
 		JOIN drivers d ON d.cluster_id = dc.id
-		LEFT JOIN shifts s ON dc.default_shift_id = s.id
+		LEFT JOIN shifts s ON s.id = ev.shift_id
 		WHERE d.id = ?
 		AND ev.status = 'active'
 		AND ` + dateFilter + ` BETWEEN ev.start_date AND ev.end_date
