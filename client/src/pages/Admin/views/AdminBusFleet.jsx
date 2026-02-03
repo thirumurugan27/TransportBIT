@@ -547,7 +547,7 @@ export default function AdminBusFleet() {
                                 </span>
                                 <span>{stop.distance_km} km</span>
                                 <span className="font-bold text-green">
-                                  ?{stop.fee}
+                                  ₹{stop.fee}
                                 </span>
                               </div>
                             </div>

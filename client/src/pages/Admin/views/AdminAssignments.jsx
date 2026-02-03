@@ -18,7 +18,7 @@ import {
   Plus,
 } from "lucide-react";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
+const API_BASE = import.meta.env.VITE_API_BASE ;
 
 export default function AdminAssignments() {
   const [activeTab, setActiveTab] = useState("regular"); // regular, temporary, ev, other

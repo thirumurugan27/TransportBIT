@@ -22,6 +22,10 @@ export default function EVAssignmentsList() {
   const [evVehicles, setEvVehicles] = useState([]);
   const [clusters, setClusters] = useState([]);
 
+  // Detail Modal State
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedDetail, setSelectedDetail] = useState(null);
+
   useEffect(() => {
     fetchAssignments();
     fetchDropdowns();
@@ -130,84 +134,65 @@ export default function EVAssignmentsList() {
             <div className="animate-spin inline-block w-8 h-8 border-4 border-current border-t-transparent text-[var(--color-primary)] rounded-full mb-4"></div>
             <p>Loading EV assignments...</p>
           </div>
+        ) : assignments.length === 0 ? (
+          <div className="p-12 text-center text-gray-400">
+            <Zap size={48} className="mx-auto mb-3 opacity-20" />
+            <p>No active EV cluster assignments.</p>
+          </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-100">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Vehicle
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Cluster
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Duration
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Drivers
-                  </th>
-                  <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Action
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {assignments.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan="5"
-                      className="px-6 py-12 text-center text-gray-400"
+          <div className="p-4 grid gap-4">
+            {assignments.map((item) => (
+              <div
+                key={item.id}
+                className="rounded-md border border-gray-100 bg-primarybg p-4 hover:shadow-md transition-all cursor-pointer"
+                onClick={() => {
+                  setSelectedDetail(item);
+                  setShowDetailModal(true);
+                }}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-md flex items-center justify-center text-white bg-pending">
+                      <Zap size={20} />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-primarytext">
+                        {formatVehicleLabel(item)}
+                      </p>
+                      <p className="text-xs text-secondarytext">
+                        {item.vehicle_number}
+                      </p>
+                      <p className="text-sm text-secondarytext">
+                        {item.start_date === item.end_date
+                          ? item.start_date
+                          : `${item.start_date} to ${item.end_date}`}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="px-3 py-1.5 rounded-md bg-primary/10 text-primary text-sm font-medium">
+                      {item.cluster_name}
+                    </span>
+                    <div className="flex items-center gap-2 text-sm text-secondarytext">
+                      <Users size={16} className="text-gray-400" />
+                      <span className="font-medium">
+                        {item.driver_count} Drivers
+                      </span>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(item.id);
+                      }}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                      title="Delete Assignment"
                     >
-                      <Zap size={48} className="mx-auto mb-3 opacity-20" />
-                      <p>No active EV cluster assignments.</p>
-                    </td>
-                  </tr>
-                ) : (
-                  assignments.map((item) => (
-                    <tr
-                      key={item.id}
-                      className="hover:bg-gray-50 transition-colors"
-                    >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2 font-medium text-gray-900">
-                          <Truck size={16} className="text-gray-400" />
-                          {formatVehicleLabel(item)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-[var(--color-primary)] font-medium">
-                        {item.cluster_name}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        <div className="flex items-center gap-2">
-                          <Calendar size={14} className="text-gray-400" />
-                          <span>
-                            {item.start_date}{" "}
-                            <span className="text-gray-400">→</span>{" "}
-                            {item.end_date}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        <div className="flex items-center gap-2">
-                          <Users size={14} className="text-gray-400" />
-                          {item.driver_count} Drivers
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <button
-                          onClick={() => handleDelete(item.id)}
-                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                          title="Delete Assignment"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -215,31 +200,22 @@ export default function EVAssignmentsList() {
       {/* Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-              <div className="flex items-center gap-2">
-                <div className="bg-green-100 p-2 rounded-full">
-                  <Zap
-                    className="text-green-600"
-                    size={20}
-                    fill="currentColor"
-                  />
-                </div>
-                <h3 className="text-lg font-bold text-gray-800">
-                  Assign EV to Cluster
-                </h3>
-              </div>
+          <div className="bg-secondarybg rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in duration-200">
+            <div className="sticky top-0 z-10 bg-secondarybg px-8 py-5 border-b border-gray-100 flex justify-between items-center">
+              <h3 className="text-2xl font-bold text-primarytext">
+                Assign EV to Cluster
+              </h3>
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="text-gray-400 hover:text-gray-600 rounded-full p-1 hover:bg-gray-100 transition-colors"
+                className="text-secondarytext hover:text-primarytext rounded-full p-1 hover:bg-gray-100 transition-colors"
               >
                 <X size={20} />
               </button>
             </div>
 
-            <form onSubmit={handleCreate} className="p-6 space-y-4">
+            <form onSubmit={handleCreate} className="px-8 py-6 space-y-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Select EV Vehicle
                 </label>
                 <select
@@ -248,7 +224,7 @@ export default function EVAssignmentsList() {
                   onChange={(e) =>
                     setNewAssign({...newAssign, vehicle_id: e.target.value})
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                 >
                   <option value="">Choose Vehicle...</option>
                   {evVehicles.map((v) => (
@@ -260,7 +236,7 @@ export default function EVAssignmentsList() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Select Cluster
                 </label>
                 <select
@@ -269,7 +245,7 @@ export default function EVAssignmentsList() {
                   onChange={(e) =>
                     setNewAssign({...newAssign, cluster_id: e.target.value})
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                 >
                   <option value="">Choose Cluster...</option>
                   {clusters.map((c) => (
@@ -280,9 +256,9 @@ export default function EVAssignmentsList() {
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Start Date
                   </label>
                   <input
@@ -292,11 +268,11 @@ export default function EVAssignmentsList() {
                     onChange={(e) =>
                       setNewAssign({...newAssign, start_date: e.target.value})
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
                     End Date
                   </label>
                   <input
@@ -306,27 +282,134 @@ export default function EVAssignmentsList() {
                     onChange={(e) =>
                       setNewAssign({...newAssign, end_date: e.target.value})
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                   />
                 </div>
               </div>
 
-              <div className="pt-4 flex justify-end gap-3">
+              <div className="pt-4 border-t border-gray-100 flex justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+                  className="px-6 py-3 text-secondarytext bg-primarybg border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[var(--color-primary)] text-white rounded-md hover:opacity-90 transition-colors flex items-center gap-2"
+                  className="px-6 py-3 bg-primary text-secondarybg rounded-lg hover:bg-primarydull transition-colors font-semibold shadow-sm flex items-center gap-2"
                 >
                   <Plus size={18} /> Assign Cluster
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Detail Modal */}
+      {showDetailModal && selectedDetail && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => setShowDetailModal(false)}
+        >
+          <div
+            className="bg-secondarybg rounded-xl shadow-xl w-full max-w-2xl animate-in fade-in zoom-in duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-8 py-5 border-b border-gray-100 flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <div className="bg-green-100 p-2 rounded-full">
+                  <Zap
+                    className="text-green-600"
+                    size={20}
+                    fill="currentColor"
+                  />
+                </div>
+                <h3 className="text-2xl font-bold text-primarytext">
+                  EV Assignment Details
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowDetailModal(false)}
+                className="text-secondarytext hover:text-primarytext rounded-full p-1 hover:bg-gray-100 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="px-8 py-6 space-y-6">
+              <div>
+                <label className="block text-xs font-semibold text-secondarytext uppercase tracking-wider mb-2">
+                  EV Vehicle
+                </label>
+                <div className="flex items-center gap-2 px-4 py-3 bg-green-50 border border-green-200 rounded-lg">
+                  <Truck size={16} className="text-green-600" />
+                  <span className="text-gray-900 font-medium font-mono">
+                    {formatVehicleLabel(selectedDetail)}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-secondarytext uppercase tracking-wider mb-2">
+                  Assigned Cluster
+                </label>
+                <div className="flex items-center gap-2 px-4 py-3 bg-primarybg border border-gray-200 rounded-lg">
+                  <Users size={16} className="text-primary" />
+                  <span className="text-gray-900 font-medium">
+                    {selectedDetail.cluster_name}
+                  </span>
+                  <span className="ml-auto text-sm text-secondarytext">
+                    {selectedDetail.driver_count} drivers
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-xs font-semibold text-secondarytext uppercase tracking-wider mb-2">
+                    Start Date
+                  </label>
+                  <div className="flex items-center gap-2 px-4 py-3 bg-primarybg border border-gray-200 rounded-lg">
+                    <Calendar size={16} className="text-primary" />
+                    <span className="text-gray-900 font-medium">
+                      {selectedDetail.start_date}
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-secondarytext uppercase tracking-wider mb-2">
+                    End Date
+                  </label>
+                  <div className="flex items-center gap-2 px-4 py-3 bg-primarybg border border-gray-200 rounded-lg">
+                    <Calendar size={16} className="text-primary" />
+                    <span className="text-gray-900 font-medium">
+                      {selectedDetail.end_date}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-gray-100 flex justify-end gap-3">
+                <button
+                  onClick={() => setShowDetailModal(false)}
+                  className="px-6 py-3 text-secondarytext bg-primarybg border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors font-medium"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowDetailModal(false);
+                    handleDelete(selectedDetail.id);
+                  }}
+                  className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-semibold shadow-sm flex items-center gap-2"
+                >
+                  <Trash2 size={18} /> Delete Assignment
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

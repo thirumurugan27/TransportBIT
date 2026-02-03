@@ -23,6 +23,23 @@ import SearchableSelect from "../../../components/ui/SearchableSelect";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
+const getAuthHeaders = () => {
+  const token = localStorage.getItem("token");
+  return token ? {Authorization: `Bearer ${token}`} : {};
+};
+
+const getCreatorIdFromToken = () => {
+  const token = localStorage.getItem("token");
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    const id = payload?.user_id;
+    return typeof id === "number" ? id : null;
+  } catch {
+    return null;
+  }
+};
+
 // Helper to convert 24h time to 12h AM/PM format
 const formatTimeAMPM = (time24) => {
   if (!time24) return "";
@@ -37,6 +54,7 @@ export default function Assignments() {
   const {showToast} = useToast();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("bus"); // bus, car, ev
+  const [openTempModal, setOpenTempModal] = useState(false);
 
   // Data
   const [busAssignments, setBusAssignments] = useState([]);
@@ -186,12 +204,14 @@ export default function Assignments() {
     const payload = {
       ...assignmentForm,
       force_assign: forceAssign,
+      created_by: getCreatorIdFromToken() || undefined,
     };
 
     try {
       const res = await fetch(endpoint, {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
+        credentials: "include",
+        headers: {"Content-Type": "application/json", ...getAuthHeaders()},
         body: JSON.stringify(payload),
       });
 
@@ -248,12 +268,14 @@ export default function Assignments() {
     const payload = {
       ...conflictPendingForm,
       force_assign: true,
+      created_by: getCreatorIdFromToken() || undefined,
     };
 
     try {
       const res = await fetch(endpoint, {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
+        credentials: "include",
+        headers: {"Content-Type": "application/json", ...getAuthHeaders()},
         body: JSON.stringify(payload),
       });
 
@@ -325,11 +347,7 @@ export default function Assignments() {
   };
 
   // Check vehicle availability and update availability map
-  const checkVehicleAvailability = async (
-    vehicleList,
-    shiftId,
-    startDate,
-  ) => {
+  const checkVehicleAvailability = async (vehicleList, shiftId, startDate) => {
     if (!shiftId || !startDate) return;
 
     const availabilityPromises = vehicleList.map(async (vehicle) => {
@@ -363,7 +381,12 @@ export default function Assignments() {
 
   // Check availability when shift or date changes for create modal
   useEffect(() => {
-    if (showCreateModal && createModalType !== "ev" && assignmentForm.shift_id && assignmentForm.start_date) {
+    if (
+      showCreateModal &&
+      createModalType !== "ev" &&
+      assignmentForm.shift_id &&
+      assignmentForm.start_date
+    ) {
       checkDriverAvailability(
         availableDrivers,
         assignmentForm.shift_id,
@@ -371,11 +394,22 @@ export default function Assignments() {
         assignmentForm.end_date,
       );
     }
-  }, [showCreateModal, assignmentForm.shift_id, assignmentForm.start_date, assignmentForm.end_date, availableDrivers]);
+  }, [
+    showCreateModal,
+    assignmentForm.shift_id,
+    assignmentForm.start_date,
+    assignmentForm.end_date,
+    availableDrivers,
+  ]);
 
   // Check vehicle availability when shift or date changes in create modal
   useEffect(() => {
-    if (showCreateModal && assignmentForm.shift_id && assignmentForm.start_date && vehicles.length > 0) {
+    if (
+      showCreateModal &&
+      assignmentForm.shift_id &&
+      assignmentForm.start_date &&
+      vehicles.length > 0
+    ) {
       const filteredVehicles = vehicles.filter(
         (v) =>
           v.vehicle_type === createModalType?.toUpperCase() ||
@@ -387,7 +421,13 @@ export default function Assignments() {
         assignmentForm.start_date,
       );
     }
-  }, [showCreateModal, assignmentForm.shift_id, assignmentForm.start_date, vehicles, createModalType]);
+  }, [
+    showCreateModal,
+    assignmentForm.shift_id,
+    assignmentForm.start_date,
+    vehicles,
+    createModalType,
+  ]);
 
   // Check availability when conflict modal opens
   useEffect(() => {
@@ -599,13 +639,24 @@ export default function Assignments() {
               <Plus size={16} /> New EV Assignment
             </button>
           )}
+          {activeTab === "temporary" && (
+            <button
+              onClick={() => {
+                setOpenTempModal(true);
+                setTimeout(() => setOpenTempModal(false), 100);
+              }}
+              className="px-4 py-2.5 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors font-medium shadow-sm flex items-center gap-2"
+            >
+              <Plus size={16} /> Create Temporary Assignment
+            </button>
+          )}
         </div>
       </div>
 
       {/* Content */}
       <div className="bg-secondarybg rounded-md border border-gray-100 shadow-sm overflow-hidden min-h-[400px]">
         {activeTab === "temporary" ? (
-          <TemporaryAssignments />
+          <TemporaryAssignments openModal={openTempModal} />
         ) : loading ? (
           <div className="p-12 text-center text-secondarytext">
             Loading assignments...
@@ -626,7 +677,12 @@ export default function Assignments() {
               ).map((a) => (
                 <div
                   key={a.id}
-                  className="rounded-md border border-gray-100 bg-primarybg p-4 hover:shadow-md transition-all"
+                  className="rounded-md border border-gray-100 bg-primarybg p-4 hover:shadow-md transition-all cursor-pointer"
+                  onClick={() => {
+                    if (activeTab === "ev") {
+                      fetchEvDetails(a.id);
+                    }
+                  }}
                 >
                   <div className="flex flex-wrap items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
@@ -743,16 +799,11 @@ export default function Assignments() {
                         </div>
                       )}
 
-                    <div className="flex gap-2">
-                      {activeTab === "ev" && (
-                        <button
-                          onClick={() => fetchEvDetails(a.id)}
-                          className="px-3 py-2 bg-pending/10 text-pending rounded-md hover:bg-pending/20 transition-colors text-sm font-medium flex items-center gap-1.5"
-                        >
-                          <Eye size={14} /> Details
-                        </button>
-                      )}
-                      {activeTab !== "ev" && (
+                    {activeTab !== "ev" && (
+                      <div
+                        className="flex gap-2"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <button
                           onClick={() => {
                             setReassignModal(a);
@@ -763,14 +814,14 @@ export default function Assignments() {
                         >
                           <RefreshCw size={14} /> Reassign
                         </button>
-                      )}
-                      <button
-                        onClick={() => handleDelete(a.id, activeTab === "ev")}
-                        className="px-3 py-2 bg-red/10 text-red rounded-md hover:bg-red/20 transition-colors text-sm font-medium flex items-center gap-1.5"
-                      >
-                        <Trash2 size={14} /> Delete
-                      </button>
-                    </div>
+                        <button
+                          onClick={() => handleDelete(a.id, false)}
+                          className="px-3 py-2 bg-red/10 text-red rounded-md hover:bg-red/20 transition-colors text-sm font-medium flex items-center gap-1.5"
+                        >
+                          <Trash2 size={14} /> Delete
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))
@@ -790,11 +841,11 @@ export default function Assignments() {
           onClick={() => setShowCreateModal(false)}
         >
           <div
-            className="bg-secondarybg rounded-md shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
+            className="bg-secondarybg rounded-xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-primarytext">
+            <div className="sticky top-0 z-10 bg-secondarybg px-8 py-5 border-b border-gray-100 flex justify-between items-center">
+              <h3 className="text-2xl font-bold text-primarytext">
                 Create {createModalType.toUpperCase()} Assignment
               </h3>
               <button
@@ -804,7 +855,7 @@ export default function Assignments() {
                 <X size={20} />
               </button>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="px-8 py-6 space-y-6 relative">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1">
@@ -823,12 +874,12 @@ export default function Assignments() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
                     End Date
                   </label>
                   <input
                     type="date"
-                    className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                     value={assignmentForm.end_date}
                     min={assignmentForm.start_date}
                     onChange={(e) =>
@@ -842,7 +893,7 @@ export default function Assignments() {
               </div>
               {createModalType !== "ev" && (
                 <div>
-                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Shift
                   </label>
                   <SearchableSelect
@@ -875,7 +926,7 @@ export default function Assignments() {
                 </div>
               )}
               <div>
-                <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Vehicle
                 </label>
                 <SearchableSelect
@@ -896,24 +947,34 @@ export default function Assignments() {
                     )
                     .map((v) => {
                       const availability = vehicleAvailabilityMap[v.id];
-                      const hasAvailabilityData = assignmentForm.shift_id > 0 && assignmentForm.start_date && availability !== undefined;
-                      const isAvailable = hasAvailabilityData ? availability?.available !== false : true;
-                      
+                      const hasAvailabilityData =
+                        assignmentForm.shift_id > 0 &&
+                        assignmentForm.start_date &&
+                        availability !== undefined;
+                      const isAvailable = hasAvailabilityData
+                        ? availability?.available !== false
+                        : true;
+
                       // Build conflict info for subtitle
                       let conflictInfo = `${v.vehicle_number} • ${v.vehicle_type}`;
-                      if (hasAvailabilityData && !isAvailable && availability?.conflicts?.length > 0) {
+                      if (
+                        hasAvailabilityData &&
+                        !isAvailable &&
+                        availability?.conflicts?.length > 0
+                      ) {
                         const conflict = availability.conflicts[0];
                         conflictInfo = `${v.vehicle_number} • Assigned: ${conflict.start_date} to ${conflict.end_date}`;
                       }
-                      
+
                       return {
                         value: v.id,
                         label: v.bus_name || v.vehicle_number,
                         subtitle: conflictInfo,
                         available: isAvailable,
-                        availableText: hasAvailabilityData && !isAvailable 
-                          ? `Assigned to ${availability.conflicts?.[0]?.driver_name || 'driver'}` 
-                          : undefined,
+                        availableText:
+                          hasAvailabilityData && !isAvailable
+                            ? `Assigned to ${availability.conflicts?.[0]?.driver_name || "driver"}`
+                            : undefined,
                       };
                     })}
                   emptyMessage="No vehicles available"
@@ -921,7 +982,7 @@ export default function Assignments() {
               </div>
               {createModalType === "ev" ? (
                 <div>
-                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Driver Group
                   </label>
                   <SearchableSelect
@@ -965,7 +1026,7 @@ export default function Assignments() {
                 </div>
               ) : (
                 <div>
-                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Driver
                   </label>
                   <SearchableSelect
@@ -981,27 +1042,38 @@ export default function Assignments() {
                     options={availableDrivers.map((d) => {
                       const driverId = d.driver_id || d.id;
                       const availability = driverAvailabilityMap[driverId];
-                      const hasAvailabilityData = assignmentForm.shift_id > 0 && assignmentForm.start_date && availability !== undefined;
+                      const hasAvailabilityData =
+                        assignmentForm.shift_id > 0 &&
+                        assignmentForm.start_date &&
+                        availability !== undefined;
                       return {
                         value: driverId,
                         label: d.driver_name || d.full_name,
                         subtitle: d.license_type
                           ? `License: ${d.license_type}`
                           : undefined,
-                        available: hasAvailabilityData ? availability?.available !== false : true,
-                        availableText: hasAvailabilityData && availability?.available === false ? "Has Conflict" : undefined,
+                        available: hasAvailabilityData
+                          ? availability?.available !== false
+                          : true,
+                        availableText:
+                          hasAvailabilityData &&
+                          availability?.available === false
+                            ? "Has Conflict"
+                            : undefined,
                       };
                     })}
                     emptyMessage="No drivers available"
                   />
                 </div>
               )}
-              <button
-                onClick={() => handleCreate()}
-                className="w-full bg-primary text-white rounded-md py-2.5 font-medium hover:bg-primary/90 transition-colors"
-              >
-                Create Assignment
-              </button>
+              <div className="pt-4 border-t border-gray-100">
+                <button
+                  onClick={() => handleCreate()}
+                  className="w-full bg-primary text-white rounded-lg py-3 font-semibold hover:bg-primary/90 transition-colors shadow-sm"
+                >
+                  Create Assignment
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1047,7 +1119,10 @@ export default function Assignments() {
                     ? `License: ${d.license_type}`
                     : undefined,
                   available: availability?.available !== false,
-                  availableText: availability?.available === false ? "Has Conflict" : undefined,
+                  availableText:
+                    availability?.available === false
+                      ? "Has Conflict"
+                      : undefined,
                 };
               })}
               emptyMessage="No drivers available"

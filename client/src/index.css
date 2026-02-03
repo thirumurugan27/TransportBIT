@@ -26,23 +26,24 @@ body {
   color: #111827;
 }
 
-/* Custom scrollbar - Rose theme */
+/* Custom scrollbar - Subtle gray theme */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: #f3f4f6;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #9f74f7;
-  border-radius: 3px;
+  background: #d1d5db;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #7d53f6;
+  background: #9ca3af;
 }
 
 /* Smooth scrolling */

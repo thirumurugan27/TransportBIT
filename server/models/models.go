@@ -144,6 +144,7 @@ type ShiftSlot struct {
 	StartTime string `json:"start_time"`
 	EndTime   string `json:"end_time"`
 	SlotOrder int    `json:"slot_order"`
+	CreatedBy *int   `json:"created_by,omitempty"`
 }
 
 type SlotInput struct {
@@ -173,7 +174,7 @@ type Assignment struct {
 	IsTemporaryReplacement bool   `json:"is_temporary_replacement"`
 	OriginalDriverID       *int   `json:"original_driver_id"`
 	CreatedBy              *int   `json:"created_by"`
-	CreatedAt              string `json:"created_at"`
+	CreatedAt              string `json:"created_at,omitempty"`
 	// Joined fields
 	ShiftName          string `json:"shift_name"`
 	StartTime          string `json:"start_time"`
@@ -196,6 +197,7 @@ type CreateAssignmentRequest struct {
 	VehicleCategory        string `json:"vehicle_category"` // BUS, CAR
 	IsTemporaryReplacement bool   `json:"is_temporary_replacement"`
 	OriginalDriverID       *int   `json:"original_driver_id"`
+	CreatedBy              *int   `json:"created_by,omitempty"`
 	// If true, create even when a time conflict exists
 	ForceAssign bool `json:"force_assign"`
 }
@@ -218,6 +220,7 @@ type TemporaryAssignment struct {
 	ShiftName             string `json:"shift_name"`
 	StartTime             string `json:"start_time"`
 	EndTime               string `json:"end_time"`
+	Slots                 []ShiftSlot `json:"slots,omitempty"`
 	VehicleNumber         string `json:"vehicle_number"`
 	VehicleType           string `json:"vehicle_type"`
 	BusName               string `json:"bus_name"`
@@ -231,6 +234,7 @@ type CreateTemporaryAssignmentRequest struct {
 	StartDate           string `json:"start_date"`
 	EndDate             string `json:"end_date"`
 	Reason              string `json:"reason"`
+	CreatedBy           *int   `json:"created_by,omitempty"`
 }
 
 /* =========================

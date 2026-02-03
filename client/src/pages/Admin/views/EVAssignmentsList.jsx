@@ -12,15 +12,21 @@ export default function EVAssignmentsList() {
   // Modal State
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newAssign, setNewAssign] = useState({
-    vehicle_id: "",
+    vehicle_group_id: "",
     cluster_id: "",
+    shift_id: "",
     start_date: "",
     end_date: "",
   });
 
   // Dropdowns
-  const [evVehicles, setEvVehicles] = useState([]);
   const [clusters, setClusters] = useState([]);
+  const [shifts, setShifts] = useState([]);
+  const [vehicleGroups, setVehicleGroups] = useState([]);
+
+  // Detail Modal State
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedDetail, setSelectedDetail] = useState(null);
 
   useEffect(() => {
     fetchAssignments();
@@ -43,13 +49,17 @@ export default function EVAssignmentsList() {
 
   const fetchDropdowns = async () => {
     try {
-      // Fetch EV vehicles
-      const vRes = await fetch(`${API_BASE}/api/admin/ev-vehicles`);
-      if (vRes.ok) setEvVehicles(await vRes.json());
-
       // Fetch Clusters
       const cRes = await fetch(`${API_BASE}/api/admin/clusters`);
       if (cRes.ok) setClusters(await cRes.json());
+
+      // Fetch Shifts
+      const sRes = await fetch(`${API_BASE}/api/admin/shifts`);
+      if (sRes.ok) setShifts(await sRes.json());
+
+      // Fetch Vehicle Groups
+      const vgRes = await fetch(`${API_BASE}/api/admin/vehicle-groups`);
+      if (vgRes.ok) setVehicleGroups(await vgRes.json());
     } catch (err) {
       console.error(err);
     }
@@ -58,23 +68,30 @@ export default function EVAssignmentsList() {
   const handleCreate = async (e) => {
     e.preventDefault();
     try {
+      const payload = {
+        vehicle_group_id: parseInt(newAssign.vehicle_group_id),
+        cluster_id: parseInt(newAssign.cluster_id),
+        start_date: newAssign.start_date,
+        end_date: newAssign.end_date,
+        shift_id: parseInt(newAssign.shift_id),
+      };
+
+      if (!newAssign.vehicle_group_id)
+        return showError("Error", "Please select a vehicle group");
+
       const res = await fetch(`${API_BASE}/api/admin/ev-assignments/create`, {
         method: "POST",
         headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-          vehicle_id: parseInt(newAssign.vehicle_id),
-          cluster_id: parseInt(newAssign.cluster_id),
-          start_date: newAssign.start_date,
-          end_date: newAssign.end_date,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
         setShowCreateModal(false);
         fetchAssignments();
         setNewAssign({
-          vehicle_id: "",
+          vehicle_group_id: "",
           cluster_id: "",
+          shift_id: "",
           start_date: "",
           end_date: "",
         });
@@ -130,84 +147,81 @@ export default function EVAssignmentsList() {
             <div className="animate-spin inline-block w-8 h-8 border-4 border-current border-t-transparent text-[var(--color-primary)] rounded-full mb-4"></div>
             <p>Loading EV assignments...</p>
           </div>
+        ) : assignments.length === 0 ? (
+          <div className="p-12 text-center text-gray-400">
+            <Zap size={48} className="mx-auto mb-3 opacity-20" />
+            <p>No active EV cluster assignments.</p>
+          </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-100">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Vehicle
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Cluster
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Duration
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Drivers
-                  </th>
-                  <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Action
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {assignments.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan="5"
-                      className="px-6 py-12 text-center text-gray-400"
-                    >
-                      <Zap size={48} className="mx-auto mb-3 opacity-20" />
-                      <p>No active EV cluster assignments.</p>
-                    </td>
-                  </tr>
-                ) : (
-                  assignments.map((item) => (
-                    <tr
-                      key={item.id}
-                      className="hover:bg-gray-50 transition-colors"
-                    >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2 font-medium text-gray-900">
-                          <Truck size={16} className="text-gray-400" />
-                          {formatVehicleLabel(item)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-[var(--color-primary)] font-medium">
-                        {item.cluster_name}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        <div className="flex items-center gap-2">
-                          <Calendar size={14} className="text-gray-400" />
-                          <span>
-                            {item.start_date}{" "}
-                            <span className="text-gray-400">→</span>{" "}
-                            {item.end_date}
+          <div className="p-4 grid gap-4">
+            {assignments.map((item) => (
+              <div
+                key={item.id}
+                className="rounded-md border border-gray-100 bg-primarybg p-4 hover:shadow-md transition-all cursor-pointer"
+                onClick={() => {
+                  setSelectedDetail(item);
+                  setShowDetailModal(true);
+                }}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-md flex items-center justify-center text-white bg-pending">
+                      <Zap size={20} />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-primarytext">
+                        {item.vehicle_group_name
+                          ? `Group: ${item.vehicle_group_name}`
+                          : formatVehicleLabel(item)}
+                      </p>
+                      <p className="text-xs text-secondarytext">
+                        {item.vehicle_group_name
+                          ? `${item.vehicle_count} Vehicles`
+                          : item.vehicle_number}
+                      </p>
+                      <p className="text-sm text-secondarytext">
+                        {item.start_date === item.end_date
+                          ? item.start_date
+                          : `${item.start_date} to ${item.end_date}`}
+                      </p>
+                      {item.shift_name && (
+                        <div className="flex items-center gap-1 mt-1">
+                          <span className="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-600 font-medium">
+                            Shift: {item.shift_name}
                           </span>
+                          {item.shift_slot_time && (
+                            <span className="text-xs px-2 py-0.5 rounded bg-purple-50 text-purple-600 font-medium">
+                              Slot: {item.shift_slot_time}
+                            </span>
+                          )}
                         </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        <div className="flex items-center gap-2">
-                          <Users size={14} className="text-gray-400" />
-                          {item.driver_count} Drivers
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <button
-                          onClick={() => handleDelete(item.id)}
-                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                          title="Delete Assignment"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="px-3 py-1.5 rounded-md bg-primary/10 text-primary text-sm font-medium">
+                      {item.cluster_name}
+                    </span>
+                    <div className="flex items-center gap-2 text-sm text-secondarytext">
+                      <Users size={16} className="text-gray-400" />
+                      <span className="font-medium">
+                        {item.driver_count} Drivers
+                      </span>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(item.id);
+                      }}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                      title="Delete Assignment"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -240,20 +254,23 @@ export default function EVAssignmentsList() {
             <form onSubmit={handleCreate} className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Select EV Vehicle
+                  Select Vehicle Group
                 </label>
                 <select
                   required
-                  value={newAssign.vehicle_id}
+                  value={newAssign.vehicle_group_id}
                   onChange={(e) =>
-                    setNewAssign({...newAssign, vehicle_id: e.target.value})
+                    setNewAssign({
+                      ...newAssign,
+                      vehicle_group_id: e.target.value,
+                    })
                   }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                 >
-                  <option value="">Choose Vehicle...</option>
-                  {evVehicles.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {formatVehicleLabel(v)} ({v.seating_capacity} seats)
+                  <option value="">Choose Group...</option>
+                  {vehicleGroups.map((vg) => (
+                    <option key={vg.id} value={vg.id}>
+                      {vg.name} ({vg.vehicle_count || 0} vehicles)
                     </option>
                   ))}
                 </select>
@@ -261,7 +278,7 @@ export default function EVAssignmentsList() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Select Cluster
+                  Select Cluster (Drivers)
                 </label>
                 <select
                   required
@@ -275,6 +292,26 @@ export default function EVAssignmentsList() {
                   {clusters.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name} ({c.driver_count || 0} drivers)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Select Shift (Optional)
+                </label>
+                <select
+                  value={newAssign.shift_id}
+                  onChange={(e) =>
+                    setNewAssign({...newAssign, shift_id: e.target.value})
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                >
+                  <option value="">Use Cluster Default</option>
+                  {shifts.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} ({s.start_time} - {s.end_time})
                     </option>
                   ))}
                 </select>
@@ -327,6 +364,145 @@ export default function EVAssignmentsList() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Detail Modal */}
+      {showDetailModal && selectedDetail && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => setShowDetailModal(false)}
+        >
+          <div
+            className="bg-secondarybg rounded-xl shadow-xl w-full max-w-2xl animate-in fade-in zoom-in duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-8 py-5 border-b border-gray-100 flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <div className="bg-green-100 p-2 rounded-full">
+                  <Zap
+                    className="text-green-600"
+                    size={20}
+                    fill="currentColor"
+                  />
+                </div>
+                <h3 className="text-2xl font-bold text-primarytext">
+                  EV Assignment Details
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowDetailModal(false)}
+                className="text-secondarytext hover:text-primarytext rounded-full p-1 hover:bg-gray-100 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="px-8 py-6 space-y-6">
+              <div>
+                <label className="block text-xs font-semibold text-secondarytext uppercase tracking-wider mb-2">
+                  EV{" "}
+                  {selectedDetail.vehicle_group_name
+                    ? "Vehicle Group"
+                    : "Vehicle"}
+                </label>
+                <div className="flex flex-col gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Truck size={16} className="text-green-600" />
+                    <span className="text-gray-900 font-medium font-mono">
+                      {selectedDetail.vehicle_group_name ||
+                        formatVehicleLabel(selectedDetail)}
+                    </span>
+                  </div>
+                  {selectedDetail.vehicles &&
+                    selectedDetail.vehicles.length > 0 &&
+                    selectedDetail.vehicle_group_name && (
+                      <div className="mt-2 text-sm text-gray-600 pl-6 border-l-2 border-green-200">
+                        {selectedDetail.vehicles
+                          .map((v) => v.vehicle_number)
+                          .join(", ")}
+                      </div>
+                    )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-secondarytext uppercase tracking-wider mb-2">
+                  Assigned Cluster
+                </label>
+                <div className="flex items-center gap-2 px-4 py-3 bg-primarybg border border-gray-200 rounded-lg">
+                  <Users size={16} className="text-primary" />
+                  <span className="text-gray-900 font-medium">
+                    {selectedDetail.cluster_name}
+                  </span>
+                  <span className="ml-auto text-sm text-secondarytext">
+                    {selectedDetail.driver_count} drivers
+                  </span>
+                </div>
+              </div>
+
+              {selectedDetail.shift_name && (
+                <div>
+                  <label className="block text-xs font-semibold text-secondarytext uppercase tracking-wider mb-2">
+                    Shift
+                  </label>
+                  <div className="flex items-center gap-2 px-4 py-3 bg-primarybg border border-gray-200 rounded-lg">
+                    <Calendar
+                      size={16}
+                      className="text-[var(--color-primary)]"
+                    />
+                    <span className="text-gray-900 font-medium">
+                      {selectedDetail.shift_name}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-xs font-semibold text-secondarytext uppercase tracking-wider mb-2">
+                    Start Date
+                  </label>
+                  <div className="flex items-center gap-2 px-4 py-3 bg-primarybg border border-gray-200 rounded-lg">
+                    <Calendar size={16} className="text-primary" />
+                    <span className="text-gray-900 font-medium">
+                      {selectedDetail.start_date}
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-secondarytext uppercase tracking-wider mb-2">
+                    End Date
+                  </label>
+                  <div className="flex items-center gap-2 px-4 py-3 bg-primarybg border border-gray-200 rounded-lg">
+                    <Calendar size={16} className="text-primary" />
+                    <span className="text-gray-900 font-medium">
+                      {selectedDetail.end_date}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-gray-100 flex justify-end gap-3">
+                <button
+                  onClick={() => setShowDetailModal(false)}
+                  className="px-6 py-3 text-secondarytext bg-primarybg border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors font-medium"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowDetailModal(false);
+                    handleDelete(selectedDetail.id);
+                  }}
+                  className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-semibold shadow-sm flex items-center gap-2"
+                >
+                  <Trash2 size={18} /> Delete Assignment
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

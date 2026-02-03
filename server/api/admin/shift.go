@@ -5,9 +5,37 @@ import (
 
 	"transport-server/config"
 	"transport-server/models"
+	"transport-server/utils"
 
 	"github.com/gin-gonic/gin"
 )
+
+func getUserIDFromRequest(c *gin.Context) *int {
+	// Try header first
+	tokenStr := c.GetHeader("Authorization")
+	if tokenStr == "" {
+		// Try cookie
+		var err error
+		tokenStr, err = c.Cookie("TRANSPORT_AUTH")
+		if err != nil {
+			return nil
+		}
+	} else if len(tokenStr) > 7 && tokenStr[:7] == "Bearer " {
+		tokenStr = tokenStr[7:]
+	}
+
+	claims, err := utils.ParseJWT(tokenStr)
+	if err != nil || claims == nil {
+		return nil
+	}
+
+	userIDFloat, ok := claims["user_id"].(float64)
+	if !ok {
+		return nil
+	}
+	userID := int(userIDFloat)
+	return &userID
+}
 
 /* =========================
    SHIFT HANDLERS
@@ -31,11 +59,11 @@ func GetAllShifts(c *gin.Context) {
 		rows.Scan(&s.ID, &s.Name, &s.StartTime, &s.EndTime, &s.Description, &s.CreatedBy)
 
 		// load slots for this shift (if any)
-		slotRows, _ := config.DB.Query(`SELECT id, shift_id, start_time, end_time, slot_order FROM shift_slots WHERE shift_id=? ORDER BY slot_order ASC`, s.ID)
+		slotRows, _ := config.DB.Query(`SELECT id, shift_id, start_time, end_time, slot_order, created_by FROM shift_slots WHERE shift_id=? ORDER BY slot_order ASC`, s.ID)
 		var slots []models.ShiftSlot
 		for slotRows.Next() {
 			var sl models.ShiftSlot
-			slotRows.Scan(&sl.ID, &sl.ShiftID, &sl.StartTime, &sl.EndTime, &sl.SlotOrder)
+			slotRows.Scan(&sl.ID, &sl.ShiftID, &sl.StartTime, &sl.EndTime, &sl.SlotOrder, &sl.CreatedBy)
 			slots = append(slots, sl)
 		}
 		slotRows.Close()
@@ -63,6 +91,8 @@ func CreateShift(c *gin.Context) {
 		return
 	}
 
+	createdBy := getUserIDFromRequest(c)
+
 	// 1. Create the Shift
 	// Use the first slot as the shift's main time, or default
 	startTime := "08:00:00"
@@ -73,9 +103,9 @@ func CreateShift(c *gin.Context) {
 	}
 
 	res, err := config.DB.Exec(`
-		INSERT INTO shifts (name, start_time, end_time, description)
-		VALUES (?, ?, ?, ?)
-	`, req.Name, startTime, endTime, req.Description)
+		INSERT INTO shifts (name, start_time, end_time, description, created_by)
+		VALUES (?, ?, ?, ?, ?)
+	`, req.Name, startTime, endTime, req.Description, createdBy)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -87,9 +117,9 @@ func CreateShift(c *gin.Context) {
 	// 2. Insert Slots
 	for i, slot := range req.Slots {
 		_, err := config.DB.Exec(`
-			INSERT INTO shift_slots (shift_id, start_time, end_time, slot_order)
-			VALUES (?, ?, ?, ?)
-		`, shiftID, slot.StartTime, slot.EndTime, i+1)
+			INSERT INTO shift_slots (shift_id, start_time, end_time, slot_order, created_by)
+			VALUES (?, ?, ?, ?, ?)
+		`, shiftID, slot.StartTime, slot.EndTime, i+1, createdBy)
 		
 		if err != nil {
 			// In production, handle error

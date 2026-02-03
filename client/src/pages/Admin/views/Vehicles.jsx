@@ -84,6 +84,7 @@ export default function Vehicles() {
     insurance_expire_date: "",
     fc_expire_date: "",
     permit_expire_date: "",
+    status: "available",
   };
   const [vehicleForm, setVehicleForm] = useState(initialFormState);
 
@@ -126,12 +127,19 @@ export default function Vehicles() {
       vehicle_number: vehicle.vehicle_number,
       seating_capacity: vehicle.seating_capacity,
       fuel_type: vehicle.fuel_type,
+      status: vehicle.status || "available",
       bus_name: vehicle.bus_name || "",
       start_point: vehicle.start_point || "",
       end_point: vehicle.end_point || "",
-      insurance_expire_date: vehicle.insurance_expire_date || "",
-      fc_expire_date: vehicle.fc_expire_date || "",
-      permit_expire_date: vehicle.permit_expire_date || "",
+      insurance_expire_date: vehicle.insurance_expire_date
+        ? vehicle.insurance_expire_date.split("T")[0]
+        : "",
+      fc_expire_date: vehicle.fc_expire_date
+        ? vehicle.fc_expire_date.split("T")[0]
+        : "",
+      permit_expire_date: vehicle.permit_expire_date
+        ? vehicle.permit_expire_date.split("T")[0]
+        : "",
     });
     setEditingId(vehicle.id);
     setIsEditing(true);
@@ -167,7 +175,9 @@ export default function Vehicles() {
     if (
       !vehicleForm.vehicle_type ||
       !vehicleForm.vehicle_number ||
-      !vehicleForm.seating_capacity ||
+      vehicleForm.seating_capacity === null ||
+      vehicleForm.seating_capacity === undefined ||
+      vehicleForm.seating_capacity === "" ||
       !vehicleForm.fuel_type
     ) {
       showError("Error", "Please fill all required fields");
@@ -333,7 +343,7 @@ export default function Vehicles() {
   return (
     <div className="space-y-6">
       {/* View Mode Toggle */}
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between">
         <div className="flex bg-secondarybg rounded-md border border-gray-200 p-1 gap-1">
           <button
             onClick={() => setViewMode("fleet")}
@@ -366,6 +376,17 @@ export default function Vehicles() {
             )}
           </button>
         </div>
+        <button
+          onClick={() => {
+            setIsEditing(false);
+            setVehicleForm(initialFormState);
+            setShowCreateModal(true);
+          }}
+          className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-md hover:bg-primarydull transition-colors font-medium shadow-sm"
+        >
+          <Plus size={18} />
+          Add New Vehicle
+        </button>
       </div>
 
       {/* Stats Section */}
@@ -453,28 +474,7 @@ export default function Vehicles() {
         </div>
       </div>
 
-      {/* Action Header */}
-      <div className="flex justify-between items-center bg-secondarybg p-5 rounded-md border border-gray-200 shadow-sm">
-        <div>
-          <h2 className="text-xl font-bold text-primarytext">
-            Vehicle Management
-          </h2>
-          <p className="text-sm text-secondarytext">
-            Manage your entire fleet and assets
-          </p>
-        </div>
-        <button
-          onClick={() => {
-            setIsEditing(false);
-            setVehicleForm(initialFormState);
-            setShowCreateModal(true);
-          }}
-          className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-md hover:bg-primarydull transition-colors font-medium shadow-sm"
-        >
-          <Plus size={18} />
-          Add New Vehicle
-        </button>
-      </div>
+      {/* Action Header - REMOVED */}
 
       {/* Filters */}
       <div className="flex flex-col md:flex-row gap-4">
@@ -1012,17 +1012,23 @@ export default function Vehicles() {
                             className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full border ${
                               v.status === "available"
                                 ? "bg-green/10 text-green border-green/20"
-                                : "bg-pending/10 text-pending border-pending/20"
+                                : v.status === "not_available"
+                                  ? "bg-red-100 text-red-600 border-red-200"
+                                  : "bg-pending/10 text-pending border-pending/20"
                             }`}
                           >
                             {v.status === "available" ? (
                               <CheckCircle size={12} />
+                            ) : v.status === "not_available" ? (
+                              <AlertCircle size={12} />
                             ) : (
                               <AlertCircle size={12} />
                             )}
                             {v.status === "available"
                               ? "Available"
-                              : "In Service"}
+                              : v.status === "not_available"
+                                ? "Not Available"
+                                : "In Service"}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right">
@@ -1169,6 +1175,26 @@ export default function Vehicles() {
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none font-mono uppercase transition-all"
                   />
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Status
+                  </label>
+                  <select
+                    value={vehicleForm.status}
+                    onChange={(e) =>
+                      setVehicleForm({
+                        ...vehicleForm,
+                        status: e.target.value,
+                      })
+                    }
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-white transition-all"
+                  >
+                    <option value="available">✅ Available</option>
+                    <option value="in_service">🚌 In Service</option>
+                    <option value="not_available">❌ Not Available</option>
+                  </select>
+                </div>
               </div>
 
               {/* Specs */}
@@ -1207,7 +1233,7 @@ export default function Vehicles() {
                       })
                     }
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none transition-all"
-                    min="1"
+                    min="0"
                   />
                 </div>
               </div>

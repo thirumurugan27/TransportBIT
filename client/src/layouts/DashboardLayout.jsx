@@ -1,6 +1,6 @@
 import React, {useState, useRef, useEffect} from "react";
 import SharedSidebar from "../components/SharedSidebar";
-import bitLogo from "../assets/bit_logo.png";
+import transportLogo from "../assets/transportlogo.png";
 
 export default function DashboardLayout({
   children,
@@ -114,7 +114,7 @@ export default function DashboardLayout({
           {/* Left - Logo and Portal Name */}
           <div className="flex items-center gap-3 ml-10 md:ml-0">
             <img
-              src={bitLogo}
+              src={transportLogo}
               alt="Logo"
               className="w-9 h-9 rounded-md object-cover"
             />

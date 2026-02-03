@@ -335,6 +335,7 @@ func AssignClusterToShift(c *gin.Context) {
 	}
 
 	assignedCount := 0
+	createdBy := getUserIDFromRequest(c)
 	for i, driverID := range driverIDs {
 		vehicleID := 0
 		if i < len(vehicleIDs) {
@@ -345,10 +346,10 @@ func AssignClusterToShift(c *gin.Context) {
 
 		if vehicleID > 0 {
 			_, err := config.DB.Exec(`
-				INSERT INTO assignments (driver_id, vehicle_id, shift_id, assigned_date, status)
-				VALUES (?, ?, ?, ?, 'assigned')
+				INSERT INTO assignments (driver_id, vehicle_id, shift_id, assigned_date, status, created_by)
+				VALUES (?, ?, ?, ?, 'assigned', ?)
 				ON DUPLICATE KEY UPDATE shift_id = ?, vehicle_id = ?
-			`, driverID, vehicleID, req.ShiftID, req.AssignedDate, req.ShiftID, vehicleID)
+			`, driverID, vehicleID, req.ShiftID, req.AssignedDate, createdBy, req.ShiftID, vehicleID)
 			if err == nil {
 				assignedCount++
 			}

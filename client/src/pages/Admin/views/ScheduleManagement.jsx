@@ -39,18 +39,23 @@ const formatDateForInput = (dateStr) => {
 
 export default function ScheduleManagement() {
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("groups"); // groups, shifts
+  const [activeTab, setActiveTab] = useState("groups"); // groups, vehicle-groups, shifts
   const [clusters, setClusters] = useState([]);
+  const [vehicleGroups, setVehicleGroups] = useState([]);
   const [shifts, setShifts] = useState([]);
   const [drivers, setDrivers] = useState([]);
+  const [vehicles, setVehicles] = useState([]);
 
-  // Search state for drivers selection
+  // Search state for drivers/vehicles selection
   const [driverSearch, setDriverSearch] = useState("");
+  const [vehicleSearch, setVehicleSearch] = useState("");
   const [showOnlyUnassigned, setShowOnlyUnassigned] = useState(false);
+  const [showOnlyUnassignedVehicles, setShowOnlyUnassignedVehicles] =
+    useState(false);
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
-  const [modalType, setModalType] = useState(null); // 'cluster', 'shift'
+  const [modalType, setModalType] = useState(null); // 'cluster', 'vehicle-group', 'shift'
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
@@ -65,23 +70,57 @@ export default function ScheduleManagement() {
     driver_ids: [],
   });
 
+  const [vehicleGroupForm, setVehicleGroupForm] = useState({
+    name: "",
+    description: "",
+    vehicle_ids: [],
+  });
+
   const [shiftForm, setShiftForm] = useState({
     name: "",
     description: "",
     slots: [{start_time: "09:00", end_time: "17:00"}],
   });
 
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem("token");
+    return token ? {Authorization: `Bearer ${token}`} : {};
+  };
+
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [c, s, d] = await Promise.all([
-        fetch(`${API_BASE}/api/admin/clusters`).then((r) => r.json()),
-        fetch(`${API_BASE}/api/admin/shifts`).then((r) => r.json()),
-        fetch(`${API_BASE}/api/admin/drivers`).then((r) => r.json()),
+      const [c, vg, s, d, v] = await Promise.all([
+        fetch(`${API_BASE}/api/admin/clusters`, {
+          credentials: "include",
+          headers: getAuthHeaders(),
+        }).then((r) => r.json()),
+        fetch(`${API_BASE}/api/admin/vehicle-groups`, {
+          credentials: "include",
+          headers: getAuthHeaders(),
+        }).then((r) => r.json()),
+        fetch(`${API_BASE}/api/admin/shifts`, {
+          credentials: "include",
+          headers: getAuthHeaders(),
+        }).then((r) => r.json()),
+        fetch(`${API_BASE}/api/admin/drivers`, {
+          credentials: "include",
+          headers: getAuthHeaders(),
+        }).then((r) => r.json()),
+        fetch(`${API_BASE}/api/admin/vehicles`, {
+          credentials: "include",
+          headers: getAuthHeaders(),
+        }).then((r) => r.json()),
       ]);
       setClusters(c || []);
+      setVehicleGroups(vg || []);
       setShifts(s || []);
       setDrivers(d || []);
+      setVehicles(
+        (v || []).filter(
+          (vehicle) => vehicle.vehicle_type === "BATTERY_VEHICLE",
+        ),
+      );
     } catch (err) {
       console.error(err);
     } finally {
@@ -102,6 +141,8 @@ export default function ScheduleManagement() {
     try {
       const res = await fetch(`${API_BASE}${endpoint}?id=${id}`, {
         method: "DELETE",
+        credentials: "include",
+        headers: getAuthHeaders(),
       });
       if (res.ok) {
         showSuccess("Success", "Deleted successfully");
@@ -136,6 +177,17 @@ export default function ScheduleManagement() {
         valid_to: formatDateForInput(item.valid_to) || "",
         driver_ids: currentDriverIds,
       });
+    } else if (type === "vehicle-group") {
+      // Find vehicles belonging to this group to pre-fill the form
+      const currentVehicleIds = vehicles
+        .filter((v) => v.group_id === item.id)
+        .map((v) => v.id);
+
+      setVehicleGroupForm({
+        name: item.name,
+        description: item.description || "",
+        vehicle_ids: currentVehicleIds,
+      });
     } else {
       // Convert existing shift to slots format
       const existingSlots =
@@ -169,7 +221,8 @@ export default function ScheduleManagement() {
     try {
       const res = await fetch(`${API_BASE}${endpoint}`, {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
+        credentials: "include",
+        headers: {"Content-Type": "application/json", ...getAuthHeaders()},
         body: JSON.stringify(payload),
       });
       if (res.ok) {
@@ -238,7 +291,8 @@ export default function ScheduleManagement() {
     try {
       const res = await fetch(`${API_BASE}${endpoint}`, {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
+        credentials: "include",
+        headers: {"Content-Type": "application/json", ...getAuthHeaders()},
         body: JSON.stringify(payload),
       });
       if (res.ok) {
@@ -256,6 +310,95 @@ export default function ScheduleManagement() {
     } catch (e) {
       console.error(e);
       showError("Error", "Error processing shift");
+    }
+  };
+
+  const handleCreateOrUpdateVehicleGroup = async () => {
+    if (!vehicleGroupForm.name) {
+      showError("Error", "Group name is required");
+      return;
+    }
+
+    try {
+      let groupId = editingId;
+
+      if (isEditing) {
+        // Update existing group
+        const res = await fetch(
+          `${API_BASE}/api/admin/vehicle-groups/${editingId}`,
+          {
+            method: "PUT",
+            credentials: "include",
+            headers: {"Content-Type": "application/json", ...getAuthHeaders()},
+            body: JSON.stringify({
+              name: vehicleGroupForm.name,
+              description: vehicleGroupForm.description,
+            }),
+          },
+        );
+        if (!res.ok) {
+          const errorData = await res.json();
+          showError(
+            "Error",
+            errorData.error || "Failed to update vehicle group",
+          );
+          return;
+        }
+      } else {
+        // Create new group
+        const res = await fetch(`${API_BASE}/api/admin/vehicle-groups/create`, {
+          method: "POST",
+          credentials: "include",
+          headers: {"Content-Type": "application/json", ...getAuthHeaders()},
+          body: JSON.stringify({
+            name: vehicleGroupForm.name,
+            description: vehicleGroupForm.description,
+          }),
+        });
+        if (!res.ok) {
+          const errorData = await res.json();
+          showError(
+            "Error",
+            errorData.error || "Failed to create vehicle group",
+          );
+          return;
+        }
+        const result = await res.json();
+        groupId = result.id;
+      }
+
+      // Assign vehicles to group if any selected
+      if (vehicleGroupForm.vehicle_ids.length > 0) {
+        const assignRes = await fetch(
+          `${API_BASE}/api/admin/vehicle-groups/${groupId}/assign-vehicles`,
+          {
+            method: "POST",
+            credentials: "include",
+            headers: {"Content-Type": "application/json", ...getAuthHeaders()},
+            body: JSON.stringify({
+              vehicle_ids: vehicleGroupForm.vehicle_ids,
+            }),
+          },
+        );
+        if (!assignRes.ok) {
+          showError("Warning", "Group saved but failed to assign vehicles");
+        }
+      }
+
+      showSuccess(
+        "Success",
+        `Vehicle group ${isEditing ? "updated" : "created"} successfully!`,
+      );
+      setShowModal(false);
+      fetchData();
+      setVehicleGroupForm({
+        name: "",
+        description: "",
+        vehicle_ids: [],
+      });
+    } catch (err) {
+      console.error(err);
+      showError("Error", "Error processing vehicle group");
     }
   };
 
@@ -283,11 +426,11 @@ export default function ScheduleManagement() {
             Schedule Management
           </h1>
           <p className="text-secondarytext mt-2 font-medium">
-            Manage driver groups, shifts and schedules
+            Manage driver groups, vehicle groups, shifts and schedules
           </p>
         </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
         <div className="bg-secondarybg rounded-md p-6 shadow-sm border border-gray-100 flex items-center justify-between">
           <div>
             <h4 className="text-xs font-bold text-secondarytext uppercase tracking-widest mb-1">
@@ -298,6 +441,19 @@ export default function ScheduleManagement() {
             </div>
           </div>
           <div className="p-3 bg-primarybg rounded-md text-primary shadow-sm">
+            <Users className="w-6 h-6" />
+          </div>
+        </div>
+        <div className="bg-secondarybg rounded-md p-6 shadow-sm border border-gray-100 flex items-center justify-between">
+          <div>
+            <h4 className="text-xs font-bold text-secondarytext uppercase tracking-widest mb-1">
+              Vehicle Groups
+            </h4>
+            <div className="text-3xl font-bold text-primarytext">
+              {vehicleGroups.length}
+            </div>
+          </div>
+          <div className="p-3 bg-pending/10 rounded-md text-pending shadow-sm">
             <Users className="w-6 h-6" />
           </div>
         </div>
@@ -355,6 +511,16 @@ export default function ScheduleManagement() {
             Driver Groups
           </button>
           <button
+            onClick={() => setActiveTab("vehicle-groups")}
+            className={`pb-3 text-sm font-bold tracking-wide border-b-2 transition-colors ${
+              activeTab === "vehicle-groups"
+                ? "border-primary text-primary"
+                : "border-transparent text-gray-400 hover:text-gray-600"
+            }`}
+          >
+            Vehicle Groups
+          </button>
+          <button
             onClick={() => setActiveTab("shifts")}
             className={`pb-3 text-sm font-bold tracking-wide border-b-2 transition-colors ${
               activeTab === "shifts"
@@ -368,7 +534,13 @@ export default function ScheduleManagement() {
         <div className="mb-2">
           <button
             onClick={() => {
-              setModalType(activeTab === "groups" ? "cluster" : "shift");
+              setModalType(
+                activeTab === "groups"
+                  ? "cluster"
+                  : activeTab === "vehicle-groups"
+                    ? "vehicle-group"
+                    : "shift",
+              );
               setIsEditing(false);
               setEditingId(null);
               setClusterForm({
@@ -379,6 +551,11 @@ export default function ScheduleManagement() {
                 valid_from: "",
                 valid_to: "",
                 driver_ids: [],
+              });
+              setVehicleGroupForm({
+                name: "",
+                description: "",
+                vehicle_ids: [],
               });
               setShiftForm({
                 name: "",
@@ -392,7 +569,12 @@ export default function ScheduleManagement() {
             className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primarydull transition-colors font-medium flex items-center gap-2 text-sm shadow-sm"
           >
             <Plus className="w-4 h-4" />
-            Create {activeTab === "groups" ? "Group" : "Shift"}
+            Create{" "}
+            {activeTab === "groups"
+              ? "Group"
+              : activeTab === "vehicle-groups"
+                ? "Vehicle Group"
+                : "Shift"}
           </button>
         </div>
       </div>
@@ -471,6 +653,80 @@ export default function ScheduleManagement() {
                     <p className="text-sm">
                       Create a group to organize your drivers and schedules.
                     </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === "vehicle-groups" && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {vehicleGroups.map((group) => (
+                  <div
+                    key={group.id}
+                    className="bg-white rounded-md p-6 shadow-sm hover:shadow-md transition-shadow group relative border border-gray-100 flex flex-col h-full"
+                  >
+                    <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => openEditModal(group, "vehicle-group")}
+                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={async () => {
+                          const isConfirmed = await showConfirm(
+                            "Are you sure?",
+                            "Do you really want to delete this vehicle group?",
+                          );
+                          if (!isConfirmed) return;
+                          try {
+                            const res = await fetch(
+                              `${API_BASE}/api/admin/vehicle-groups/${group.id}`,
+                              {
+                                method: "DELETE",
+                                credentials: "include",
+                                headers: getAuthHeaders(),
+                              },
+                            );
+                            if (res.ok) {
+                              showSuccess("Success", "Deleted successfully");
+                              fetchData();
+                            } else {
+                              showError("Error", "Failed to delete");
+                            }
+                          } catch (err) {
+                            console.error(err);
+                            showError("Error", "Error deleting group");
+                          }
+                        }}
+                        className="p-1.5 text-red-500 hover:bg-red-50 rounded-md"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="mb-4">
+                      <h3 className="text-lg font-bold text-primarytext">
+                        {group.name}
+                      </h3>
+                      <p className="text-sm text-secondarytext mt-1 line-clamp-2 min-h-5">
+                        {group.description || "No description provided."}
+                      </p>
+                    </div>
+
+                    <div className="space-y-3 mt-auto">
+                      <div className="flex items-center gap-3 text-sm text-secondarytext bg-gray-50 p-2 rounded-md">
+                        <Users className="w-4 h-4 text-pending shrink-0" />
+                        <span className="font-medium">
+                          {group.vehicle_count || 0} EV Vehicles
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {vehicleGroups.length === 0 && (
+                  <div className="col-span-full py-16 text-center text-secondarytext italic bg-gray-50 rounded-md">
+                    <Users className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                    <p>No vehicle groups found</p>
                   </div>
                 )}
               </div>
@@ -576,12 +832,18 @@ export default function ScheduleManagement() {
               <div>
                 <h3 className="text-xl font-bold text-primarytext">
                   {isEditing ? "Edit" : "Create"}{" "}
-                  {modalType === "cluster" ? "Driver Group" : "Shift"}
+                  {modalType === "cluster"
+                    ? "Driver Group"
+                    : modalType === "vehicle-group"
+                      ? "Vehicle Group"
+                      : "Shift"}
                 </h3>
                 <p className="text-xs text-secondarytext mt-0.5">
                   {modalType === "cluster"
                     ? "Configure group details and assign drivers"
-                    : "Set up timing and description"}
+                    : modalType === "vehicle-group"
+                      ? "Configure group details and assign EV vehicles"
+                      : "Set up timing and description"}
                 </p>
               </div>
               <button
@@ -880,6 +1142,155 @@ export default function ScheduleManagement() {
                     </div>
                   </div>
                 </div>
+              ) : modalType === "vehicle-group" ? (
+                // Vehicle Group Form
+                <div className="space-y-6">
+                  {/* Basic Info Section */}
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-bold text-primary border-b border-gray-100 pb-2 mb-4">
+                      Group Details
+                    </h4>
+                    <div>
+                      <label className="block text-xs font-bold text-secondarytext uppercase tracking-widest mb-1.5">
+                        Group Name
+                      </label>
+                      <input
+                        className="w-full px-4 py-2.5 rounded-md border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all text-sm"
+                        placeholder="e.g. EV Group A"
+                        value={vehicleGroupForm.name}
+                        onChange={(e) =>
+                          setVehicleGroupForm({
+                            ...vehicleGroupForm,
+                            name: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-secondarytext uppercase tracking-widest mb-1.5">
+                        Description (Optional)
+                      </label>
+                      <textarea
+                        rows="3"
+                        className="w-full px-4 py-2.5 rounded-md border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all text-sm resize-none"
+                        placeholder="Details about this group..."
+                        value={vehicleGroupForm.description}
+                        onChange={(e) =>
+                          setVehicleGroupForm({
+                            ...vehicleGroupForm,
+                            description: e.target.value,
+                          })
+                        }
+                      ></textarea>
+                    </div>
+                  </div>
+
+                  {/* Vehicle Selection Section */}
+                  <div>
+                    <div className="flex justify-between items-center mb-3">
+                      <h4 className="text-sm font-bold text-primary">
+                        Select Vehicles
+                      </h4>
+                      <span className="text-xs bg-primary/10 text-primary px-2.5 py-1 rounded-full font-bold">
+                        {vehicleGroupForm.vehicle_ids.length} Selected
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="flex-1 relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                          type="text"
+                          placeholder="Search vehicles..."
+                          className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-md bg-gray-50 focus:bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all text-sm"
+                          value={vehicleSearch}
+                          onChange={(e) => setVehicleSearch(e.target.value)}
+                        />
+                      </div>
+                      <button
+                        onClick={() =>
+                          setShowOnlyUnassignedVehicles(
+                            !showOnlyUnassignedVehicles,
+                          )
+                        }
+                        className={`px-3 py-2 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 shrink-0 ${
+                          showOnlyUnassignedVehicles
+                            ? "bg-primary text-white"
+                            : "bg-gray-100 text-secondarytext hover:bg-gray-200"
+                        }`}
+                      >
+                        <Filter className="w-3 h-3" />
+                        Unassigned Only
+                      </button>
+                    </div>
+                    <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar border border-gray-200 rounded-md p-3 bg-gray-50">
+                      {vehicles
+                        .filter((vehicle) => {
+                          const matchesSearch =
+                            vehicle.vehicle_number
+                              .toLowerCase()
+                              .includes(vehicleSearch.toLowerCase()) ||
+                            (vehicle.registration_number &&
+                              vehicle.registration_number
+                                .toLowerCase()
+                                .includes(vehicleSearch.toLowerCase()));
+                          const matchesFilter =
+                            !showOnlyUnassignedVehicles || !vehicle.group_id;
+                          return matchesSearch && matchesFilter;
+                        })
+                        .map((vehicle) => {
+                          const isSelected =
+                            vehicleGroupForm.vehicle_ids.includes(vehicle.id);
+                          return (
+                            <label
+                              key={vehicle.id}
+                              className={`flex items-center justify-between p-3 rounded-md border-2 cursor-pointer transition-all ${
+                                isSelected
+                                  ? "bg-primary/5 border-primary"
+                                  : "bg-white border-gray-200 hover:border-gray-300"
+                              }`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={(e) => {
+                                    const checked = e.target.checked;
+                                    setVehicleGroupForm({
+                                      ...vehicleGroupForm,
+                                      vehicle_ids: checked
+                                        ? [
+                                            ...vehicleGroupForm.vehicle_ids,
+                                            vehicle.id,
+                                          ]
+                                        : vehicleGroupForm.vehicle_ids.filter(
+                                            (id) => id !== vehicle.id,
+                                          ),
+                                    });
+                                  }}
+                                  className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary focus:ring-offset-0"
+                                />
+                                <div>
+                                  <p className="text-sm font-semibold text-primarytext">
+                                    {vehicle.vehicle_number}
+                                  </p>
+                                  <p className="text-xs text-secondarytext">
+                                    {vehicle.registration_number ||
+                                      "No reg number"}
+                                  </p>
+                                </div>
+                              </div>
+                              {vehicle.group_id && !isSelected && (
+                                <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-1 rounded-sm">
+                                  Assigned
+                                </span>
+                              )}
+                            </label>
+                          );
+                        })}
+                    </div>
+                  </div>
+                </div>
               ) : (
                 // Shift Form with Multiple Time Slots
                 <div className="space-y-5">
@@ -1018,7 +1429,9 @@ export default function ScheduleManagement() {
                 onClick={
                   modalType === "cluster"
                     ? handleCreateOrUpdateCluster
-                    : handleCreateOrUpdateShift
+                    : modalType === "vehicle-group"
+                      ? handleCreateOrUpdateVehicleGroup
+                      : handleCreateOrUpdateShift
                 }
                 className="px-4 py-2.5 bg-primary text-white rounded-md font-bold hover:bg-primarydull transition-all shadow-md hover:shadow-lg text-sm"
               >

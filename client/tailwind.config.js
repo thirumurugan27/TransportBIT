@@ -16,6 +16,8 @@ export default {
                 red: '#FF5555',
                 primarytext: '#000000',
                 secondarytext: '#5F6388',
+                scroll: '#D1D1D1',
+                scrollHover: '#9CA3AF',
             },
             fontFamily: {
                 sans: ["Outfit", "Inter", "system-ui", "sans-serif"],

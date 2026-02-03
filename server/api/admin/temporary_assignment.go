@@ -64,6 +64,26 @@ func GetTemporaryAssignments(c *gin.Context) {
 			log.Printf("Scan error for temporary assignment: %v", err)
 			continue
 		}
+		
+		// Fetch shift slots if shift_id is available
+		if ta.ShiftID != nil && *ta.ShiftID > 0 {
+			slotRows, slotErr := config.DB.Query(`
+				SELECT TIME_FORMAT(start_time, '%H:%i'), TIME_FORMAT(end_time, '%H:%i')
+				FROM shift_slots
+				WHERE shift_id = ?
+				ORDER BY slot_order ASC
+			`, *ta.ShiftID)
+			if slotErr == nil {
+				for slotRows.Next() {
+					var slot models.ShiftSlot
+					if err := slotRows.Scan(&slot.StartTime, &slot.EndTime); err == nil {
+						ta.Slots = append(ta.Slots, slot)
+					}
+				}
+				slotRows.Close()
+			}
+		}
+		
 		log.Printf("Found temporary assignment: ID=%d, ShiftID=%v, VehicleID=%d", ta.ID, ta.ShiftID, ta.VehicleID)
 		list = append(list, ta)
 	}
@@ -90,6 +110,12 @@ func CreateTemporaryAssignment(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 			return
 		}
+	}
+
+	// Prefer creator from auth token/cookie; fall back to request body if provided.
+	createdBy := getUserIDFromRequest(c)
+	if createdBy == nil && req.CreatedBy != nil {
+		createdBy = req.CreatedBy
 	}
 
 	// Validate required fields
@@ -161,10 +187,10 @@ func CreateTemporaryAssignment(c *gin.Context) {
 	result, err := config.DB.Exec(`
 		INSERT INTO temporary_assignments (
 			original_driver_id, replacement_driver_id, shift_id, vehicle_id,
-			start_date, end_date, reason, status
-		) VALUES (?, ?, ?, ?, ?, ?, ?, 'active')
+			start_date, end_date, reason, status, created_by
+		) VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?)
 	`, req.OriginalDriverID, req.ReplacementDriverID, shiftID, req.VehicleID,
-		req.StartDate, req.EndDate, req.Reason)
+		req.StartDate, req.EndDate, req.Reason, createdBy)
 
 	if err != nil {
 		log.Printf("Create temporary assignment error: %v", err)

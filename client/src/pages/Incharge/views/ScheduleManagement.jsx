@@ -71,13 +71,27 @@ export default function ScheduleManagement() {
     slots: [{start_time: "09:00", end_time: "17:00"}],
   });
 
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem("token");
+    return token ? {Authorization: `Bearer ${token}`} : {};
+  };
+
   const fetchData = async () => {
     setLoading(true);
     try {
       const [c, s, d] = await Promise.all([
-        fetch(`${API_BASE}/api/admin/clusters`).then((r) => r.json()),
-        fetch(`${API_BASE}/api/admin/shifts`).then((r) => r.json()),
-        fetch(`${API_BASE}/api/admin/drivers`).then((r) => r.json()),
+        fetch(`${API_BASE}/api/admin/clusters`, {
+          credentials: "include",
+          headers: getAuthHeaders(),
+        }).then((r) => r.json()),
+        fetch(`${API_BASE}/api/admin/shifts`, {
+          credentials: "include",
+          headers: getAuthHeaders(),
+        }).then((r) => r.json()),
+        fetch(`${API_BASE}/api/admin/drivers`, {
+          credentials: "include",
+          headers: getAuthHeaders(),
+        }).then((r) => r.json()),
       ]);
       setClusters(c || []);
       setShifts(s || []);
@@ -102,6 +116,8 @@ export default function ScheduleManagement() {
     try {
       const res = await fetch(`${API_BASE}${endpoint}?id=${id}`, {
         method: "DELETE",
+        credentials: "include",
+        headers: getAuthHeaders(),
       });
       if (res.ok) {
         showSuccess("Success", "Deleted successfully");
@@ -169,7 +185,8 @@ export default function ScheduleManagement() {
     try {
       const res = await fetch(`${API_BASE}${endpoint}`, {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
+        credentials: "include",
+        headers: {"Content-Type": "application/json", ...getAuthHeaders()},
         body: JSON.stringify(payload),
       });
       if (res.ok) {
@@ -238,7 +255,8 @@ export default function ScheduleManagement() {
     try {
       const res = await fetch(`${API_BASE}${endpoint}`, {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
+        credentials: "include",
+        headers: {"Content-Type": "application/json", ...getAuthHeaders()},
         body: JSON.stringify(payload),
       });
       if (res.ok) {

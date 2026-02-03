@@ -27,6 +27,7 @@ func GetAllAssignments(c *gin.Context) {
 		       a.status,
 		       a.is_temporary_replacement,
 		       a.original_driver_id,
+		       a.created_by,
 		       s.name AS shift_name, 
 		       TIME_FORMAT(s.start_time, '%H:%i') as start_time, 
 		       TIME_FORMAT(s.end_time, '%H:%i') as end_time,
@@ -34,6 +35,7 @@ func GetAllAssignments(c *gin.Context) {
 		       COALESCE(v.name, b.bus_name, v.vehicle_number) as bus_name,
 		       u.full_name AS driver_name,
 		       COALESCE(u_orig.full_name, '') as original_driver_name,
+		       COALESCE(u_created.full_name, '') as created_by_name,
 		       CASE 
 		           WHEN a.start_date > CURDATE() THEN 'scheduled'
 		           WHEN EXISTS(SELECT 1 FROM leave_requests lr 
@@ -52,6 +54,7 @@ func GetAllAssignments(c *gin.Context) {
 		JOIN users u ON d.user_id = u.id
 		LEFT JOIN drivers d_orig ON a.original_driver_id = d_orig.id
 		LEFT JOIN users u_orig ON d_orig.user_id = u_orig.id
+		LEFT JOIN users u_created ON a.created_by = u_created.id
 		LEFT JOIN attendance att ON att.user_id = d.user_id AND att.date = CURDATE()
 		ORDER BY a.start_date DESC, a.id DESC
 	`)
@@ -66,12 +69,14 @@ func GetAllAssignments(c *gin.Context) {
 		var a models.Assignment
 		var isTemp int
 		var originalDriverID sql.NullInt64
+		var createdByID sql.NullInt64
+		var createdByName sql.NullString
 		err := rows.Scan(&a.ID, &a.ShiftID, &a.VehicleID, &a.DriverID,
 			&a.AssignedDate, &a.StartDate, &a.EndDate, &a.Status,
-			&isTemp, &originalDriverID,
+			&isTemp, &originalDriverID, &createdByID,
 			&a.ShiftName, &a.StartTime, &a.EndTime,
 			&a.VehicleNumber, &a.VehicleType, &a.BusName,
-			&a.DriverName, &a.OriginalDriverName, &a.DriverStatus)
+			&a.DriverName, &a.OriginalDriverName, &createdByName, &a.DriverStatus)
 		if err != nil {
 			log.Printf("Scan error: %v", err)
 			continue
@@ -80,6 +85,13 @@ func GetAllAssignments(c *gin.Context) {
 		if originalDriverID.Valid {
 			id := int(originalDriverID.Int64)
 			a.OriginalDriverID = &id
+		}
+		if createdByID.Valid {
+			id := int(createdByID.Int64)
+			a.CreatedBy = &id
+		}
+		if createdByName.Valid {
+			a.CreatedByName = createdByName.String
 		}
 		log.Printf("Assignment %d: start_date=%s, end_date=%s", a.ID, a.StartDate, a.EndDate)
 		list = append(list, a)
@@ -153,6 +165,12 @@ func CreateAssignment(c *gin.Context) {
 		return
 	}
 
+	// Prefer creator from auth token/cookie; fall back to request body if provided.
+	createdBy := getUserIDFromRequest(c)
+	if createdBy == nil && req.CreatedBy != nil {
+		createdBy = req.CreatedBy
+	}
+
 	// If this is a temporary assignment, redirect to temporary assignments handler
 	if req.IsTemporaryReplacement && req.OriginalDriverID != nil {
 		shiftID := req.ShiftID
@@ -164,6 +182,7 @@ func CreateAssignment(c *gin.Context) {
 			StartDate:           req.StartDate,
 			EndDate:             req.EndDate,
 			Reason:              "Temporary replacement",
+			CreatedBy:           createdBy,
 		}
 
 		c.Set("tempReq", tempReq)
@@ -239,7 +258,7 @@ func CreateAssignment(c *gin.Context) {
 	var ranges []timeRange
 
 	// Try slots first (multi-slot shifts)
-	slotRows, slotErr := config.DB.Query(`SELECT start_time, end_time FROM shift_slots WHERE shift_id = ?`, req.ShiftID)
+	slotRows, slotErr := config.DB.Query(`SELECT start_time, end_time FROM shift_slots WHERE shift_id = ? ORDER BY slot_order ASC`, req.ShiftID)
 	if slotErr == nil {
 		defer slotRows.Close()
 		for slotRows.Next() {
@@ -301,9 +320,9 @@ func CreateAssignment(c *gin.Context) {
 
 	// Create regular assignment
 	_, err = config.DB.Exec(`
-		INSERT INTO assignments (shift_id, vehicle_id, driver_id, assigned_date, start_date, end_date, vehicle_category, status)
-		VALUES (?, ?, ?, ?, ?, ?, ?, 'assigned')
-	`, req.ShiftID, req.VehicleID, req.DriverID, req.StartDate, req.StartDate, req.EndDate, category)
+		INSERT INTO assignments (shift_id, vehicle_id, driver_id, assigned_date, start_date, end_date, vehicle_category, status, created_by)
+		VALUES (?, ?, ?, ?, ?, ?, ?, 'assigned', ?)
+	`, req.ShiftID, req.VehicleID, req.DriverID, req.StartDate, req.StartDate, req.EndDate, category, createdBy)
 
 	if err != nil {
 		log.Printf("Create assignment error: %v", err)
@@ -373,6 +392,8 @@ func ReassignForLeave(c *gin.Context) {
 		return
 	}
 
+	createdBy := getUserIDFromRequest(c)
+
 	// Get the original assignment details
 	var shiftID, vehicleID, originalDriverID int
 	var originalStart, originalEnd, category string
@@ -419,9 +440,9 @@ func ReassignForLeave(c *gin.Context) {
 
 	// Create temporary assignment for the replacement driver during leave
 	_, err = config.DB.Exec(`
-		INSERT INTO assignments (shift_id, vehicle_id, driver_id, assigned_date, start_date, end_date, vehicle_category, status, is_temporary_replacement, original_driver_id)
-		VALUES (?, ?, ?, ?, ?, ?, ?, 'assigned', 1, ?)
-	`, shiftID, vehicleID, req.NewDriverID, req.StartDate, req.StartDate, req.EndDate, category, originalDriverID)
+		INSERT INTO assignments (shift_id, vehicle_id, driver_id, assigned_date, start_date, end_date, vehicle_category, status, is_temporary_replacement, original_driver_id, created_by)
+		VALUES (?, ?, ?, ?, ?, ?, ?, 'assigned', 1, ?, ?)
+	`, shiftID, vehicleID, req.NewDriverID, req.StartDate, req.StartDate, req.EndDate, category, originalDriverID, createdBy)
 
 	if err != nil {
 		log.Printf("Create temporary assignment error: %v", err)
@@ -432,9 +453,9 @@ func ReassignForLeave(c *gin.Context) {
 	// If there are assignments after the leave period, create new assignment
 	if req.EndDate < originalEnd {
 		_, err = config.DB.Exec(`
-			INSERT INTO assignments (shift_id, vehicle_id, driver_id, assigned_date, start_date, end_date, vehicle_category, status)
-			VALUES (?, ?, ?, DATE_ADD(?, INTERVAL 1 DAY), DATE_ADD(?, INTERVAL 1 DAY), ?, ?, 'assigned')
-		`, shiftID, vehicleID, originalDriverID, req.EndDate, req.EndDate, originalEnd, category)
+			INSERT INTO assignments (shift_id, vehicle_id, driver_id, assigned_date, start_date, end_date, vehicle_category, status, created_by)
+			VALUES (?, ?, ?, DATE_ADD(?, INTERVAL 1 DAY), DATE_ADD(?, INTERVAL 1 DAY), ?, ?, 'assigned', ?)
+		`, shiftID, vehicleID, originalDriverID, req.EndDate, req.EndDate, originalEnd, category, createdBy)
 		if err != nil {
 			log.Printf("Create post-leave assignment error: %v", err)
 		}
@@ -456,7 +477,7 @@ func CheckDriverTimeConflict(driverID int, shiftStartTime, shiftEndTime, checkDa
 		SELECT s.start_time, s.end_time, ss.start_time as slot_start, ss.end_time as slot_end
 		FROM assignments a
 		JOIN shifts s ON a.shift_id = s.id
-		LEFT JOIN shift_slots ss ON s.id = ss.shift_id
+		LEFT JOIN shift_slots ss ON s.id = ss.shift_id AND ss.slot_order = 1
 		WHERE a.driver_id = ?
 		AND ? BETWEEN a.start_date AND a.end_date
 		AND a.status IN ('assigned','active')
@@ -466,7 +487,7 @@ func CheckDriverTimeConflict(driverID int, shiftStartTime, shiftEndTime, checkDa
 		SELECT s.start_time, s.end_time, ss.start_time as slot_start, ss.end_time as slot_end
 		FROM temporary_assignments ta
 		JOIN shifts s ON ta.shift_id = s.id
-		LEFT JOIN shift_slots ss ON s.id = ss.shift_id
+		LEFT JOIN shift_slots ss ON s.id = ss.shift_id AND ss.slot_order = 1
 		WHERE ta.replacement_driver_id = ?
 		AND ? BETWEEN ta.start_date AND ta.end_date
 
@@ -571,7 +592,7 @@ func getDriverConflictsDetails(driverID int, checkDate string, checkRanges []str
 		FROM assignments a
 		JOIN vehicles v ON a.vehicle_id = v.id
 		JOIN shifts s ON a.shift_id = s.id
-		LEFT JOIN shift_slots ss ON s.id = ss.shift_id
+		LEFT JOIN shift_slots ss ON s.id = ss.shift_id AND ss.slot_order = 1
 		WHERE a.driver_id = ?
 		AND ? BETWEEN a.start_date AND a.end_date
 		AND a.status IN ('assigned','active')
@@ -691,7 +712,7 @@ func CheckDriverConflictAPI(c *gin.Context) {
 	var ranges []timeRange
 
 	// Try slots first (multi-slot shifts)
-	slotRows, slotErr := config.DB.Query(`SELECT start_time, end_time FROM shift_slots WHERE shift_id = ?`, shiftID)
+	slotRows, slotErr := config.DB.Query(`SELECT start_time, end_time FROM shift_slots WHERE shift_id = ? ORDER BY slot_order ASC`, shiftID)
 	if slotErr == nil {
 		defer slotRows.Close()
 		for slotRows.Next() {
@@ -782,7 +803,7 @@ func CheckVehicleConflictAPI(c *gin.Context) {
 	var ranges []timeRange
 
 	// Try slots first (multi-slot shifts)
-	slotRows, slotErr := config.DB.Query(`SELECT start_time, end_time FROM shift_slots WHERE shift_id = ?`, shiftID)
+	slotRows, slotErr := config.DB.Query(`SELECT start_time, end_time FROM shift_slots WHERE shift_id = ? ORDER BY slot_order ASC`, shiftID)
 	if slotErr == nil {
 		defer slotRows.Close()
 		for slotRows.Next() {
@@ -946,7 +967,6 @@ func GetAssignmentDetails(c *gin.Context) {
 			EndDate               string `json:"end_date"`
 			Reason                string `json:"reason"`
 			Status                string `json:"status"`
-			CreatedAt             string `json:"created_at"`
 			CreatedBy             *int   `json:"created_by"`
 			ShiftName             string `json:"shift_name"`
 			StartTime             string `json:"start_time"`
@@ -968,7 +988,6 @@ func GetAssignmentDetails(c *gin.Context) {
 			       DATE_FORMAT(ta.end_date, '%Y-%m-%d') as end_date,
 			       COALESCE(ta.reason, '') as reason,
 			       ta.status,
-			       DATE_FORMAT(ta.created_at, '%Y-%m-%d %H:%i:%s') as created_at,
 			       ta.created_by,
 			       s.name AS shift_name,
 			       TIME_FORMAT(s.start_time, '%H:%i') as start_time,
@@ -989,7 +1008,7 @@ func GetAssignmentDetails(c *gin.Context) {
 			WHERE ta.id = ?
 		`, assignmentID).Scan(
 			&a.ID, &a.ShiftID, &a.VehicleID, &a.OriginalDriverID, &a.ReplacementDriverID,
-			&a.StartDate, &a.EndDate, &a.Reason, &a.Status, &a.CreatedAt,
+			&a.StartDate, &a.EndDate, &a.Reason, &a.Status,
 			&createdBy, &a.ShiftName, &a.StartTime, &a.EndTime,
 			&a.VehicleNumber, &a.VehicleType, &a.BusName,
 			&a.OriginalDriverName, &a.ReplacementDriverName, &createdByName,
@@ -1013,8 +1032,29 @@ func GetAssignmentDetails(c *gin.Context) {
 			a.CreatedByName = createdByName.String
 		}
 
+		// Fetch shift slots for this temporary assignment
+		type ShiftSlot struct {
+			StartTime string `json:"start_time"`
+			EndTime   string `json:"end_time"`
+		}
+		slotRows, _ := config.DB.Query(`
+			SELECT TIME_FORMAT(start_time, '%H:%i'), TIME_FORMAT(end_time, '%H:%i')
+			FROM shift_slots
+			WHERE shift_id = ?
+			ORDER BY slot_order ASC
+		`, a.ShiftID)
+		
+		var slots []ShiftSlot
+		for slotRows.Next() {
+			var slot ShiftSlot
+			slotRows.Scan(&slot.StartTime, &slot.EndTime)
+			slots = append(slots, slot)
+		}
+		slotRows.Close()
+
 		c.JSON(http.StatusOK, gin.H{
 			"assignment":      a,
+			"slots":           slots,
 			"is_temporary":    true,
 			"assignment_type": "temporary",
 		})
@@ -1024,7 +1064,7 @@ func GetAssignmentDetails(c *gin.Context) {
 	// Fetch regular assignment details
 	var a models.Assignment
 	var createdBy sql.NullInt64
-	var createdAt sql.NullString
+	// created_at intentionally omitted from assignment details
 	var createdByName sql.NullString
 	var originalDriverID sql.NullInt64
 	var isTemporary int
@@ -1038,7 +1078,6 @@ func GetAssignmentDetails(c *gin.Context) {
 		       a.is_temporary_replacement,
 		       a.original_driver_id,
 		       a.created_by,
-		       DATE_FORMAT(COALESCE(a.created_at, a.assigned_date), '%Y-%m-%d %H:%i:%s') as created_at,
 		       s.name AS shift_name,
 		       TIME_FORMAT(s.start_time, '%H:%i') as start_time,
 		       TIME_FORMAT(s.end_time, '%H:%i') as end_time,
@@ -1061,7 +1100,7 @@ func GetAssignmentDetails(c *gin.Context) {
 		&a.ID, &a.ShiftID, &a.VehicleID, &a.DriverID,
 		&a.AssignedDate, &a.StartDate, &a.EndDate, &a.Status,
 		&isTemporary, &originalDriverID,
-		&createdBy, &createdAt,
+		&createdBy,
 		&a.ShiftName, &a.StartTime, &a.EndTime,
 		&a.VehicleNumber, &a.VehicleType, &a.BusName,
 		&a.DriverName, &a.OriginalDriverName, &createdByName,
@@ -1082,9 +1121,6 @@ func GetAssignmentDetails(c *gin.Context) {
 		id := int(createdBy.Int64)
 		a.CreatedBy = &id
 	}
-	if createdAt.Valid {
-		a.CreatedAt = createdAt.String
-	}
 	if createdByName.Valid {
 		a.CreatedByName = createdByName.String
 	}
@@ -1093,8 +1129,29 @@ func GetAssignmentDetails(c *gin.Context) {
 		a.OriginalDriverID = &id
 	}
 
+	// Fetch shift slots for this assignment
+	type ShiftSlot struct {
+		StartTime string `json:"start_time"`
+		EndTime   string `json:"end_time"`
+	}
+	slotRows, _ := config.DB.Query(`
+		SELECT TIME_FORMAT(start_time, '%H:%i'), TIME_FORMAT(end_time, '%H:%i')
+		FROM shift_slots
+		WHERE shift_id = ?
+		ORDER BY slot_order ASC
+	`, a.ShiftID)
+	
+	var slots []ShiftSlot
+	for slotRows.Next() {
+		var slot ShiftSlot
+		slotRows.Scan(&slot.StartTime, &slot.EndTime)
+		slots = append(slots, slot)
+	}
+	slotRows.Close()
+
 	c.JSON(http.StatusOK, gin.H{
 		"assignment":      a,
+		"slots":           slots,
 		"is_temporary":    a.IsTemporaryReplacement,
 		"assignment_type": "regular",
 	})

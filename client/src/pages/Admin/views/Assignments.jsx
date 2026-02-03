@@ -16,12 +16,32 @@ import {
   Eye,
   Users,
   TrendingUp,
+  Search,
+  Filter,
+  ArrowUpDown,
 } from "lucide-react";
 import {useToast} from "../../../context/ToastContext";
 import {showConfirm, showError, showSuccess} from "../../../utils/swal";
 import SearchableSelect from "../../../components/ui/SearchableSelect";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
+
+const getAuthHeaders = () => {
+  const token = localStorage.getItem("token");
+  return token ? {Authorization: `Bearer ${token}`} : {};
+};
+
+const getCreatorIdFromToken = () => {
+  const token = localStorage.getItem("token");
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    const id = payload?.user_id;
+    return typeof id === "number" ? id : null;
+  } catch {
+    return null;
+  }
+};
 
 // Helper to convert 24h time to 12h AM/PM format
 const formatTimeAMPM = (time24) => {
@@ -37,6 +57,7 @@ export default function Assignments() {
   const {showToast} = useToast();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("bus"); // bus, car, ev
+  const [openTempModal, setOpenTempModal] = useState(false);
 
   // Data
   const [busAssignments, setBusAssignments] = useState([]);
@@ -47,6 +68,7 @@ export default function Assignments() {
   const [shifts, setShifts] = useState([]);
   const [availableDrivers, setAvailableDrivers] = useState([]);
   const [clusters, setClusters] = useState([]);
+  const [vehicleGroups, setVehicleGroups] = useState([]);
 
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -54,6 +76,7 @@ export default function Assignments() {
 
   const [assignmentForm, setAssignmentForm] = useState({
     vehicle_id: 0,
+    vehicle_group_id: 0,
     driver_id: 0,
     cluster_id: 0,
     shift_id: 0,
@@ -80,6 +103,25 @@ export default function Assignments() {
   const [showEvDetailsModal, setShowEvDetailsModal] = useState(false);
   const [evDetails, setEvDetails] = useState(null);
   const [loadingEvDetails, setLoadingEvDetails] = useState(false);
+
+  // Sort and Filter States
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState("vehicle"); // vehicle, driver, date
+  const [sortOrder, setSortOrder] = useState("asc"); // asc, desc
+  const [filterShift, setFilterShift] = useState(""); // empty means all
+  const [filterStatus, setFilterStatus] = useState(""); // empty means all
+  const [showFilters, setShowFilters] = useState(false);
+
+  // EV Reassignment Modal States
+  const [showEvReassignModal, setShowEvReassignModal] = useState(false);
+  const [evReassignData, setEvReassignData] = useState({
+    assignment_id: null,
+    cluster_id: null,
+    new_cluster_id: "",
+    start_date: "",
+    end_date: "",
+    reason: "",
+  });
 
   const fetchAssignmentDetails = async (assignmentId, isTemp = false) => {
     setLoadingDetails(true);
@@ -121,10 +163,74 @@ export default function Assignments() {
     }
   };
 
+  const fetchClusters = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/clusters`, {
+        credentials: "include",
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        setClusters(await res.json());
+      }
+    } catch (err) {
+      console.error("Error fetching clusters:", err);
+    }
+  };
+
+  const handleEvReassign = async () => {
+    if (
+      !evReassignData.new_cluster_id ||
+      !evReassignData.start_date ||
+      !evReassignData.end_date ||
+      !evReassignData.reason
+    ) {
+      showError("Please fill all required fields");
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/ev-assignments/reassign`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          ...getAuthHeaders(),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          assignment_id: evReassignData.assignment_id,
+          new_cluster_id: parseInt(evReassignData.new_cluster_id),
+          start_date: evReassignData.start_date,
+          end_date: evReassignData.end_date,
+          reason: evReassignData.reason,
+        }),
+      });
+
+      if (res.ok) {
+        showSuccess("EV assignment reassigned successfully");
+        setShowEvReassignModal(false);
+        setEvReassignData({
+          assignment_id: null,
+          cluster_id: null,
+          new_cluster_id: "",
+          start_date: "",
+          end_date: "",
+          reason: "",
+        });
+        fetchAssignments();
+      } else {
+        const data = await res.json();
+        showError(data.error || "Failed to reassign EV assignment");
+      }
+    } catch (err) {
+      console.error("Error reassigning EV assignment:", err);
+      showError("Failed to reassign EV assignment");
+    }
+  };
+
   const fetchAllData = async () => {
     setLoading(true);
     try {
-      const [bus, car, ev, s, v, d, c] = await Promise.all([
+      const [bus, car, ev, s, v, d, c, vg] = await Promise.all([
         fetch(
           `${API_BASE}/api/admin/assignments/by-category?category=BUS`,
         ).then((r) => r.json()),
@@ -136,6 +242,7 @@ export default function Assignments() {
         fetch(`${API_BASE}/api/admin/vehicles`).then((r) => r.json()),
         fetch(`${API_BASE}/api/admin/drivers`).then((r) => r.json()),
         fetch(`${API_BASE}/api/admin/clusters`).then((r) => r.json()),
+        fetch(`${API_BASE}/api/admin/vehicle-groups`).then((r) => r.json()),
       ]);
 
       setBusAssignments(bus || []);
@@ -145,6 +252,7 @@ export default function Assignments() {
       setVehicles(v || []);
       setDrivers(d || []);
       setClusters(c || []);
+      setVehicleGroups(vg || []);
     } catch (err) {
       console.error("Error fetching assignments data:", err);
     } finally {
@@ -156,10 +264,98 @@ export default function Assignments() {
     fetchAllData();
   }, []);
 
+  // Filter and Sort Logic
+  const getFilteredAndSortedAssignments = (assignments) => {
+    let filtered = [...assignments];
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter((a) => {
+        const vehicleName = (
+          a.vehicle_name ||
+          a.vehicle_number ||
+          a.vehicle_group_name ||
+          ""
+        ).toLowerCase();
+        const driverName = (a.driver_name || "").toLowerCase();
+        const shiftName = (a.shift_name || "").toLowerCase();
+        const clusterName = (a.cluster_name || "").toLowerCase();
+        return (
+          vehicleName.includes(query) ||
+          driverName.includes(query) ||
+          shiftName.includes(query) ||
+          clusterName.includes(query)
+        );
+      });
+    }
+
+    // Shift filter
+    if (filterShift) {
+      filtered = filtered.filter((a) => a.shift_id === parseInt(filterShift));
+    }
+
+    // Status filter (for non-EV assignments)
+    if (filterStatus && activeTab !== "ev") {
+      filtered = filtered.filter((a) => a.driver_status === filterStatus);
+    }
+
+    // Sort
+    filtered.sort((a, b) => {
+      let compareA, compareB;
+
+      switch (sortBy) {
+        case "vehicle":
+          compareA = (
+            a.vehicle_name ||
+            a.vehicle_number ||
+            a.vehicle_group_name ||
+            ""
+          ).toLowerCase();
+          compareB = (
+            b.vehicle_name ||
+            b.vehicle_number ||
+            b.vehicle_group_name ||
+            ""
+          ).toLowerCase();
+          break;
+        case "driver":
+          compareA = (a.driver_name || "").toLowerCase();
+          compareB = (b.driver_name || "").toLowerCase();
+          break;
+        case "date":
+          compareA = new Date(a.start_date);
+          compareB = new Date(b.start_date);
+          break;
+        default:
+          return 0;
+      }
+
+      if (compareA < compareB) return sortOrder === "asc" ? -1 : 1;
+      if (compareA > compareB) return sortOrder === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    return filtered;
+  };
+
+  const getCurrentAssignments = () => {
+    const rawAssignments =
+      activeTab === "bus"
+        ? busAssignments
+        : activeTab === "car"
+          ? carAssignments
+          : evAssignments;
+    return getFilteredAndSortedAssignments(rawAssignments);
+  };
+
   // Fetch available drivers when opening modal
   const fetchAvailableDrivers = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/drivers`);
+      const res = await fetch(`${API_BASE}/api/admin/drivers`, {
+        credentials: "include",
+        headers: getAuthHeaders(),
+      });
       const allDrivers = await res.json();
       // Filter logic can be improved based on backend availability check
       // For now, using client side 'status' if available, or just all drivers
@@ -174,6 +370,7 @@ export default function Assignments() {
     setCreateModalType(type);
     setAssignmentForm({
       vehicle_id: 0,
+      vehicle_group_id: 0,
       driver_id: 0,
       cluster_id: 0,
       shift_id: 0,
@@ -188,7 +385,7 @@ export default function Assignments() {
     // Validate based on assignment type
     const isValid =
       createModalType === "ev"
-        ? assignmentForm.vehicle_id &&
+        ? assignmentForm.vehicle_group_id &&
           assignmentForm.cluster_id &&
           assignmentForm.start_date &&
           assignmentForm.end_date
@@ -211,12 +408,14 @@ export default function Assignments() {
     const payload = {
       ...assignmentForm,
       force_assign: forceAssign,
+      created_by: getCreatorIdFromToken() || undefined,
     };
 
     try {
       const res = await fetch(endpoint, {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
+        credentials: "include",
+        headers: {"Content-Type": "application/json", ...getAuthHeaders()},
         body: JSON.stringify(payload),
       });
 
@@ -273,12 +472,14 @@ export default function Assignments() {
     const payload = {
       ...conflictPendingForm,
       force_assign: true,
+      created_by: getCreatorIdFromToken() || undefined,
     };
 
     try {
       const res = await fetch(endpoint, {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
+        credentials: "include",
+        headers: {"Content-Type": "application/json", ...getAuthHeaders()},
         body: JSON.stringify(payload),
       });
 
@@ -350,11 +551,7 @@ export default function Assignments() {
   };
 
   // Check vehicle availability and update availability map
-  const checkVehicleAvailability = async (
-    vehicleList,
-    shiftId,
-    startDate,
-  ) => {
+  const checkVehicleAvailability = async (vehicleList, shiftId, startDate) => {
     if (!shiftId || !startDate) return;
 
     const availabilityPromises = vehicleList.map(async (vehicle) => {
@@ -401,7 +598,12 @@ export default function Assignments() {
 
   // Check driver availability when shift or date changes in create modal
   useEffect(() => {
-    if (showCreateModal && assignmentForm.shift_id && assignmentForm.start_date && availableDrivers.length > 0) {
+    if (
+      showCreateModal &&
+      assignmentForm.shift_id &&
+      assignmentForm.start_date &&
+      availableDrivers.length > 0
+    ) {
       checkDriverAvailability(
         availableDrivers,
         assignmentForm.shift_id,
@@ -409,11 +611,22 @@ export default function Assignments() {
         assignmentForm.end_date,
       );
     }
-  }, [showCreateModal, assignmentForm.shift_id, assignmentForm.start_date, assignmentForm.end_date, availableDrivers]);
+  }, [
+    showCreateModal,
+    assignmentForm.shift_id,
+    assignmentForm.start_date,
+    assignmentForm.end_date,
+    availableDrivers,
+  ]);
 
   // Check vehicle availability when shift or date changes in create modal
   useEffect(() => {
-    if (showCreateModal && assignmentForm.shift_id && assignmentForm.start_date && vehicles.length > 0) {
+    if (
+      showCreateModal &&
+      assignmentForm.shift_id &&
+      assignmentForm.start_date &&
+      vehicles.length > 0
+    ) {
       const filteredVehicles = vehicles.filter(
         (v) =>
           v.vehicle_type === createModalType?.toUpperCase() ||
@@ -425,7 +638,13 @@ export default function Assignments() {
         assignmentForm.start_date,
       );
     }
-  }, [showCreateModal, assignmentForm.shift_id, assignmentForm.start_date, vehicles, createModalType]);
+  }, [
+    showCreateModal,
+    assignmentForm.shift_id,
+    assignmentForm.start_date,
+    vehicles,
+    createModalType,
+  ]);
 
   // Select a different driver from conflict modal
   const handleSelectAlternateDriver = (driverId) => {
@@ -624,35 +843,163 @@ export default function Assignments() {
               <Plus size={16} /> New EV Assignment
             </button>
           )}
+          {activeTab === "temporary" && (
+            <button
+              onClick={() => {
+                setOpenTempModal(true);
+                setTimeout(() => setOpenTempModal(false), 100);
+              }}
+              className="px-4 py-2.5 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors font-medium shadow-sm flex items-center gap-2"
+            >
+              <Plus size={16} /> Create Temporary Assignment
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Search, Sort, and Filter Bar */}
+      {activeTab !== "temporary" && (
+        <div className="bg-secondarybg rounded-md border border-gray-100 shadow-sm p-4 mb-4">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Search */}
+            <div className="flex-1 min-w-[200px]">
+              <div className="relative">
+                <Search
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-secondarytext"
+                  size={18}
+                />
+                <input
+                  type="text"
+                  placeholder="Search by vehicle, driver, shift, or group..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-md bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+              </div>
+            </div>
+
+            {/* Sort By */}
+            <div className="flex items-center gap-2">
+              <ArrowUpDown size={16} className="text-secondarytext" />
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="px-3 py-2.5 border border-gray-200 rounded-md bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm"
+              >
+                <option value="vehicle">Sort by Vehicle</option>
+                <option value="driver">Sort by Driver</option>
+                <option value="date">Sort by Date</option>
+              </select>
+              <button
+                onClick={() =>
+                  setSortOrder(sortOrder === "asc" ? "desc" : "asc")
+                }
+                className="px-3 py-2.5 border border-gray-200 rounded-md bg-primarybg hover:bg-gray-50 transition-colors"
+                title={sortOrder === "asc" ? "Ascending" : "Descending"}
+              >
+                {sortOrder === "asc" ? "↑" : "↓"}
+              </button>
+            </div>
+
+            {/* Filter Toggle */}
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`px-4 py-2.5 rounded-md font-medium transition-all flex items-center gap-2 ${
+                showFilters || filterShift || filterStatus
+                  ? "bg-primary text-white"
+                  : "border border-gray-200 text-secondarytext hover:border-primary"
+              }`}
+            >
+              <Filter size={16} /> Filters
+              {(filterShift || filterStatus) && (
+                <span className="bg-white text-primary rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
+                  {(filterShift ? 1 : 0) + (filterStatus ? 1 : 0)}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* Filter Options */}
+          {showFilters && (
+            <div className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap gap-4">
+              {/* Shift Filter */}
+              <div className="flex-1 min-w-[200px]">
+                <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
+                  Filter by Shift
+                </label>
+                <select
+                  value={filterShift}
+                  onChange={(e) => setFilterShift(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-md bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm"
+                >
+                  <option value="">All Shifts</option>
+                  {shifts.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Status Filter (only for non-EV) */}
+              {activeTab !== "ev" && (
+                <div className="flex-1 min-w-[200px]">
+                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
+                    Filter by Driver Status
+                  </label>
+                  <select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-md bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm"
+                  >
+                    <option value="">All Status</option>
+                    <option value="present">Present</option>
+                    <option value="absent">Absent</option>
+                  </select>
+                </div>
+              )}
+
+              {/* Clear Filters */}
+              {(filterShift || filterStatus) && (
+                <div className="flex items-end">
+                  <button
+                    onClick={() => {
+                      setFilterShift("");
+                      setFilterStatus("");
+                    }}
+                    className="px-4 py-2 text-red hover:bg-red/10 rounded-md transition-colors text-sm font-medium"
+                  >
+                    Clear Filters
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Content */}
       <div className="bg-secondarybg rounded-md border border-gray-100 shadow-sm overflow-hidden min-h-[400px]">
         {activeTab === "temporary" ? (
-          <TemporaryAssignments />
+          <TemporaryAssignments openModal={openTempModal} />
         ) : loading ? (
           <div className="p-12 text-center text-secondarytext">
             Loading assignments...
           </div>
         ) : (
           <div className="p-4 grid gap-4">
-            {(activeTab === "bus"
-              ? busAssignments
-              : activeTab === "car"
-                ? carAssignments
-                : evAssignments
-            ).length > 0 ? (
-              (activeTab === "bus"
-                ? busAssignments
-                : activeTab === "car"
-                  ? carAssignments
-                  : evAssignments
-              ).map((a) => (
+            {getCurrentAssignments().length > 0 ? (
+              getCurrentAssignments().map((a) => (
                 <div
                   key={a.id}
                   className="rounded-md border border-gray-100 bg-primarybg p-4 hover:shadow-md transition-all cursor-pointer"
-                  onClick={() => activeTab !== "ev" && fetchAssignmentDetails(a.id, a.is_temporary_replacement)}
+                  onClick={() => {
+                    if (activeTab === "ev") {
+                      fetchEvDetails(a.id);
+                    } else {
+                      fetchAssignmentDetails(a.id, a.is_temporary_replacement);
+                    }
+                  }}
                 >
                   <div className="flex flex-wrap items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
@@ -675,16 +1022,28 @@ export default function Assignments() {
                       </div>
                       <div>
                         <p className="font-semibold text-primarytext">
-                          {a.vehicle_name || a.vehicle_number}
+                          {activeTab === "ev"
+                            ? a.vehicle_group_name || "EV Assignment"
+                            : a.vehicle_name || a.vehicle_number}
                         </p>
                         <p className="text-xs text-secondarytext">
-                          {a.vehicle_number}
+                          {activeTab === "ev" ? (
+                            <span className="flex items-center gap-1">
+                              {a.cluster_name}{" "}
+                              <span className="opacity-50">•</span>{" "}
+                              {a.shift_name || "Any Shift"}
+                            </span>
+                          ) : (
+                            a.vehicle_number
+                          )}
                         </p>
                         <p className="text-sm text-secondarytext">
                           {a.start_date === a.end_date
                             ? a.start_date
                             : `${a.start_date} to ${a.end_date}`}{" "}
-                          {a.cluster_name && `(${a.cluster_name})`}
+                          {activeTab !== "ev" &&
+                            a.cluster_name &&
+                            `(${a.cluster_name})`}
                         </p>
                       </div>
                     </div>
@@ -707,8 +1066,8 @@ export default function Assignments() {
                           ))
                         ) : (
                           <span className="text-xs text-secondarytext">
-                            {formatTimeAMPM(a.start_time)} -{" "}
-                            {formatTimeAMPM(a.end_time)}
+                            {formatTimeAMPM(a.start_time || a.shift_start_time)}{" "}
+                            - {formatTimeAMPM(a.end_time || a.shift_end_time)}
                           </span>
                         )}
                       </div>
@@ -769,23 +1128,12 @@ export default function Assignments() {
                         </div>
                       )}
 
-                    <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                      {activeTab === "ev" && (
-                        <button
-                          onClick={() => fetchEvDetails(a.id)}
-                          className="px-3 py-2 bg-pending/10 text-pending rounded-md hover:bg-pending/20 transition-colors text-sm font-medium flex items-center gap-1.5"
-                        >
-                          <Eye size={14} /> Details
-                        </button>
-                      )}
-                      {activeTab !== "ev" && (
+                    <div
+                      className="flex gap-2"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {activeTab !== "ev" ? (
                         <>
-                          <button
-                            onClick={() => fetchAssignmentDetails(a.id, a.is_temporary_replacement)}
-                            className="px-3 py-2 bg-gray-100 text-secondarytext rounded-md hover:bg-gray-200 transition-colors text-sm font-medium flex items-center gap-1.5"
-                          >
-                            <Eye size={14} /> View
-                          </button>
                           <button
                             onClick={() => {
                               setReassignModal(a);
@@ -796,21 +1144,44 @@ export default function Assignments() {
                           >
                             <RefreshCw size={14} /> Reassign
                           </button>
+                          <button
+                            onClick={() => handleDelete(a.id, false)}
+                            className="px-3 py-2 bg-red/10 text-red rounded-md hover:bg-red/20 transition-colors text-sm font-medium flex items-center gap-1.5"
+                          >
+                            <Trash2 size={14} /> Delete
+                          </button>
                         </>
+                      ) : (
+                        <button
+                          onClick={() => handleDelete(a.id, true)}
+                          className="px-3 py-2 bg-red/10 text-red rounded-md hover:bg-red/20 transition-colors text-sm font-medium flex items-center gap-1.5"
+                        >
+                          <Trash2 size={14} /> Delete
+                        </button>
                       )}
-                      <button
-                        onClick={() => handleDelete(a.id, activeTab === "ev")}
-                        className="px-3 py-2 bg-red/10 text-red rounded-md hover:bg-red/20 transition-colors text-sm font-medium flex items-center gap-1.5"
-                      >
-                        <Trash2 size={14} /> Delete
-                      </button>
                     </div>
                   </div>
                 </div>
               ))
             ) : (
               <div className="text-center py-12 text-secondarytext">
-                <p>No assignments found for {activeTab}</p>
+                <p>
+                  {searchQuery || filterShift || filterStatus
+                    ? `No assignments match your search or filter criteria`
+                    : `No assignments found for ${activeTab}`}
+                </p>
+                {(searchQuery || filterShift || filterStatus) && (
+                  <button
+                    onClick={() => {
+                      setSearchQuery("");
+                      setFilterShift("");
+                      setFilterStatus("");
+                    }}
+                    className="mt-3 px-4 py-2 text-primary hover:bg-primary/10 rounded-md transition-colors text-sm font-medium"
+                  >
+                    Clear All Filters
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -874,85 +1245,120 @@ export default function Assignments() {
                   />
                 </div>
               </div>
-              {createModalType !== "ev" && (
-                <div>
-                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                    Shift
-                  </label>
-                  <SearchableSelect
-                    value={assignmentForm.shift_id}
-                    onChange={(val) =>
-                      setAssignmentForm({
-                        ...assignmentForm,
-                        shift_id: parseInt(val) || 0,
-                      })
-                    }
-                    placeholder="Select Shift"
-                    options={shifts.map((s) => {
-                      const timeDisplay =
-                        s.slots && s.slots.length > 0
-                          ? s.slots
-                              .map(
-                                (slot) =>
-                                  `${formatTimeAMPM(slot.start_time)}-${formatTimeAMPM(slot.end_time)}`,
-                              )
-                              .join(", ")
-                          : `${formatTimeAMPM(s.start_time)}-${formatTimeAMPM(s.end_time)}`;
-                      return {
-                        value: s.id,
-                        label: s.name,
-                        subtitle: timeDisplay,
-                      };
-                    })}
-                    emptyMessage="No shifts available"
-                  />
-                </div>
-              )}
+
+              {/* Shift Selection */}
               <div>
                 <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                  Vehicle
+                  Shift
                 </label>
                 <SearchableSelect
-                  value={assignmentForm.vehicle_id}
+                  value={assignmentForm.shift_id}
                   onChange={(val) =>
                     setAssignmentForm({
                       ...assignmentForm,
-                      vehicle_id: parseInt(val) || 0,
+                      shift_id: parseInt(val) || 0,
                     })
                   }
-                  placeholder="Select Vehicle"
-                  showAvailability={true}
-                  options={vehicles
-                    .filter(
-                      (v) =>
-                        v.vehicle_type === createModalType.toUpperCase() ||
-                        (createModalType === "ev" && v.fuel_type === "EV"),
-                    )
-                    .map((v) => {
-                      const availability = vehicleAvailabilityMap[v.id];
-                      const hasAvailabilityData = assignmentForm.shift_id > 0 && assignmentForm.start_date && availability !== undefined;
-                      const isAvailable = hasAvailabilityData ? availability?.available !== false : true;
-                      
-                      // Build conflict info for subtitle
-                      let conflictInfo = `${v.vehicle_number} • ${v.vehicle_type}`;
-                      if (hasAvailabilityData && !isAvailable && availability?.conflicts?.length > 0) {
-                        const conflict = availability.conflicts[0];
-                        conflictInfo = `${v.vehicle_number} • Assigned: ${conflict.start_date} to ${conflict.end_date}`;
-                      }
-                      
-                      return {
-                        value: v.id,
-                        label: v.bus_name || v.vehicle_number,
-                        subtitle: conflictInfo,
-                        available: isAvailable,
-                        availableText: hasAvailabilityData && !isAvailable 
-                          ? `Assigned to ${availability.conflicts?.[0]?.driver_name || 'driver'}` 
-                          : undefined,
-                      };
-                    })}
-                  emptyMessage="No vehicles available"
+                  placeholder="Select Shift"
+                  options={shifts.map((s) => {
+                    const timeDisplay =
+                      s.slots && s.slots.length > 0
+                        ? s.slots
+                            .map(
+                              (slot) =>
+                                `${formatTimeAMPM(slot.start_time)}-${formatTimeAMPM(slot.end_time)}`,
+                            )
+                            .join(", ")
+                        : `${formatTimeAMPM(s.start_time)}-${formatTimeAMPM(s.end_time)}`;
+                    return {
+                      value: s.id,
+                      label: s.name,
+                      subtitle: timeDisplay,
+                    };
+                  })}
+                  emptyMessage="No shifts available"
                 />
               </div>
+
+              {createModalType === "ev" ? (
+                <div>
+                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
+                    Vehicle Group
+                  </label>
+                  <SearchableSelect
+                    value={assignmentForm.vehicle_group_id}
+                    onChange={(val) =>
+                      setAssignmentForm({
+                        ...assignmentForm,
+                        vehicle_group_id: parseInt(val) || 0,
+                      })
+                    }
+                    placeholder="Select Vehicle Group"
+                    options={vehicleGroups.map((vg) => ({
+                      value: vg.id,
+                      label: vg.name,
+                      subtitle: `${vg.vehicle_count || 0} EV vehicles`,
+                    }))}
+                    emptyMessage="No vehicle groups available"
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
+                    Vehicle
+                  </label>
+                  <SearchableSelect
+                    value={assignmentForm.vehicle_id}
+                    onChange={(val) =>
+                      setAssignmentForm({
+                        ...assignmentForm,
+                        vehicle_id: parseInt(val) || 0,
+                      })
+                    }
+                    placeholder="Select Vehicle"
+                    showAvailability={true}
+                    options={vehicles
+                      .filter(
+                        (v) =>
+                          v.vehicle_type === createModalType.toUpperCase() ||
+                          (createModalType === "ev" && v.fuel_type === "EV"),
+                      )
+                      .map((v) => {
+                        const availability = vehicleAvailabilityMap[v.id];
+                        const hasAvailabilityData =
+                          assignmentForm.shift_id > 0 &&
+                          assignmentForm.start_date &&
+                          availability !== undefined;
+                        const isAvailable = hasAvailabilityData
+                          ? availability?.available !== false
+                          : true;
+
+                        // Build conflict info for subtitle
+                        let conflictInfo = `${v.vehicle_number} • ${v.vehicle_type}`;
+                        if (
+                          hasAvailabilityData &&
+                          !isAvailable &&
+                          availability?.conflicts?.length > 0
+                        ) {
+                          const conflict = availability.conflicts[0];
+                          conflictInfo = `${v.vehicle_number} • Assigned: ${conflict.start_date} to ${conflict.end_date}`;
+                        }
+
+                        return {
+                          value: v.id,
+                          label: v.bus_name || v.vehicle_number,
+                          subtitle: conflictInfo,
+                          available: isAvailable,
+                          availableText:
+                            hasAvailabilityData && !isAvailable
+                              ? `Assigned to ${availability.conflicts?.[0]?.driver_name || "driver"}`
+                              : undefined,
+                        };
+                      })}
+                    emptyMessage="No vehicles available"
+                  />
+                </div>
+              )}
               {createModalType === "ev" ? (
                 <div>
                   <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
@@ -1015,15 +1421,24 @@ export default function Assignments() {
                     options={availableDrivers.map((d) => {
                       const driverId = d.driver_id || d.id;
                       const availability = driverAvailabilityMap[driverId];
-                      const hasAvailabilityData = assignmentForm.shift_id > 0 && assignmentForm.start_date && availability !== undefined;
+                      const hasAvailabilityData =
+                        assignmentForm.shift_id > 0 &&
+                        assignmentForm.start_date &&
+                        availability !== undefined;
                       return {
                         value: driverId,
                         label: d.driver_name || d.full_name,
                         subtitle: d.license_type
                           ? `License: ${d.license_type}`
                           : undefined,
-                        available: hasAvailabilityData ? availability?.available !== false : true,
-                        availableText: hasAvailabilityData && availability?.available === false ? "Has Conflict" : undefined,
+                        available: hasAvailabilityData
+                          ? availability?.available !== false
+                          : true,
+                        availableText:
+                          hasAvailabilityData &&
+                          availability?.available === false
+                            ? "Has Conflict"
+                            : undefined,
                       };
                     })}
                     emptyMessage="No drivers available"
@@ -1081,7 +1496,10 @@ export default function Assignments() {
                     ? `License: ${d.license_type}`
                     : undefined,
                   available: availability?.available !== false,
-                  availableText: availability?.available === false ? "Has Conflict" : undefined,
+                  availableText:
+                    availability?.available === false
+                      ? "Has Conflict"
+                      : undefined,
                 };
               })}
               emptyMessage="No drivers available"
@@ -1372,206 +1790,573 @@ export default function Assignments() {
           }}
         >
           <div
-            className="bg-secondarybg rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {loadingEvDetails ? (
-              <div className="p-12 text-center text-secondarytext">
-                Loading assignment details...
+              <div className="p-16 text-center">
+                <div className="animate-spin inline-block w-12 h-12 border-4 border-primary border-t-transparent rounded-full mb-4"></div>
+                <p className="text-secondarytext">
+                  Loading assignment details...
+                </p>
               </div>
             ) : evDetails ? (
               <>
-                {/* Header */}
-                <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-pending/5">
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-lg bg-pending flex items-center justify-center text-white">
-                      <Zap size={28} />
+                {/* Clean Header */}
+                <div className="p-6 border-b border-gray-200 bg-white rounded-t-xl">
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-start gap-4">
+                      <div className="w-16 h-16 rounded-xl bg-pending flex items-center justify-center shadow-md">
+                        <Zap size={32} className="text-white" />
+                      </div>
+                      <div>
+                        <h2 className="text-2xl font-bold text-gray-900 mb-1">
+                          {evDetails.vehicle_group_name ||
+                            "EV Group Assignment"}
+                        </h2>
+                        <div className="flex flex-wrap gap-2 text-sm text-gray-600">
+                          <span className="font-medium text-primary">
+                            {evDetails.cluster_name}
+                          </span>
+                          <span>•</span>
+                          <span>{evDetails.shift_name || "Shift"}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-xl font-bold text-primarytext">
-                        {evDetails.assignment?.vehicle_number}
-                      </h3>
-                      <p className="text-sm text-secondarytext">
-                        EV Assignment • {evDetails.assignment?.cluster_name}
+                    <button
+                      onClick={() => {
+                        setShowEvDetailsModal(false);
+                        setEvDetails(null);
+                      }}
+                      className="text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                      <X size={24} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Content Sections */}
+                <div className="p-6 space-y-4">
+                  {/* Stats Overview */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-100">
+                      <p className="text-2xl font-bold text-blue-700">
+                        {evDetails.days_total || 0}
+                      </p>
+                      <p className="text-xs text-gray-600 font-medium mt-1">
+                        Total Days
+                      </p>
+                    </div>
+                    <div className="text-center p-3 bg-green-50 rounded-lg border border-green-100">
+                      <p className="text-2xl font-bold text-green-700">
+                        {evDetails.days_completed || 0}
+                      </p>
+                      <p className="text-xs text-gray-600 font-medium mt-1">
+                        Completed
+                      </p>
+                    </div>
+                    <div className="text-center p-3 bg-amber-50 rounded-lg border border-amber-100">
+                      <p className="text-2xl font-bold text-amber-700">
+                        {evDetails.days_remaining || 0}
+                      </p>
+                      <p className="text-xs text-gray-600 font-medium mt-1">
+                        Remaining
+                      </p>
+                    </div>
+                    <div className="text-center p-3 bg-purple-50 rounded-lg border border-purple-100">
+                      <p className="text-2xl font-bold text-purple-700">
+                        {evDetails.total_km?.toFixed(1) || "0.0"}
+                      </p>
+                      <p className="text-xs text-gray-600 font-medium mt-1">
+                        Total KM
                       </p>
                     </div>
                   </div>
-                  <button
-                    onClick={() => {
-                      setShowEvDetailsModal(false);
-                      setEvDetails(null);
-                    }}
-                    className="text-secondarytext hover:text-primarytext transition-colors"
-                  >
-                    <X size={24} />
-                  </button>
-                </div>
 
-                {/* Stats Cards */}
-                <div className="p-6 grid grid-cols-2 md:grid-cols-4 gap-4 border-b border-gray-100">
-                  <div className="bg-primarybg rounded-lg p-4">
-                    <p className="text-xs text-secondarytext uppercase tracking-wider">
-                      Duration
-                    </p>
-                    <p className="text-2xl font-bold text-primarytext mt-1">
-                      {evDetails.assignment?.days_total} days
-                    </p>
-                    <p className="text-xs text-secondarytext mt-1">
-                      {evDetails.assignment?.start_date} to{" "}
-                      {evDetails.assignment?.end_date}
-                    </p>
-                  </div>
-                  <div className="bg-green/10 rounded-lg p-4">
-                    <p className="text-xs text-green uppercase tracking-wider">
-                      Completed
-                    </p>
-                    <p className="text-2xl font-bold text-green mt-1">
-                      {evDetails.assignment?.days_completed} days
-                    </p>
-                    <p className="text-xs text-secondarytext mt-1">
-                      {evDetails.assignment?.days_remaining} days remaining
-                    </p>
-                  </div>
-                  <div className="bg-primary/10 rounded-lg p-4">
-                    <p className="text-xs text-primary uppercase tracking-wider">
-                      Total KM
-                    </p>
-                    <p className="text-2xl font-bold text-primary mt-1">
-                      {evDetails.total_vehicle_km?.toFixed(1) || 0} km
-                    </p>
-                    <p className="text-xs text-secondarytext mt-1">
-                      Vehicle distance
-                    </p>
-                  </div>
-                  <div className="bg-pending/10 rounded-lg p-4">
-                    <p className="text-xs text-pending uppercase tracking-wider">
-                      Drivers
-                    </p>
-                    <p className="text-2xl font-bold text-pending mt-1">
-                      {evDetails.drivers?.length || 0}
-                    </p>
-                    <p className="text-xs text-secondarytext mt-1">
-                      In cluster
-                    </p>
-                  </div>
-                </div>
+                  {/* Cluster & Assignment Period */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Cluster Info */}
+                    <div className="bg-purple-50 rounded-lg p-4 border border-purple-100">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Users size={16} className="text-purple-600" />
+                        <h4 className="text-xs font-bold text-purple-900 uppercase tracking-wider">
+                          Cluster Information
+                        </h4>
+                      </div>
+                      <div className="space-y-2">
+                        {evDetails.vehicle_group_name && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-600">
+                              Vehicle Group
+                            </span>
+                            <span
+                              className="font-semibold text-gray-900 truncate max-w-[120px]"
+                              title={evDetails.vehicle_group_name}
+                            >
+                              {evDetails.vehicle_group_name}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600">
+                            Cluster Name
+                          </span>
+                          <span
+                            className="font-semibold text-gray-900 truncate max-w-[120px]"
+                            title={evDetails.cluster_name}
+                          >
+                            {evDetails.cluster_name}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600">
+                            Total Drivers
+                          </span>
+                          <span className="font-semibold text-gray-900">
+                            {evDetails.drivers?.length || 0}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
 
-                {/* Drivers Section */}
-                <div className="p-6 border-b border-gray-100">
-                  <h4 className="text-sm font-bold text-secondarytext uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <Users size={16} /> Cluster Drivers
-                  </h4>
-                  {evDetails.drivers && evDetails.drivers.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {evDetails.drivers.map((driver) => (
-                        <div
-                          key={driver.driver_id}
-                          className="flex items-center justify-between p-3 bg-primarybg rounded-lg border border-gray-100"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center text-sm font-bold">
-                              {driver.initials ||
-                                driver.driver_name
-                                  ?.split(" ")
-                                  .map((n) => n[0])
-                                  .join("")
-                                  .substring(0, 2)}
+                    {/* Shift Details */}
+                    <div className="bg-orange-50 rounded-lg p-4 border border-orange-100">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Clock size={16} className="text-orange-600" />
+                        <h4 className="text-xs font-bold text-orange-900 uppercase tracking-wider">
+                          Shift Details
+                        </h4>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600">
+                            Shift Name
+                          </span>
+                          <span className="font-semibold text-gray-900">
+                            {evDetails.shift_name || "N/A"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600">
+                            Start Time
+                          </span>
+                          <span className="font-semibold text-gray-900">
+                            {formatTimeAMPM(evDetails.shift_start_time)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600">
+                            End Time
+                          </span>
+                          <span className="font-semibold text-gray-900">
+                            {formatTimeAMPM(evDetails.shift_end_time)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Assignment Period */}
+                    <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Calendar size={16} className="text-blue-600" />
+                        <h4 className="text-xs font-bold text-blue-900 uppercase tracking-wider">
+                          Assignment Period
+                        </h4>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600">
+                            Start Date
+                          </span>
+                          <span className="font-semibold text-gray-900">
+                            {evDetails.start_date}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600">
+                            End Date
+                          </span>
+                          <span className="font-semibold text-gray-900">
+                            {evDetails.end_date}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Assigned Vehicles (Group) */}
+                  {evDetails.vehicles && evDetails.vehicles.length > 0 && (
+                    <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Zap size={16} className="text-green-700" />
+                        <h4 className="text-xs font-bold text-green-700 uppercase tracking-wider">
+                          Assigned Vehicles
+                        </h4>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {evDetails.vehicles.map((v) => (
+                          <div
+                            key={v.id}
+                            className="bg-white p-2 rounded border border-green-100 flex items-center gap-2"
+                          >
+                            <div className="w-8 h-8 bg-green-100 rounded flex items-center justify-center text-green-700">
+                              <Zap size={14} />
                             </div>
-                            <div>
-                              <p className="font-medium text-primarytext">
-                                {driver.driver_name}
+                            <div className="overflow-hidden">
+                              <p className="text-sm font-bold text-gray-800 truncate">
+                                {v.vehicle_number}
                               </p>
-                              <div className="flex items-center gap-2">
+                              {v.vehicle_type && (
+                                <p className="text-xs text-gray-500 truncate">
+                                  {v.vehicle_type}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Cluster Drivers */}
+                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Users size={16} className="text-gray-700" />
+                      <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider">
+                        Cluster Drivers
+                      </h4>
+                    </div>
+                    {evDetails.drivers && evDetails.drivers.length > 0 ? (
+                      <div className="space-y-2">
+                        {evDetails.drivers.map((driver) => (
+                          <div
+                            key={driver.driver_id}
+                            className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-lg bg-primary text-white flex items-center justify-center text-sm font-bold">
+                                {driver.initials ||
+                                  driver.driver_name
+                                    ?.split(" ")
+                                    .map((n) => n[0])
+                                    .join("")
+                                    .substring(0, 2)}
+                              </div>
+                              <div>
+                                <p className="font-medium text-gray-900">
+                                  {driver.driver_name}
+                                </p>
                                 {driver.on_leave ? (
-                                  <span className="text-xs text-pending font-medium">
-                                    ● On Leave
+                                  <span className="inline-flex items-center gap-1 text-xs text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full font-medium">
+                                    <AlertTriangle size={10} />
+                                    On Leave
                                   </span>
                                 ) : (
-                                  <span className="text-xs text-green font-medium">
-                                    ● Active
+                                  <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-100 px-2 py-0.5 rounded-full font-medium">
+                                    <CheckCircle size={10} />
+                                    Active
                                   </span>
                                 )}
                               </div>
                             </div>
+                            <div className="text-right">
+                              <p className="text-lg font-bold text-primary">
+                                {driver.total_km?.toFixed(1) || 0}
+                              </p>
+                              <p className="text-xs text-gray-500">km driven</p>
+                            </div>
                           </div>
-                          <div className="text-right">
-                            <p className="font-bold text-primary">
-                              {driver.total_km?.toFixed(1) || 0} km
-                            </p>
-                            <p className="text-xs text-secondarytext">driven</p>
-                          </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-gray-400">
+                        <Users size={40} className="mx-auto mb-2 opacity-30" />
+                        <p className="text-sm">No drivers in this cluster</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Recent KM Logs */}
+                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <div className="flex items-center gap-2 mb-3">
+                      <TrendingUp size={16} className="text-gray-700" />
+                      <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider">
+                        Recent KM Logs
+                      </h4>
                     </div>
-                  ) : (
-                    <p className="text-center text-secondarytext py-4">
-                      No drivers in this cluster
-                    </p>
-                  )}
+                    {evDetails.km_logs && evDetails.km_logs.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead className="bg-white border-b border-gray-200">
+                            <tr>
+                              <th className="text-left p-2 text-xs font-semibold text-gray-600">
+                                Date
+                              </th>
+                              <th className="text-left p-2 text-xs font-semibold text-gray-600">
+                                Driver
+                              </th>
+                              <th className="text-right p-2 text-xs font-semibold text-gray-600">
+                                Start
+                              </th>
+                              <th className="text-right p-2 text-xs font-semibold text-gray-600">
+                                End
+                              </th>
+                              <th className="text-right p-2 text-xs font-semibold text-gray-600">
+                                Total
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white">
+                            {evDetails.km_logs.slice(0, 5).map((log) => (
+                              <tr
+                                key={log.id}
+                                className="border-b border-gray-100 last:border-0"
+                              >
+                                <td className="p-2 text-gray-900">
+                                  {log.date}
+                                </td>
+                                <td className="p-2 text-gray-700">
+                                  {log.driver_name}
+                                </td>
+                                <td className="p-2 text-right text-gray-600">
+                                  {log.start_km}
+                                </td>
+                                <td className="p-2 text-right text-gray-600">
+                                  {log.end_km}
+                                </td>
+                                <td className="p-2 text-right font-semibold text-green-600">
+                                  {log.total_km} km
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-gray-400 bg-white rounded">
+                        <TrendingUp
+                          size={40}
+                          className="mx-auto mb-2 opacity-30"
+                        />
+                        <p className="text-sm">No KM logs recorded yet</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                {/* KM Logs Section */}
-                <div className="p-6">
-                  <h4 className="text-sm font-bold text-secondarytext uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <TrendingUp size={16} /> Recent KM Logs
-                  </h4>
-                  {evDetails.km_logs && evDetails.km_logs.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="text-left p-3 font-medium text-secondarytext">
-                              Date
-                            </th>
-                            <th className="text-left p-3 font-medium text-secondarytext">
-                              Driver
-                            </th>
-                            <th className="text-right p-3 font-medium text-secondarytext">
-                              Start KM
-                            </th>
-                            <th className="text-right p-3 font-medium text-secondarytext">
-                              End KM
-                            </th>
-                            <th className="text-right p-3 font-medium text-secondarytext">
-                              Total
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                          {evDetails.km_logs.map((log) => (
-                            <tr key={log.id} className="hover:bg-gray-50">
-                              <td className="p-3 text-primarytext">
-                                {log.date}
-                              </td>
-                              <td className="p-3 text-primarytext">
-                                {log.driver_name}
-                              </td>
-                              <td className="p-3 text-right text-secondarytext">
-                                {log.start_km}
-                              </td>
-                              <td className="p-3 text-right text-secondarytext">
-                                {log.end_km}
-                              </td>
-                              <td className="p-3 text-right font-medium text-primary">
-                                {log.total_km} km
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <p className="text-center text-secondarytext py-4">
-                      No KM logs recorded yet
-                    </p>
-                  )}
+                {/* Footer Actions */}
+                <div className="p-6 border-t border-gray-200 bg-gray-50 flex justify-between gap-3 rounded-b-xl">
+                  <button
+                    onClick={async () => {
+                      const confirmed = await handleDelete(evDetails.id, true);
+                      if (confirmed !== false) {
+                        setShowEvDetailsModal(false);
+                        setEvDetails(null);
+                      }
+                    }}
+                    className="px-5 py-2.5 bg-red-50 text-red border border-red-200 rounded-lg hover:bg-red-100 transition-colors flex items-center gap-2 font-medium"
+                  >
+                    <Trash2 size={16} />
+                    Delete Assignment
+                  </button>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        setShowEvDetailsModal(false);
+                        setEvDetails(null);
+                      }}
+                      className="px-5 py-2.5 text-gray-600 hover:bg-gray-200 rounded-lg transition-colors font-medium"
+                    >
+                      Close
+                    </button>
+                    <button
+                      onClick={() => {
+                        const today = new Date().toISOString().split("T")[0];
+                        setEvReassignData({
+                          assignment_id: evDetails.id,
+                          cluster_id: evDetails.cluster_id,
+                          new_cluster_id: "",
+                          start_date: today,
+                          end_date: evDetails.end_date,
+                          reason: "",
+                        });
+                        setShowEvReassignModal(true);
+                        fetchClusters();
+                      }}
+                      className="px-5 py-2.5 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2 font-medium"
+                    >
+                      <RefreshCw size={16} />
+                      Reassign Cluster
+                    </button>
+                  </div>
                 </div>
               </>
             ) : (
-              <div className="p-12 text-center text-red">
-                Failed to load assignment details
+              <div className="p-16 text-center">
+                <AlertTriangle
+                  size={48}
+                  className="mx-auto mb-4 text-red-500"
+                />
+                <p className="text-red-600 font-medium">
+                  Failed to load assignment details
+                </p>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* EV Reassignment Modal */}
+      {showEvReassignModal && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={() => setShowEvReassignModal(false)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl max-w-2xl w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="p-6 border-b border-gray-200 bg-white rounded-t-xl">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-lg bg-primary flex items-center justify-center shadow-md">
+                    <RefreshCw size={24} className="text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">
+                      Reassign EV Cluster
+                    </h2>
+                    <p className="text-gray-600 text-sm">
+                      Change cluster assignment during specific period
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowEvReassignModal(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {/* Form */}
+            <div className="p-6 space-y-4">
+              {/* New Cluster Selection */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  New Cluster <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={evReassignData.new_cluster_id}
+                  onChange={(e) =>
+                    setEvReassignData({
+                      ...evReassignData,
+                      new_cluster_id: e.target.value,
+                    })
+                  }
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-shadow"
+                >
+                  <option value="">Select a cluster</option>
+                  {clusters
+                    .filter((c) => c.id !== evReassignData.cluster_id)
+                    .map((cluster) => (
+                      <option key={cluster.id} value={cluster.id}>
+                        {cluster.name} ({cluster.driver_count || 0} drivers)
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              {/* Date Range */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Start Date <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={evReassignData.start_date}
+                    onChange={(e) =>
+                      setEvReassignData({
+                        ...evReassignData,
+                        start_date: e.target.value,
+                      })
+                    }
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    End Date <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={evReassignData.end_date}
+                    onChange={(e) =>
+                      setEvReassignData({
+                        ...evReassignData,
+                        end_date: e.target.value,
+                      })
+                    }
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              {/* Reason */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Reason <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={evReassignData.reason}
+                  onChange={(e) =>
+                    setEvReassignData({
+                      ...evReassignData,
+                      reason: e.target.value,
+                    })
+                  }
+                  rows={3}
+                  placeholder="Enter reason for reassignment..."
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
+                />
+              </div>
+
+              {/* Info Box */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex gap-3">
+                <AlertTriangle
+                  size={20}
+                  className="text-blue-600 shrink-0 mt-0.5"
+                />
+                <div className="text-sm text-blue-800">
+                  <p className="font-medium mb-1">Important Note:</p>
+                  <p>
+                    This will create a temporary cluster reassignment for the
+                    specified period. The original assignment will remain for
+                    periods outside this date range.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 bg-gray-50 rounded-b-xl flex justify-end gap-3">
+              <button
+                onClick={() => setShowEvReassignModal(false)}
+                className="px-5 py-2.5 text-gray-600 hover:bg-gray-200 rounded-lg transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEvReassign}
+                className="px-5 py-2.5 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2 font-medium"
+              >
+                <RefreshCw size={16} />
+                Confirm Reassignment
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1598,17 +2383,27 @@ export default function Assignments() {
                 {/* Header */}
                 <div className="p-6 border-b border-gray-100 flex justify-between items-center">
                   <div className="flex items-center gap-4">
-                    <div className={`w-14 h-14 rounded-lg flex items-center justify-center text-white ${
-                      assignmentDetails.assignment.vehicle_type === 'BUS' ? 'bg-primary' : 'bg-green'
-                    }`}>
-                      {assignmentDetails.assignment.vehicle_type === 'BUS' ? <Bus size={28} /> : <Car size={28} />}
+                    <div
+                      className={`w-14 h-14 rounded-lg flex items-center justify-center text-white ${
+                        assignmentDetails.assignment.vehicle_type === "BUS"
+                          ? "bg-primary"
+                          : "bg-green"
+                      }`}
+                    >
+                      {assignmentDetails.assignment.vehicle_type === "BUS" ? (
+                        <Bus size={28} />
+                      ) : (
+                        <Car size={28} />
+                      )}
                     </div>
                     <div>
                       <h3 className="text-xl font-bold text-primarytext">
-                        {assignmentDetails.assignment.bus_name || assignmentDetails.assignment.vehicle_number}
+                        {assignmentDetails.assignment.bus_name ||
+                          assignmentDetails.assignment.vehicle_number}
                       </h3>
                       <p className="text-sm text-secondarytext">
-                        {assignmentDetails.assignment.vehicle_number} • {assignmentDetails.assignment.vehicle_type}
+                        {assignmentDetails.assignment.vehicle_number} •{" "}
+                        {assignmentDetails.assignment.vehicle_type}
                         {assignmentDetails.is_temporary && (
                           <span className="ml-2 px-2 py-0.5 bg-pending/20 text-pending text-xs rounded-full font-medium">
                             Temporary
@@ -1635,16 +2430,58 @@ export default function Assignments() {
                     <h4 className="text-xs text-secondarytext uppercase tracking-wider mb-3 font-bold flex items-center gap-2">
                       <Clock size={14} /> Shift Details
                     </h4>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-secondarytext">Shift Name</span>
-                        <span className="font-medium text-primarytext">{assignmentDetails.assignment.shift_name}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-secondarytext">Time</span>
-                        <span className="font-medium text-primarytext">
-                          {formatTimeAMPM(assignmentDetails.assignment.start_time)} - {formatTimeAMPM(assignmentDetails.assignment.end_time)}
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-secondarytext">
+                          Shift Name
                         </span>
+                        <span className="font-semibold text-primarytext">
+                          {assignmentDetails.assignment.shift_name}
+                        </span>
+                      </div>
+                      <div className="border-t border-gray-200 pt-3">
+                        <span className="text-sm text-secondarytext block mb-3">
+                          Time Slots
+                        </span>
+                        <div className="space-y-2">
+                          {assignmentDetails.slots &&
+                          assignmentDetails.slots.length > 0 ? (
+                            assignmentDetails.slots.map((slot, idx) => (
+                              <div
+                                key={idx}
+                                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-gray-200 hover:border-primary/40 transition-colors"
+                              >
+                                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                  <Clock size={14} className="text-primary" />
+                                </div>
+                                <span className="font-medium text-gray-900 text-sm">
+                                  {formatTimeAMPM(slot.start_time)}
+                                </span>
+                                <span className="text-gray-400">→</span>
+                                <span className="font-medium text-gray-900 text-sm">
+                                  {formatTimeAMPM(slot.end_time)}
+                                </span>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-gray-200">
+                              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                <Clock size={14} className="text-primary" />
+                              </div>
+                              <span className="font-medium text-gray-900 text-sm">
+                                {formatTimeAMPM(
+                                  assignmentDetails.assignment.start_time,
+                                )}
+                              </span>
+                              <span className="text-gray-400">→</span>
+                              <span className="font-medium text-gray-900 text-sm">
+                                {formatTimeAMPM(
+                                  assignmentDetails.assignment.end_time,
+                                )}
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1657,19 +2494,26 @@ export default function Assignments() {
                     <div className="space-y-2">
                       <div className="flex justify-between">
                         <span className="text-secondarytext">Start Date</span>
-                        <span className="font-medium text-primarytext">{assignmentDetails.assignment.start_date}</span>
+                        <span className="font-medium text-primarytext">
+                          {assignmentDetails.assignment.start_date}
+                        </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-secondarytext">End Date</span>
-                        <span className="font-medium text-primarytext">{assignmentDetails.assignment.end_date}</span>
+                        <span className="font-medium text-primarytext">
+                          {assignmentDetails.assignment.end_date}
+                        </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-secondarytext">Status</span>
-                        <span className={`font-medium px-2 py-0.5 rounded text-xs ${
-                          assignmentDetails.assignment.status === 'active' || assignmentDetails.assignment.status === 'assigned'
-                            ? 'bg-green/20 text-green' 
-                            : 'bg-gray-200 text-gray-600'
-                        }`}>
+                        <span
+                          className={`font-medium px-2 py-0.5 rounded text-xs ${
+                            assignmentDetails.assignment.status === "active" ||
+                            assignmentDetails.assignment.status === "assigned"
+                              ? "bg-green/20 text-green"
+                              : "bg-gray-200 text-gray-600"
+                          }`}
+                        >
                           {assignmentDetails.assignment.status}
                         </span>
                       </div>
@@ -1685,24 +2529,44 @@ export default function Assignments() {
                       {assignmentDetails.is_temporary ? (
                         <>
                           <div className="flex justify-between">
-                            <span className="text-secondarytext">Original Driver</span>
-                            <span className="font-medium text-primarytext">{assignmentDetails.assignment.original_driver_name}</span>
+                            <span className="text-secondarytext">
+                              Original Driver
+                            </span>
+                            <span className="font-medium text-primarytext">
+                              {
+                                assignmentDetails.assignment
+                                  .original_driver_name
+                              }
+                            </span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-secondarytext">Replacement Driver</span>
-                            <span className="font-medium text-primary">{assignmentDetails.assignment.replacement_driver_name}</span>
+                            <span className="text-secondarytext">
+                              Replacement Driver
+                            </span>
+                            <span className="font-medium text-primary">
+                              {
+                                assignmentDetails.assignment
+                                  .replacement_driver_name
+                              }
+                            </span>
                           </div>
                           {assignmentDetails.assignment.reason && (
                             <div className="flex justify-between">
                               <span className="text-secondarytext">Reason</span>
-                              <span className="font-medium text-primarytext">{assignmentDetails.assignment.reason}</span>
+                              <span className="font-medium text-primarytext">
+                                {assignmentDetails.assignment.reason}
+                              </span>
                             </div>
                           )}
                         </>
                       ) : (
                         <div className="flex justify-between">
-                          <span className="text-secondarytext">Assigned Driver</span>
-                          <span className="font-medium text-primarytext">{assignmentDetails.assignment.driver_name}</span>
+                          <span className="text-secondarytext">
+                            Assigned Driver
+                          </span>
+                          <span className="font-medium text-primarytext">
+                            {assignmentDetails.assignment.driver_name}
+                          </span>
                         </div>
                       )}
                     </div>
@@ -1717,13 +2581,8 @@ export default function Assignments() {
                       <div className="flex justify-between">
                         <span className="text-secondarytext">Created By</span>
                         <span className="font-medium text-primarytext">
-                          {assignmentDetails.assignment.created_by_name || 'System'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-secondarytext">Created At</span>
-                        <span className="font-medium text-primarytext">
-                          {assignmentDetails.assignment.created_at || assignmentDetails.assignment.assigned_date || 'N/A'}
+                          {assignmentDetails.assignment.created_by_name ||
+                            "System"}
                         </span>
                       </div>
                     </div>
@@ -1745,7 +2604,9 @@ export default function Assignments() {
                     onClick={() => {
                       setShowDetailsModal(false);
                       setReassignModal(assignmentDetails.assignment);
-                      setReassignDriverId(assignmentDetails.assignment.driver_id);
+                      setReassignDriverId(
+                        assignmentDetails.assignment.driver_id,
+                      );
                       fetchAvailableDrivers();
                     }}
                     className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2"

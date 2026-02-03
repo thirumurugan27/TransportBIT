@@ -2,7 +2,7 @@ import React, {useState} from "react";
 import {useNavigate, useLocation} from "react-router-dom";
 import {getMenuConfigByRole} from "../../config/menuConfig";
 import {ChevronDownIcon, LogoutIcon} from "./Icons";
-import bitLogo from "../../assets/bit_logo.png";
+import transportLogo from "../../assets/transportlogo.png";
 import {useAuth} from "../../context/AuthContext";
 
 /**
@@ -74,8 +74,8 @@ export default function Sidebar({role, useLogo = true, isCollapsed = false}) {
         <div className="flex flex-col items-center justify-center py-4">
           {useLogo ? (
             <img
-              src={bitLogo}
-              alt="BIT Logo"
+              src={transportLogo}
+              alt="Transport Logo"
               className="w-14 h-14 rounded-full shadow-md"
             />
           ) : (

@@ -180,12 +180,25 @@ func RegisterRoutes(r *gin.Engine) {
 	r.GET("/api/admin/drivers/km-suggestions", admin.GetDriverKmSuggestions)
 
 	// =========================
+	// VEHICLE GROUP MANAGEMENT
+	// =========================
+	r.GET("/api/admin/vehicle-groups", admin.GetVehicleGroups)
+	r.POST("/api/admin/vehicle-groups/create", admin.CreateVehicleGroup)
+	r.PUT("/api/admin/vehicle-groups/:id", admin.UpdateVehicleGroup)
+	r.DELETE("/api/admin/vehicle-groups/:id", admin.DeleteVehicleGroup)
+	r.GET("/api/admin/vehicle-groups/:id/details", admin.GetVehicleGroupDetails)
+	r.POST("/api/admin/vehicle-groups/:id/assign-vehicles", admin.AssignVehiclesToGroup)
+	r.POST("/api/admin/vehicle-groups/:id/remove-vehicle", admin.RemoveVehicleFromGroup)
+	r.GET("/api/admin/vehicles/unassigned-ev", admin.GetUnassignedEVVehicles)
+
+	// =========================
 	// EV VEHICLE ASSIGNMENTS
 	// =========================
 	r.GET("/api/admin/ev-vehicles", admin.GetEVVehicles)
 	r.GET("/api/admin/ev-assignments", admin.GetEVAssignments)
 	r.GET("/api/admin/ev-assignments/:id/details", admin.GetEVAssignmentDetails)
 	r.POST("/api/admin/ev-assignments/create", admin.CreateEVAssignment)
+	r.POST("/api/admin/ev-assignments/reassign", admin.ReassignEVAssignment)
 	r.DELETE("/api/admin/ev-assignments/delete", admin.DeleteEVAssignment)
 
 	// =========================
