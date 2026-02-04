@@ -57,7 +57,7 @@ func getSingleDayAttendanceByDate(c *gin.Context, date, status string) {
 		SELECT 
 			COALESCE(a.id, 0) as id,
 			u.id as user_id,
-			DATE_FORMAT(` + date + `, '%Y-%m-%d') as date,
+			DATE_FORMAT(` + date + `, '%d-%m-%Y') as date,
 			CASE 
 				WHEN lr.id IS NOT NULL AND lr.status = 'admin_approved' 
 					AND ` + date + ` BETWEEN lr.start_date AND lr.end_date THEN 'on_leave'
@@ -119,7 +119,7 @@ func getAttendanceRange(c *gin.Context, startDate, endDate, status string) {
 	}
 
 	query := `
-		SELECT a.id, a.user_id, DATE_FORMAT(a.date, '%Y-%m-%d') as date, a.status, a.checkin_time, a.checkout_time, u.full_name,
+		SELECT a.id, a.user_id, DATE_FORMAT(a.date, '%d-%m-%Y') as date, a.status, a.checkin_time, a.checkout_time, u.full_name,
 			a.marked_by_incharge_id, a.marked_by_incharge_name
 		FROM attendance a
 		JOIN users u ON a.user_id = u.id

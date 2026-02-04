@@ -123,7 +123,7 @@ func GetDriverProfile(c *gin.Context) {
 			COALESCE(u.phone, '') as phone,
 			COALESCE(u.email, '') as email,
 			d.license_number, d.license_type, 
-			DATE_FORMAT(d.license_expiry, '%Y-%m-%d') as license_expiry,
+			DATE_FORMAT(d.license_expiry, '%d-%m-%Y') as license_expiry,
 			d.experience_years, d.is_incharge,
 			CASE 
 				WHEN EXISTS(SELECT 1 FROM leave_requests lr 

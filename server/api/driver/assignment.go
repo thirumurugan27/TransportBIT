@@ -27,6 +27,32 @@ type DriverAssignment struct {
 	IsTemporaryReplacement bool   `json:"is_temporary_replacement"`
 	OriginalDriverID       *int   `json:"original_driver_id"`
 	OriginalDriverName     string `json:"original_driver_name"`
+	// Car assignment specific fields
+	Purpose     string `json:"purpose,omitempty"`
+	Destination string `json:"destination,omitempty"`
+	OTP         string `json:"otp,omitempty"`
+	// Group information for EV assignments
+	DriverGroupID    *int   `json:"driver_group_id"`
+	DriverGroupName  string `json:"driver_group_name"`
+	VehicleGroupID   *int   `json:"vehicle_group_id"`
+	VehicleGroupName string `json:"vehicle_group_name"`
+	IsEVAssignment   bool   `json:"is_ev_assignment"`
+	// Group details (vehicles and drivers in the group)
+	GroupVehicles []GroupVehicle `json:"group_vehicles,omitempty"`
+	GroupDrivers  []GroupDriver  `json:"group_drivers,omitempty"`
+}
+
+// GroupVehicle - vehicle in a vehicle group
+type GroupVehicle struct {
+	ID            int    `json:"id"`
+	VehicleNumber string `json:"vehicle_number"`
+	FuelType      string `json:"fuel_type"`
+}
+
+// GroupDriver - driver in a driver group
+type GroupDriver struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
 }
 
 /*
@@ -52,7 +78,7 @@ func GetDriverTodayAssignment(c *gin.Context) {
 			s.name as shift_name, 
 			TIME_FORMAT(s.start_time, '%H:%i') as start_time,
 			TIME_FORMAT(s.end_time, '%H:%i') as end_time,
-			DATE_FORMAT(a.assigned_date, '%Y-%m-%d') as assigned_date,
+			DATE_FORMAT(a.assigned_date, '%d-%m-%Y') as assigned_date,
 			a.status
 		FROM assignments a
 		JOIN vehicles v ON a.vehicle_id = v.id
@@ -73,7 +99,7 @@ func GetDriverTodayAssignment(c *gin.Context) {
 				COALESCE(s.name, 'EV Duty') as shift_name, 
 				COALESCE(TIME_FORMAT(s.start_time, '%H:%i'), '08:00') as start_time,
 				COALESCE(TIME_FORMAT(s.end_time, '%H:%i'), '17:00') as end_time,
-				DATE_FORMAT(?, '%Y-%m-%d') as assigned_date,
+				DATE_FORMAT(?, '%d-%m-%Y') as assigned_date,
 				ta.status
 			FROM temporary_assignments ta
 			JOIN vehicles v ON ta.vehicle_id = v.id
@@ -130,9 +156,9 @@ func GetDriverTodayAssignments(c *gin.Context) {
 			s.name as shift_name, 
 			TIME_FORMAT(s.start_time, '%H:%i') as start_time,
 			TIME_FORMAT(s.end_time, '%H:%i') as end_time,
-			DATE_FORMAT(a.assigned_date, '%Y-%m-%d') as assigned_date,
-			DATE_FORMAT(a.start_date, '%Y-%m-%d') as start_date,
-			DATE_FORMAT(a.end_date, '%Y-%m-%d') as end_date,
+			DATE_FORMAT(a.assigned_date, '%d-%m-%Y') as assigned_date,
+			DATE_FORMAT(a.start_date, '%d-%m-%Y') as start_date,
+			DATE_FORMAT(a.end_date, '%d-%m-%Y') as end_date,
 			a.status,
 			a.is_temporary_replacement,
 			a.original_driver_id,
@@ -172,24 +198,32 @@ func GetDriverTodayAssignments(c *gin.Context) {
 			log.Printf("Scan error driver assignment: %v", err)
 		}
 	}
-	// 2. Get EV cluster assignments (driver belongs to a cluster assigned to EV)
+	// 2. Get EV cluster assignments (driver belongs to a cluster assigned to EV vehicle group)
+	// First get unique EV assignments for this driver
 	evRows, err := config.DB.Query(`
 		SELECT 
-			ev.id, v.id as vehicle_id, v.vehicle_number, 'EV' as vehicle_type,
+			ev.id, 
 			COALESCE(s.name, 'EV Duty') as shift_name, 
-			COALESCE(TIME_FORMAT(s.start_time, '%H:%i'), TIME_FORMAT(dc.start_time, '%H:%i'), '08:00') as start_time,
-			COALESCE(TIME_FORMAT(s.end_time, '%H:%i'), TIME_FORMAT(dc.end_time, '%H:%i'), '17:00') as end_time,
+			COALESCE(TIME_FORMAT(s.start_time, '%H:%i'), '08:00') as start_time,
+			COALESCE(TIME_FORMAT(s.end_time, '%H:%i'), '17:00') as end_time,
 			? as assigned_date,
-			ev.status
+			DATE_FORMAT(ev.start_date, '%d-%m-%Y') as start_date,
+			DATE_FORMAT(ev.end_date, '%d-%m-%Y') as end_date,
+			ev.status,
+			dc.id as driver_group_id,
+			dc.name as driver_group_name,
+			vg.id as vehicle_group_id,
+			vg.name as vehicle_group_name
 		FROM ev_assignments ev
-		JOIN vehicles v ON ev.vehicle_id = v.id
+		JOIN vehicle_groups vg ON ev.vehicle_group_id = vg.id
 		JOIN driver_clusters dc ON ev.cluster_id = dc.id
-		JOIN drivers d ON d.cluster_id = dc.id
+		JOIN driver_cluster_members dcm ON dcm.cluster_id = dc.id AND ? BETWEEN dcm.valid_from AND dcm.valid_to
 		LEFT JOIN shifts s ON s.id = ev.shift_id
-		WHERE d.id = ? 
+		WHERE dcm.driver_id = ? 
 		  AND ? BETWEEN ev.start_date AND ev.end_date
 		  AND ev.status = 'active'
-	`, date, driverID, date)
+		GROUP BY ev.id
+	`, date, date, driverID, date)
 
 	if err != nil {
 		log.Printf("Get EV assignments error: %v", err)
@@ -198,9 +232,35 @@ func GetDriverTodayAssignments(c *gin.Context) {
 		defer evRows.Close()
 		for evRows.Next() {
 			var a DriverAssignment
-			if err := evRows.Scan(&a.ID, &a.VehicleID, &a.VehicleNumber, &a.VehicleType,
+			var driverGroupID, vehicleGroupID sql.NullInt64
+			var driverGroupName, vehicleGroupName sql.NullString
+			if err := evRows.Scan(&a.ID,
 				&a.ShiftName, &a.StartTime, &a.EndTime,
-				&a.AssignedDate, &a.Status); err == nil {
+				&a.AssignedDate, &a.StartDate, &a.EndDate, &a.Status,
+				&driverGroupID, &driverGroupName, &vehicleGroupID, &vehicleGroupName); err == nil {
+				a.IsEVAssignment = true
+				a.VehicleType = "EV"
+				if driverGroupID.Valid {
+					id := int(driverGroupID.Int64)
+					a.DriverGroupID = &id
+				}
+				if driverGroupName.Valid {
+					a.DriverGroupName = driverGroupName.String
+				}
+				if vehicleGroupID.Valid {
+					id := int(vehicleGroupID.Int64)
+					a.VehicleGroupID = &id
+					// Get vehicles in this group
+					a.GroupVehicles = getGroupVehicles(id, date)
+				}
+				if vehicleGroupName.Valid {
+					a.VehicleGroupName = vehicleGroupName.String
+					a.VehicleNumber = vehicleGroupName.String // Use group name as display
+				}
+				// Get drivers in the driver group
+				if driverGroupID.Valid {
+					a.GroupDrivers = getGroupDrivers(int(driverGroupID.Int64), date)
+				}
 				assignments = append(assignments, a)
 			}
 		}
@@ -214,8 +274,8 @@ func GetDriverTodayAssignments(c *gin.Context) {
 			COALESCE(TIME_FORMAT(s.start_time, '%H:%i'), '08:00') as start_time,
 			COALESCE(TIME_FORMAT(s.end_time, '%H:%i'), '17:00') as end_time,
 			? as assigned_date,
-			DATE_FORMAT(ta.start_date, '%Y-%m-%d') as start_date,
-			DATE_FORMAT(ta.end_date, '%Y-%m-%d') as end_date,
+			DATE_FORMAT(ta.start_date, '%d-%m-%Y') as start_date,
+			DATE_FORMAT(ta.end_date, '%d-%m-%Y') as end_date,
 			ta.status,
 			ta.original_driver_id,
 			COALESCE(u_orig.full_name, '') as original_driver_name
@@ -274,6 +334,13 @@ func GetDriverAssignments(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "driver_id required"})
 		return
 	}
+	
+	// Convert to int for proper type handling
+	driverIDInt, err := strconv.Atoi(driverID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid driver_id"})
+		return
+	}
 
 	var assignments []DriverAssignment
 
@@ -282,15 +349,18 @@ func GetDriverAssignments(c *gin.Context) {
 		SELECT 
 			a.id, v.id as vehicle_id, v.vehicle_number, v.vehicle_type,
 			s.name as shift_name, 
-			TIME_FORMAT(s.start_time, '%H:%i') as start_time,
-			TIME_FORMAT(s.end_time, '%H:%i') as end_time,
-			DATE_FORMAT(a.assigned_date, '%Y-%m-%d') as assigned_date,
-			DATE_FORMAT(a.start_date, '%Y-%m-%d') as start_date,
-			DATE_FORMAT(a.end_date, '%Y-%m-%d') as end_date,
+			COALESCE(a.start_time, TIME_FORMAT(s.start_time, '%H:%i')) as start_time,
+			COALESCE(a.end_time, TIME_FORMAT(s.end_time, '%H:%i')) as end_time,
+			DATE_FORMAT(a.assigned_date, '%d-%m-%Y') as assigned_date,
+			DATE_FORMAT(a.start_date, '%d-%m-%Y') as start_date,
+			DATE_FORMAT(a.end_date, '%d-%m-%Y') as end_date,
 			a.status,
 			a.is_temporary_replacement,
 			a.original_driver_id,
-			COALESCE(u_orig.full_name, '') as original_driver_name
+			COALESCE(u_orig.full_name, '') as original_driver_name,
+			COALESCE(a.purpose, '') as purpose,
+			COALESCE(a.destination, '') as destination,
+			CASE WHEN a.status = 'onhold' THEN COALESCE(a.otp, '') ELSE '' END as otp
 		FROM assignments a
 		JOIN vehicles v ON a.vehicle_id = v.id
 		JOIN shifts s ON a.shift_id = s.id
@@ -314,7 +384,8 @@ func GetDriverAssignments(c *gin.Context) {
 			&a.ID, &a.VehicleID, &a.VehicleNumber, &a.VehicleType,
 			&a.ShiftName, &a.StartTime, &a.EndTime,
 			&a.AssignedDate, &a.StartDate, &a.EndDate, &a.Status,
-			&a.IsTemporaryReplacement, &originalDriverID, &a.OriginalDriverName)
+			&a.IsTemporaryReplacement, &originalDriverID, &a.OriginalDriverName,
+			&a.Purpose, &a.Destination, &a.OTP)
 		if err == nil {
 			if originalDriverID.Valid {
 				id := int(originalDriverID.Int64)
@@ -324,46 +395,82 @@ func GetDriverAssignments(c *gin.Context) {
 		}
 	}
 
-	// 2. Get EV cluster assignments (driver belongs to a cluster assigned to EV)
-	// This generates one row per day in the date range
+	// 2. Get EV cluster assignments (driver belongs to a cluster assigned to EV vehicle group)
+	// Get unique EV assignments for this driver (not per vehicle)
+	log.Printf("Fetching EV assignments for driver ID: %d", driverIDInt)
+	
+	// First, check if driver is in any cluster
+	var clusterCheck int
+	err = config.DB.QueryRow(`SELECT COUNT(*) FROM driver_cluster_members WHERE driver_id = ?`, driverIDInt).Scan(&clusterCheck)
+	log.Printf("Driver %d is in %d cluster memberships", driverIDInt, clusterCheck)
+	
 	evRows, err := config.DB.Query(`
 		SELECT 
-			ev.id, v.id as vehicle_id, v.vehicle_number, 'EV' as vehicle_type,
+			ev.id, 
 			COALESCE(s.name, 'EV Duty') as shift_name, 
-			COALESCE(TIME_FORMAT(s.start_time, '%H:%i'), TIME_FORMAT(dc.start_time, '%H:%i'), '08:00') as start_time,
-			COALESCE(TIME_FORMAT(s.end_time, '%H:%i'), TIME_FORMAT(dc.end_time, '%H:%i'), '17:00') as end_time,
-			DATE_FORMAT(ev.start_date, '%Y-%m-%d') as assigned_date,
-			DATE_FORMAT(ev.end_date, '%Y-%m-%d') as end_date,
-			ev.status
+			COALESCE(TIME_FORMAT(s.start_time, '%H:%i'), '08:00') as start_time,
+			COALESCE(TIME_FORMAT(s.end_time, '%H:%i'), '17:00') as end_time,
+			DATE_FORMAT(ev.start_date, '%d-%m-%Y') as start_date,
+			DATE_FORMAT(ev.end_date, '%d-%m-%Y') as end_date,
+			ev.status,
+			dc.id as driver_group_id,
+			dc.name as driver_group_name,
+			vg.id as vehicle_group_id,
+			vg.name as vehicle_group_name
 		FROM ev_assignments ev
-		JOIN vehicles v ON ev.vehicle_id = v.id
+		JOIN vehicle_groups vg ON ev.vehicle_group_id = vg.id
 		JOIN driver_clusters dc ON ev.cluster_id = dc.id
-		JOIN drivers d ON d.cluster_id = dc.id
+		JOIN driver_cluster_members dcm ON dcm.cluster_id = dc.id
 		LEFT JOIN shifts s ON s.id = ev.shift_id
-		WHERE d.id = ?
+		WHERE dcm.driver_id = ?
+		GROUP BY ev.id
 		ORDER BY ev.start_date DESC
-	`, driverID)
+	`, driverIDInt)
 
 	if err != nil {
 		log.Printf("Get EV assignments error: %v", err)
 		// Don't fail, just skip EV assignments
 	} else {
 		defer evRows.Close()
+		evCount := 0
 		for evRows.Next() {
+			evCount++
 			var a DriverAssignment
-			var endDate string
-			evRows.Scan(
-				&a.ID, &a.VehicleID, &a.VehicleNumber, &a.VehicleType,
+			var driverGroupID, vehicleGroupID sql.NullInt64
+			var driverGroupName, vehicleGroupName sql.NullString
+			if err := evRows.Scan(
+				&a.ID,
 				&a.ShiftName, &a.StartTime, &a.EndTime,
-				&a.AssignedDate, &endDate, &a.Status,
-			)
-			// For display, show the date range in a combined format
-			if endDate != "" && endDate != a.AssignedDate {
-				a.EndDate = endDate
-				a.StartDate = a.AssignedDate
+				&a.StartDate, &a.EndDate, &a.Status,
+				&driverGroupID, &driverGroupName, &vehicleGroupID, &vehicleGroupName); err == nil {
+				a.AssignedDate = a.StartDate
+				a.IsEVAssignment = true
+				a.VehicleType = "EV"
+				if driverGroupID.Valid {
+					id := int(driverGroupID.Int64)
+					a.DriverGroupID = &id
+					// Get drivers in the driver group (use empty date for all-time query)
+					a.GroupDrivers = getGroupDrivers(id, "")
+				}
+				if driverGroupName.Valid {
+					a.DriverGroupName = driverGroupName.String
+				}
+				if vehicleGroupID.Valid {
+					id := int(vehicleGroupID.Int64)
+					a.VehicleGroupID = &id
+					// Get vehicles in this group (use empty date for all-time query)
+					a.GroupVehicles = getGroupVehicles(id, "")
+				}
+				if vehicleGroupName.Valid {
+					a.VehicleGroupName = vehicleGroupName.String
+					a.VehicleNumber = vehicleGroupName.String // Use group name as display
+				}
+				assignments = append(assignments, a)
+			} else {
+				log.Printf("Scan EV assignment error: %v", err)
 			}
-			assignments = append(assignments, a)
 		}
+		log.Printf("Found %d EV assignments for driver %d", evCount, driverIDInt)
 	}
 
 	// 3. Get temporary assignments
@@ -373,8 +480,8 @@ func GetDriverAssignments(c *gin.Context) {
 			COALESCE(s.name, 'EV Duty') as shift_name, 
 			COALESCE(TIME_FORMAT(s.start_time, '%H:%i'), '08:00') as start_time,
 			COALESCE(TIME_FORMAT(s.end_time, '%H:%i'), '17:00') as end_time,
-			DATE_FORMAT(ta.start_date, '%Y-%m-%d') as start_date,
-			DATE_FORMAT(ta.end_date, '%Y-%m-%d') as end_date,
+			DATE_FORMAT(ta.start_date, '%d-%m-%Y') as start_date,
+			DATE_FORMAT(ta.end_date, '%d-%m-%Y') as end_date,
 			ta.status,
 			ta.original_driver_id,
 			COALESCE(u_orig.full_name, '') as original_driver_name
@@ -548,7 +655,7 @@ func VerifyCarAssignmentOTP(c *gin.Context) {
 	var storedOTP sql.NullString
 	var status, startDate, vehicleType string
 	err := config.DB.QueryRow(`
-		SELECT a.driver_id, a.otp, a.status, DATE_FORMAT(a.start_date, '%Y-%m-%d'), v.vehicle_type 
+		SELECT a.driver_id, a.otp, a.status, DATE_FORMAT(a.start_date, '%d-%m-%Y'), v.vehicle_type 
 		FROM assignments a
 		JOIN vehicles v ON a.vehicle_id = v.id
 		WHERE a.id = ?
@@ -631,9 +738,9 @@ func GetDriverCarAssignments(c *gin.Context) {
 		       COALESCE(s.name, 'Custom') as shift_name,
 		       COALESCE(a.start_time, TIME_FORMAT(s.start_time, '%H:%i')) as start_time,
 		       COALESCE(a.end_time, TIME_FORMAT(s.end_time, '%H:%i')) as end_time,
-		       DATE_FORMAT(a.assigned_date, '%Y-%m-%d') as assigned_date,
-		       DATE_FORMAT(a.start_date, '%Y-%m-%d') as start_date,
-		       DATE_FORMAT(a.end_date, '%Y-%m-%d') as end_date,
+		       DATE_FORMAT(a.assigned_date, '%d-%m-%Y') as assigned_date,
+		       DATE_FORMAT(a.start_date, '%d-%m-%Y') as start_date,
+		       DATE_FORMAT(a.end_date, '%d-%m-%Y') as end_date,
 		       a.status, a.otp,
 		       COALESCE(a.purpose, '') as purpose,
 		       COALESCE(a.destination, '') as destination
@@ -692,4 +799,94 @@ func GetDriverCarAssignments(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, assignments)
+}
+
+// Helper function to get vehicles in a vehicle group
+func getGroupVehicles(groupID int, date string) []GroupVehicle {
+	var vehicles []GroupVehicle
+	var query string
+	var args []interface{}
+
+	if date != "" {
+		// Get vehicles valid on specific date
+		query = `
+			SELECT v.id, v.vehicle_number, COALESCE(v.fuel_type, 'EV') as fuel_type
+			FROM vehicle_group_members vgm
+			JOIN vehicles v ON v.id = vgm.vehicle_id
+			WHERE vgm.group_id = ? AND ? BETWEEN vgm.valid_from AND vgm.valid_to
+			ORDER BY v.vehicle_number
+		`
+		args = []interface{}{groupID, date}
+	} else {
+		// Get all vehicles in group (any time)
+		query = `
+			SELECT DISTINCT v.id, v.vehicle_number, COALESCE(v.fuel_type, 'EV') as fuel_type
+			FROM vehicle_group_members vgm
+			JOIN vehicles v ON v.id = vgm.vehicle_id
+			WHERE vgm.group_id = ?
+			ORDER BY v.vehicle_number
+		`
+		args = []interface{}{groupID}
+	}
+
+	rows, err := config.DB.Query(query, args...)
+	if err != nil {
+		log.Printf("Error getting group vehicles: %v", err)
+		return vehicles
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var v GroupVehicle
+		if err := rows.Scan(&v.ID, &v.VehicleNumber, &v.FuelType); err == nil {
+			vehicles = append(vehicles, v)
+		}
+	}
+	return vehicles
+}
+
+// Helper function to get drivers in a driver group
+func getGroupDrivers(groupID int, date string) []GroupDriver {
+	var drivers []GroupDriver
+	var query string
+	var args []interface{}
+
+	if date != "" {
+		// Get drivers valid on specific date
+		query = `
+			SELECT d.id, u.full_name
+			FROM driver_cluster_members dcm
+			JOIN drivers d ON d.id = dcm.driver_id
+			JOIN users u ON u.id = d.user_id
+			WHERE dcm.cluster_id = ? AND ? BETWEEN dcm.valid_from AND dcm.valid_to
+			ORDER BY u.full_name
+		`
+		args = []interface{}{groupID, date}
+	} else {
+		// Get all drivers in group (any time)
+		query = `
+			SELECT DISTINCT d.id, u.full_name
+			FROM driver_cluster_members dcm
+			JOIN drivers d ON d.id = dcm.driver_id
+			JOIN users u ON u.id = d.user_id
+			WHERE dcm.cluster_id = ?
+			ORDER BY u.full_name
+		`
+		args = []interface{}{groupID}
+	}
+
+	rows, err := config.DB.Query(query, args...)
+	if err != nil {
+		log.Printf("Error getting group drivers: %v", err)
+		return drivers
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var d GroupDriver
+		if err := rows.Scan(&d.ID, &d.Name); err == nil {
+			drivers = append(drivers, d)
+		}
+	}
+	return drivers
 }

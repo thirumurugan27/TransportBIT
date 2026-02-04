@@ -55,15 +55,8 @@ const summaryCards = [
   },
 ];
 
-const formatDate = (dateStr) => {
-  if (!dateStr) return "N/A";
-  const date = new Date(dateStr);
-  return date.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-};
+// Display date from backend (already in dd-mm-yyyy format)
+const formatDate = (dateStr) => dateStr || "N/A";
 
 const formatKm = (value) =>
   value || value === 0 ? Number(value).toFixed(1) : "--";

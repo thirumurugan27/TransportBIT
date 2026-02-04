@@ -62,11 +62,11 @@ func GetFCReplacements(c *gin.Context) {
 			r.id, r.vehicle_id, v.vehicle_number, v.vehicle_type,
 			r.replacement_vehicle_id, rv.vehicle_number as replacement_vehicle_number,
 			r.driver_id, u.full_name as driver_name,
-			DATE_FORMAT(r.start_date, '%Y-%m-%d') as start_date,
-			DATE_FORMAT(r.end_date, '%Y-%m-%d') as end_date,
+			DATE_FORMAT(r.start_date, '%d-%m-%Y') as start_date,
+			DATE_FORMAT(r.end_date, '%d-%m-%Y') as end_date,
 			r.reason, r.status, r.requested_by_role, r.requested_by_id,
 			r.approved_by_id, r.notes, r.driver_notified,
-			DATE_FORMAT(r.created_at, '%Y-%m-%d %H:%i') as created_at,
+			DATE_FORMAT(r.created_at, '%d-%m-%Y %H:%i') as created_at,
 			DATEDIFF(r.end_date, CURDATE()) as days_remaining
 		FROM fc_replacement_requests r
 		JOIN vehicles v ON r.vehicle_id = v.id
@@ -218,9 +218,11 @@ func ApproveFCReplacement(c *gin.Context) {
 	// Notify incharge of the cluster about approval
 	var inchargeID int
 	config.DB.QueryRow(`
-		SELECT d2.id FROM drivers d
-		JOIN drivers d2 ON d.cluster_id = d2.cluster_id AND d2.is_incharge = 1
-		WHERE d.id = ?
+		SELECT d2.id FROM driver_cluster_members dcm1
+		JOIN driver_cluster_members dcm2 ON dcm1.cluster_id = dcm2.cluster_id
+		JOIN drivers d2 ON d2.id = dcm2.driver_id AND d2.is_incharge = 1
+		WHERE dcm1.driver_id = ? AND CURDATE() BETWEEN dcm1.valid_from AND dcm1.valid_to
+		AND CURDATE() BETWEEN dcm2.valid_from AND dcm2.valid_to
 	`, driverID).Scan(&inchargeID)
 
 	if inchargeID > 0 {
@@ -265,9 +267,11 @@ func activateFCReplacement(requestID int, req FCReplacementRequest) {
 			SELECT COALESCE(ev.shift_id, 0)
 			FROM ev_assignments ev
 			JOIN driver_clusters dc ON ev.cluster_id = dc.id
-			JOIN drivers d ON d.cluster_id = dc.id
+			JOIN driver_cluster_members dcm ON dcm.cluster_id = dc.id
+			JOIN drivers d ON d.id = dcm.driver_id
 			WHERE ev.vehicle_id = ? AND d.id = ?
 			AND CURDATE() BETWEEN ev.start_date AND ev.end_date
+			AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to
 			LIMIT 1
 		`, req.VehicleID, req.DriverID).Scan(&shiftID)
 
@@ -476,9 +480,12 @@ func CompleteFCReplacement(c *gin.Context) {
 	// Notify incharge of driver's cluster
 	var inchargeDriverID int
 	err = config.DB.QueryRow(`
-		SELECT d2.id FROM drivers d1
-		JOIN drivers d2 ON d1.cluster_id = d2.cluster_id
-		WHERE d1.id = ? AND d2.is_incharge = 1 AND d2.id != ?
+		SELECT d2.id FROM driver_cluster_members dcm1
+		JOIN driver_cluster_members dcm2 ON dcm1.cluster_id = dcm2.cluster_id
+		JOIN drivers d2 ON d2.id = dcm2.driver_id
+		WHERE dcm1.driver_id = ? AND d2.is_incharge = 1 AND d2.id != ?
+		AND CURDATE() BETWEEN dcm1.valid_from AND dcm1.valid_to
+		AND CURDATE() BETWEEN dcm2.valid_from AND dcm2.valid_to
 	`, driverID, driverID).Scan(&inchargeDriverID)
 	if err == nil && inchargeDriverID > 0 {
 		config.DB.Exec(`
@@ -549,9 +556,12 @@ func AutoCompleteExpiredFCReplacements() {
 		// Notify incharge of driver's cluster
 		var inchargeDriverID int
 		err := config.DB.QueryRow(`
-			SELECT d2.id FROM drivers d1
-			JOIN drivers d2 ON d1.cluster_id = d2.cluster_id
-			WHERE d1.id = ? AND d2.is_incharge = 1 AND d2.id != ?
+			SELECT d2.id FROM driver_cluster_members dcm1
+			JOIN driver_cluster_members dcm2 ON dcm1.cluster_id = dcm2.cluster_id
+			JOIN drivers d2 ON d2.id = dcm2.driver_id
+			WHERE dcm1.driver_id = ? AND d2.is_incharge = 1 AND d2.id != ?
+			AND CURDATE() BETWEEN dcm1.valid_from AND dcm1.valid_to
+			AND CURDATE() BETWEEN dcm2.valid_from AND dcm2.valid_to
 		`, driverID, driverID).Scan(&inchargeDriverID)
 		if err == nil && inchargeDriverID > 0 {
 			config.DB.Exec(`
@@ -612,8 +622,8 @@ func GetRecentFCCompletions(c *gin.Context) {
 	rows, err := config.DB.Query(`
 		SELECT 
 			fcr.id, v.vehicle_number, u.full_name as driver_name, 
-			fcr.reason, DATE_FORMAT(fcr.end_date, '%Y-%m-%d') as end_date,
-			DATE_FORMAT(fcr.updated_at, '%Y-%m-%d %H:%i') as completed_at
+			fcr.reason, DATE_FORMAT(fcr.end_date, '%d-%m-%Y') as end_date,
+			DATE_FORMAT(fcr.updated_at, '%d-%m-%Y %H:%i') as completed_at
 		FROM fc_replacement_requests fcr
 		JOIN vehicles v ON fcr.vehicle_id = v.id
 		JOIN drivers d ON fcr.driver_id = d.id
@@ -671,13 +681,14 @@ func GetVehicleDrivers(c *gin.Context) {
 
 	// 1. Get drivers from regular assignments
 	rows, err := config.DB.Query(`
-		SELECT DISTINCT d.id, u.full_name, d.cluster_id, 
+		SELECT DISTINCT d.id, u.full_name, dcm.cluster_id, 
 			   COALESCE(dc.name, '') as cluster_name, d.is_incharge,
 			   a.shift_id, COALESCE(s.name, '') as shift_name, FALSE as is_ev
 		FROM assignments a
 		JOIN drivers d ON a.driver_id = d.id
 		JOIN users u ON d.user_id = u.id
-		LEFT JOIN driver_clusters dc ON d.cluster_id = dc.id
+		LEFT JOIN driver_cluster_members dcm ON dcm.driver_id = d.id AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to
+		LEFT JOIN driver_clusters dc ON dcm.cluster_id = dc.id
 		LEFT JOIN shifts s ON a.shift_id = s.id
 		WHERE a.vehicle_id = ?
 		  AND CURDATE() BETWEEN a.start_date AND a.end_date
@@ -699,12 +710,13 @@ func GetVehicleDrivers(c *gin.Context) {
 
 	// 2. Get drivers from EV cluster assignments (for EV vehicles)
 	evRows, err := config.DB.Query(`
-		SELECT DISTINCT d.id, u.full_name, d.cluster_id, 
+		SELECT DISTINCT d.id, u.full_name, dcm.cluster_id, 
 			   COALESCE(dc.name, '') as cluster_name, d.is_incharge,
 			   ev.shift_id as shift_id, COALESCE(s.name, 'EV Duty') as shift_name, TRUE as is_ev
 		FROM ev_assignments ev
 		JOIN driver_clusters dc ON ev.cluster_id = dc.id
-		JOIN drivers d ON d.cluster_id = dc.id
+		JOIN driver_cluster_members dcm ON dcm.cluster_id = dc.id AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to
+		JOIN drivers d ON d.id = dcm.driver_id
 		JOIN users u ON d.user_id = u.id
 		LEFT JOIN shifts s ON ev.shift_id = s.id
 		WHERE ev.vehicle_id = ?
@@ -819,9 +831,12 @@ func UpdateFCReplacement(c *gin.Context) {
 	// Also notify the incharge of that cluster
 	var inchargeID int
 	config.DB.QueryRow(`
-		SELECT d2.id FROM drivers d
-		JOIN drivers d2 ON d.cluster_id = d2.cluster_id AND d2.is_incharge = 1
-		WHERE d.id = ?
+		SELECT d2.id FROM driver_cluster_members dcm1
+		JOIN driver_cluster_members dcm2 ON dcm1.cluster_id = dcm2.cluster_id
+		JOIN drivers d2 ON d2.id = dcm2.driver_id AND d2.is_incharge = 1
+		WHERE dcm1.driver_id = ? 
+		AND CURDATE() BETWEEN dcm1.valid_from AND dcm1.valid_to
+		AND CURDATE() BETWEEN dcm2.valid_from AND dcm2.valid_to
 	`, driverID).Scan(&inchargeID)
 
 	if inchargeID > 0 && inchargeID != driverID {
@@ -889,9 +904,12 @@ func DeleteFCReplacement(c *gin.Context) {
 	// Notify incharge of the cluster
 	var inchargeID int
 	config.DB.QueryRow(`
-		SELECT d2.id FROM drivers d
-		JOIN drivers d2 ON d.cluster_id = d2.cluster_id AND d2.is_incharge = 1
-		WHERE d.id = ?
+		SELECT d2.id FROM driver_cluster_members dcm1
+		JOIN driver_cluster_members dcm2 ON dcm1.cluster_id = dcm2.cluster_id
+		JOIN drivers d2 ON d2.id = dcm2.driver_id AND d2.is_incharge = 1
+		WHERE dcm1.driver_id = ?
+		AND CURDATE() BETWEEN dcm1.valid_from AND dcm1.valid_to
+		AND CURDATE() BETWEEN dcm2.valid_from AND dcm2.valid_to
 	`, driverID).Scan(&inchargeID)
 
 	if inchargeID > 0 {
@@ -928,9 +946,10 @@ func GetClusterDrivers(c *gin.Context) {
 
 	rows, err := config.DB.Query(`
 		SELECT d.id, u.full_name, d.is_incharge
-		FROM drivers d
+		FROM driver_cluster_members dcm
+		JOIN drivers d ON d.id = dcm.driver_id
 		JOIN users u ON d.user_id = u.id
-		WHERE d.cluster_id = ?
+		WHERE dcm.cluster_id = ? AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to
 		ORDER BY d.is_incharge DESC, u.full_name
 	`, clusterID)
 

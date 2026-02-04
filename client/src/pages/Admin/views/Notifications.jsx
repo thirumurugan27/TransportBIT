@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
-import { useAuth } from "../../../context/AuthContext";
-import { apiGet, apiPost } from "../../../utils/api";
+import React, {useState, useEffect} from "react";
+import {useAuth} from "../../../context/AuthContext";
+import {apiGet, apiPost} from "../../../utils/api";
+import CustomDropdown from "../../../components/ui/CustomDropdown";
 import {
   Bell,
   Filter,
@@ -24,7 +25,7 @@ export default function Notifications() {
   const [filterType, setFilterType] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const { user } = useAuth();
+  const {user} = useAuth();
 
   useEffect(() => {
     fetchNotifications();
@@ -48,9 +49,11 @@ export default function Notifications() {
   const markAsRead = async (notificationId) => {
     try {
       await apiPost(`/api/admin/notifications/${notificationId}/mark-read`);
-      setNotifications(notifications.map(n =>
-        n.id === notificationId ? { ...n, is_read: true } : n
-      ));
+      setNotifications(
+        notifications.map((n) =>
+          n.id === notificationId ? {...n, is_read: true} : n,
+        ),
+      );
     } catch (err) {
       console.error(err);
     }
@@ -59,7 +62,7 @@ export default function Notifications() {
   const markAllAsRead = async () => {
     try {
       await apiPost(`/api/admin/notifications/mark-all-read`);
-      setNotifications(notifications.map(n => ({ ...n, is_read: true })));
+      setNotifications(notifications.map((n) => ({...n, is_read: true})));
     } catch (err) {
       console.error(err);
     }
@@ -67,19 +70,19 @@ export default function Notifications() {
 
   const getNotificationIcon = (type) => {
     switch (type) {
-      case 'fc_completion':
+      case "fc_completion":
         return <Wrench className="w-5 h-5 text-green" />;
-      case 'vehicle_change':
+      case "vehicle_change":
         return <RotateCcw className="w-5 h-5 text-primary" />;
-      case 'fc_request':
+      case "fc_request":
         return <Car className="w-5 h-5 text-blue-500" />;
-      case 'warning':
+      case "warning":
         return <AlertTriangle className="w-5 h-5 text-pending" />;
-      case 'alert':
+      case "alert":
         return <AlertCircle className="w-5 h-5 text-red" />;
-      case 'info':
+      case "info":
         return <Info className="w-5 h-5 text-blue-500" />;
-      case 'driver':
+      case "driver":
         return <Users className="w-5 h-5 text-purple-500" />;
       default:
         return <Bell className="w-5 h-5 text-primary" />;
@@ -88,55 +91,55 @@ export default function Notifications() {
 
   const getTypeLabel = (type) => {
     switch (type) {
-      case 'fc_completion':
-        return 'FC Completed';
-      case 'vehicle_change':
-        return 'Vehicle Change';
-      case 'fc_request':
-        return 'FC Request';
-      case 'warning':
-        return 'Warning';
-      case 'alert':
-        return 'Alert';
-      case 'info':
-        return 'Information';
-      case 'driver':
-        return 'Driver';
+      case "fc_completion":
+        return "FC Completed";
+      case "vehicle_change":
+        return "Vehicle Change";
+      case "fc_request":
+        return "FC Request";
+      case "warning":
+        return "Warning";
+      case "alert":
+        return "Alert";
+      case "info":
+        return "Information";
+      case "driver":
+        return "Driver";
       default:
-        return 'Notification';
+        return "Notification";
     }
   };
 
   const getTypeBadgeColor = (type) => {
     switch (type) {
-      case 'fc_completion':
-        return 'bg-green/10 text-green';
-      case 'vehicle_change':
-        return 'bg-primary/10 text-primary';
-      case 'fc_request':
-        return 'bg-blue-100 text-blue-600';
-      case 'warning':
-        return 'bg-pending/10 text-pending';
-      case 'alert':
-        return 'bg-red/10 text-red';
-      case 'info':
-        return 'bg-blue-100 text-blue-600';
-      case 'driver':
-        return 'bg-purple-100 text-purple-600';
+      case "fc_completion":
+        return "bg-green/10 text-green";
+      case "vehicle_change":
+        return "bg-primary/10 text-primary";
+      case "fc_request":
+        return "bg-blue-100 text-blue-600";
+      case "warning":
+        return "bg-pending/10 text-pending";
+      case "alert":
+        return "bg-red/10 text-red";
+      case "info":
+        return "bg-blue-100 text-blue-600";
+      case "driver":
+        return "bg-purple-100 text-purple-600";
       default:
-        return 'bg-gray-100 text-gray-600';
+        return "bg-gray-100 text-gray-600";
     }
   };
 
   // Filter notifications
-  const filteredNotifications = notifications.filter(n => {
+  const filteredNotifications = notifications.filter((n) => {
     // Type filter
     if (filterType !== "all" && n.type !== filterType) return false;
-    
+
     // Status filter
     if (filterStatus === "unread" && n.is_read) return false;
     if (filterStatus === "read" && !n.is_read) return false;
-    
+
     // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -144,12 +147,12 @@ export default function Notifications() {
       const matchesMessage = n.message?.toLowerCase().includes(query);
       if (!matchesTitle && !matchesMessage) return false;
     }
-    
+
     return true;
   });
 
   // Stats
-  const unreadCount = notifications.filter(n => !n.is_read).length;
+  const unreadCount = notifications.filter((n) => !n.is_read).length;
   const totalCount = notifications.length;
 
   return (
@@ -200,7 +203,10 @@ export default function Notifications() {
         </div>
 
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+          <Search
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            size={16}
+          />
           <input
             type="text"
             placeholder="Search notifications..."
@@ -210,29 +216,31 @@ export default function Notifications() {
           />
         </div>
 
-        <select
+        <CustomDropdown
           value={filterType}
-          onChange={(e) => setFilterType(e.target.value)}
-          className="px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm"
-        >
-          <option value="all">All Types</option>
-          <option value="fc_completion">✅ FC Completed</option>
-          <option value="fc_request">🚗 FC Request</option>
-          <option value="vehicle_change">🔄 Vehicle Change</option>
-          <option value="info">ℹ️ Information</option>
-          <option value="warning">⚠️ Warning</option>
-          <option value="alert">🚨 Alert</option>
-        </select>
+          onChange={setFilterType}
+          options={[
+            {value: "all", label: "All Types"},
+            {value: "fc_completion", label: "✅ FC Completed"},
+            {value: "fc_request", label: "🚗 FC Request"},
+            {value: "vehicle_change", label: "🔄 Vehicle Change"},
+            {value: "info", label: "ℹ️ Information"},
+            {value: "warning", label: "⚠️ Warning"},
+            {value: "alert", label: "🚨 Alert"},
+          ]}
+          width="w-44"
+        />
 
-        <select
+        <CustomDropdown
           value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
-          className="px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm"
-        >
-          <option value="all">All Status</option>
-          <option value="unread">📬 Unread Only</option>
-          <option value="read">📭 Read Only</option>
-        </select>
+          onChange={setFilterStatus}
+          options={[
+            {value: "all", label: "All Status"},
+            {value: "unread", label: "📬 Unread Only"},
+            {value: "read", label: "📭 Read Only"},
+          ]}
+          width="w-40"
+        />
 
         {(filterType !== "all" || filterStatus !== "all" || searchQuery) && (
           <button
@@ -260,11 +268,13 @@ export default function Notifications() {
             {filteredNotifications.map((notif) => (
               <div
                 key={notif.id}
-                className={`p-5 hover:bg-gray-50 transition-colors ${!notif.is_read ? 'bg-primary/5 border-l-4 border-l-primary' : ''}`}
+                className={`p-5 hover:bg-gray-50 transition-colors ${!notif.is_read ? "bg-primary/5 border-l-4 border-l-primary" : ""}`}
               >
                 <div className="flex gap-4">
                   {/* Icon */}
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${!notif.is_read ? 'bg-primary/10' : 'bg-gray-100'}`}>
+                  <div
+                    className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${!notif.is_read ? "bg-primary/10" : "bg-gray-100"}`}
+                  >
                     {getNotificationIcon(notif.type)}
                   </div>
 
@@ -273,10 +283,14 @@ export default function Notifications() {
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className={`font-semibold ${!notif.is_read ? 'text-primarytext' : 'text-secondarytext'}`}>
+                          <h4
+                            className={`font-semibold ${!notif.is_read ? "text-primarytext" : "text-secondarytext"}`}
+                          >
                             {notif.title}
                           </h4>
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${getTypeBadgeColor(notif.type)}`}>
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded-full ${getTypeBadgeColor(notif.type)}`}
+                          >
                             {getTypeLabel(notif.type)}
                           </span>
                           {!notif.is_read && (
@@ -287,14 +301,7 @@ export default function Notifications() {
                           {notif.message}
                         </p>
                         <p className="text-xs text-gray-400 mt-3">
-                          {new Date(notif.created_at).toLocaleDateString('en-GB', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric'
-                          })} at {new Date(notif.created_at).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
+                          {notif.created_at || "-"}
                         </p>
                       </div>
 
@@ -325,7 +332,9 @@ export default function Notifications() {
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Bell className="w-8 h-8 text-gray-300" />
             </div>
-            <p className="text-secondarytext font-medium">No notifications found</p>
+            <p className="text-secondarytext font-medium">
+              No notifications found
+            </p>
             <p className="text-sm text-gray-400 mt-1">
               {filterType !== "all" || filterStatus !== "all" || searchQuery
                 ? "Try adjusting your filters"

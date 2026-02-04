@@ -16,17 +16,50 @@ import (
 	=========================
 */
 
-// DriverCluster - cluster struct
-type DriverCluster struct {
-	ID             int     `json:"id"`
-	Name           string  `json:"name"`
-	Description    string  `json:"description"`
-	DriverCount    int     `json:"driver_count"`
-	ValidFrom      *string `json:"valid_from"`
-	ValidTo        *string `json:"valid_to"`
+// InitClusterMemberTables creates the driver_cluster_members table
+func InitClusterMemberTables() {
+	_, err := config.DB.Exec(`
+		CREATE TABLE IF NOT EXISTS driver_cluster_members (
+			id INT AUTO_INCREMENT PRIMARY KEY,
+			cluster_id INT NOT NULL,
+			driver_id INT NOT NULL,
+			valid_from DATE NOT NULL,
+			valid_to DATE NOT NULL,
+			added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (cluster_id) REFERENCES driver_clusters(id) ON DELETE CASCADE,
+			FOREIGN KEY (driver_id) REFERENCES drivers(id) ON DELETE CASCADE,
+			CHECK (valid_from <= valid_to)
+		)
+	`)
+	if err != nil {
+		log.Printf("Error creating driver_cluster_members table: %v", err)
+	} else {
+		log.Println("✅ driver_cluster_members table ready")
+	}
 }
 
-// ClusterDriver - driver in a cluster
+// DriverCluster - cluster struct
+type DriverCluster struct {
+	ID          int     `json:"id"`
+	Name        string  `json:"name"`
+	Description string  `json:"description"`
+	DriverCount int     `json:"driver_count"`
+	ValidFrom   *string `json:"valid_from"`
+	ValidTo     *string `json:"valid_to"`
+}
+
+// ClusterMember - driver membership in a cluster
+type ClusterMember struct {
+	ID         int    `json:"id"`
+	ClusterID  int    `json:"cluster_id"`
+	DriverID   int    `json:"driver_id"`
+	DriverName string `json:"driver_name"`
+	ValidFrom  string `json:"valid_from"`
+	ValidTo    string `json:"valid_to"`
+	AddedAt    string `json:"added_at"`
+}
+
+// ClusterDriver - driver in a cluster (for listing)
 type ClusterDriver struct {
 	ID        int    `json:"id"`
 	Name      string `json:"name"`
@@ -44,7 +77,8 @@ type ClusterDriver struct {
 func GetClusters(c *gin.Context) {
 	rows, err := config.DB.Query(`
 		SELECT c.id, c.name, COALESCE(c.description, '') as description, 
-			   (SELECT COUNT(*) FROM drivers d WHERE d.cluster_id = c.id) as driver_count,
+			   (SELECT COUNT(DISTINCT dcm.driver_id) FROM driver_cluster_members dcm 
+			    WHERE dcm.cluster_id = c.id AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to) as driver_count,
 			   DATE_FORMAT(c.valid_from, '%d-%m-%Y'), 
 			   DATE_FORMAT(c.valid_to, '%d-%m-%Y')
 		FROM driver_clusters c
@@ -58,12 +92,12 @@ func GetClusters(c *gin.Context) {
 	defer rows.Close()
 
 	type ClusterResponse struct {
-		ID             int     `json:"id"`
-		Name           string  `json:"name"`
-		Description    string  `json:"description"`
-		DriverCount    int     `json:"driver_count"`
-		ValidFrom      *string `json:"valid_from"`
-		ValidTo        *string `json:"valid_to"`
+		ID          int     `json:"id"`
+		Name        string  `json:"name"`
+		Description string  `json:"description"`
+		DriverCount int     `json:"driver_count"`
+		ValidFrom   *string `json:"valid_from"`
+		ValidTo     *string `json:"valid_to"`
 	}
 
 	var clusters []ClusterResponse
@@ -87,14 +121,62 @@ func GetClusters(c *gin.Context) {
 /*
 =========================
 
+	GET /api/admin/clusters/:id/members
+	Get all members of a cluster
+
+=========================
+*/
+func GetClusterMembers(c *gin.Context) {
+	clusterID := c.Param("id")
+	if clusterID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Cluster ID required"})
+		return
+	}
+
+	rows, err := config.DB.Query(`
+		SELECT dcm.id, dcm.cluster_id, dcm.driver_id, 
+		       COALESCE(u.full_name, '') as driver_name,
+		       DATE_FORMAT(dcm.valid_from, '%d-%m-%Y') as valid_from,
+		       DATE_FORMAT(dcm.valid_to, '%d-%m-%Y') as valid_to,
+		       DATE_FORMAT(dcm.added_at, '%d-%m-%Y %H:%i') as added_at
+		FROM driver_cluster_members dcm
+		JOIN drivers d ON dcm.driver_id = d.id
+		JOIN users u ON d.user_id = u.id
+		WHERE dcm.cluster_id = ?
+		ORDER BY dcm.valid_from DESC, u.full_name
+	`, clusterID)
+	if err != nil {
+		log.Printf("Get cluster members error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching members"})
+		return
+	}
+	defer rows.Close()
+
+	var members []ClusterMember
+	for rows.Next() {
+		var m ClusterMember
+		err := rows.Scan(&m.ID, &m.ClusterID, &m.DriverID, &m.DriverName, &m.ValidFrom, &m.ValidTo, &m.AddedAt)
+		if err != nil {
+			log.Printf("Scan member error: %v", err)
+			continue
+		}
+		members = append(members, m)
+	}
+
+	c.JSON(http.StatusOK, members)
+}
+
+/*
+=========================
+
 	POST /api/admin/clusters/create
 
 =========================
 */
 func CreateCluster(c *gin.Context) {
 	var req struct {
-		Name           string `json:"name"`
-		Description    string `json:"description"`
+		Name        string `json:"name"`
+		Description string `json:"description"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -149,6 +231,20 @@ func CreateClusterWithSchedule(c *gin.Context) {
 		return
 	}
 
+	if req.ValidFrom == "" || req.ValidTo == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Valid from and valid to dates are required"})
+		return
+	}
+
+	// Check for date conflicts for each driver
+	for _, driverID := range req.DriverIDs {
+		hasConflict, conflictMsg := checkDriverClusterConflict(driverID, 0, req.ValidFrom, req.ValidTo)
+		if hasConflict {
+			c.JSON(http.StatusConflict, gin.H{"error": conflictMsg})
+			return
+		}
+	}
+
 	// Create the cluster with schedule info
 	result, err := config.DB.Exec(`
 		INSERT INTO driver_clusters (name, description, valid_from, valid_to)
@@ -163,11 +259,14 @@ func CreateClusterWithSchedule(c *gin.Context) {
 
 	clusterID, _ := result.LastInsertId()
 
-	// Assign all selected drivers to this cluster
+	// Add all selected drivers as members with the specified date range
 	for _, driverID := range req.DriverIDs {
-		_, err := config.DB.Exec("UPDATE drivers SET cluster_id = ? WHERE id = ?", clusterID, driverID)
+		_, err := config.DB.Exec(`
+			INSERT INTO driver_cluster_members (cluster_id, driver_id, valid_from, valid_to)
+			VALUES (?, ?, ?, ?)
+		`, clusterID, driverID, req.ValidFrom, req.ValidTo)
 		if err != nil {
-			log.Printf("Error assigning driver %d to cluster: %v", driverID, err)
+			log.Printf("Error adding driver %d to cluster: %v", driverID, err)
 		}
 	}
 
@@ -201,12 +300,37 @@ func UpdateCluster(c *gin.Context) {
 		return
 	}
 
+	// Get cluster valid dates (use provided or fetch existing)
+	validFrom := req.ValidFrom
+	validTo := req.ValidTo
+
+	// If no dates provided, get existing dates from cluster
+	if validFrom == "" || validTo == "" {
+		var existingFrom, existingTo *string
+		err := config.DB.QueryRow(`SELECT DATE_FORMAT(valid_from, '%d-%m-%Y'), DATE_FORMAT(valid_to, '%d-%m-%Y') FROM driver_clusters WHERE id = ?`, req.ID).Scan(&existingFrom, &existingTo)
+		if err == nil {
+			if validFrom == "" && existingFrom != nil {
+				validFrom = *existingFrom
+			}
+			if validTo == "" && existingTo != nil {
+				validTo = *existingTo
+			}
+		}
+		// Default to current year if still empty
+		if validFrom == "" {
+			validFrom = "2024-01-01"
+		}
+		if validTo == "" {
+			validTo = "2025-12-31"
+		}
+	}
+
 	// Update cluster details
 	_, err := config.DB.Exec(`
 		UPDATE driver_clusters 
 		SET name=?, description=?, valid_from=?, valid_to=?
 		WHERE id=?
-	`, req.Name, req.Description, req.ValidFrom, req.ValidTo, req.ID)
+	`, req.Name, req.Description, validFrom, validTo, req.ID)
 
 	if err != nil {
 		log.Printf("Update cluster error: %v", err)
@@ -214,19 +338,22 @@ func UpdateCluster(c *gin.Context) {
 		return
 	}
 
-	// Update drivers (strategies: 1. clear all and re-add, 2. smart diff)
-	// Simple approach: Set all drivers in this cluster to NULL, then set selected to this cluster
-	// Note: This removes drivers who were in this cluster but not in the new list.
-	
-	// 1. Unassign all current drivers of this cluster
-	_, err = config.DB.Exec("UPDATE drivers SET cluster_id = NULL WHERE cluster_id = ?", req.ID)
+	// Update driver assignments in driver_cluster_members table (clear first, then assign new ones)
+	// Delete existing memberships for this cluster
+	_, err = config.DB.Exec(`DELETE FROM driver_cluster_members WHERE cluster_id = ?`, req.ID)
 	if err != nil {
-		log.Printf("Error unassigning old drivers: %v", err)
+		log.Printf("Error clearing cluster members: %v", err)
 	}
 
-	// 2. Assign selected drivers
+	// Insert new driver memberships
 	for _, driverID := range req.DriverIDs {
-		config.DB.Exec("UPDATE drivers SET cluster_id = ? WHERE id = ?", req.ID, driverID)
+		_, err = config.DB.Exec(`
+			INSERT INTO driver_cluster_members (cluster_id, driver_id, valid_from, valid_to)
+			VALUES (?, ?, ?, ?)
+		`, req.ID, driverID, validFrom, validTo)
+		if err != nil {
+			log.Printf("Error adding driver %d to cluster: %v", driverID, err)
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Driver group updated successfully"})
@@ -235,14 +362,22 @@ func UpdateCluster(c *gin.Context) {
 /*
 =========================
 
-	POST /api/admin/clusters/assign-drivers
+	POST /api/admin/clusters/:id/add-member
+	Add a driver to a cluster with date range
 
 =========================
 */
-func AssignDriversToCluster(c *gin.Context) {
+func AddClusterMember(c *gin.Context) {
+	clusterID := c.Param("id")
+	if clusterID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Cluster ID required"})
+		return
+	}
+
 	var req struct {
-		ClusterID int   `json:"cluster_id"`
-		DriverIDs []int `json:"driver_ids"`
+		DriverID  int    `json:"driver_id"`
+		ValidFrom string `json:"valid_from"`
+		ValidTo   string `json:"valid_to"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -250,12 +385,127 @@ func AssignDriversToCluster(c *gin.Context) {
 		return
 	}
 
-	// Update all specified drivers
-	for _, driverID := range req.DriverIDs {
-		config.DB.Exec("UPDATE drivers SET cluster_id = ? WHERE id = ?", req.ClusterID, driverID)
+	if req.DriverID == 0 || req.ValidFrom == "" || req.ValidTo == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Driver ID, valid_from, and valid_to are required"})
+		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Drivers assigned to cluster"})
+	clusterIDInt, _ := strconv.Atoi(clusterID)
+
+	// Check for date conflicts
+	hasConflict, conflictMsg := checkDriverClusterConflict(req.DriverID, clusterIDInt, req.ValidFrom, req.ValidTo)
+	if hasConflict {
+		c.JSON(http.StatusConflict, gin.H{"error": conflictMsg})
+		return
+	}
+
+	// Add member
+	_, err := config.DB.Exec(`
+		INSERT INTO driver_cluster_members (cluster_id, driver_id, valid_from, valid_to)
+		VALUES (?, ?, ?, ?)
+	`, clusterID, req.DriverID, req.ValidFrom, req.ValidTo)
+
+	if err != nil {
+		log.Printf("Add cluster member error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error adding member"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Driver added to group successfully"})
+}
+
+/*
+=========================
+
+	DELETE /api/admin/clusters/:id/remove-member
+	Remove a driver membership from cluster
+
+=========================
+*/
+func RemoveClusterMember(c *gin.Context) {
+	memberID := c.Query("member_id")
+	if memberID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Member ID required"})
+		return
+	}
+
+	_, err := config.DB.Exec(`DELETE FROM driver_cluster_members WHERE id = ?`, memberID)
+	if err != nil {
+		log.Printf("Remove cluster member error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error removing member"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Member removed successfully"})
+}
+
+// checkDriverClusterConflict checks if a driver has overlapping membership in any cluster
+func checkDriverClusterConflict(driverID int, excludeClusterID int, validFrom, validTo string) (bool, string) {
+	// Check for overlapping dates: NOT (new_to < existing_from OR new_from > existing_to)
+	query := `
+		SELECT c.name, DATE_FORMAT(dcm.valid_from, '%d-%m-%Y'), DATE_FORMAT(dcm.valid_to, '%d-%m-%Y')
+		FROM driver_cluster_members dcm
+		JOIN driver_clusters c ON dcm.cluster_id = c.id
+		WHERE dcm.driver_id = ?
+		AND dcm.cluster_id != ?
+		AND NOT (? < dcm.valid_from OR ? > dcm.valid_to)
+		LIMIT 1
+	`
+	var clusterName, existingFrom, existingTo string
+	err := config.DB.QueryRow(query, driverID, excludeClusterID, validTo, validFrom).Scan(&clusterName, &existingFrom, &existingTo)
+	if err == nil {
+		// Get driver name
+		var driverName string
+		config.DB.QueryRow(`
+			SELECT u.full_name FROM drivers d JOIN users u ON d.user_id = u.id WHERE d.id = ?
+		`, driverID).Scan(&driverName)
+		
+		return true, "Driver '" + driverName + "' is already assigned to '" + clusterName + "' from " + existingFrom + " to " + existingTo + ". Dates overlap with your selection."
+	}
+	return false, ""
+}
+
+/*
+=========================
+
+	POST /api/admin/clusters/assign-drivers
+	(Legacy - kept for compatibility)
+
+=========================
+*/
+func AssignDriversToCluster(c *gin.Context) {
+	var req struct {
+		ClusterID int    `json:"cluster_id"`
+		DriverIDs []int  `json:"driver_ids"`
+		ValidFrom string `json:"valid_from"`
+		ValidTo   string `json:"valid_to"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	if req.ValidFrom == "" || req.ValidTo == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Valid from and valid to dates are required"})
+		return
+	}
+
+	addedCount := 0
+	for _, driverID := range req.DriverIDs {
+		hasConflict, _ := checkDriverClusterConflict(driverID, req.ClusterID, req.ValidFrom, req.ValidTo)
+		if !hasConflict {
+			_, err := config.DB.Exec(`
+				INSERT INTO driver_cluster_members (cluster_id, driver_id, valid_from, valid_to)
+				VALUES (?, ?, ?, ?)
+			`, req.ClusterID, driverID, req.ValidFrom, req.ValidTo)
+			if err == nil {
+				addedCount++
+			}
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Drivers assigned to cluster", "added": addedCount})
 }
 
 /*
@@ -278,8 +528,11 @@ func AssignClusterToShift(c *gin.Context) {
 		return
 	}
 
-	// Get all drivers in the cluster
-	rows, err := config.DB.Query("SELECT id FROM drivers WHERE cluster_id = ?", req.ClusterID)
+	// Get all active drivers in the cluster for the given date
+	rows, err := config.DB.Query(`
+		SELECT dcm.driver_id FROM driver_cluster_members dcm
+		WHERE dcm.cluster_id = ? AND ? BETWEEN dcm.valid_from AND dcm.valid_to
+	`, req.ClusterID, req.AssignedDate)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching drivers"})
 		return
@@ -294,7 +547,6 @@ func AssignClusterToShift(c *gin.Context) {
 	}
 
 	// Create assignments for each driver
-	// Need to assign vehicles too - get available vehicles
 	vehicleRows, _ := config.DB.Query("SELECT id FROM vehicles WHERE status = 'available' LIMIT ?", len(driverIDs))
 	defer vehicleRows.Close()
 
@@ -312,7 +564,7 @@ func AssignClusterToShift(c *gin.Context) {
 		if i < len(vehicleIDs) {
 			vehicleID = vehicleIDs[i]
 		} else if len(vehicleIDs) > 0 {
-			vehicleID = vehicleIDs[0] // Reuse first vehicle if not enough
+			vehicleID = vehicleIDs[0]
 		}
 
 		if vehicleID > 0 {
@@ -338,17 +590,15 @@ func AssignClusterToShift(c *gin.Context) {
 =========================
 
 	DELETE /api/admin/clusters/delete?id=X
-	Delete a cluster and unassign all drivers
+	Delete a cluster and all memberships
 
 =========================
 */
 func DeleteCluster(c *gin.Context) {
-	// Try getting ID from query first (standard for DELETE)
 	idStr := c.Query("id")
 	var id int
-	
+
 	if idStr != "" {
-		// Parse query param
 		parsed, err := strconv.Atoi(idStr)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID format"})
@@ -356,7 +606,6 @@ func DeleteCluster(c *gin.Context) {
 		}
 		id = parsed
 	} else {
-		// Try JSON body (fallback for POST compatibility)
 		var req struct {
 			ID int `json:"id"`
 		}
@@ -367,17 +616,11 @@ func DeleteCluster(c *gin.Context) {
 		id = req.ID
 	}
 
-	// First, unassign all drivers from this cluster
-	_, err := config.DB.Exec("UPDATE drivers SET cluster_id = NULL WHERE cluster_id = ?", id)
-	if err != nil {
-		log.Printf("Error unassigning drivers from cluster: %v", err)
-	}
-
+	// Memberships will be deleted by CASCADE
 	// Delete from ev_assignments if any
-	_, err = config.DB.Exec("DELETE FROM ev_assignments WHERE cluster_id = ?", id)
+	_, err := config.DB.Exec("DELETE FROM ev_assignments WHERE cluster_id = ?", id)
 	if err != nil {
 		log.Printf("Error deleting ev_assignments for cluster: %v", err)
-		// Non-fatal, proceed
 	}
 
 	// Delete the cluster
@@ -389,4 +632,65 @@ func DeleteCluster(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Driver group deleted"})
+}
+
+/*
+=========================
+
+	GET /api/admin/drivers/available-for-cluster
+	Get drivers available for a date range (not already in a cluster)
+
+=========================
+*/
+func GetAvailableDriversForCluster(c *gin.Context) {
+	validFrom := c.Query("valid_from")
+	validTo := c.Query("valid_to")
+	excludeClusterID := c.Query("exclude_cluster_id")
+
+	if validFrom == "" || validTo == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "valid_from and valid_to required"})
+		return
+	}
+
+	query := `
+		SELECT d.id, u.full_name, d.license_type
+		FROM drivers d
+		JOIN users u ON d.user_id = u.id
+		WHERE d.id NOT IN (
+			SELECT dcm.driver_id FROM driver_cluster_members dcm
+			WHERE dcm.cluster_id != COALESCE(?, 0)
+			AND NOT (? < dcm.valid_from OR ? > dcm.valid_to)
+		)
+		ORDER BY u.full_name
+	`
+
+	rows, err := config.DB.Query(query, excludeClusterID, validTo, validFrom)
+	if err != nil {
+		log.Printf("Get available drivers error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching drivers"})
+		return
+	}
+	defer rows.Close()
+
+	type AvailableDriver struct {
+		ID          int    `json:"id"`
+		Name        string `json:"name"`
+		LicenseType string `json:"license_type"`
+	}
+
+	var drivers []AvailableDriver
+	for rows.Next() {
+		var d AvailableDriver
+		var licenseType *string
+		err := rows.Scan(&d.ID, &d.Name, &licenseType)
+		if err != nil {
+			continue
+		}
+		if licenseType != nil {
+			d.LicenseType = *licenseType
+		}
+		drivers = append(drivers, d)
+	}
+
+	c.JSON(http.StatusOK, drivers)
 }

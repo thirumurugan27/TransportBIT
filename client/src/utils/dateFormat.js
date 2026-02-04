@@ -1,23 +1,16 @@
 /**
  * Date and Time Formatting Utilities
- * Format: dd-mm-yyyy for dates, hh:mm for times
+ * Backend returns dates in dd-mm-yyyy format, so minimal formatting needed
  */
 
 /**
- * Format date string to dd-mm-yyyy
- * @param {string|Date} dateStr - Date string or Date object
- * @returns {string} Formatted date (dd-mm-yyyy)
+ * Return date as-is from backend (dd-mm-yyyy format)
+ * @param {string} dateStr - Date string from backend
+ * @returns {string} Date string or "-" if empty
  */
 export const formatDate = (dateStr) => {
     if (!dateStr) return "-";
-    const date = new Date(dateStr);
-    if (isNaN(date)) return "-";
-
-    const day = String(date.getDate()).padStart(2, "0");
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const year = date.getFullYear();
-
-    return `${day}-${month}-${year}`;
+    return dateStr;
 };
 
 /**
@@ -43,31 +36,50 @@ export const formatTime = (timeStr) => {
 
 /**
  * Format date and time together
- * @param {string} dateStr - Date string
+ * @param {string} dateStr - Date string (dd-mm-yyyy from backend)
  * @param {string} timeStr - Time string
  * @returns {string} Formatted date and time
  */
 export const formatDateTime = (dateStr, timeStr) => {
     if (!dateStr) return "-";
-    const formattedDate = formatDate(dateStr);
-    if (!timeStr) return formattedDate;
+    if (!timeStr) return dateStr;
     const formattedTime = formatTime(timeStr);
-    return `${formattedDate}, ${formattedTime}`;
+    return `${dateStr}, ${formattedTime}`;
+};
+
+/**
+ * Parse dd-mm-yyyy date string to Date object (for calculations only)
+ * @param {string} dateStr - Date string in dd-mm-yyyy format
+ * @returns {Date|null} Parsed Date object or null
+ */
+export const parseDate = (dateStr) => {
+    if (!dateStr) return null;
+    if (dateStr instanceof Date) return dateStr;
+
+    // Check if dd-mm-yyyy format
+    const match = dateStr.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+    if (match) {
+        const [, day, month, year] = match;
+        return new Date(year, month - 1, day);
+    }
+
+    const date = new Date(dateStr);
+    return isNaN(date) ? null : date;
 };
 
 /**
  * Calculate duration between two dates
- * @param {string} startDate - Start date
- * @param {string} endDate - End date
+ * @param {string} startDate - Start date (dd-mm-yyyy)
+ * @param {string} endDate - End date (dd-mm-yyyy)
  * @returns {string} Duration (e.g., "3 days")
  */
 export const calculateDuration = (startDate, endDate) => {
     if (!startDate || !endDate) return "-";
 
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    const start = parseDate(startDate);
+    const end = parseDate(endDate);
 
-    if (isNaN(start) || isNaN(end)) return "-";
+    if (!start || !end) return "-";
 
     const diffTime = Math.abs(end - start);
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;

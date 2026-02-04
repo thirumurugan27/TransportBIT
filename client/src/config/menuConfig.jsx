@@ -96,12 +96,6 @@ export const adminMenuConfig = {
       icon: <BusIcon />,
       path: "/student-transport",
     },
-    {
-      key: "carBookings",
-      label: "Car Bookings",
-      icon: <VehicleIcon />,
-      path: "/car-bookings",
-    },
   ],
 };
 
@@ -122,12 +116,6 @@ export const driverMenuConfig = {
       label: "My Assignments",
       icon: <AssignmentIcon />,
       path: "/assignments",
-    },
-    {
-      key: "carBookings",
-      label: "Car Bookings",
-      icon: <VehicleIcon />,
-      path: "/car-bookings",
     },
     {
       key: "km-log",

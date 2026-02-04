@@ -153,8 +153,11 @@ type SlotInput struct {
 }
 
 type CreateShiftWithSlotsRequest struct {
+	ID          int         `json:"id"`
 	Name        string      `json:"name"`
 	Description string      `json:"description"`
+	StartTime   string      `json:"start_time"`
+	EndTime     string      `json:"end_time"`
 	Slots       []SlotInput `json:"slots"`
 }
 

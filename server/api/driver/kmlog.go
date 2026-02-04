@@ -52,7 +52,7 @@ func GetDriverKmLogs(c *gin.Context) {
 	}
 
 	rows, err := config.DB.Query(`
-		SELECT k.id, k.driver_id, DATE_FORMAT(k.date, '%Y-%m-%d') as date, 
+		SELECT k.id, k.driver_id, DATE_FORMAT(k.date, '%d-%m-%Y') as date, 
 		       k.start_km, k.end_km, k.total_km, COALESCE(k.remarks, '') as remarks,
 			   COALESCE(k.vehicle_type, 'BUS') as vehicle_type, k.vehicle_id, v.vehicle_number
 		FROM km_logs k

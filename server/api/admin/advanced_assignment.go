@@ -100,7 +100,7 @@ func GetAvailableDrivers(c *gin.Context) {
 =========================
 
 	GET /api/admin/assignments/by-category
-	Get assignments filtered by vehicle category (BUS, CAR)
+	Get assignments filtered by vehicle category (BUS, CAR, OTHER)
 
 =========================
 */
@@ -109,8 +109,21 @@ func GetAssignmentsByCategory(c *gin.Context) {
 	if category == "" {
 		category = "BUS"
 	}
-	rows, err := config.DB.Query(`
-		SELECT a.id, DATE_FORMAT(a.assigned_date, '%Y-%m-%d') as assigned_date, a.status,
+	
+	// Build the query based on category
+	var whereClause string
+	var args []interface{}
+	
+	if category == "OTHER" {
+		// OTHER = vehicles that are not BUS, CAR, or BATTERY_VEHICLE (EV)
+		whereClause = "v.vehicle_type NOT IN ('BUS', 'CAR', 'BATTERY_VEHICLE')"
+	} else {
+		whereClause = "v.vehicle_type = ?"
+		args = append(args, category)
+	}
+	
+	query := `
+		SELECT a.id, DATE_FORMAT(a.assigned_date, '%d-%m-%Y') as assigned_date, a.status,
 		       d.id as driver_id, u.full_name as driver_name, 
 		       CASE 
 		           WHEN a.assigned_date > CURDATE() THEN 'scheduled'
@@ -138,9 +151,11 @@ func GetAssignmentsByCategory(c *gin.Context) {
 		LEFT JOIN buses b ON v.id = b.vehicle_id
 		JOIN shifts s ON a.shift_id = s.id
 		LEFT JOIN attendance att ON att.user_id = d.user_id AND att.date = a.assigned_date
-		WHERE v.vehicle_type = ?
+		WHERE ` + whereClause + `
 		ORDER BY a.assigned_date DESC, s.start_time
-	`, category)
+	`
+	
+	rows, err := config.DB.Query(query, args...)
 
 	if err != nil {
 		log.Printf("Get assignments by category error: %v", err)

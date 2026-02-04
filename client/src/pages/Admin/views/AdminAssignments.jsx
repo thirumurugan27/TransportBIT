@@ -3,6 +3,7 @@ import TemporaryAssignments from "./TemporaryAssignments";
 import EVAssignmentsList from "./EVAssignmentsList";
 import {showError, showConfirm} from "../../../utils/swal";
 import {formatVehicleLabel} from "../../../utils/vehicleLabel";
+import {formatTime} from "../../../utils/dateFormat";
 import SearchableSelect from "../../../components/ui/SearchableSelect";
 import {
   Calendar,
@@ -18,7 +19,7 @@ import {
   Plus,
 } from "lucide-react";
 
-const API_BASE = import.meta.env.VITE_API_BASE ;
+const API_BASE = import.meta.env.VITE_API_BASE;
 
 export default function AdminAssignments() {
   const [activeTab, setActiveTab] = useState("regular"); // regular, temporary, ev, other
@@ -129,14 +130,36 @@ export default function AdminAssignments() {
 
   const filteredAssignments = assignments.filter((a) => {
     if (activeTab === "other") {
-      return a.vehicle_type !== "BUS" && a.vehicle_type !== "CAR";
+      // Show VAN, TRUCK, and other non-BUS/CAR vehicle types
+      return (
+        a.vehicle_type !== "BUS" &&
+        a.vehicle_type !== "CAR" &&
+        a.vehicle_type !== "EV"
+      );
     }
-    // Regular tab usually implies Bus/Car standard assignments
     if (activeTab === "regular") {
-      return true;
+      // Show BUS and CAR assignments
+      return a.vehicle_type === "BUS" || a.vehicle_type === "CAR";
     }
     return true;
   });
+
+  // Get counts for tabs
+  const getCounts = () => {
+    return {
+      regular: assignments.filter(
+        (a) => a.vehicle_type === "BUS" || a.vehicle_type === "CAR",
+      ).length,
+      other: assignments.filter(
+        (a) =>
+          a.vehicle_type !== "BUS" &&
+          a.vehicle_type !== "CAR" &&
+          a.vehicle_type !== "EV",
+      ).length,
+    };
+  };
+
+  const counts = getCounts();
 
   return (
     <div className="space-y-6">
@@ -150,24 +173,35 @@ export default function AdminAssignments() {
       <div className="border-b border-gray-200">
         <div className="flex space-x-6 overflow-x-auto pb-1">
           {[
-            {id: "regular", label: "Regular Assignments"},
-            {id: "temporary", label: "Temporary & Subs"},
-            {id: "ev", label: "EV & Clusters"},
-            {id: "other", label: "Other Vehicles"},
+            {id: "regular", label: "Bus & Car", count: counts.regular},
+            {id: "temporary", label: "Temporary & Subs", count: null},
+            {id: "ev", label: "EV & Clusters", count: null},
+            {id: "other", label: "Other Vehicles", count: counts.other},
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`
-                whitespace-nowrap py-3 px-2 border-b-2 font-medium text-sm transition-all duration-200
+                whitespace-nowrap py-3 px-2 border-b-2 font-medium text-sm transition-all duration-200 flex items-center gap-2
                 ${
                   activeTab === tab.id
-                    ? "border-[var(--color-primary)] text-[var(--color-primary)]"
+                    ? "border-primary text-primary"
                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }
               `}
             >
               {tab.label}
+              {tab.count !== null && tab.count > 0 && (
+                <span
+                  className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                    activeTab === tab.id
+                      ? "bg-primary text-white"
+                      : "bg-gray-200 text-gray-600"
+                  }`}
+                >
+                  {tab.count}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -181,7 +215,7 @@ export default function AdminAssignments() {
         <div className="bg-white rounded-md shadow-sm border border-gray-100 overflow-hidden">
           {loading ? (
             <div className="p-12 text-center text-gray-500">
-              <div className="animate-spin inline-block w-8 h-8 border-4 border-current border-t-transparent text-[var(--color-primary)] rounded-full mb-4"></div>
+              <div className="animate-spin inline-block w-8 h-8 border-4 border-current border-t-transparent text-primary rounded-full mb-4"></div>
               <p>Loading assignments...</p>
             </div>
           ) : (
@@ -373,7 +407,7 @@ export default function AdminAssignments() {
                   options={shifts.map((s) => ({
                     value: s.id,
                     label: s.shift_name,
-                    subtitle: `${s.start_time}-${s.end_time}`,
+                    subtitle: `${formatTime(s.start_time)}-${formatTime(s.end_time)}`,
                   }))}
                   emptyMessage="No shifts available"
                 />
@@ -389,7 +423,7 @@ export default function AdminAssignments() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[var(--color-primary)] text-white rounded-md hover:opacity-90 flex items-center gap-2"
+                  className="px-4 py-2 bg-primary text-white rounded-md hover:opacity-90 flex items-center gap-2"
                 >
                   <Save size={16} /> Save Changes
                 </button>

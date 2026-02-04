@@ -383,7 +383,7 @@ func GetAllTransportPayments(c *gin.Context) {
 	rows, err := config.DB.Query(`
 		SELECT 
 			p.id, p.student_transport_id, u.full_name,
-			p.amount, DATE_FORMAT(p.payment_date, '%Y-%m-%d'),
+			p.amount, DATE_FORMAT(p.payment_date, '%d-%m-%Y'),
 			p.payment_method, COALESCE(p.transaction_id, ''),
 			COALESCE(p.receipt_number, ''), COALESCE(p.remarks, ''),
 			COALESCE(p.recorded_by, 0), COALESCE(admin.full_name, 'System')
@@ -482,7 +482,7 @@ func GetAllStopChangeRequests(c *gin.Context) {
 			COALESCE(scr.reason, ''), scr.status,
 			COALESCE(scr.admin_remarks, ''),
 			scr.processed_by, COALESCE(admin.full_name, ''),
-			DATE_FORMAT(scr.processed_at, '%Y-%m-%d %H:%i'), DATE_FORMAT(scr.created_at, '%Y-%m-%d %H:%i')
+			DATE_FORMAT(scr.processed_at, '%d-%m-%Y %H:%i'), DATE_FORMAT(scr.created_at, '%d-%m-%Y %H:%i')
 		FROM stop_change_requests scr
 		LEFT JOIN student_transport st ON scr.student_transport_id = st.id
 		LEFT JOIN users u ON st.user_id = u.id

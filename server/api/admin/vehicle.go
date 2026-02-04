@@ -24,15 +24,19 @@ func GetAllVehicles(c *gin.Context) {
 		       COALESCE(b.end_point, ''),
 		       fcr.id as fc_replacement_id,
 		       fcr.status as fc_replacement_status,
-		       DATE_FORMAT(fcr.start_date, '%Y-%m-%d') as fc_start_date,
-		       DATE_FORMAT(fcr.end_date, '%Y-%m-%d') as fc_end_date,
+		       DATE_FORMAT(fcr.start_date, '%d-%m-%Y') as fc_start_date,
+		       DATE_FORMAT(fcr.end_date, '%d-%m-%Y') as fc_end_date,
 		       fcr.reason as fc_reason,
-		       rv.vehicle_number as replacement_vehicle_number
+		       rv.vehicle_number as replacement_vehicle_number,
+		       vgm.group_id as vehicle_group_id,
+		       COALESCE(vg.name, '') as vehicle_group_name
 		FROM vehicles v
 		LEFT JOIN buses b ON v.id = b.vehicle_id
 		LEFT JOIN fc_replacement_requests fcr ON v.id = fcr.vehicle_id 
 		    AND fcr.status IN ('approved', 'active', 'pending')
 		LEFT JOIN vehicles rv ON fcr.replacement_vehicle_id = rv.id
+		LEFT JOIN vehicle_group_members vgm ON vgm.vehicle_id = v.id AND CURDATE() BETWEEN vgm.valid_from AND vgm.valid_to
+		LEFT JOIN vehicle_groups vg ON vg.id = vgm.group_id
 		ORDER BY v.id DESC
 	`)
 	if err != nil {
@@ -60,6 +64,8 @@ func GetAllVehicles(c *gin.Context) {
 		FCEndDate                *string `json:"fc_end_date"`
 		FCReason                 *string `json:"fc_reason"`
 		ReplacementVehicleNumber *string `json:"replacement_vehicle_number"`
+		VehicleGroupID           *int    `json:"vehicle_group_id"`
+		VehicleGroupName         string  `json:"vehicle_group_name"`
 	}
 
 	var vehicles []VehicleWithReplacement
@@ -69,7 +75,8 @@ func GetAllVehicles(c *gin.Context) {
 			&v.InsuranceExpireDate, &v.FCExpireDate, &v.PermitExpireDate,
 			&v.BusName, &v.StartPoint, &v.EndPoint,
 			&v.FCReplacementID, &v.FCReplacementStatus, &v.FCStartDate, &v.FCEndDate,
-			&v.FCReason, &v.ReplacementVehicleNumber)
+			&v.FCReason, &v.ReplacementVehicleNumber,
+			&v.VehicleGroupID, &v.VehicleGroupName)
 		vehicles = append(vehicles, v)
 	}
 

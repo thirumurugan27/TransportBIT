@@ -1,6 +1,7 @@
 import React, {useState, useEffect} from "react";
 import {Plus} from "lucide-react";
 import SearchableSelect from "../../../components/ui/SearchableSelect";
+import {formatTime} from "../../../utils/dateFormat";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
@@ -88,19 +89,19 @@ export default function CarBookingManagement() {
   const fetchAvailableResources = async (date, startTime, endTime) => {
     try {
       const token = localStorage.getItem("token");
-      
+
       // Build query params with time for conflict checking
       let params = `date=${date}`;
       if (startTime) params += `&start_time=${encodeURIComponent(startTime)}`;
       if (endTime) params += `&end_time=${encodeURIComponent(endTime)}`;
-      
+
       // Fetch available cars
       const carsRes = await fetch(
         `${API_BASE}/api/admin/car-bookings/available-cars?${params}`,
         {
           headers: {Authorization: `Bearer ${token}`},
           credentials: "include",
-        }
+        },
       );
       if (carsRes.ok) {
         const cars = await carsRes.json();
@@ -113,7 +114,7 @@ export default function CarBookingManagement() {
         {
           headers: {Authorization: `Bearer ${token}`},
           credentials: "include",
-        }
+        },
       );
       if (driversRes.ok) {
         const drivers = await driversRes.json();
@@ -157,7 +158,11 @@ export default function CarBookingManagement() {
   };
 
   const handleCreateBooking = async () => {
-    if (!createForm.faculty_id || !createForm.vehicle_id || !createForm.driver_id) {
+    if (
+      !createForm.faculty_id ||
+      !createForm.vehicle_id ||
+      !createForm.driver_id
+    ) {
       alert("Please select faculty, vehicle, and driver");
       return;
     }
@@ -207,7 +212,11 @@ export default function CarBookingManagement() {
   const handleApproveClick = (booking) => {
     setSelectedBooking(booking);
     setApproveForm({vehicle_id: "", driver_id: "", admin_remarks: ""});
-    fetchAvailableResources(booking.booking_date, booking.start_time, booking.end_time);
+    fetchAvailableResources(
+      booking.booking_date,
+      booking.start_time,
+      booking.end_time,
+    );
     setShowApproveModal(true);
   };
 
@@ -244,7 +253,9 @@ export default function CarBookingManagement() {
       const data = await res.json();
 
       if (res.ok) {
-        alert(`Booking approved! OTP: ${data.otp}\n\nThis OTP has been shared with the faculty.`);
+        alert(
+          `Booking approved! OTP: ${data.otp}\n\nThis OTP has been shared with the faculty.`,
+        );
         setShowApproveModal(false);
         fetchBookings();
       } else {
@@ -313,7 +324,9 @@ export default function CarBookingManagement() {
       const data = await res.json();
 
       if (res.ok) {
-        alert("Booking cancelled successfully. Vehicle and driver have been released.");
+        alert(
+          "Booking cancelled successfully. Vehicle and driver have been released.",
+        );
         fetchBookings();
       } else {
         alert(data.error || "Failed to cancel booking");
@@ -356,8 +369,12 @@ export default function CarBookingManagement() {
     <div className="space-y-6 p-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Car Booking Management</h1>
-          <p className="text-gray-600 mt-1">Manage faculty car booking requests</p>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Car Booking Management
+          </h1>
+          <p className="text-gray-600 mt-1">
+            Manage faculty car booking requests
+          </p>
         </div>
         <button
           onClick={handleOpenCreateModal}
@@ -400,8 +417,18 @@ export default function CarBookingManagement() {
           </div>
         ) : bookings.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
-            <svg className="w-12 h-12 mx-auto text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            <svg
+              className="w-12 h-12 mx-auto text-gray-300 mb-3"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+              />
             </svg>
             <p>No bookings found</p>
           </div>
@@ -438,14 +465,21 @@ export default function CarBookingManagement() {
                         <div className="text-sm font-medium text-gray-900">
                           {booking.faculty_name}
                         </div>
-                        <div className="text-sm text-gray-500">{booking.department}</div>
-                        <div className="text-xs text-gray-400">{booking.faculty_phone}</div>
+                        <div className="text-sm text-gray-500">
+                          {booking.department}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          {booking.faculty_phone}
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{booking.booking_date}</div>
+                      <div className="text-sm text-gray-900">
+                        {booking.booking_date}
+                      </div>
                       <div className="text-sm text-gray-500">
-                        {booking.start_time} - {booking.end_time}
+                        {formatTime(booking.start_time)} -{" "}
+                        {formatTime(booking.end_time)}
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -453,7 +487,9 @@ export default function CarBookingManagement() {
                         {booking.purpose}
                       </div>
                       {booking.destination && (
-                        <div className="text-sm text-gray-500">To: {booking.destination}</div>
+                        <div className="text-sm text-gray-500">
+                          To: {booking.destination}
+                        </div>
                       )}
                       <div className="text-xs text-gray-400">
                         {booking.passenger_count} passenger(s)
@@ -462,15 +498,23 @@ export default function CarBookingManagement() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       {booking.vehicle_number ? (
                         <div>
-                          <div className="text-sm text-gray-900">{booking.vehicle_number}</div>
-                          <div className="text-sm text-gray-500">{booking.driver_name}</div>
+                          <div className="text-sm text-gray-900">
+                            {booking.vehicle_number}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {booking.driver_name}
+                          </div>
                         </div>
                       ) : (
-                        <span className="text-sm text-gray-400">Not assigned</span>
+                        <span className="text-sm text-gray-400">
+                          Not assigned
+                        </span>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusBadge(booking.status)}`}>
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusBadge(booking.status)}`}
+                      >
                         {getStatusLabel(booking.status)}
                       </span>
                       {booking.otp && booking.status === "onhold" && (
@@ -498,7 +542,9 @@ export default function CarBookingManagement() {
                       )}
                       {booking.status === "onhold" && (
                         <div className="flex flex-col gap-2">
-                          <span className="text-purple-600 text-xs">Awaiting OTP verification</span>
+                          <span className="text-purple-600 text-xs">
+                            Awaiting OTP verification
+                          </span>
                           <button
                             onClick={() => handleCancelOnhold(booking)}
                             disabled={processing}
@@ -521,13 +567,19 @@ export default function CarBookingManagement() {
       {showApproveModal && selectedBooking && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Approve Booking</h2>
-            
+            <h2 className="text-xl font-bold text-gray-900 mb-4">
+              Approve Booking
+            </h2>
+
             <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-              <p className="font-medium text-gray-900">{selectedBooking.faculty_name}</p>
+              <p className="font-medium text-gray-900">
+                {selectedBooking.faculty_name}
+              </p>
               <p className="text-sm text-gray-600">{selectedBooking.purpose}</p>
               <p className="text-sm text-gray-500">
-                {selectedBooking.booking_date} • {selectedBooking.start_time} - {selectedBooking.end_time}
+                {selectedBooking.booking_date} •{" "}
+                {formatTime(selectedBooking.start_time)} -{" "}
+                {formatTime(selectedBooking.end_time)}
               </p>
             </div>
 
@@ -538,20 +590,29 @@ export default function CarBookingManagement() {
                 </label>
                 <SearchableSelect
                   value={approveForm.vehicle_id}
-                  onChange={(val) => setApproveForm({...approveForm, vehicle_id: val})}
+                  onChange={(val) =>
+                    setApproveForm({...approveForm, vehicle_id: val})
+                  }
                   placeholder="Choose a vehicle..."
                   showAvailability={true}
                   options={availableCars.map((car) => ({
                     value: String(car.id),
                     label: car.vehicle_number,
-                    subtitle: car.seating_capacity ? `${car.seating_capacity} seats` : undefined,
+                    subtitle: car.seating_capacity
+                      ? `${car.seating_capacity} seats`
+                      : undefined,
                     available: car.is_available !== false,
-                    availableText: car.is_available === false ? car.conflict_info || "Booked" : undefined,
+                    availableText:
+                      car.is_available === false
+                        ? car.conflict_info || "Booked"
+                        : undefined,
                   }))}
                   emptyMessage="No cars available"
                 />
                 {availableCars.length === 0 && (
-                  <p className="text-sm text-red-500 mt-1">No cars available for this date</p>
+                  <p className="text-sm text-red-500 mt-1">
+                    No cars available for this date
+                  </p>
                 )}
               </div>
 
@@ -561,7 +622,9 @@ export default function CarBookingManagement() {
                 </label>
                 <SearchableSelect
                   value={approveForm.driver_id}
-                  onChange={(val) => setApproveForm({...approveForm, driver_id: val})}
+                  onChange={(val) =>
+                    setApproveForm({...approveForm, driver_id: val})
+                  }
                   placeholder="Choose a driver..."
                   showAvailability={true}
                   options={availableDrivers.map((driver) => ({
@@ -569,12 +632,17 @@ export default function CarBookingManagement() {
                     label: driver.full_name,
                     subtitle: driver.license_number || undefined,
                     available: driver.is_available !== false,
-                    availableText: driver.is_available === false ? driver.conflict_info || "Assigned" : undefined,
+                    availableText:
+                      driver.is_available === false
+                        ? driver.conflict_info || "Assigned"
+                        : undefined,
                   }))}
                   emptyMessage="No drivers available"
                 />
                 {availableDrivers.length === 0 && (
-                  <p className="text-sm text-red-500 mt-1">No drivers available for this date</p>
+                  <p className="text-sm text-red-500 mt-1">
+                    No drivers available for this date
+                  </p>
                 )}
               </div>
 
@@ -584,7 +652,12 @@ export default function CarBookingManagement() {
                 </label>
                 <textarea
                   value={approveForm.admin_remarks}
-                  onChange={(e) => setApproveForm({...approveForm, admin_remarks: e.target.value})}
+                  onChange={(e) =>
+                    setApproveForm({
+                      ...approveForm,
+                      admin_remarks: e.target.value,
+                    })
+                  }
                   rows={3}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   placeholder="Any additional notes..."
@@ -601,7 +674,11 @@ export default function CarBookingManagement() {
               </button>
               <button
                 onClick={handleApprove}
-                disabled={processing || !approveForm.vehicle_id || !approveForm.driver_id}
+                disabled={
+                  processing ||
+                  !approveForm.vehicle_id ||
+                  !approveForm.driver_id
+                }
                 className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
               >
                 {processing ? "Processing..." : "Approve & Generate OTP"}
@@ -615,13 +692,19 @@ export default function CarBookingManagement() {
       {showRejectModal && selectedBooking && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 max-w-lg w-full mx-4">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Reject Booking</h2>
-            
+            <h2 className="text-xl font-bold text-gray-900 mb-4">
+              Reject Booking
+            </h2>
+
             <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-              <p className="font-medium text-gray-900">{selectedBooking.faculty_name}</p>
+              <p className="font-medium text-gray-900">
+                {selectedBooking.faculty_name}
+              </p>
               <p className="text-sm text-gray-600">{selectedBooking.purpose}</p>
               <p className="text-sm text-gray-500">
-                {selectedBooking.booking_date} • {selectedBooking.start_time} - {selectedBooking.end_time}
+                {selectedBooking.booking_date} •{" "}
+                {formatTime(selectedBooking.start_time)} -{" "}
+                {formatTime(selectedBooking.end_time)}
               </p>
             </div>
 
@@ -665,16 +748,32 @@ export default function CarBookingManagement() {
               // OTP Success Screen
               <div className="text-center py-6">
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  <svg
+                    className="w-8 h-8 text-green-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
+                    />
                   </svg>
                 </div>
-                <h2 className="text-xl font-bold text-gray-900 mb-2">Booking Created Successfully!</h2>
-                <p className="text-gray-600 mb-6">Share this OTP with the driver for verification</p>
-                
+                <h2 className="text-xl font-bold text-gray-900 mb-2">
+                  Booking Created Successfully!
+                </h2>
+                <p className="text-gray-600 mb-6">
+                  Share this OTP with the driver for verification
+                </p>
+
                 <div className="bg-purple-50 border-2 border-purple-200 rounded-xl p-6 mb-6">
                   <p className="text-sm text-purple-600 mb-2">OTP Code</p>
-                  <p className="text-4xl font-mono font-bold text-purple-900 tracking-widest">{createdOTP}</p>
+                  <p className="text-4xl font-mono font-bold text-purple-900 tracking-widest">
+                    {createdOTP}
+                  </p>
                 </div>
 
                 <button
@@ -690,12 +789,16 @@ export default function CarBookingManagement() {
             ) : (
               // Create Form
               <>
-                <h2 className="text-xl font-bold text-gray-900 mb-6">Create Car Booking</h2>
-                
+                <h2 className="text-xl font-bold text-gray-900 mb-6">
+                  Create Car Booking
+                </h2>
+
                 <div className="space-y-4">
                   {/* Requester Details */}
                   <div className="border-b pb-4">
-                    <h3 className="text-sm font-semibold text-gray-700 mb-3">Requester Details</h3>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-3">
+                      Requester Details
+                    </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -705,19 +808,26 @@ export default function CarBookingManagement() {
                           options={faculties.map((f) => ({
                             value: String(f.id),
                             label: f.full_name,
-                            subtitle: [f.department, f.phone].filter(Boolean).join(" • ") || undefined,
+                            subtitle:
+                              [f.department, f.phone]
+                                .filter(Boolean)
+                                .join(" • ") || undefined,
                           }))}
                           value={createForm.faculty_id}
                           onChange={handleFacultyChange}
                           placeholder="Search or select faculty"
                         />
                         {faculties.length === 0 && (
-                          <p className="text-xs text-gray-500 mt-1">No faculty found. Please add faculty first.</p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            No faculty found. Please add faculty first.
+                          </p>
                         )}
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Name
+                          </label>
                           <input
                             type="text"
                             value={createForm.requester_name}
@@ -727,7 +837,9 @@ export default function CarBookingManagement() {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Phone
+                          </label>
                           <input
                             type="text"
                             value={createForm.requester_phone}
@@ -737,7 +849,9 @@ export default function CarBookingManagement() {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Department
+                          </label>
                           <input
                             type="text"
                             value={createForm.requester_department}
@@ -752,40 +866,69 @@ export default function CarBookingManagement() {
 
                   {/* Date & Time */}
                   <div className="border-b pb-4">
-                    <h3 className="text-sm font-semibold text-gray-700 mb-3">Date & Time</h3>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-3">
+                      Date & Time
+                    </h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Date <span className="text-red-500">*</span></label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Date <span className="text-red-500">*</span>
+                        </label>
                         <input
                           type="date"
                           value={createForm.booking_date}
                           onChange={(e) => {
-                            setCreateForm({...createForm, booking_date: e.target.value});
-                            fetchAvailableResources(e.target.value, createForm.start_time, createForm.end_time);
+                            setCreateForm({
+                              ...createForm,
+                              booking_date: e.target.value,
+                            });
+                            fetchAvailableResources(
+                              e.target.value,
+                              createForm.start_time,
+                              createForm.end_time,
+                            );
                           }}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Start Time <span className="text-red-500">*</span></label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Start Time <span className="text-red-500">*</span>
+                        </label>
                         <input
                           type="time"
                           value={createForm.start_time}
                           onChange={(e) => {
-                            setCreateForm({...createForm, start_time: e.target.value});
-                            fetchAvailableResources(createForm.booking_date, e.target.value, createForm.end_time);
+                            setCreateForm({
+                              ...createForm,
+                              start_time: e.target.value,
+                            });
+                            fetchAvailableResources(
+                              createForm.booking_date,
+                              e.target.value,
+                              createForm.end_time,
+                            );
                           }}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">End Time <span className="text-red-500">*</span></label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          End Time <span className="text-red-500">*</span>
+                        </label>
                         <input
                           type="time"
                           value={createForm.end_time}
                           onChange={(e) => {
-                            setCreateForm({...createForm, end_time: e.target.value});
-                            fetchAvailableResources(createForm.booking_date, createForm.start_time, e.target.value);
+                            setCreateForm({
+                              ...createForm,
+                              end_time: e.target.value,
+                            });
+                            fetchAvailableResources(
+                              createForm.booking_date,
+                              createForm.start_time,
+                              e.target.value,
+                            );
                           }}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         />
@@ -795,37 +938,60 @@ export default function CarBookingManagement() {
 
                   {/* Trip Details */}
                   <div className="border-b pb-4">
-                    <h3 className="text-sm font-semibold text-gray-700 mb-3">Trip Details</h3>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-3">
+                      Trip Details
+                    </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Purpose</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Purpose
+                        </label>
                         <input
                           type="text"
                           value={createForm.purpose}
-                          onChange={(e) => setCreateForm({...createForm, purpose: e.target.value})}
+                          onChange={(e) =>
+                            setCreateForm({
+                              ...createForm,
+                              purpose: e.target.value,
+                            })
+                          }
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                           placeholder="e.g., Site visit, Guest pickup"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Destination</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Destination
+                        </label>
                         <input
                           type="text"
                           value={createForm.destination}
-                          onChange={(e) => setCreateForm({...createForm, destination: e.target.value})}
+                          onChange={(e) =>
+                            setCreateForm({
+                              ...createForm,
+                              destination: e.target.value,
+                            })
+                          }
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                           placeholder="Destination"
                         />
                       </div>
                     </div>
                     <div className="mt-4">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Passengers</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Passengers
+                      </label>
                       <input
                         type="number"
                         min="1"
                         max="10"
                         value={createForm.passenger_count}
-                        onChange={(e) => setCreateForm({...createForm, passenger_count: e.target.value})}
+                        onChange={(e) =>
+                          setCreateForm({
+                            ...createForm,
+                            passenger_count: e.target.value,
+                          })
+                        }
                         className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -833,7 +999,9 @@ export default function CarBookingManagement() {
 
                   {/* Vehicle & Driver */}
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-700 mb-3">Assign Vehicle & Driver</h3>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-3">
+                      Assign Vehicle & Driver
+                    </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -841,20 +1009,29 @@ export default function CarBookingManagement() {
                         </label>
                         <SearchableSelect
                           value={createForm.vehicle_id}
-                          onChange={(val) => setCreateForm({...createForm, vehicle_id: val})}
+                          onChange={(val) =>
+                            setCreateForm({...createForm, vehicle_id: val})
+                          }
                           placeholder="Select a vehicle"
                           showAvailability={true}
                           options={availableCars.map((car) => ({
                             value: String(car.id),
                             label: car.vehicle_number,
-                            subtitle: car.seating_capacity ? `${car.seating_capacity} seats • ${car.fuel_type || "Petrol"}` : car.fuel_type,
+                            subtitle: car.seating_capacity
+                              ? `${car.seating_capacity} seats • ${car.fuel_type || "Petrol"}`
+                              : car.fuel_type,
                             available: car.is_available !== false,
-                            availableText: car.is_available === false ? car.conflict_info || "Booked" : undefined,
+                            availableText:
+                              car.is_available === false
+                                ? car.conflict_info || "Booked"
+                                : undefined,
                           }))}
                           emptyMessage="No cars found"
                         />
                         {availableCars.length === 0 && (
-                          <p className="text-xs text-gray-500 mt-1">No cars available for selected date/time</p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            No cars available for selected date/time
+                          </p>
                         )}
                       </div>
                       <div>
@@ -863,20 +1040,30 @@ export default function CarBookingManagement() {
                         </label>
                         <SearchableSelect
                           value={createForm.driver_id}
-                          onChange={(val) => setCreateForm({...createForm, driver_id: val})}
+                          onChange={(val) =>
+                            setCreateForm({...createForm, driver_id: val})
+                          }
                           placeholder="Select a driver"
                           showAvailability={true}
                           options={availableDrivers.map((driver) => ({
                             value: String(driver.id),
                             label: driver.full_name,
-                            subtitle: driver.license_number || driver.phone || undefined,
+                            subtitle:
+                              driver.license_number ||
+                              driver.phone ||
+                              undefined,
                             available: driver.is_available !== false,
-                            availableText: driver.is_available === false ? driver.conflict_info || "Assigned" : undefined,
+                            availableText:
+                              driver.is_available === false
+                                ? driver.conflict_info || "Assigned"
+                                : undefined,
                           }))}
                           emptyMessage="No drivers found"
                         />
                         {availableDrivers.length === 0 && (
-                          <p className="text-xs text-gray-500 mt-1">No drivers available for selected date/time</p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            No drivers available for selected date/time
+                          </p>
                         )}
                       </div>
                     </div>
@@ -892,7 +1079,12 @@ export default function CarBookingManagement() {
                   </button>
                   <button
                     onClick={handleCreateBooking}
-                    disabled={processing || !createForm.requester_name || !createForm.vehicle_id || !createForm.driver_id}
+                    disabled={
+                      processing ||
+                      !createForm.requester_name ||
+                      !createForm.vehicle_id ||
+                      !createForm.driver_id
+                    }
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                   >
                     {processing ? "Creating..." : "Create Booking"}

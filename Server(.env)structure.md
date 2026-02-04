@@ -1,9 +1,0 @@
-DB_USER=root
-DB_PASSWORD=
-DB_HOST=localhost
-DB_PORT=3306
-DB_NAME=transport_bit
-JWT_SECRET=transport_super_secret_key_2026
-GOOGLE_CLIENT_ID=466403724600-ep5s2l2jc4u5o36mrqtg15bmrj2n5s7g.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=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
-GOOGLE_REDIRECT_URL=http://localhost:8080/auth/google/callback

@@ -140,9 +140,9 @@ func GetInchargeAssignments(c *gin.Context) {
 				a.shift_id, s.name as shift_name, 
 				TIME_FORMAT(s.start_time, '%H:%i') as start_time,
 				TIME_FORMAT(s.end_time, '%H:%i') as end_time,
-				DATE_FORMAT(a.assigned_date, '%Y-%m-%d') as assigned_date,
-				DATE_FORMAT(a.start_date, '%Y-%m-%d') as start_date,
-				DATE_FORMAT(a.end_date, '%Y-%m-%d') as end_date,
+				DATE_FORMAT(a.assigned_date, '%d-%m-%Y') as assigned_date,
+				DATE_FORMAT(a.start_date, '%d-%m-%Y') as start_date,
+				DATE_FORMAT(a.end_date, '%d-%m-%Y') as end_date,
 				a.status
 			FROM assignments a
 			JOIN drivers d ON a.driver_id = d.id
@@ -172,9 +172,9 @@ func GetInchargeAssignments(c *gin.Context) {
 				a.shift_id, s.name as shift_name, 
 				TIME_FORMAT(s.start_time, '%H:%i') as start_time,
 				TIME_FORMAT(s.end_time, '%H:%i') as end_time,
-				DATE_FORMAT(a.assigned_date, '%Y-%m-%d') as assigned_date,
-				DATE_FORMAT(a.start_date, '%Y-%m-%d') as start_date,
-				DATE_FORMAT(a.end_date, '%Y-%m-%d') as end_date,
+				DATE_FORMAT(a.assigned_date, '%d-%m-%Y') as assigned_date,
+				DATE_FORMAT(a.start_date, '%d-%m-%Y') as start_date,
+				DATE_FORMAT(a.end_date, '%d-%m-%Y') as end_date,
 				a.status
 			FROM assignments a
 			JOIN drivers d ON a.driver_id = d.id
@@ -452,7 +452,7 @@ func GetInchargeAttendanceHistory(c *gin.Context) {
 			a.id,
 			a.user_id,
 			u.full_name as driver_name,
-			DATE_FORMAT(a.date, '%Y-%m-%d') as date,
+			DATE_FORMAT(a.date, '%d-%m-%Y') as date,
 			a.status,
 			a.checkin_time,
 			a.checkout_time,
@@ -506,7 +506,9 @@ func GetInchargeVehicleAlerts(c *gin.Context) {
 	// Get the cluster_id for this incharge
 	var clusterID sql.NullInt64
 	err := config.DB.QueryRow(`
-		SELECT cluster_id FROM drivers WHERE id = ?
+		SELECT dcm.cluster_id FROM driver_cluster_members dcm 
+		WHERE dcm.driver_id = ? AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to
+		LIMIT 1
 	`, driverIDStr).Scan(&clusterID)
 
 	if err != nil || !clusterID.Valid {
@@ -530,7 +532,8 @@ func GetInchargeVehicleAlerts(c *gin.Context) {
 		FROM vehicles v
 		INNER JOIN assignments a ON a.vehicle_id = v.id
 		INNER JOIN drivers d ON d.id = a.driver_id
-		WHERE d.cluster_id = ?
+		INNER JOIN driver_cluster_members dcm ON dcm.driver_id = d.id AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to
+		WHERE dcm.cluster_id = ?
 		  AND v.status = 'active'
 		  AND (
 		    (v.insurance_expire_date IS NOT NULL AND DATEDIFF(v.insurance_expire_date, CURDATE()) <= 10)
@@ -679,7 +682,9 @@ func GetInchargeFCReplacements(c *gin.Context) {
 	// Get cluster ID for this incharge
 	var clusterID sql.NullInt64
 	err := config.DB.QueryRow(`
-		SELECT cluster_id FROM drivers WHERE id = ?
+		SELECT dcm.cluster_id FROM driver_cluster_members dcm 
+		WHERE dcm.driver_id = ? AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to
+		LIMIT 1
 	`, inchargeID).Scan(&clusterID)
 
 	if err != nil || !clusterID.Valid {
@@ -692,18 +697,19 @@ func GetInchargeFCReplacements(c *gin.Context) {
 			r.id, r.vehicle_id, v.vehicle_number, v.vehicle_type,
 			r.replacement_vehicle_id, rv.vehicle_number as replacement_vehicle_number,
 			r.driver_id, u.full_name as driver_name,
-			DATE_FORMAT(r.start_date, '%Y-%m-%d') as start_date,
-			DATE_FORMAT(r.end_date, '%Y-%m-%d') as end_date,
+			DATE_FORMAT(r.start_date, '%d-%m-%Y') as start_date,
+			DATE_FORMAT(r.end_date, '%d-%m-%Y') as end_date,
 			r.reason, r.status, r.requested_by_role,
 			r.notes, r.driver_notified,
-			DATE_FORMAT(r.created_at, '%Y-%m-%d %H:%i') as created_at,
+			DATE_FORMAT(r.created_at, '%d-%m-%Y %H:%i') as created_at,
 			DATEDIFF(r.end_date, CURDATE()) as days_remaining
 		FROM fc_replacement_requests r
 		JOIN vehicles v ON r.vehicle_id = v.id
 		LEFT JOIN vehicles rv ON r.replacement_vehicle_id = rv.id
 		JOIN drivers d ON r.driver_id = d.id
 		JOIN users u ON d.user_id = u.id
-		WHERE d.cluster_id = ?
+		JOIN driver_cluster_members dcm ON dcm.driver_id = d.id AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to
+		WHERE dcm.cluster_id = ?
 		ORDER BY r.created_at DESC
 	`, clusterID.Int64)
 
@@ -798,7 +804,8 @@ func GetDriverAssignments(c *gin.Context) {
 		JOIN users u ON d.user_id = u.id
 		JOIN vehicles v ON a.vehicle_id = v.id
 		LEFT JOIN shifts s ON a.shift_id = s.id
-		LEFT JOIN driver_clusters c ON d.cluster_id = c.id
+		LEFT JOIN driver_cluster_members dcm ON dcm.driver_id = d.id AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to
+		LEFT JOIN driver_clusters c ON dcm.cluster_id = c.id
 		WHERE d.is_incharge = 0
 		ORDER BY u.full_name
 	`)
@@ -837,7 +844,8 @@ func GetDriverAssignments(c *gin.Context) {
 		FROM ev_assignments ev
 		JOIN vehicles v ON ev.vehicle_id = v.id
 		JOIN driver_clusters c ON ev.cluster_id = c.id
-		JOIN drivers d ON d.cluster_id = c.id AND d.is_incharge = 0
+		JOIN driver_cluster_members dcm ON dcm.cluster_id = c.id AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to
+		JOIN drivers d ON d.id = dcm.driver_id AND d.is_incharge = 0
 		JOIN users u ON d.user_id = u.id
 		LEFT JOIN shifts s ON s.id = ev.shift_id
 		WHERE ev.status = 'active'
@@ -877,12 +885,13 @@ func GetAllDriversForIncharge(c *gin.Context) {
 			u.full_name,
 			u.phone,
 			d.license_number,
-			d.cluster_id,
+			dcm.cluster_id,
 			c.name as cluster_name,
 			v.vehicle_number as assigned_vehicle
 		FROM drivers d
 		JOIN users u ON d.user_id = u.id
-		LEFT JOIN driver_clusters c ON d.cluster_id = c.id
+		LEFT JOIN driver_cluster_members dcm ON dcm.driver_id = d.id AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to
+		LEFT JOIN driver_clusters c ON dcm.cluster_id = c.id
 		LEFT JOIN assignments a ON a.driver_id = d.id AND a.status = 'active'
 		LEFT JOIN vehicles v ON a.vehicle_id = v.id
 		WHERE d.is_incharge = 0
@@ -1260,7 +1269,7 @@ func GetInchargeKmSummary(c *gin.Context) {
 			kl.id,
 			kl.driver_id,
 			u.full_name as driver_name,
-			DATE_FORMAT(kl.date, '%Y-%m-%d') as date,
+			DATE_FORMAT(kl.date, '%d-%m-%Y') as date,
 			kl.start_km,
 			kl.end_km,
 			kl.total_km,
@@ -1411,7 +1420,8 @@ func GetInchargeKmFilters(c *gin.Context) {
 		SELECT d.id, u.full_name, COALESCE(c.name, 'Unassigned') as cluster_name
 		FROM drivers d
 		JOIN users u ON d.user_id = u.id
-		LEFT JOIN driver_clusters c ON d.cluster_id = c.id
+		LEFT JOIN driver_cluster_members dcm ON dcm.driver_id = d.id AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to
+		LEFT JOIN driver_clusters c ON dcm.cluster_id = c.id
 		WHERE d.is_incharge = 0
 		ORDER BY u.full_name
 	`)

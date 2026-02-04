@@ -120,8 +120,8 @@ func fixApprovedLeaveAttendance() {
 	// Get all approved leaves (admin_approved or approved)
 	rows, err := config.DB.Query(`
 		SELECT lr.id, lr.driver_id, d.user_id,
-		       DATE_FORMAT(lr.start_date, '%Y-%m-%d') as start_date,
-		       DATE_FORMAT(lr.end_date, '%Y-%m-%d') as end_date
+		       DATE_FORMAT(lr.start_date, '%d-%m-%Y') as start_date,
+		       DATE_FORMAT(lr.end_date, '%d-%m-%Y') as end_date
 		FROM leave_requests lr
 		JOIN drivers d ON lr.driver_id = d.id
 		WHERE lr.status IN ('approved', 'admin_approved')

@@ -1,4 +1,5 @@
 import React, {useState, useEffect} from "react";
+import CustomDropdown from "../../../components/ui/CustomDropdown";
 import {
   Loader2,
   Calendar,
@@ -151,17 +152,18 @@ export default function AttendanceRecords() {
               <label className="text-xs font-bold text-gray-500 uppercase">
                 Status
               </label>
-              <select
+              <CustomDropdown
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] bg-white text-sm min-w-[120px]"
-              >
-                <option value="all">All Status</option>
-                <option value="present">Present</option>
-                <option value="absent">Absent</option>
-                <option value="on_leave">On Leave</option>
-                <option value="not_marked">Not Marked</option>
-              </select>
+                onChange={setStatusFilter}
+                options={[
+                  {value: "all", label: "All Status"},
+                  {value: "present", label: "Present"},
+                  {value: "absent", label: "Absent"},
+                  {value: "on_leave", label: "On Leave"},
+                  {value: "not_marked", label: "Not Marked"},
+                ]}
+                width="w-36"
+              />
             </div>
 
             <button

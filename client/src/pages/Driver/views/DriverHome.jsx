@@ -1,6 +1,7 @@
 import React, {useState, useEffect} from "react";
 import {useAuth} from "../../../context/AuthContext";
 import {apiGet, apiPost, getToday} from "../../../utils/api";
+import {formatTime} from "../../../utils/dateFormat";
 import {
   Calendar,
   Clock,
@@ -14,6 +15,11 @@ import {
   X,
   Info,
   AlertTriangle,
+  Zap,
+  Users,
+  Car,
+  ChevronRight,
+  Eye,
 } from "lucide-react";
 
 export default function DriverHome() {
@@ -27,6 +33,7 @@ export default function DriverHome() {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [selectedEVAssignment, setSelectedEVAssignment] = useState(null);
   const {user} = useAuth();
   const driverName = user?.full_name || "Driver";
   const driverId = user?.driver_id;
@@ -41,11 +48,13 @@ export default function DriverHome() {
 
   const fetchNotifications = async () => {
     try {
-      const res = await apiGet(`/api/driver/notifications?driver_id=${driverId}`);
+      const res = await apiGet(
+        `/api/driver/notifications?driver_id=${driverId}`,
+      );
       if (res.ok) {
         const data = await res.json();
         setNotifications(data || []);
-        setUnreadCount((data || []).filter(n => !n.is_read).length);
+        setUnreadCount((data || []).filter((n) => !n.is_read).length);
       }
     } catch (err) {
       console.error(err);
@@ -55,10 +64,12 @@ export default function DriverHome() {
   const markAsRead = async (notificationId) => {
     try {
       await apiPost(`/api/driver/notifications/${notificationId}/mark-read`);
-      setNotifications(notifications.map(n => 
-        n.id === notificationId ? {...n, is_read: true} : n
-      ));
-      setUnreadCount(prev => Math.max(0, prev - 1));
+      setNotifications(
+        notifications.map((n) =>
+          n.id === notificationId ? {...n, is_read: true} : n,
+        ),
+      );
+      setUnreadCount((prev) => Math.max(0, prev - 1));
     } catch (err) {
       console.error(err);
     }
@@ -66,8 +77,10 @@ export default function DriverHome() {
 
   const markAllAsRead = async () => {
     try {
-      await apiPost(`/api/driver/notifications/mark-all-read?driver_id=${driverId}`);
-      setNotifications(notifications.map(n => ({...n, is_read: true})));
+      await apiPost(
+        `/api/driver/notifications/mark-all-read?driver_id=${driverId}`,
+      );
+      setNotifications(notifications.map((n) => ({...n, is_read: true})));
       setUnreadCount(0);
     } catch (err) {
       console.error(err);
@@ -75,12 +88,12 @@ export default function DriverHome() {
   };
 
   const getNotificationIcon = (type) => {
-    switch(type) {
-      case 'vehicle_change':
+    switch (type) {
+      case "vehicle_change":
         return <RotateCcw className="w-5 h-5 text-primary" />;
-      case 'warning':
+      case "warning":
         return <AlertTriangle className="w-5 h-5 text-pending" />;
-      case 'alert':
+      case "alert":
         return <AlertCircle className="w-5 h-5 text-red" />;
       default:
         return <Info className="w-5 h-5 text-primary" />;
@@ -92,7 +105,7 @@ export default function DriverHome() {
       const today = getToday();
       // Use plural endpoint to get all assignments (Regular + EV)
       const res = await apiGet(
-        `/api/driver/assignments/today?driver_id=${driverId}&date=${today}`
+        `/api/driver/assignments/today?driver_id=${driverId}&date=${today}`,
       );
       if (res.ok) {
         const data = await res.json();
@@ -108,10 +121,14 @@ export default function DriverHome() {
 
   const fetchVehicleAlerts = async () => {
     try {
-      const res = await apiGet(`/api/driver/vehicles/alerts?driver_id=${driverId}`);
+      const res = await apiGet(
+        `/api/driver/vehicles/alerts?driver_id=${driverId}`,
+      );
       if (res.ok) {
         const data = await res.json();
-        setVehicleAlerts(data || { alerts: [], expired: 0, critical: 0, total: 0 });
+        setVehicleAlerts(
+          data || {alerts: [], expired: 0, critical: 0, total: 0},
+        );
       }
     } catch (err) {
       console.error(err);
@@ -123,21 +140,23 @@ export default function DriverHome() {
       <div className="bg-linear-to-r from-primary to-primarydull rounded-md p-8 text-white shadow-xl relative">
         <div className="flex justify-between items-start">
           <div>
-            <h2 className="text-3xl font-bold mb-2">Welcome back, {driverName}!</h2>
+            <h2 className="text-3xl font-bold mb-2">
+              Welcome back, {driverName}!
+            </h2>
             <p className="text-white/80 text-lg">
               Drive safely and have a great day.
             </p>
           </div>
           {/* Notification Bell */}
           <div className="relative">
-            <button 
+            <button
               onClick={() => setShowNotifications(!showNotifications)}
               className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors relative"
             >
               <Bell className="w-6 h-6" />
               {unreadCount > 0 && (
                 <span className="absolute -top-1 -right-1 bg-red text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
-                  {unreadCount > 9 ? '9+' : unreadCount}
+                  {unreadCount > 9 ? "9+" : unreadCount}
                 </span>
               )}
             </button>
@@ -160,14 +179,14 @@ export default function DriverHome() {
             </h3>
             <div className="flex items-center gap-2">
               {unreadCount > 0 && (
-                <button 
+                <button
                   onClick={markAllAsRead}
                   className="text-xs text-primary hover:underline"
                 >
                   Mark all as read
                 </button>
               )}
-              <button 
+              <button
                 onClick={() => setShowNotifications(false)}
                 className="text-gray-400 hover:text-gray-600"
               >
@@ -178,21 +197,25 @@ export default function DriverHome() {
           <div className="max-h-80 overflow-y-auto">
             {notifications.length > 0 ? (
               notifications.map((notif) => (
-                <div 
-                  key={notif.id} 
-                  className={`p-4 border-b border-gray-50 hover:bg-gray-50 transition-colors ${!notif.is_read ? 'bg-primary/5' : ''}`}
+                <div
+                  key={notif.id}
+                  className={`p-4 border-b border-gray-50 hover:bg-gray-50 transition-colors ${!notif.is_read ? "bg-primary/5" : ""}`}
                 >
                   <div className="flex gap-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${!notif.is_read ? 'bg-primary/10' : 'bg-gray-100'}`}>
+                    <div
+                      className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${!notif.is_read ? "bg-primary/10" : "bg-gray-100"}`}
+                    >
                       {getNotificationIcon(notif.type)}
                     </div>
                     <div className="flex-1">
                       <div className="flex items-start justify-between">
-                        <h4 className={`font-medium ${!notif.is_read ? 'text-primarytext' : 'text-secondarytext'}`}>
+                        <h4
+                          className={`font-medium ${!notif.is_read ? "text-primarytext" : "text-secondarytext"}`}
+                        >
                           {notif.title}
                         </h4>
                         {!notif.is_read && (
-                          <button 
+                          <button
                             onClick={() => markAsRead(notif.id)}
                             className="text-xs text-primary hover:underline shrink-0 ml-2"
                           >
@@ -200,9 +223,11 @@ export default function DriverHome() {
                           </button>
                         )}
                       </div>
-                      <p className="text-sm text-secondarytext mt-1">{notif.message}</p>
+                      <p className="text-sm text-secondarytext mt-1">
+                        {notif.message}
+                      </p>
                       <p className="text-xs text-gray-400 mt-2">
-                        {new Date(notif.created_at).toLocaleDateString()} at {new Date(notif.created_at).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
+                        {notif.created_at || "-"}
                       </p>
                     </div>
                   </div>
@@ -220,40 +245,67 @@ export default function DriverHome() {
 
       {/* Vehicle Document Alert Section */}
       {vehicleAlerts.total > 0 && (
-        <div className={`${vehicleAlerts.expired > 0 ? 'bg-red/10 border-red/20' : vehicleAlerts.critical > 0 ? 'bg-pending/10 border-pending/20' : 'bg-yellow-500/10 border-yellow-500/20'} border rounded-md p-5`}>
+        <div
+          className={`${vehicleAlerts.expired > 0 ? "bg-red/10 border-red/20" : vehicleAlerts.critical > 0 ? "bg-pending/10 border-pending/20" : "bg-yellow-500/10 border-yellow-500/20"} border rounded-md p-5`}
+        >
           <div className="flex items-start gap-4">
-            <div className={`w-12 h-12 ${vehicleAlerts.expired > 0 ? 'bg-red/20' : vehicleAlerts.critical > 0 ? 'bg-pending/20' : 'bg-yellow-500/20'} rounded-md flex items-center justify-center shrink-0`}>
-              <Shield className={`w-6 h-6 ${vehicleAlerts.expired > 0 ? 'text-red' : vehicleAlerts.critical > 0 ? 'text-pending' : 'text-yellow-600'}`} />
+            <div
+              className={`w-12 h-12 ${vehicleAlerts.expired > 0 ? "bg-red/20" : vehicleAlerts.critical > 0 ? "bg-pending/20" : "bg-yellow-500/20"} rounded-md flex items-center justify-center shrink-0`}
+            >
+              <Shield
+                className={`w-6 h-6 ${vehicleAlerts.expired > 0 ? "text-red" : vehicleAlerts.critical > 0 ? "text-pending" : "text-yellow-600"}`}
+              />
             </div>
             <div className="flex-1">
-              <h3 className={`font-bold ${vehicleAlerts.expired > 0 ? 'text-red' : vehicleAlerts.critical > 0 ? 'text-pending' : 'text-yellow-600'}`}>
+              <h3
+                className={`font-bold ${vehicleAlerts.expired > 0 ? "text-red" : vehicleAlerts.critical > 0 ? "text-pending" : "text-yellow-600"}`}
+              >
                 ⚠️ Vehicle Document Alert
               </h3>
               <div className="mt-2 space-y-2">
                 {vehicleAlerts.alerts?.map((v) => (
                   <div key={v.id} className="text-sm">
-                    <span className="font-semibold text-primarytext">{v.vehicle_number}</span>
-                    <span className="text-secondarytext ml-1">({v.vehicle_type})</span>
+                    <span className="font-semibold text-primarytext">
+                      {v.vehicle_number}
+                    </span>
+                    <span className="text-secondarytext ml-1">
+                      ({v.vehicle_type})
+                    </span>
                     <span className="mx-2">—</span>
                     {v.insurance_days !== null && v.insurance_days <= 30 && (
-                      <span className={`mr-2 ${v.insurance_days < 0 ? 'text-red font-bold' : v.insurance_days <= 7 ? 'text-pending font-semibold' : 'text-yellow-600'}`}>
-                        Insurance: {v.insurance_days < 0 ? 'EXPIRED' : `${v.insurance_days} days left`}
+                      <span
+                        className={`mr-2 ${v.insurance_days < 0 ? "text-red font-bold" : v.insurance_days <= 7 ? "text-pending font-semibold" : "text-yellow-600"}`}
+                      >
+                        Insurance:{" "}
+                        {v.insurance_days < 0
+                          ? "EXPIRED"
+                          : `${v.insurance_days} days left`}
                       </span>
                     )}
                     {v.fc_days !== null && v.fc_days <= 30 && (
-                      <span className={`mr-2 ${v.fc_days < 0 ? 'text-red font-bold' : v.fc_days <= 7 ? 'text-pending font-semibold' : 'text-yellow-600'}`}>
-                        FC: {v.fc_days < 0 ? 'EXPIRED' : `${v.fc_days} days left`}
+                      <span
+                        className={`mr-2 ${v.fc_days < 0 ? "text-red font-bold" : v.fc_days <= 7 ? "text-pending font-semibold" : "text-yellow-600"}`}
+                      >
+                        FC:{" "}
+                        {v.fc_days < 0 ? "EXPIRED" : `${v.fc_days} days left`}
                       </span>
                     )}
                     {v.permit_days !== null && v.permit_days <= 30 && (
-                      <span className={`${v.permit_days < 0 ? 'text-red font-bold' : v.permit_days <= 7 ? 'text-pending font-semibold' : 'text-yellow-600'}`}>
-                        Permit: {v.permit_days < 0 ? 'EXPIRED' : `${v.permit_days} days left`}
+                      <span
+                        className={`${v.permit_days < 0 ? "text-red font-bold" : v.permit_days <= 7 ? "text-pending font-semibold" : "text-yellow-600"}`}
+                      >
+                        Permit:{" "}
+                        {v.permit_days < 0
+                          ? "EXPIRED"
+                          : `${v.permit_days} days left`}
                       </span>
                     )}
                   </div>
                 ))}
               </div>
-              <p className={`text-xs mt-2 ${vehicleAlerts.expired > 0 ? 'text-red/70' : vehicleAlerts.critical > 0 ? 'text-pending/70' : 'text-yellow-600/70'}`}>
+              <p
+                className={`text-xs mt-2 ${vehicleAlerts.expired > 0 ? "text-red/70" : vehicleAlerts.critical > 0 ? "text-pending/70" : "text-yellow-600/70"}`}
+              >
                 Please notify admin if documents need renewal.
               </p>
             </div>
@@ -271,12 +323,102 @@ export default function DriverHome() {
           <div className="space-y-4">
             {assignments.map((assignment, index) => {
               const isTemp = assignment.is_temporary_replacement;
+              const isEV = assignment.is_ev_assignment;
+
+              // EV Assignment Card - Show as Group
+              if (isEV) {
+                return (
+                  <div
+                    key={assignment.id || index}
+                    onClick={() => setSelectedEVAssignment(assignment)}
+                    className="relative p-5 rounded-md transition-all hover:shadow-md group overflow-hidden cursor-pointer bg-gradient-to-br from-white to-green-50 border-green border-2 shadow-green/10"
+                  >
+                    {/* Accent Side Bar */}
+                    <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-green"></div>
+
+                    {/* EV Badge */}
+                    <div className="absolute top-2 right-2 flex items-center gap-1 bg-green text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                      <Zap size={12} />
+                      EV Assignment
+                    </div>
+
+                    <div className="flex flex-col md:flex-row md:items-center gap-5 pl-2">
+                      {/* Icon */}
+                      <div className="p-3 rounded-full shrink-0 bg-green/10 text-green">
+                        <Zap size={24} />
+                      </div>
+
+                      <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {/* Vehicle Group Info */}
+                        <div>
+                          <p className="text-xs text-secondarytext uppercase tracking-wider font-semibold">
+                            Vehicle Group
+                          </p>
+                          <p className="font-bold text-primarytext text-lg">
+                            {assignment.vehicle_group_name}
+                          </p>
+                          <div className="flex flex-wrap gap-2 mt-1">
+                            <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-green/10 text-green">
+                              EV
+                            </span>
+                            <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                              {assignment.group_vehicles?.length || 0} Vehicles
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Driver Group Info */}
+                        <div>
+                          <p className="text-xs text-secondarytext uppercase tracking-wider font-semibold">
+                            Driver Group
+                          </p>
+                          <p className="font-medium text-primarytext">
+                            {assignment.driver_group_name}
+                          </p>
+                          <div className="flex items-center gap-1 mt-1 text-green">
+                            <Users size={12} />
+                            <span className="text-xs font-medium">
+                              {assignment.group_drivers?.length || 0} Drivers
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Time Info */}
+                        <div>
+                          <p className="text-xs text-secondarytext uppercase tracking-wider font-semibold">
+                            Shift
+                          </p>
+                          <p className="font-medium text-primarytext">
+                            {assignment.shift_name}
+                          </p>
+                          <div className="flex items-center gap-1.5 text-gray-500 text-sm mt-1">
+                            <Clock size={14} />
+                            {formatTime(assignment.start_time)} -{" "}
+                            {formatTime(assignment.end_time)}
+                          </div>
+                        </div>
+
+                        {/* View Details */}
+                        <div className="flex items-center justify-end">
+                          <span className="inline-flex items-center gap-1 text-green text-sm font-medium group-hover:underline">
+                            <Eye size={16} />
+                            View Details
+                            <ChevronRight size={16} />
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              // Regular/Temporary Assignment Card
               return (
                 <div
                   key={assignment.id || index}
                   className={`relative p-5 rounded-md transition-all hover:shadow-md group overflow-hidden ${
                     isTemp
-                      ? "bg-linear-to-br from-white to-orange-50 border-pending border-2 shadow-pending/10"
+                      ? "bg-gradient-to-br from-white to-orange-50 border-pending border-2 shadow-pending/10"
                       : "bg-white border border-gray-100 hover:border-primarydull"
                   }`}
                 >
@@ -297,7 +439,7 @@ export default function DriverHome() {
                       }`}
                     >
                       {assignment.vehicle_type === "CAR" ? (
-                        <Truck size={24} />
+                        <Car size={24} />
                       ) : (
                         <Bus size={24} />
                       )}
@@ -312,17 +454,15 @@ export default function DriverHome() {
                         <p className="font-bold text-primarytext text-lg">
                           {assignment.vehicle_number}
                         </p>
-                        <div className="flex flex-wrap gap-2 mt-1">
-                          <span
-                            className={`text-xs font-medium px-1.5 py-0.5 rounded ${
-                              isTemp
-                                ? "bg-pending/10 text-pending"
-                                : "bg-green/10 text-green"
-                            }`}
-                          >
-                            {assignment.vehicle_type}
-                          </span>
-                        </div>
+                        <span
+                          className={`text-xs font-medium px-1.5 py-0.5 rounded ${
+                            isTemp
+                              ? "bg-pending/10 text-pending"
+                              : "bg-green/10 text-green"
+                          }`}
+                        >
+                          {assignment.vehicle_type}
+                        </span>
                         {isTemp && (
                           <div className="flex items-center gap-1 mt-1 text-pending">
                             <RotateCcw size={12} />
@@ -350,7 +490,8 @@ export default function DriverHome() {
                         </p>
                         <div className="flex items-center gap-1.5 text-primarytext font-medium">
                           <Clock size={14} className="text-gray-400" />
-                          {assignment.start_time} - {assignment.end_time}
+                          {formatTime(assignment.start_time)} -{" "}
+                          {formatTime(assignment.end_time)}
                         </div>
                       </div>
 
@@ -364,8 +505,8 @@ export default function DriverHome() {
                             assignment.status === "completed"
                               ? "bg-green/10 text-green"
                               : isTemp
-                              ? "bg-pending/10 text-pending"
-                              : "bg-primarybg text-primary"
+                                ? "bg-pending/10 text-pending"
+                                : "bg-primarybg text-primary"
                           }`}
                         >
                           {assignment.status === "completed" ? (
@@ -396,6 +537,126 @@ export default function DriverHome() {
           </div>
         )}
       </div>
+
+      {/* EV Assignment Details Modal */}
+      {selectedEVAssignment && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-green to-green-600 text-white p-5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/20 rounded-lg">
+                  <Zap size={24} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">EV Assignment Details</h3>
+                  <p className="text-white/80 text-sm">
+                    {selectedEVAssignment.shift_name}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedEVAssignment(null)}
+                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-5 space-y-5 max-h-[60vh] overflow-y-auto">
+              {/* Time Info */}
+              <div className="flex items-center gap-3 p-3 bg-green/5 rounded-lg">
+                <Clock className="text-green" size={20} />
+                <div>
+                  <p className="text-xs text-secondarytext">Shift Time</p>
+                  <p className="font-medium text-primarytext">
+                    {formatTime(selectedEVAssignment.start_time)} -{" "}
+                    {formatTime(selectedEVAssignment.end_time)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Vehicle Group */}
+              <div>
+                <h4 className="font-semibold text-primarytext mb-3 flex items-center gap-2">
+                  <Car size={18} className="text-green" />
+                  Vehicle Group: {selectedEVAssignment.vehicle_group_name}
+                </h4>
+                <div className="grid grid-cols-2 gap-2">
+                  {selectedEVAssignment.group_vehicles?.map((vehicle) => (
+                    <div
+                      key={vehicle.id}
+                      className="p-3 bg-gray-50 rounded-lg border border-gray-100"
+                    >
+                      <p className="font-medium text-primarytext">
+                        {vehicle.vehicle_number}
+                      </p>
+                      <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-green/10 text-green">
+                        {vehicle.fuel_type}
+                      </span>
+                    </div>
+                  ))}
+                  {(!selectedEVAssignment.group_vehicles ||
+                    selectedEVAssignment.group_vehicles.length === 0) && (
+                    <p className="col-span-2 text-secondarytext text-sm">
+                      No vehicles in this group
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Driver Group */}
+              <div>
+                <h4 className="font-semibold text-primarytext mb-3 flex items-center gap-2">
+                  <Users size={18} className="text-green" />
+                  Driver Group: {selectedEVAssignment.driver_group_name}
+                </h4>
+                <div className="grid grid-cols-2 gap-2">
+                  {selectedEVAssignment.group_drivers?.map((driver) => (
+                    <div
+                      key={driver.id}
+                      className="p-3 bg-gray-50 rounded-lg border border-gray-100 flex items-center gap-2"
+                    >
+                      <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-primary font-bold text-sm">
+                        {driver.name?.charAt(0).toUpperCase()}
+                      </div>
+                      <p className="font-medium text-primarytext text-sm">
+                        {driver.name}
+                      </p>
+                    </div>
+                  ))}
+                  {(!selectedEVAssignment.group_drivers ||
+                    selectedEVAssignment.group_drivers.length === 0) && (
+                    <p className="col-span-2 text-secondarytext text-sm">
+                      No drivers in this group
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Status */}
+              <div className="flex items-center justify-between p-3 bg-green/5 rounded-lg">
+                <span className="text-secondarytext">Status</span>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-green/10 text-green">
+                  <div className="w-2 h-2 rounded-full bg-green animate-pulse" />
+                  {selectedEVAssignment.status}
+                </span>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-gray-100">
+              <button
+                onClick={() => setSelectedEVAssignment(null)}
+                className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-primarytext font-medium rounded-lg transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

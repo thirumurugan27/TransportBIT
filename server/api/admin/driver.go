@@ -27,7 +27,7 @@ func GetDrivers(c *gin.Context) {
 		       COALESCE(u.email, '') as email,
 		       COALESCE(d.license_number, '') as license_number,
 		       COALESCE(d.license_type, '') as license_type,
-		       COALESCE(DATE_FORMAT(d.license_expiry, '%Y-%m-%d'), '') as license_expiry,
+		       COALESCE(DATE_FORMAT(d.license_expiry, '%d-%m-%Y'), '') as license_expiry,
 		       COALESCE(d.experience_years, 0) as experience_years,
 		       COALESCE(d.allowed_vehicle_type, '') as allowed_vehicle_type,
 		       d.home_vehicle_id, d.home_stop_id, COALESCE(d.is_incharge, 0) as is_incharge,
@@ -37,10 +37,11 @@ func GetDrivers(c *gin.Context) {
 		           WHEN a.status IS NOT NULL THEN a.status
 		           ELSE 'not_marked'
 		       END as status,
-		       d.cluster_id, COALESCE(c.name, '') as cluster_name
+		       dcm.cluster_id, COALESCE(c.name, '') as cluster_name
 		FROM drivers d
 		JOIN users u ON d.user_id = u.id
-		LEFT JOIN driver_clusters c ON d.cluster_id = c.id
+		LEFT JOIN driver_cluster_members dcm ON dcm.driver_id = d.id AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to
+		LEFT JOIN driver_clusters c ON dcm.cluster_id = c.id
 		LEFT JOIN attendance a ON a.user_id = u.id AND a.date = CURDATE()
 		LEFT JOIN leave_requests lr ON lr.driver_id = d.id 
 		    AND lr.status = 'admin_approved'

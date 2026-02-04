@@ -177,9 +177,13 @@ func RegisterRoutes(r *gin.Engine) {
 	r.POST("/api/admin/clusters/create", admin.CreateCluster)
 	r.POST("/api/admin/clusters/create-with-schedule", admin.CreateClusterWithSchedule)
 	r.POST("/api/admin/clusters/update", admin.UpdateCluster)
+	r.GET("/api/admin/clusters/:id/members", admin.GetClusterMembers)
+	r.POST("/api/admin/clusters/:id/add-member", admin.AddClusterMember)
+	r.DELETE("/api/admin/clusters/:id/remove-member", admin.RemoveClusterMember)
 	r.POST("/api/admin/clusters/assign-drivers", admin.AssignDriversToCluster)
 	r.POST("/api/admin/clusters/assign-shift", admin.AssignClusterToShift)
 	r.DELETE("/api/admin/clusters/delete", admin.DeleteCluster)
+	r.GET("/api/admin/drivers/available-for-cluster", admin.GetAvailableDriversForCluster)
 	r.GET("/api/admin/drivers/km-suggestions", admin.GetDriverKmSuggestions)
 
 	// =========================
@@ -190,9 +194,13 @@ func RegisterRoutes(r *gin.Engine) {
 	r.PUT("/api/admin/vehicle-groups/:id", admin.UpdateVehicleGroup)
 	r.DELETE("/api/admin/vehicle-groups/:id", admin.DeleteVehicleGroup)
 	r.GET("/api/admin/vehicle-groups/:id/details", admin.GetVehicleGroupDetails)
+	r.GET("/api/admin/vehicle-groups/:id/members", admin.GetVehicleGroupMembers)
+	r.POST("/api/admin/vehicle-groups/:id/add-member", admin.AddVehicleGroupMember)
+	r.DELETE("/api/admin/vehicle-groups/:id/remove-member", admin.RemoveVehicleGroupMember)
 	r.POST("/api/admin/vehicle-groups/:id/assign-vehicles", admin.AssignVehiclesToGroup)
 	r.POST("/api/admin/vehicle-groups/:id/remove-vehicle", admin.RemoveVehicleFromGroup)
 	r.GET("/api/admin/vehicles/unassigned-ev", admin.GetUnassignedEVVehicles)
+	r.GET("/api/admin/vehicles/available-for-group", admin.GetAvailableVehiclesForGroup)
 
 	// =========================
 	// EV VEHICLE ASSIGNMENTS

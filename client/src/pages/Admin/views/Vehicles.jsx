@@ -23,15 +23,25 @@ import {
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
+// Parse dd-mm-yyyy date format from backend
+const parseDate = (dateStr) => {
+  if (!dateStr) return null;
+  const match = dateStr.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (match) {
+    const [, day, month, year] = match;
+    return new Date(year, month - 1, day);
+  }
+  return new Date(dateStr);
+};
+
 // Helper to calculate days until expiry
 const getDaysUntil = (dateStr) => {
   if (!dateStr) return null;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const expiry = new Date(dateStr);
-  const diffTime = expiry - today;
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  return diffDays;
+  const expiry = parseDate(dateStr);
+  if (!expiry || isNaN(expiry)) return null;
+  return Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
 };
 
 // Get status color based on days remaining
@@ -43,16 +53,8 @@ const getStatusColor = (days) => {
   return "bg-green-100 text-green-700"; // OK
 };
 
-// Format date for display
-const formatDate = (dateStr) => {
-  if (!dateStr) return "-";
-  const date = new Date(dateStr);
-  return date.toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-};
+// Display date from backend (already in dd-mm-yyyy format)
+const formatDate = (dateStr) => dateStr || "-";
 
 export default function Vehicles() {
   const [vehicles, setVehicles] = useState([]);

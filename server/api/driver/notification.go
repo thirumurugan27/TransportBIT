@@ -34,8 +34,8 @@ func GetDriverNotifications(c *gin.Context) {
 
 	rows, err := config.DB.Query(`
 		SELECT id, driver_id, title, message, type, related_id, is_read, 
-		       DATE_FORMAT(created_at, '%Y-%m-%d %H:%i') as created_at
-		FROM driver_notifications 
+		       DATE_FORMAT(created_at, '%d-%m-%Y %H:%i') as created_at
+		FROM driver_notifications
 		WHERE driver_id = ?
 		ORDER BY created_at DESC
 		LIMIT 50

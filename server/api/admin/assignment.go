@@ -21,9 +21,9 @@ import (
 func GetAllAssignments(c *gin.Context) {
 	rows, err := config.DB.Query(`
 		SELECT a.id, a.shift_id, a.vehicle_id, a.driver_id, 
-		       DATE_FORMAT(a.assigned_date, '%Y-%m-%d') as assigned_date,
-		       DATE_FORMAT(a.start_date, '%Y-%m-%d') as start_date,
-		       DATE_FORMAT(a.end_date, '%Y-%m-%d') as end_date,
+		       DATE_FORMAT(a.assigned_date, '%d-%m-%Y') as assigned_date,
+		       DATE_FORMAT(a.start_date, '%d-%m-%Y') as start_date,
+		       DATE_FORMAT(a.end_date, '%d-%m-%Y') as end_date,
 		       a.status,
 		       a.is_temporary_replacement,
 		       a.original_driver_id,
@@ -100,9 +100,9 @@ func GetAllAssignments(c *gin.Context) {
 	// Get Temporary Assignments and append to list
 	tempRows, err := config.DB.Query(`
 		SELECT ta.id, COALESCE(ta.shift_id, 0) as shift_id, ta.vehicle_id, ta.replacement_driver_id, 
-		       DATE_FORMAT(ta.start_date, '%Y-%m-%d') as assigned_date,
-		       DATE_FORMAT(ta.start_date, '%Y-%m-%d') as start_date,
-		       DATE_FORMAT(ta.end_date, '%Y-%m-%d') as end_date,
+		       DATE_FORMAT(ta.start_date, '%d-%m-%Y') as assigned_date,
+		       DATE_FORMAT(ta.start_date, '%d-%m-%Y') as start_date,
+		       DATE_FORMAT(ta.end_date, '%d-%m-%Y') as end_date,
 		       ta.status,
 		       ta.original_driver_id,
 		       COALESCE(s.name, 'EV Cluster') AS shift_name, 
@@ -237,20 +237,21 @@ func CreateAssignment(c *gin.Context) {
 		) + (
 			SELECT COUNT(*) FROM ev_assignments ev
 			JOIN driver_clusters dc ON ev.cluster_id = dc.id
-			JOIN drivers d ON d.cluster_id = dc.id
+			JOIN driver_cluster_members dcm ON dcm.cluster_id = dc.id
+			JOIN drivers d ON d.id = dcm.driver_id
 			WHERE d.id = ?
 			AND ev.status IN ('active')
 			AND ev.start_date <= ? AND ev.end_date >= ?
+			AND ? BETWEEN dcm.valid_from AND dcm.valid_to
 		)
 	`, req.DriverID, req.EndDate, req.StartDate,
 		req.DriverID, req.EndDate, req.StartDate,
-		req.DriverID, req.EndDate, req.StartDate).
+		req.DriverID, req.EndDate, req.StartDate, req.StartDate).
 		Scan(&coarseCount)
 
 	hasConflict := false
-	if coarseCount > 0 {
-		hasConflict = true
-	}
+	// Only proceed to detailed time checks if we have potential conflicts, or just rely on the time check loop.
+	// Previously: if coarseCount > 0 { hasConflict = true } caused false positives for non-overlapping shifts on same day.
 
 	// Time-conflict validation using shift times (including multi-slot shifts)
 	// Gather the time ranges to validate for the selected shift
@@ -437,8 +438,8 @@ func ReassignForLeave(c *gin.Context) {
 	var err error
 	err = config.DB.QueryRow(`
 		SELECT shift_id, vehicle_id, driver_id, 
-			DATE_FORMAT(start_date, '%Y-%m-%d'),
-			DATE_FORMAT(end_date, '%Y-%m-%d'),
+			DATE_FORMAT(start_date, '%d-%m-%Y'),
+			DATE_FORMAT(end_date, '%d-%m-%Y'),
 			vehicle_category
 		FROM assignments WHERE id = ?
 	`, req.AssignmentID).Scan(&shiftID, &vehicleID, &originalDriverID, &originalStart, &originalEnd, &category)
@@ -514,7 +515,7 @@ func CheckDriverTimeConflict(driverID int, shiftStartTime, shiftEndTime, checkDa
 		SELECT s.start_time, s.end_time, ss.start_time as slot_start, ss.end_time as slot_end
 		FROM assignments a
 		JOIN shifts s ON a.shift_id = s.id
-		LEFT JOIN shift_slots ss ON s.id = ss.shift_id AND ss.slot_order = 1
+		LEFT JOIN shift_slots ss ON s.id = ss.shift_id
 		WHERE a.driver_id = ?
 		AND ? BETWEEN a.start_date AND a.end_date
 		AND a.status IN ('assigned','active')
@@ -524,7 +525,7 @@ func CheckDriverTimeConflict(driverID int, shiftStartTime, shiftEndTime, checkDa
 		SELECT s.start_time, s.end_time, ss.start_time as slot_start, ss.end_time as slot_end
 		FROM temporary_assignments ta
 		JOIN shifts s ON ta.shift_id = s.id
-		LEFT JOIN shift_slots ss ON s.id = ss.shift_id AND ss.slot_order = 1
+		LEFT JOIN shift_slots ss ON s.id = ss.shift_id
 		WHERE ta.replacement_driver_id = ?
 		AND ? BETWEEN ta.start_date AND ta.end_date
 
@@ -539,15 +540,16 @@ func CheckDriverTimeConflict(driverID int, shiftStartTime, shiftEndTime, checkDa
 			ss.end_time as slot_end
 		FROM ev_assignments ev
 		JOIN driver_clusters dc ON ev.cluster_id = dc.id
-		JOIN drivers d ON d.cluster_id = dc.id
+		JOIN driver_cluster_members dcm ON dcm.cluster_id = dc.id AND ? BETWEEN dcm.valid_from AND dcm.valid_to
+		JOIN drivers d ON d.id = dcm.driver_id
 		JOIN shifts s ON ev.shift_id = s.id
-		LEFT JOIN shift_slots ss ON s.id = ss.shift_id AND ss.slot_order = 1
+		LEFT JOIN shift_slots ss ON s.id = ss.shift_id
 		WHERE d.id = ?
 		AND ? BETWEEN ev.start_date AND ev.end_date
 		AND ev.status IN ('active')
 	`
 
-	rows, err := config.DB.Query(query, driverID, checkDate, driverID, checkDate, driverID, checkDate)
+	rows, err := config.DB.Query(query, driverID, checkDate, driverID, checkDate, checkDate, driverID, checkDate)
 	if err != nil {
 		log.Printf("Error checking time conflict: %v", err)
 		return false, err
@@ -647,11 +649,12 @@ func getDriverConflictsDetails(driverID int, checkDate string, checkRanges []str
 		FROM ev_assignments ev
 		JOIN vehicles v ON ev.vehicle_id = v.id
 		JOIN driver_clusters dc ON ev.cluster_id = dc.id
-		JOIN drivers d ON d.cluster_id = dc.id
+		JOIN driver_cluster_members dcm ON dcm.cluster_id = dc.id AND ? BETWEEN dcm.valid_from AND dcm.valid_to
+		JOIN drivers d ON d.id = dcm.driver_id
 		WHERE d.id = ?
 		AND ? BETWEEN ev.start_date AND ev.end_date
 		AND ev.status IN ('active')
-	`, driverID, checkDate, driverID, checkDate)
+	`, driverID, checkDate, checkDate, driverID, checkDate)
 	if err != nil {
 		return nil, err
 	}
@@ -1022,8 +1025,8 @@ func GetAssignmentDetails(c *gin.Context) {
 
 		err := config.DB.QueryRow(`
 			SELECT ta.id, ta.shift_id, ta.vehicle_id, ta.original_driver_id, ta.replacement_driver_id,
-			       DATE_FORMAT(ta.start_date, '%Y-%m-%d') as start_date,
-			       DATE_FORMAT(ta.end_date, '%Y-%m-%d') as end_date,
+			       DATE_FORMAT(ta.start_date, '%d-%m-%Y') as start_date,
+			       DATE_FORMAT(ta.end_date, '%d-%m-%Y') as end_date,
 			       COALESCE(ta.reason, '') as reason,
 			       ta.status,
 			       ta.created_by,
@@ -1109,9 +1112,9 @@ func GetAssignmentDetails(c *gin.Context) {
 
 	err = config.DB.QueryRow(`
 		SELECT a.id, a.shift_id, a.vehicle_id, a.driver_id,
-		       DATE_FORMAT(a.assigned_date, '%Y-%m-%d') as assigned_date,
-		       DATE_FORMAT(a.start_date, '%Y-%m-%d') as start_date,
-		       DATE_FORMAT(a.end_date, '%Y-%m-%d') as end_date,
+		       DATE_FORMAT(a.assigned_date, '%d-%m-%Y') as assigned_date,
+		       DATE_FORMAT(a.start_date, '%d-%m-%Y') as start_date,
+		       DATE_FORMAT(a.end_date, '%d-%m-%Y') as end_date,
 		       a.status,
 		       a.is_temporary_replacement,
 		       a.original_driver_id,

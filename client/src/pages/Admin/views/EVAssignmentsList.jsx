@@ -2,6 +2,7 @@ import React, {useState, useEffect} from "react";
 import {Zap, Users, Plus, Trash2, X, Calendar, Truck} from "lucide-react";
 import {showError, showConfirm} from "../../../utils/swal";
 import {formatVehicleLabel} from "../../../utils/vehicleLabel";
+import {formatTime} from "../../../utils/dateFormat";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
@@ -311,7 +312,8 @@ export default function EVAssignmentsList() {
                   <option value="">Use Cluster Default</option>
                   {shifts.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.name} ({s.start_time} - {s.end_time})
+                      {s.name} ({formatTime(s.start_time)} -{" "}
+                      {formatTime(s.end_time)})
                     </option>
                   ))}
                 </select>

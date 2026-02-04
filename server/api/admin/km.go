@@ -64,8 +64,8 @@ func GetDriverAssignedVehicles(c *gin.Context) {
 		       s.name as shift_name,
 		       TIME_FORMAT(s.start_time, '%H:%i') as start_time,
 		       TIME_FORMAT(s.end_time, '%H:%i') as end_time,
-		       DATE_FORMAT(a.start_date, '%Y-%m-%d') as start_date,
-		       DATE_FORMAT(a.end_date, '%Y-%m-%d') as end_date
+		       DATE_FORMAT(a.start_date, '%d-%m-%Y') as start_date,
+		       DATE_FORMAT(a.end_date, '%d-%m-%Y') as end_date
 		FROM assignments a
 		JOIN vehicles v ON a.vehicle_id = v.id
 		LEFT JOIN shifts s ON a.shift_id = s.id
@@ -105,8 +105,8 @@ func GetDriverAssignedVehicles(c *gin.Context) {
 		       s.name as shift_name,
 		       TIME_FORMAT(s.start_time, '%H:%i') as start_time,
 		       TIME_FORMAT(s.end_time, '%H:%i') as end_time,
-		       DATE_FORMAT(ta.start_date, '%Y-%m-%d') as start_date,
-		       DATE_FORMAT(ta.end_date, '%Y-%m-%d') as end_date
+		       DATE_FORMAT(ta.start_date, '%d-%m-%Y') as start_date,
+		       DATE_FORMAT(ta.end_date, '%d-%m-%Y') as end_date
 		FROM temporary_assignments ta
 		JOIN vehicles v ON ta.vehicle_id = v.id
 		LEFT JOIN shifts s ON ta.shift_id = s.id
@@ -142,12 +142,13 @@ func GetDriverAssignedVehicles(c *gin.Context) {
 		       COALESCE(s.name, 'EV Duty') as shift_name,
 		       COALESCE(TIME_FORMAT(s.start_time, '%H:%i'), TIME_FORMAT(dc.start_time, '%H:%i'), '08:00') as start_time,
 		       COALESCE(TIME_FORMAT(s.end_time, '%H:%i'), TIME_FORMAT(dc.end_time, '%H:%i'), '17:00') as end_time,
-		       DATE_FORMAT(ev.start_date, '%Y-%m-%d') as start_date,
-		       DATE_FORMAT(ev.end_date, '%Y-%m-%d') as end_date
+		       DATE_FORMAT(ev.start_date, '%d-%m-%Y') as start_date,
+		       DATE_FORMAT(ev.end_date, '%d-%m-%Y') as end_date
 		FROM ev_assignments ev
 		JOIN vehicles v ON ev.vehicle_id = v.id
 		JOIN driver_clusters dc ON ev.cluster_id = dc.id
-		JOIN drivers d ON d.cluster_id = dc.id
+		JOIN driver_cluster_members dcm ON dcm.cluster_id = dc.id
+		JOIN drivers d ON d.id = dcm.driver_id
 		LEFT JOIN shifts s ON s.id = ev.shift_id
 		WHERE d.id = ?
 		AND ev.status = 'active'
@@ -180,7 +181,8 @@ func GetDriverAssignedVehicles(c *gin.Context) {
 		SELECT u.full_name, c.name
 		FROM drivers d
 		JOIN users u ON d.user_id = u.id
-		LEFT JOIN driver_clusters c ON d.cluster_id = c.id
+		LEFT JOIN driver_cluster_members dcm ON dcm.driver_id = d.id AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to
+		LEFT JOIN driver_clusters c ON dcm.cluster_id = c.id
 		WHERE d.id = ?
 	`, driverID).Scan(&driverName, &clusterName)
 
@@ -201,7 +203,8 @@ func GetKmFilterMeta(c *gin.Context) {
         SELECT d.id, u.full_name, COALESCE(c.name, 'Unassigned') as cluster_name
         FROM drivers d
         JOIN users u ON d.user_id = u.id
-        LEFT JOIN driver_clusters c ON d.cluster_id = c.id
+        LEFT JOIN driver_cluster_members dcm ON dcm.driver_id = d.id AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to
+        LEFT JOIN driver_clusters c ON dcm.cluster_id = c.id
         WHERE d.is_incharge = 0
         ORDER BY u.full_name
     `)
@@ -454,7 +457,7 @@ func GetAdminKmLogs(c *gin.Context) {
     queryStr := `
         SELECT
             kl.id,
-            DATE_FORMAT(kl.date, '%Y-%m-%d') as date,
+            DATE_FORMAT(kl.date, '%d-%m-%Y') as date,
             kl.start_km,
             kl.end_km,
             kl.total_km,
@@ -469,7 +472,8 @@ func GetAdminKmLogs(c *gin.Context) {
         FROM km_logs kl
         JOIN drivers d ON kl.driver_id = d.id
         JOIN users u ON d.user_id = u.id
-        LEFT JOIN driver_clusters c ON d.cluster_id = c.id
+        LEFT JOIN driver_cluster_members dcm ON dcm.driver_id = d.id AND kl.date BETWEEN dcm.valid_from AND dcm.valid_to
+        LEFT JOIN driver_clusters c ON dcm.cluster_id = c.id
         LEFT JOIN vehicles v ON kl.vehicle_id = v.id
         LEFT JOIN assignments a ON kl.assignment_id = a.id
         LEFT JOIN shifts s ON a.shift_id = s.id
@@ -664,7 +668,7 @@ func GetKMSummary(c *gin.Context) {
         SELECT kl.id, kl.driver_id, u.full_name, 
                COALESCE(v.vehicle_number, 'N/A') as vehicle_number,
                COALESCE(v.vehicle_type, 'UNKNOWN') as vehicle_type,
-               DATE_FORMAT(kl.date, '%Y-%m-%d') as date,
+               DATE_FORMAT(kl.date, '%d-%m-%Y') as date,
                kl.start_km, kl.end_km, kl.total_km
         FROM km_logs kl
         LEFT JOIN drivers d ON kl.driver_id = d.id
@@ -973,7 +977,8 @@ func GetDriverKmHistory(c *gin.Context) {
         SELECT u.id, u.full_name, c.name
         FROM drivers d
         JOIN users u ON d.user_id = u.id
-        LEFT JOIN driver_clusters c ON d.cluster_id = c.id
+        LEFT JOIN driver_cluster_members dcm ON dcm.driver_id = d.id AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to
+        LEFT JOIN driver_clusters c ON dcm.cluster_id = c.id
         WHERE d.id = ?
     `, driverID).Scan(&driverUserID, &driverName, &clusterName)
     if err != nil {
@@ -1105,7 +1110,7 @@ func GetDriverKmHistory(c *gin.Context) {
     }
 
     logRows, err := config.DB.Query(`
-        SELECT kl.id, DATE_FORMAT(kl.date, '%Y-%m-%d') as date,
+        SELECT kl.id, DATE_FORMAT(kl.date, '%d-%m-%Y') as date,
                COALESCE(v.vehicle_number, 'N/A') as vehicle_number,
                COALESCE(kl.vehicle_type, 'UNKNOWN') as vehicle_type,
                kl.start_km, kl.end_km, kl.total_km, kl.remarks

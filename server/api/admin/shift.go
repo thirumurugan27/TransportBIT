@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"log"
 	"net/http"
 
 	"transport-server/config"
@@ -131,20 +132,50 @@ func CreateShift(c *gin.Context) {
 
 // POST /api/admin/shifts/update
 func UpdateShift(c *gin.Context) {
-	var s models.Shift
-	if err := c.ShouldBindJSON(&s); err != nil {
+	var req models.CreateShiftWithSlotsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return
 	}
 
+	// Use first slot time as main shift time, or fallback to provided values
+	startTime := req.StartTime
+	endTime := req.EndTime
+	if len(req.Slots) > 0 {
+		startTime = req.Slots[0].StartTime
+		endTime = req.Slots[0].EndTime
+	}
+
+	// Update main shift record
 	_, err := config.DB.Exec(`
 		UPDATE shifts SET name=?, start_time=?, end_time=?, description=?
 		WHERE id=?
-	`, s.Name, s.StartTime, s.EndTime, s.Description, s.ID)
+	`, req.Name, startTime, endTime, req.Description, req.ID)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+
+	// Delete existing slots
+	_, err = config.DB.Exec(`DELETE FROM shift_slots WHERE shift_id=?`, req.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update slots: " + err.Error()})
+		return
+	}
+
+	// Re-insert updated slots
+	createdBy := getUserIDFromRequest(c)
+	for i, slot := range req.Slots {
+		_, err := config.DB.Exec(`
+			INSERT INTO shift_slots (shift_id, start_time, end_time, slot_order, created_by)
+			VALUES (?, ?, ?, ?, ?)
+		`, req.ID, slot.StartTime, slot.EndTime, i+1, createdBy)
+		
+		if err != nil {
+			// Log error but continue
+			log.Printf("Error inserting slot: %v", err)
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Shift updated successfully"})

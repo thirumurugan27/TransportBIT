@@ -1,5 +1,6 @@
 import React, {useState, useEffect} from "react";
 import {apiGet, getToday} from "../../../utils/api";
+import {formatTime} from "../../../utils/dateFormat";
 
 export default function InchargeAssignments() {
   const [assignments, setAssignments] = useState([]);
@@ -82,14 +83,14 @@ export default function InchargeAssignments() {
                         className={`px-2 py-1 rounded-md text-xs font-medium border ${
                           ["present", "completed", "assigned"].includes(
                             assignment.driver_status?.toLowerCase() ||
-                              assignment.status?.toLowerCase()
+                              assignment.status?.toLowerCase(),
                           )
                             ? "bg-green/10 text-green border-green/20"
                             : ["absent", "on_leave"].includes(
-                                assignment.driver_status?.toLowerCase()
-                              )
-                            ? "bg-red/10 text-red border-red/20"
-                            : "bg-pending/10 text-pending border-pending/20"
+                                  assignment.driver_status?.toLowerCase(),
+                                )
+                              ? "bg-red/10 text-red border-red/20"
+                              : "bg-pending/10 text-pending border-pending/20"
                         }`}
                       >
                         {assignment.driver_status || assignment.status}
@@ -107,7 +108,8 @@ export default function InchargeAssignments() {
                         {assignment.shift_name}
                       </div>
                       <div className="text-xs text-secondarytext">
-                        {assignment.start_time} - {assignment.end_time}
+                        {formatTime(assignment.start_time)} -{" "}
+                        {formatTime(assignment.end_time)}
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900">

@@ -1,5 +1,6 @@
 import React, {useState, useEffect} from "react";
 import {useToast} from "../../../context/ToastContext";
+import {formatTime} from "../../../utils/dateFormat";
 import {
   Users,
   Bus,
@@ -642,7 +643,7 @@ export default function AdminStudentTransport() {
                       )}
 
                       <p className="text-xs text-secondarytext mb-3">
-                        Requested: {new Date(req.created_at).toLocaleString()}
+                        Requested: {req.created_at || "-"}
                       </p>
 
                       {req.status === "pending" && (
@@ -1227,7 +1228,7 @@ export default function AdminStudentTransport() {
               <option value={0}>-- Select Stop --</option>
               {selectedBusStops.map((s) => (
                 <option key={s.stop_id} value={s.stop_id}>
-                  {s.stop_name} (Arrival: {s.arrival_time})
+                  {s.stop_name} (Arrival: {formatTime(s.arrival_time)})
                 </option>
               ))}
             </select>

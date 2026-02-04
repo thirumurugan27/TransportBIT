@@ -2,6 +2,7 @@ import React, {useState, useEffect} from "react";
 import {useAuth} from "../../../context/AuthContext";
 import {apiGet, apiPost, getToday} from "../../../utils/api";
 import {useToast} from "../../../context/ToastContext";
+import CustomDropdown from "../../../components/ui/CustomDropdown";
 
 export default function MarkAttendance() {
   const {user} = useAuth();
@@ -185,17 +186,18 @@ export default function MarkAttendance() {
             <span className="text-secondarytext text-sm whitespace-nowrap">
               Filter Status:
             </span>
-            <select
+            <CustomDropdown
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full md:w-40 px-3 py-2 bg-primarybg border-none rounded-lg text-primarytext focus:ring-2 focus:ring-primary outline-none cursor-pointer"
-            >
-              <option value="all">All Status</option>
-              <option value="present">Present</option>
-              <option value="absent">Absent</option>
-              <option value="pending">Not Marked</option>
-              <option value="leave">On Leave</option>
-            </select>
+              onChange={setStatusFilter}
+              options={[
+                {value: "all", label: "All Status"},
+                {value: "present", label: "Present"},
+                {value: "absent", label: "Absent"},
+                {value: "pending", label: "Not Marked"},
+                {value: "leave", label: "On Leave"},
+              ]}
+              width="w-full md:w-40"
+            />
           </div>
 
           <div className="flex items-center gap-2 w-full md:w-auto">

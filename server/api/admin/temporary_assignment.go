@@ -22,10 +22,10 @@ func GetTemporaryAssignments(c *gin.Context) {
 	rows, err := config.DB.Query(`
 		SELECT ta.id, ta.original_driver_id, ta.replacement_driver_id,
 		       ta.shift_id, ta.vehicle_id,
-		       DATE_FORMAT(ta.start_date, '%Y-%m-%d') as start_date,
-		       DATE_FORMAT(ta.end_date, '%Y-%m-%d') as end_date,
+		       DATE_FORMAT(ta.start_date, '%d-%m-%Y') as start_date,
+		       DATE_FORMAT(ta.end_date, '%d-%m-%Y') as end_date,
 		       ta.reason, ta.status,
-		       DATE_FORMAT(ta.created_at, '%Y-%m-%d %H:%i:%s') as created_at,
+		       DATE_FORMAT(ta.created_at, '%d-%m-%Y %H:%i') as created_at,
 		       u_orig.full_name as original_driver_name,
 		       COALESCE(u_repl.full_name, 'Not Assigned') as replacement_driver_name,
 		       COALESCE(s.name, 'EV Cluster') as shift_name,

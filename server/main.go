@@ -27,6 +27,10 @@ func main() {
 	// Fix database schema issues (ENUM truncation)
 	admin.FixDatabaseSchema()
 
+	// Initialize member tables for groups/clusters
+	admin.InitClusterMemberTables()
+	admin.InitVehicleGroupMemberTables()
+
 	bus.InitBusStopsTable()
 	student.InitStudentTransportTables()
 

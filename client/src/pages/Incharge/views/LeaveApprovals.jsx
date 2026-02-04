@@ -1,4 +1,5 @@
 import React, {useState, useEffect} from "react";
+import CustomDropdown from "../../../components/ui/CustomDropdown";
 import {
   CheckCircle2,
   XCircle,
@@ -145,16 +146,17 @@ export default function LeaveApprovals() {
           </div>
           <div className="flex items-center gap-3">
             <Filter className="w-5 h-5 text-gray-500" />
-            <select
+            <CustomDropdown
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8b5cf6]/30 focus:border-[#8b5cf6] text-sm bg-white"
-            >
-              <option value="ALL">All Status</option>
-              <option value="PENDING">Pending</option>
-              <option value="APPROVED">Approved</option>
-              <option value="REJECTED">Rejected</option>
-            </select>
+              onChange={setStatusFilter}
+              options={[
+                {value: "ALL", label: "All Status"},
+                {value: "PENDING", label: "Pending"},
+                {value: "APPROVED", label: "Approved"},
+                {value: "REJECTED", label: "Rejected"},
+              ]}
+              width="w-40"
+            />
           </div>
         </div>
       </div>

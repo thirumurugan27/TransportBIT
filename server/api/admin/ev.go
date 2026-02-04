@@ -34,6 +34,7 @@ type EVAssignment struct {
 	ShiftName        string              `json:"shift_name"`
 	ShiftStartTime   string              `json:"shift_start_time"`
 	ShiftEndTime     string              `json:"shift_end_time"`
+	CreatedAt        string              `json:"created_at"`
 	Drivers          []ClusterDriverInfo `json:"drivers"`
 	Vehicles         []GroupVehicle      `json:"vehicles"`
 }
@@ -108,13 +109,14 @@ func GetEVAssignments(c *gin.Context) {
 			COALESCE(vg.name, 'Unknown Group') as vehicle_group_name,
 			ea.cluster_id, 
 			c.name as cluster_name,
-			DATE_FORMAT(ea.start_date, '%Y-%m-%d') as start_date, 
-			DATE_FORMAT(ea.end_date, '%Y-%m-%d') as end_date, 
+			DATE_FORMAT(ea.start_date, '%d-%m-%Y') as start_date, 
+			DATE_FORMAT(ea.end_date, '%d-%m-%Y') as end_date, 
 			ea.status,
 			ea.shift_id,
 			COALESCE(s.name, 'Default') as shift_name,
-			s.start_time,
-			s.end_time
+			TIME_FORMAT(s.start_time, '%H:%i') as start_time,
+			TIME_FORMAT(s.end_time, '%H:%i') as end_time,
+			DATE_FORMAT(ea.created_at, '%d-%m-%Y %H:%i') as created_at
 		FROM ev_assignments ea
 		LEFT JOIN vehicle_groups vg ON ea.vehicle_group_id = vg.id
 		JOIN driver_clusters c ON ea.cluster_id = c.id
@@ -151,6 +153,7 @@ func GetEVAssignments(c *gin.Context) {
 			&shiftName,
 			&shiftStart,
 			&shiftEnd,
+			&a.CreatedAt,
 		)
 		if err != nil {
 			log.Printf("Scan error: %v", err)
@@ -166,7 +169,12 @@ func GetEVAssignments(c *gin.Context) {
 		}
 
 		// Fetch vehicles in this group
-		vRows, vErr := config.DB.Query(`SELECT id, vehicle_number, vehicle_type FROM vehicles WHERE group_id = ?`, a.VehicleGroupID)
+		vRows, vErr := config.DB.Query(`
+			SELECT v.id, v.vehicle_number, v.vehicle_type 
+			FROM vehicle_group_members vgm
+			JOIN vehicles v ON v.id = vgm.vehicle_id
+			WHERE vgm.group_id = ? AND CURDATE() BETWEEN vgm.valid_from AND vgm.valid_to
+		`, a.VehicleGroupID)
 		if vErr == nil {
 			defer vRows.Close()
 			for vRows.Next() {
@@ -181,7 +189,7 @@ func GetEVAssignments(c *gin.Context) {
 		// Calculate driver count (which is actually drivers in the cluster, confusingly named in struct)
 		// We'll keep the struct field semantics: drivers in the cluster
 		var driverCount int
-		config.DB.QueryRow("SELECT COUNT(*) FROM drivers WHERE cluster_id = ?", a.ClusterID).Scan(&driverCount)
+		config.DB.QueryRow("SELECT COUNT(DISTINCT dcm.driver_id) FROM driver_cluster_members dcm WHERE dcm.cluster_id = ? AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to", a.ClusterID).Scan(&driverCount)
 		a.DriverCount = driverCount
 
 
@@ -194,9 +202,10 @@ func GetEVAssignments(c *gin.Context) {
 			              WHERE lr.driver_id = d.id 
 			              AND lr.status = 'admin_approved'
 			              AND CURDATE() BETWEEN lr.start_date AND lr.end_date) as on_leave
-			FROM drivers d
+			FROM driver_cluster_members dcm
+			JOIN drivers d ON d.id = dcm.driver_id
 			JOIN users u ON d.user_id = u.id
-			WHERE d.cluster_id = ?
+			WHERE dcm.cluster_id = ? AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to
 		`, a.ClusterID)
 
 		if driverRows != nil {
@@ -257,9 +266,10 @@ func CreateEVAssignment(c *gin.Context) {
 	// Get all drivers in the cluster
 	driverRows, err := config.DB.Query(`
 		SELECT d.id, u.full_name 
-		FROM drivers d 
+		FROM driver_cluster_members dcm
+		JOIN drivers d ON d.id = dcm.driver_id
 		JOIN users u ON d.user_id = u.id 
-		WHERE d.cluster_id = ?
+		WHERE dcm.cluster_id = ? AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to
 	`, req.ClusterID)
 
 	if err != nil {
@@ -331,7 +341,11 @@ func CreateEVAssignment(c *gin.Context) {
 	// CHECK VEHICLE GROUP CONFLICTS
 	var vehicleIDs []int
 	// Get all vehicles in the group
-	vRows, vErr := config.DB.Query(`SELECT id FROM vehicles WHERE group_id = ?`, req.VehicleGroupID)
+	vRows, vErr := config.DB.Query(`
+		SELECT v.id FROM vehicle_group_members vgm
+		JOIN vehicles v ON v.id = vgm.vehicle_id
+		WHERE vgm.group_id = ? AND CURDATE() BETWEEN vgm.valid_from AND vgm.valid_to
+	`, req.VehicleGroupID)
 	if vErr == nil {
 		defer vRows.Close()
 		for vRows.Next() {
@@ -629,6 +643,7 @@ func GetEVAssignmentDetails(c *gin.Context) {
 		ShiftName        string         `json:"shift_name"`
 		ShiftStartTime   string         `json:"shift_start_time"`
 		ShiftEndTime     string         `json:"shift_end_time"`
+		CreatedAt        string         `json:"created_at"`
 		DaysTotal        int            `json:"days_total"`
 		DaysRemaining    int            `json:"days_remaining"`
 		DaysCompleted    int            `json:"days_completed"`
@@ -644,12 +659,13 @@ func GetEVAssignmentDetails(c *gin.Context) {
 		SELECT ea.id, ea.vehicle_group_id,
 		       COALESCE(vg.name, 'Unknown Group') as vehicle_group_name,
 		       ea.cluster_id, c.name as cluster_name,
-		       DATE_FORMAT(ea.start_date, '%Y-%m-%d') as start_date,
-		       DATE_FORMAT(ea.end_date, '%Y-%m-%d') as end_date,
+		       DATE_FORMAT(ea.start_date, '%d-%m-%Y') as start_date,
+		       DATE_FORMAT(ea.end_date, '%d-%m-%Y') as end_date,
 		       ea.status,
 		       COALESCE(s.name, 'Default') as shift_name,
-		       COALESCE(s.start_time, '') as shift_start_time,
-		       COALESCE(s.end_time, '') as shift_end_time
+		       TIME_FORMAT(s.start_time, '%H:%i') as shift_start_time,
+		       TIME_FORMAT(s.end_time, '%H:%i') as shift_end_time,
+		       DATE_FORMAT(ea.created_at, '%d-%m-%Y %H:%i') as created_at
 		FROM ev_assignments ea
 		LEFT JOIN vehicle_groups vg ON ea.vehicle_group_id = vg.id
 		JOIN driver_clusters c ON ea.cluster_id = c.id
@@ -658,7 +674,7 @@ func GetEVAssignmentDetails(c *gin.Context) {
 	`, id).Scan(&response.ID, &response.VehicleGroupID, &response.VehicleGroupName,
 		&response.ClusterID, &response.ClusterName,
 		&response.StartDate, &response.EndDate, &response.Status,
-		&response.ShiftName, &response.ShiftStartTime, &response.ShiftEndTime)
+		&response.ShiftName, &response.ShiftStartTime, &response.ShiftEndTime, &response.CreatedAt)
 
 	if err != nil {
 		log.Printf("Get EV assignment details error: %v", err)
@@ -667,7 +683,12 @@ func GetEVAssignmentDetails(c *gin.Context) {
 	}
 	// Fetch vehicles in this group
 	var vehicleIDs []int
-	vRows, err := config.DB.Query(`SELECT id, vehicle_number, vehicle_type FROM vehicles WHERE group_id = ?`, response.VehicleGroupID)
+	vRows, err := config.DB.Query(`
+		SELECT v.id, v.vehicle_number, v.vehicle_type 
+		FROM vehicle_group_members vgm
+		JOIN vehicles v ON v.id = vgm.vehicle_id
+		WHERE vgm.group_id = ? AND CURDATE() BETWEEN vgm.valid_from AND vgm.valid_to
+	`, response.VehicleGroupID)
 	if err == nil {
 		defer vRows.Close()
 		for vRows.Next() {
@@ -705,9 +726,10 @@ func GetEVAssignmentDetails(c *gin.Context) {
 		              WHERE lr.driver_id = d.id 
 		              AND lr.status = 'admin_approved'
 		              AND CURDATE() BETWEEN lr.start_date AND lr.end_date) as on_leave
-		FROM drivers d
+		FROM driver_cluster_members dcm
+		JOIN drivers d ON d.id = dcm.driver_id
 		JOIN users u ON d.user_id = u.id
-		WHERE d.cluster_id = ?
+		WHERE dcm.cluster_id = ? AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to
 		ORDER BY u.full_name
 	`, response.ClusterID)
 
@@ -785,7 +807,7 @@ func GetEVAssignmentDetails(c *gin.Context) {
 		params = append(params, response.StartDate, response.EndDate)
 		
 		q := `
-			SELECT kl.id, DATE_FORMAT(kl.date, '%Y-%m-%d') as date, 
+			SELECT kl.id, DATE_FORMAT(kl.date, '%d-%m-%Y') as date, 
 			       u.full_name as driver_name, kl.start_km, kl.end_km, kl.total_km, v.vehicle_number
 			FROM km_logs kl
 			JOIN drivers d ON kl.driver_id = d.id
@@ -878,21 +900,21 @@ func ReassignEVAssignment(c *gin.Context) {
 
 	// Get original assignment details
 	var originalAssignment struct {
-		VehicleID      int
+		VehicleGroupID    int
 		OriginalClusterID int
-		OriginalStart  string
-		OriginalEnd    string
-		Status         string
+		OriginalStart     string
+		OriginalEnd       string
+		Status            string
 	}
 	err = config.DB.QueryRow(`
-		SELECT vehicle_id, cluster_id, 
-		       DATE_FORMAT(start_date, '%Y-%m-%d'),
-		       DATE_FORMAT(end_date, '%Y-%m-%d'),
+		SELECT vehicle_group_id, cluster_id, 
+		       DATE_FORMAT(start_date, '%d-%m-%Y'),
+		       DATE_FORMAT(end_date, '%d-%m-%Y'),
 		       status
 		FROM ev_assignments 
 		WHERE id = ?
 	`, req.AssignmentID).Scan(
-		&originalAssignment.VehicleID,
+		&originalAssignment.VehicleGroupID,
 		&originalAssignment.OriginalClusterID,
 		&originalAssignment.OriginalStart,
 		&originalAssignment.OriginalEnd,
@@ -963,9 +985,9 @@ func ReassignEVAssignment(c *gin.Context) {
 
 	// Insert reassignment as new EV assignment
 	_, err = tx.Exec(`
-		INSERT INTO ev_assignments (vehicle_id, cluster_id, start_date, end_date, status)
+		INSERT INTO ev_assignments (vehicle_group_id, cluster_id, start_date, end_date, status)
 		VALUES (?, ?, ?, ?, 'active')
-	`, originalAssignment.VehicleID, req.NewClusterID, req.StartDate, req.EndDate)
+	`, originalAssignment.VehicleGroupID, req.NewClusterID, req.StartDate, req.EndDate)
 	if err != nil {
 		log.Printf("Create reassignment error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create reassignment"})
@@ -976,9 +998,9 @@ func ReassignEVAssignment(c *gin.Context) {
 	if endDate.Before(origEnd) {
 		dayAfter := endDate.Add(24 * time.Hour).Format("2006-01-02")
 		_, err = tx.Exec(`
-			INSERT INTO ev_assignments (vehicle_id, cluster_id, start_date, end_date, status)
+			INSERT INTO ev_assignments (vehicle_group_id, cluster_id, start_date, end_date, status)
 			VALUES (?, ?, ?, ?, 'active')
-		`, originalAssignment.VehicleID, originalAssignment.OriginalClusterID, dayAfter, originalAssignment.OriginalEnd)
+		`, originalAssignment.VehicleGroupID, originalAssignment.OriginalClusterID, dayAfter, originalAssignment.OriginalEnd)
 		if err != nil {
 			log.Printf("Create post-reassignment error: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create post-reassignment"})

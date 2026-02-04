@@ -3,6 +3,7 @@ import TemporaryAssignments from "./TemporaryAssignments";
 import EVAssignmentsList from "./EVAssignmentsList";
 import {showError, showConfirm} from "../../../utils/swal";
 import {formatVehicleLabel} from "../../../utils/vehicleLabel";
+import {formatTime} from "../../../utils/dateFormat";
 import SearchableSelect from "../../../components/ui/SearchableSelect";
 import {
   Calendar,
@@ -373,7 +374,7 @@ export default function AllAssignments() {
                   options={shifts.map((s) => ({
                     value: s.id,
                     label: s.shift_name,
-                    subtitle: `${s.start_time}-${s.end_time}`,
+                    subtitle: `${formatTime(s.start_time)}-${formatTime(s.end_time)}`,
                   }))}
                   emptyMessage="No shifts available"
                 />

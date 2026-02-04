@@ -36,9 +36,9 @@ func GetAllLeaveRequests(c *gin.Context) {
 func GetLeaveHistory(c *gin.Context) {
 	rows, err := config.DB.Query(`
 		SELECT lr.id, lr.driver_id, u.full_name as driver_name, lr.leave_type,
-			   DATE_FORMAT(lr.start_date, '%Y-%m-%d') as start_date,
+			   DATE_FORMAT(lr.start_date, '%d-%m-%Y') as start_date,
 			   TIME_FORMAT(lr.start_time, '%H:%i') as start_time,
-			   DATE_FORMAT(lr.end_date, '%Y-%m-%d') as end_date,
+			   DATE_FORMAT(lr.end_date, '%d-%m-%Y') as end_date,
 			   TIME_FORMAT(lr.end_time, '%H:%i') as end_time,
 			   lr.reason, lr.status,
 			   lr.incharge_id, u_inc.full_name as incharge_name, lr.incharge_approved_at, lr.incharge_remarks,
@@ -225,8 +225,8 @@ func GetPendingLeaveRequests(c *gin.Context) {
 
 	baseQuery := `
 			SELECT lr.id, lr.driver_id, u.full_name as driver_name, lr.leave_type, 
-				   DATE_FORMAT(lr.start_date, '%Y-%m-%d'), TIME_FORMAT(lr.start_time, '%H:%i'),
-				   DATE_FORMAT(lr.end_date, '%Y-%m-%d'), TIME_FORMAT(lr.end_time, '%H:%i'), lr.reason, lr.status,
+				   DATE_FORMAT(lr.start_date, '%d-%m-%Y'), TIME_FORMAT(lr.start_time, '%H:%i'),
+				   DATE_FORMAT(lr.end_date, '%d-%m-%Y'), TIME_FORMAT(lr.end_time, '%H:%i'), lr.reason, lr.status,
 				   lr.incharge_id, u_inc.full_name as incharge_name, lr.incharge_approved_at, lr.incharge_remarks,
 				   lr.admin_id, u_adm.full_name as admin_name, lr.admin_approved_at, lr.admin_remarks, lr.created_at
 			FROM leave_requests lr
@@ -341,8 +341,8 @@ func ApproveLeave(c *gin.Context) {
 	var adminApprovedAt sql.NullString
 	err := config.DB.QueryRow(`
 		SELECT status, driver_id, 
-			DATE_FORMAT(start_date, '%Y-%m-%d'), 
-			DATE_FORMAT(end_date, '%Y-%m-%d'),
+			DATE_FORMAT(start_date, '%d-%m-%Y'), 
+			DATE_FORMAT(end_date, '%d-%m-%Y'),
 			incharge_approved_at,
 			admin_approved_at
 		FROM leave_requests 
@@ -448,8 +448,8 @@ func ApproveLeave(c *gin.Context) {
 		affectedAssignments := []map[string]interface{}{}
 		rows, err := config.DB.Query(`
 			SELECT a.id, a.shift_id, a.vehicle_id, 
-				DATE_FORMAT(a.start_date, '%Y-%m-%d') as start_date,
-				DATE_FORMAT(a.end_date, '%Y-%m-%d') as end_date,
+				DATE_FORMAT(a.start_date, '%d-%m-%Y') as start_date,
+				DATE_FORMAT(a.end_date, '%d-%m-%Y') as end_date,
 				s.name as shift_name, v.vehicle_number
 			FROM assignments a
 			JOIN shifts s ON a.shift_id = s.id
@@ -559,8 +559,8 @@ func GetLeaveAffectedAssignments(c *gin.Context) {
 	var startDate, endDate string
 	err := config.DB.QueryRow(`
 		SELECT driver_id, 
-			DATE_FORMAT(start_date, '%Y-%m-%d'), 
-			DATE_FORMAT(end_date, '%Y-%m-%d')
+			DATE_FORMAT(start_date, '%d-%m-%Y'), 
+			DATE_FORMAT(end_date, '%d-%m-%Y')
 		FROM leave_requests 
 		WHERE id = ?
 	`, leaveID).Scan(&driverID, &startDate, &endDate)
@@ -592,8 +592,8 @@ func GetLeaveAffectedAssignments(c *gin.Context) {
 	// Query regular assignments
 	rows, err := config.DB.Query(`
 		SELECT a.id, a.shift_id, a.vehicle_id, 
-			DATE_FORMAT(a.start_date, '%Y-%m-%d') as start_date,
-			DATE_FORMAT(a.end_date, '%Y-%m-%d') as end_date,
+			DATE_FORMAT(a.start_date, '%d-%m-%Y') as start_date,
+			DATE_FORMAT(a.end_date, '%d-%m-%Y') as end_date,
 			s.name as shift_name,
 			TIME_FORMAT(s.start_time, '%H:%i') as shift_start_time,
 			TIME_FORMAT(s.end_time, '%H:%i') as shift_end_time,
@@ -638,8 +638,8 @@ func GetLeaveAffectedAssignments(c *gin.Context) {
 	// Also check for EV cluster assignments where this driver is a member
 	evRows, err := config.DB.Query(`
 		SELECT ev.id, 0 as shift_id, ev.vehicle_id,
-			DATE_FORMAT(ev.start_date, '%Y-%m-%d') as start_date,
-			DATE_FORMAT(ev.end_date, '%Y-%m-%d') as end_date,
+			DATE_FORMAT(ev.start_date, '%d-%m-%Y') as start_date,
+			DATE_FORMAT(ev.end_date, '%d-%m-%Y') as end_date,
 			COALESCE(dc.name, 'EV Assignment') as shift_name,
 			COALESCE(TIME_FORMAT(dc.start_time, '%H:%i'), '') as shift_start_time,
 			COALESCE(TIME_FORMAT(dc.end_time, '%H:%i'), '') as shift_end_time,
@@ -649,7 +649,8 @@ func GetLeaveAffectedAssignments(c *gin.Context) {
 		FROM ev_assignments ev
 		JOIN vehicles v ON ev.vehicle_id = v.id
 		JOIN driver_clusters dc ON ev.cluster_id = dc.id
-		JOIN drivers d ON d.cluster_id = dc.id
+		JOIN driver_cluster_members dcm ON dcm.cluster_id = dc.id
+		JOIN drivers d ON d.id = dcm.driver_id
 		WHERE d.id = ?
 		AND ev.status = 'active'
 		AND (
@@ -772,8 +773,8 @@ func ApproveLeaveWithAssignments(c *gin.Context) {
 
 	err := config.DB.QueryRow(`
 		SELECT driver_id, 
-			DATE_FORMAT(start_date, '%Y-%m-%d'), 
-			DATE_FORMAT(end_date, '%Y-%m-%d'),
+			DATE_FORMAT(start_date, '%d-%m-%Y'), 
+			DATE_FORMAT(end_date, '%d-%m-%Y'),
 			status,
 			incharge_approved_at,
 			admin_approved_at
@@ -944,13 +945,13 @@ func markAttendanceForLeave(driverID int, startDateStr, endDateStr string) {
 	}
 
 	// Parse dates
-	startDate, err := time.Parse("2006-01-02", startDateStr)
+	startDate, err := time.Parse("02-01-2006", startDateStr)
 	if err != nil {
 		log.Printf("Error parsing start date %s: %v", startDateStr, err)
 		return
 	}
 
-	endDate, err := time.Parse("2006-01-02", endDateStr)
+	endDate, err := time.Parse("02-01-2006", endDateStr)
 	if err != nil {
 		log.Printf("Error parsing end date %s: %v", endDateStr, err)
 		return

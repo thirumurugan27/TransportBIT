@@ -2,6 +2,7 @@ import React, {useState, useEffect} from "react";
 import {useAuth} from "../../../context/AuthContext";
 import {useToast} from "../../../context/ToastContext";
 import {showConfirm} from "../../../utils/swal";
+import {formatTime} from "../../../utils/dateFormat";
 import {
   Bus,
   MapPin,
@@ -463,7 +464,7 @@ export default function StudentTransport() {
                     </div>
                   )}
                   <div className="mt-3 text-xs text-secondarytext">
-                    Requested: {new Date(req.created_at).toLocaleString()}
+                    Requested: {req.created_at || "-"}
                   </div>
                 </div>
               ))}
@@ -518,7 +519,7 @@ export default function StudentTransport() {
                       >
                         {stop.stop_name} - ₹{stop.fee?.toLocaleString()}
                         {stop.arrival_time
-                          ? ` (Arrives ${stop.arrival_time})`
+                          ? ` (Arrives ${formatTime(stop.arrival_time)})`
                           : ""}
                       </option>
                     ))}
@@ -689,13 +690,17 @@ export default function StudentTransport() {
                     <div className="flex justify-between py-3 border-b border-primarybg">
                       <span className="text-secondarytext">Arrival Time</span>
                       <span className="font-semibold text-primarytext">
-                        {transport.arrival_time || "N/A"}
+                        {transport.arrival_time
+                          ? formatTime(transport.arrival_time)
+                          : "N/A"}
                       </span>
                     </div>
                     <div className="flex justify-between py-3">
                       <span className="text-secondarytext">Departure Time</span>
                       <span className="font-semibold text-primarytext">
-                        {transport.departure_time || "N/A"}
+                        {transport.departure_time
+                          ? formatTime(transport.departure_time)
+                          : "N/A"}
                       </span>
                     </div>
                   </div>
@@ -988,7 +993,9 @@ export default function StudentTransport() {
                   value={stop.stop_id || stop.id}
                 >
                   {stop.stop_name} - ₹{stop.fee?.toLocaleString()}
-                  {stop.arrival_time ? ` (Arrives ${stop.arrival_time})` : ""}
+                  {stop.arrival_time
+                    ? ` (Arrives ${formatTime(stop.arrival_time)})`
+                    : ""}
                 </option>
               ))}
             </select>

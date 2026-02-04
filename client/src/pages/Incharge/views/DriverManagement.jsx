@@ -3,6 +3,7 @@ import {useAuth} from "../../../context/AuthContext";
 import {apiGet, apiPost, getToday} from "../../../utils/api";
 import {useToast} from "../../../context/ToastContext";
 import {showError} from "../../../utils/swal";
+import {formatTime} from "../../../utils/dateFormat";
 import {
   Users,
   Car,
@@ -443,8 +444,8 @@ export default function DriverManagement() {
                                     Time:
                                   </span>{" "}
                                   <span className="font-medium">
-                                    {assignment.start_time} -{" "}
-                                    {assignment.end_time}
+                                    {formatTime(assignment.start_time)} -{" "}
+                                    {formatTime(assignment.end_time)}
                                   </span>
                                 </p>
                               )}

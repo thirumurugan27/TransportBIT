@@ -1,6 +1,15 @@
 import React, {useState, useEffect} from "react";
 import {useAuth} from "../../../context/AuthContext";
 import {apiGet} from "../../../utils/api";
+import {parseDate} from "../../../utils/dateFormat";
+
+// Check if date is expired
+const isExpired = (dateStr) => {
+  if (!dateStr) return false;
+  const expiry = parseDate(dateStr);
+  if (!expiry || isNaN(expiry)) return false;
+  return expiry < new Date();
+};
 
 export default function DriverProfile() {
   const [profile, setProfile] = useState(null);
@@ -71,8 +80,8 @@ export default function DriverProfile() {
               profile.status === "present"
                 ? "bg-green/10 text-green border-green/20"
                 : profile.status === "on_leave"
-                ? "bg-red/10 text-red border-red/20"
-                : "bg-gray-100 text-gray-600 border-gray-200"
+                  ? "bg-red/10 text-red border-red/20"
+                  : "bg-gray-100 text-gray-600 border-gray-200"
             }`}
           >
             {profile.status?.toUpperCase().replace("_", " ")}
@@ -123,12 +132,12 @@ export default function DriverProfile() {
                 </label>
                 <p
                   className={`font-medium ${
-                    new Date(profile.license_expiry) < new Date()
+                    isExpired(profile.license_expiry)
                       ? "text-red-600"
                       : "text-gray-800"
                   }`}
                 >
-                  {profile.license_expiry}
+                  {profile.license_expiry || "-"}
                 </p>
               </div>
             </div>
