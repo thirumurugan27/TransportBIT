@@ -31,7 +31,7 @@ func GetTemporaryAssignments(c *gin.Context) {
 		       COALESCE(s.name, 'EV Cluster') as shift_name,
 		       COALESCE(TIME_FORMAT(s.start_time, '%H:%i'), '') as start_time,
 		       COALESCE(TIME_FORMAT(s.end_time, '%H:%i'), '') as end_time,
-		       v.vehicle_number, v.vehicle_type, COALESCE(v.name, '') as bus_name
+		       v.vehicle_number, v.vehicle_type, COALESCE(v.vehicle_name, '') as vehicle_name
 		FROM temporary_assignments ta
 		JOIN drivers d_orig ON ta.original_driver_id = d_orig.id
 		JOIN users u_orig ON d_orig.user_id = u_orig.id
@@ -59,7 +59,7 @@ func GetTemporaryAssignments(c *gin.Context) {
 			&ta.Reason, &ta.Status, &ta.CreatedAt,
 			&ta.OriginalDriverName, &ta.ReplacementDriverName,
 			&ta.ShiftName, &ta.StartTime, &ta.EndTime,
-			&ta.VehicleNumber, &ta.VehicleType, &ta.BusName)
+			&ta.VehicleNumber, &ta.VehicleType, &ta.VehicleName)
 		if err != nil {
 			log.Printf("Scan error for temporary assignment: %v", err)
 			continue

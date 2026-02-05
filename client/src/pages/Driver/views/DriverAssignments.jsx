@@ -17,7 +17,6 @@ import {
   X,
   Eye,
   ChevronRight,
-  MapPin,
   FileText,
   Key,
   Truck,
@@ -93,7 +92,7 @@ export default function DriverAssignments() {
           bg: "bg-purple-50",
           border: "border-purple-200",
           icon: <Key size={14} />,
-          label: "Pending OTP",
+          label: "On Hold",
         };
       default:
         return {
@@ -200,7 +199,7 @@ export default function DriverAssignments() {
         </div>
         <button
           onClick={fetchAssignments}
-          className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-md hover:bg-primary/20 transition-colors"
         >
           <RefreshCcw size={16} />
           Refresh
@@ -208,13 +207,13 @@ export default function DriverAssignments() {
       </div>
 
       {/* Filter Tabs */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-2">
+      <div className="bg-white rounded-md shadow-sm border border-gray-100 p-2">
         <div className="flex flex-wrap gap-2">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm transition-all ${
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-md font-medium text-sm transition-all ${
                 activeTab === tab.id
                   ? "bg-primary text-white shadow-md"
                   : "bg-gray-50 text-gray-600 hover:bg-gray-100"
@@ -224,7 +223,7 @@ export default function DriverAssignments() {
               {tab.label}
               {tab.count > 0 && (
                 <span
-                  className={`ml-1 px-2 py-0.5 rounded-full text-xs font-bold ${
+                  className={`ml-1 px-2 py-0.5 rounded-md text-xs font-bold ${
                     activeTab === tab.id
                       ? "bg-white/20 text-white"
                       : "bg-gray-200 text-gray-600"
@@ -240,13 +239,13 @@ export default function DriverAssignments() {
 
       {loading ? (
         <div className="flex justify-center p-20">
-          <div className="animate-spin inline-block w-8 h-8 border-4 border-current border-t-transparent text-primary rounded-full"></div>
+          <div className="animate-spin inline-block w-8 h-8 border-4 border-current border-t-transparent text-primary rounded-md"></div>
         </div>
       ) : (
         <>
           {filteredAssignments.length === 0 ? (
-            <div className="bg-white rounded-xl p-12 text-center border border-gray-100 shadow-sm flex flex-col items-center justify-center">
-              <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+            <div className="bg-white rounded-md p-12 text-center border border-gray-100 shadow-sm flex flex-col items-center justify-center">
+              <div className="w-16 h-16 bg-gray-50 rounded-md flex items-center justify-center mb-4">
                 <Calendar className="text-gray-300" size={32} />
               </div>
               <h3 className="text-lg font-bold text-gray-800">
@@ -272,13 +271,13 @@ export default function DriverAssignments() {
                     <div
                       key={`ev-${assignment.id || index}`}
                       onClick={() => setSelectedEVAssignment(assignment)}
-                      className="bg-white rounded-xl p-5 border-2 border-green-500 shadow-sm hover:shadow-lg transition-all duration-200 group relative overflow-hidden cursor-pointer"
+                      className="bg-white rounded-md p-5 border-2 border-green-500 shadow-sm hover:shadow-lg transition-all duration-200 group relative overflow-hidden cursor-pointer"
                     >
                       {/* Top Accent Bar */}
                       <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-green-500 to-green-600"></div>
 
                       {/* EV Badge */}
-                      <div className="absolute top-3 right-3 flex items-center gap-1 bg-green-500 text-white text-xs font-bold px-2.5 py-1 rounded-full">
+                      <div className="absolute top-3 right-3 flex items-center gap-1 bg-green-500 text-white text-xs font-bold px-2.5 py-1 rounded-md">
                         <Zap size={12} />
                         EV
                       </div>
@@ -301,8 +300,8 @@ export default function DriverAssignments() {
                       {/* Info Grid */}
                       <div className="space-y-3">
                         {/* Shift Row */}
-                        <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg">
-                          <div className="bg-white p-2 rounded-lg shadow-sm text-green-600">
+                        <div className="flex items-start gap-3 p-3 bg-green-50 rounded-md">
+                          <div className="bg-white p-2 rounded-md shadow-sm text-green-600">
                             <Clock size={16} />
                           </div>
                           <div>
@@ -320,8 +319,8 @@ export default function DriverAssignments() {
                         </div>
 
                         {/* Vehicle Group Row */}
-                        <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg">
-                          <div className="bg-white p-2 rounded-lg shadow-sm text-green-600">
+                        <div className="flex items-start gap-3 p-3 bg-green-50 rounded-md">
+                          <div className="bg-white p-2 rounded-md shadow-sm text-green-600">
                             <Zap size={16} />
                           </div>
                           <div>
@@ -338,8 +337,8 @@ export default function DriverAssignments() {
                         </div>
 
                         {/* Driver Group Row */}
-                        <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg">
-                          <div className="bg-white p-2 rounded-lg shadow-sm text-green-600">
+                        <div className="flex items-start gap-3 p-3 bg-green-50 rounded-md">
+                          <div className="bg-white p-2 rounded-md shadow-sm text-green-600">
                             <Users size={16} />
                           </div>
                           <div>
@@ -375,13 +374,13 @@ export default function DriverAssignments() {
                   return (
                     <div
                       key={`car-${assignment.id || index}`}
-                      className="bg-white rounded-xl p-5 border-2 border-indigo-500 shadow-sm hover:shadow-lg transition-all duration-200 relative overflow-hidden"
+                      className="bg-white rounded-md p-5 border-2 border-indigo-500 shadow-sm hover:shadow-lg transition-all duration-200 relative overflow-hidden"
                     >
                       {/* Top Accent Bar */}
                       <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-indigo-500 to-purple-600"></div>
 
                       {/* Car Badge */}
-                      <div className="absolute top-3 right-3 flex items-center gap-1 bg-indigo-500 text-white text-xs font-bold px-2.5 py-1 rounded-full">
+                      <div className="absolute top-3 right-3 flex items-center gap-1 bg-indigo-500 text-white text-xs font-bold px-2.5 py-1 rounded-md">
                         <Car size={12} />
                         CAR
                       </div>
@@ -400,7 +399,7 @@ export default function DriverAssignments() {
                           </p>
                         </div>
                         <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${status.bg} ${status.color} ${status.border} mt-6`}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold border ${status.bg} ${status.color} ${status.border} mt-6`}
                         >
                           {status.icon}
                           {status.label}
@@ -410,8 +409,8 @@ export default function DriverAssignments() {
                       {/* Info Grid */}
                       <div className="space-y-3">
                         {/* Shift Row */}
-                        <div className="flex items-start gap-3 p-3 bg-indigo-50 rounded-lg">
-                          <div className="bg-white p-2 rounded-lg shadow-sm text-indigo-600">
+                        <div className="flex items-start gap-3 p-3 bg-indigo-50 rounded-md">
+                          <div className="bg-white p-2 rounded-md shadow-sm text-indigo-600">
                             <Clock size={16} />
                           </div>
                           <div>
@@ -429,8 +428,8 @@ export default function DriverAssignments() {
                         </div>
 
                         {/* Vehicle Row */}
-                        <div className="flex items-start gap-3 p-3 bg-indigo-50 rounded-lg">
-                          <div className="bg-white p-2 rounded-lg shadow-sm text-indigo-600">
+                        <div className="flex items-start gap-3 p-3 bg-indigo-50 rounded-md">
+                          <div className="bg-white p-2 rounded-md shadow-sm text-indigo-600">
                             <Car size={16} />
                           </div>
                           <div>
@@ -438,62 +437,29 @@ export default function DriverAssignments() {
                               Vehicle
                             </p>
                             <p className="text-sm font-bold text-gray-800">
-                              {assignment.vehicle_number}
+                              {assignment.vehicle_name ||
+                                assignment.vehicle_number}
                             </p>
                           </div>
                         </div>
 
-                        {/* Purpose */}
-                        {assignment.purpose && (
-                          <div className="flex items-start gap-3 p-3 bg-indigo-50 rounded-lg">
-                            <div className="bg-white p-2 rounded-lg shadow-sm text-indigo-600">
+                        {/* Description */}
+                        {assignment.description && (
+                          <div className="flex items-start gap-3 p-3 bg-indigo-50 rounded-md">
+                            <div className="bg-white p-2 rounded-md shadow-sm text-indigo-600">
                               <FileText size={16} />
                             </div>
                             <div>
                               <p className="text-xs font-semibold text-gray-500">
-                                Purpose
+                                Description
                               </p>
                               <p className="text-sm font-bold text-gray-800">
-                                {assignment.purpose}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Destination */}
-                        {assignment.destination && (
-                          <div className="flex items-start gap-3 p-3 bg-indigo-50 rounded-lg">
-                            <div className="bg-white p-2 rounded-lg shadow-sm text-indigo-600">
-                              <MapPin size={16} />
-                            </div>
-                            <div>
-                              <p className="text-xs font-semibold text-gray-500">
-                                Destination
-                              </p>
-                              <p className="text-sm font-bold text-gray-800">
-                                {assignment.destination}
+                                {assignment.description}
                               </p>
                             </div>
                           </div>
                         )}
                       </div>
-
-                      {/* OTP Footer for onhold status */}
-                      {assignment.otp &&
-                        assignment.status?.toLowerCase() === "onhold" && (
-                          <div className="mt-4 pt-3 border-t border-dashed border-indigo-300">
-                            <div className="flex items-center justify-center gap-2 bg-purple-100 text-purple-700 p-3 rounded-lg">
-                              <Key size={18} />
-                              <span className="text-sm font-bold">OTP: </span>
-                              <span className="text-lg font-mono font-bold tracking-widest">
-                                {assignment.otp}
-                              </span>
-                            </div>
-                            <p className="text-xs text-center text-gray-500 mt-2">
-                              Share this OTP with the faculty to confirm
-                            </p>
-                          </div>
-                        )}
                     </div>
                   );
                 }
@@ -502,7 +468,7 @@ export default function DriverAssignments() {
                 return (
                   <div
                     key={`reg-${assignment.id || index}`}
-                    className={`bg-white rounded-xl p-5 border-2 shadow-sm hover:shadow-lg transition-all duration-200 relative overflow-hidden ${
+                    className={`bg-white rounded-md p-5 border-2 shadow-sm hover:shadow-lg transition-all duration-200 relative overflow-hidden ${
                       isTemp ? "border-amber-500" : "border-gray-200"
                     }`}
                   >
@@ -517,18 +483,18 @@ export default function DriverAssignments() {
 
                     {/* Type Badge */}
                     {isTemp ? (
-                      <div className="absolute top-3 right-3 flex items-center gap-1 bg-amber-500 text-white text-xs font-bold px-2.5 py-1 rounded-full">
+                      <div className="absolute top-3 right-3 flex items-center gap-1 bg-amber-500 text-white text-xs font-bold px-2.5 py-1 rounded-md">
                         <RefreshCcw size={12} />
                         RELIEF
                       </div>
                     ) : assignment.vehicle_type !== "BUS" &&
                       assignment.vehicle_type !== "CAR" ? (
-                      <div className="absolute top-3 right-3 flex items-center gap-1 bg-orange-500 text-white text-xs font-bold px-2.5 py-1 rounded-full">
+                      <div className="absolute top-3 right-3 flex items-center gap-1 bg-orange-500 text-white text-xs font-bold px-2.5 py-1 rounded-md">
                         <Truck size={12} />
                         {assignment.vehicle_type}
                       </div>
                     ) : (
-                      <div className="absolute top-3 right-3 flex items-center gap-1 bg-blue-500 text-white text-xs font-bold px-2.5 py-1 rounded-full">
+                      <div className="absolute top-3 right-3 flex items-center gap-1 bg-blue-500 text-white text-xs font-bold px-2.5 py-1 rounded-md">
                         <Bus size={12} />
                         {assignment.vehicle_type}
                       </div>
@@ -548,7 +514,7 @@ export default function DriverAssignments() {
                         </p>
                       </div>
                       <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${status.bg} ${status.color} ${status.border} mt-6`}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold border ${status.bg} ${status.color} ${status.border} mt-6`}
                       >
                         {status.icon}
                         {status.label}
@@ -559,10 +525,10 @@ export default function DriverAssignments() {
                     <div className="space-y-3">
                       {/* Shift Row */}
                       <div
-                        className={`flex items-start gap-3 p-3 rounded-lg ${isTemp ? "bg-amber-50" : "bg-gray-50"}`}
+                        className={`flex items-start gap-3 p-3 rounded-md ${isTemp ? "bg-amber-50" : "bg-gray-50"}`}
                       >
                         <div
-                          className={`bg-white p-2 rounded-lg shadow-sm ${isTemp ? "text-amber-600" : "text-blue-600"}`}
+                          className={`bg-white p-2 rounded-md shadow-sm ${isTemp ? "text-amber-600" : "text-blue-600"}`}
                         >
                           <Clock size={16} />
                         </div>
@@ -582,10 +548,10 @@ export default function DriverAssignments() {
 
                       {/* Vehicle Row */}
                       <div
-                        className={`flex items-start gap-3 p-3 rounded-lg ${isTemp ? "bg-amber-50" : "bg-gray-50"}`}
+                        className={`flex items-start gap-3 p-3 rounded-md ${isTemp ? "bg-amber-50" : "bg-gray-50"}`}
                       >
                         <div
-                          className={`bg-white p-2 rounded-lg shadow-sm ${isTemp ? "text-amber-600" : "text-blue-600"}`}
+                          className={`bg-white p-2 rounded-md shadow-sm ${isTemp ? "text-amber-600" : "text-blue-600"}`}
                         >
                           <Bus size={16} />
                         </div>
@@ -594,13 +560,35 @@ export default function DriverAssignments() {
                             Vehicle Details
                           </p>
                           <p className="text-sm font-bold text-gray-800">
-                            {assignment.vehicle_number}
+                            {assignment.vehicle_name ||
+                              assignment.vehicle_number}
                           </p>
                           <p className="text-xs text-gray-500 mt-0.5">
                             {assignment.vehicle_type}
                           </p>
                         </div>
                       </div>
+
+                      {/* Description Row */}
+                      {assignment.description && (
+                        <div
+                          className={`flex items-start gap-3 p-3 rounded-md ${isTemp ? "bg-amber-50" : "bg-gray-50"}`}
+                        >
+                          <div
+                            className={`bg-white p-2 rounded-md shadow-sm ${isTemp ? "text-amber-600" : "text-blue-600"}`}
+                          >
+                            <FileText size={16} />
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-gray-500">
+                              Description
+                            </p>
+                            <p className="text-sm font-bold text-gray-800">
+                              {assignment.description}
+                            </p>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Footer: Temp Assignment Info */}
@@ -631,11 +619,11 @@ export default function DriverAssignments() {
       {/* EV Assignment Details Modal */}
       {selectedEVAssignment && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden">
+          <div className="bg-white rounded-md shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden">
             {/* Header */}
             <div className="bg-gradient-to-r from-green-500 to-green-600 text-white p-6 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-3 bg-white/20 rounded-xl">
+                <div className="p-3 bg-white/20 rounded-md">
                   <Zap size={24} />
                 </div>
                 <div>
@@ -647,7 +635,7 @@ export default function DriverAssignments() {
               </div>
               <button
                 onClick={() => setSelectedEVAssignment(null)}
-                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                className="p-2 hover:bg-white/20 rounded-md transition-colors"
               >
                 <X size={24} />
               </button>
@@ -657,7 +645,7 @@ export default function DriverAssignments() {
             <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto">
               {/* Date & Time Info */}
               <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-green-50 rounded-xl">
+                <div className="p-4 bg-green-50 rounded-md">
                   <p className="text-xs font-semibold text-gray-500 mb-1">
                     Date Range
                   </p>
@@ -668,7 +656,7 @@ export default function DriverAssignments() {
                       : `${selectedEVAssignment.start_date} - ${selectedEVAssignment.end_date}`}
                   </p>
                 </div>
-                <div className="p-4 bg-green-50 rounded-xl">
+                <div className="p-4 bg-green-50 rounded-md">
                   <p className="text-xs font-semibold text-gray-500 mb-1">
                     Shift Time
                   </p>
@@ -689,12 +677,12 @@ export default function DriverAssignments() {
                   {selectedEVAssignment.group_vehicles?.map((vehicle) => (
                     <div
                       key={vehicle.id}
-                      className="p-3 bg-gray-50 rounded-xl border border-gray-100"
+                      className="p-3 bg-gray-50 rounded-md border border-gray-100"
                     >
                       <p className="font-bold text-gray-800">
-                        {vehicle.vehicle_number}
+                        {vehicle.vehicle_name || vehicle.vehicle_number}
                       </p>
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-700">
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-green-100 text-green-700">
                         {vehicle.fuel_type}
                       </span>
                     </div>
@@ -718,9 +706,9 @@ export default function DriverAssignments() {
                   {selectedEVAssignment.group_drivers?.map((driver) => (
                     <div
                       key={driver.id}
-                      className="p-3 bg-gray-50 rounded-xl border border-gray-100 flex items-center gap-3"
+                      className="p-3 bg-gray-50 rounded-md border border-gray-100 flex items-center gap-3"
                     >
-                      <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-700 font-bold">
+                      <div className="w-10 h-10 bg-green-100 rounded-md flex items-center justify-center text-green-700 font-bold">
                         {driver.name?.charAt(0).toUpperCase()}
                       </div>
                       <p className="font-medium text-gray-800 text-sm">
@@ -738,10 +726,10 @@ export default function DriverAssignments() {
               </div>
 
               {/* Status */}
-              <div className="flex items-center justify-between p-4 bg-green-50 rounded-xl">
+              <div className="flex items-center justify-between p-4 bg-green-50 rounded-md">
                 <span className="text-gray-600 font-medium">Status</span>
-                <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-bold bg-green-100 text-green-700">
-                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-bold bg-green-100 text-green-700">
+                  <div className="w-2 h-2 rounded-md bg-green-500 animate-pulse" />
                   {selectedEVAssignment.status}
                 </span>
               </div>
@@ -751,7 +739,7 @@ export default function DriverAssignments() {
             <div className="p-4 border-t border-gray-100 bg-gray-50">
               <button
                 onClick={() => setSelectedEVAssignment(null)}
-                className="w-full py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold rounded-xl transition-colors"
+                className="w-full py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold rounded-md transition-colors"
               >
                 Close
               </button>

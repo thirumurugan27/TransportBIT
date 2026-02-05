@@ -1,19 +1,18 @@
-import React, { useState } from "react";
-import { Routes, Route, useNavigate } from "react-router-dom";
-import { Sidebar } from "../../components/layout";
+import React, {useState} from "react";
+import {Routes, Route, useNavigate} from "react-router-dom";
+import {Sidebar} from "../../components/layout";
 import DashboardHeader from "../../components/DashboardHeader";
 import DriverHome from "./views/DriverHome";
 import DriverAssignments from "./views/DriverAssignments";
 import DriverKmLog from "./views/DriverKmLog";
 import DriverApplyLeave from "./views/DriverApplyLeave";
 import DriverProfile from "./views/DriverProfile";
-import DriverCarBookings from "./views/DriverCarBookings";
 import Notifications from "./views/Notifications";
 import ComingSoon from "./views/ComingSoon";
-import { useAuth } from "../../context/AuthContext";
+import {useAuth} from "../../context/AuthContext";
 
 export default function DriverDashboard() {
-  const { user, logout } = useAuth();
+  const {user, logout} = useAuth();
   const driverName = user?.full_name || user?.username || "Driver";
   const navigate = useNavigate();
 
@@ -24,7 +23,7 @@ export default function DriverDashboard() {
       <div className="flex-1 flex flex-col overflow-hidden ml-[220px]">
         <DashboardHeader
           title="Driver Dashboard"
-          user={{ name: driverName, role: "Driver" }}
+          user={{name: driverName, role: "Driver"}}
           onLogout={logout}
         />
 
@@ -34,7 +33,6 @@ export default function DriverDashboard() {
             <Route path="assignments" element={<DriverAssignments />} />
             <Route path="km-log" element={<DriverKmLog />} />
             <Route path="apply-leave" element={<DriverApplyLeave />} />
-            <Route path="car-bookings" element={<DriverCarBookings />} />
             <Route path="notifications" element={<Notifications />} />
             <Route path="profile" element={<DriverProfile />} />
             <Route path="*" element={<DriverHome />} />

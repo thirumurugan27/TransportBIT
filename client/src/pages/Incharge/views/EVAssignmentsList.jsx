@@ -131,7 +131,7 @@ export default function EVAssignmentsList() {
       <div className="bg-white rounded-md shadow-sm border border-gray-100 overflow-hidden">
         {loading ? (
           <div className="p-12 text-center text-gray-500">
-            <div className="animate-spin inline-block w-8 h-8 border-4 border-current border-t-transparent text-[var(--color-primary)] rounded-full mb-4"></div>
+            <div className="animate-spin inline-block w-8 h-8 border-4 border-current border-t-transparent text-[var(--color-primary)] rounded-md mb-4"></div>
             <p>Loading EV assignments...</p>
           </div>
         ) : assignments.length === 0 ? (
@@ -200,14 +200,14 @@ export default function EVAssignmentsList() {
       {/* Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-secondarybg rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in duration-200">
+          <div className="bg-secondarybg rounded-md shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in duration-200">
             <div className="sticky top-0 z-10 bg-secondarybg px-8 py-5 border-b border-gray-100 flex justify-between items-center">
               <h3 className="text-2xl font-bold text-primarytext">
                 Assign EV to Cluster
               </h3>
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="text-secondarytext hover:text-primarytext rounded-full p-1 hover:bg-gray-100 transition-colors"
+                className="text-secondarytext hover:text-primarytext rounded-md p-1 hover:bg-gray-100 transition-colors"
               >
                 <X size={20} />
               </button>
@@ -224,7 +224,7 @@ export default function EVAssignmentsList() {
                   onChange={(e) =>
                     setNewAssign({...newAssign, vehicle_id: e.target.value})
                   }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                 >
                   <option value="">Choose Vehicle...</option>
                   {evVehicles.map((v) => (
@@ -245,7 +245,7 @@ export default function EVAssignmentsList() {
                   onChange={(e) =>
                     setNewAssign({...newAssign, cluster_id: e.target.value})
                   }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                 >
                   <option value="">Choose Cluster...</option>
                   {clusters.map((c) => (
@@ -268,7 +268,7 @@ export default function EVAssignmentsList() {
                     onChange={(e) =>
                       setNewAssign({...newAssign, start_date: e.target.value})
                     }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                   />
                 </div>
                 <div>
@@ -282,7 +282,7 @@ export default function EVAssignmentsList() {
                     onChange={(e) =>
                       setNewAssign({...newAssign, end_date: e.target.value})
                     }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                   />
                 </div>
               </div>
@@ -291,13 +291,13 @@ export default function EVAssignmentsList() {
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-6 py-3 text-secondarytext bg-primarybg border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors font-medium"
+                  className="px-6 py-3 text-secondarytext bg-primarybg border border-gray-200 rounded-md hover:bg-gray-100 transition-colors font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-3 bg-primary text-secondarybg rounded-lg hover:bg-primarydull transition-colors font-semibold shadow-sm flex items-center gap-2"
+                  className="px-6 py-3 bg-primary text-secondarybg rounded-md hover:bg-primarydull transition-colors font-semibold shadow-sm flex items-center gap-2"
                 >
                   <Plus size={18} /> Assign Cluster
                 </button>
@@ -314,12 +314,12 @@ export default function EVAssignmentsList() {
           onClick={() => setShowDetailModal(false)}
         >
           <div
-            className="bg-secondarybg rounded-xl shadow-xl w-full max-w-2xl animate-in fade-in zoom-in duration-200"
+            className="bg-secondarybg rounded-md shadow-xl w-full max-w-2xl animate-in fade-in zoom-in duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-8 py-5 border-b border-gray-100 flex justify-between items-center">
               <div className="flex items-center gap-3">
-                <div className="bg-green-100 p-2 rounded-full">
+                <div className="bg-green-100 p-2 rounded-md">
                   <Zap
                     className="text-green-600"
                     size={20}
@@ -332,7 +332,7 @@ export default function EVAssignmentsList() {
               </div>
               <button
                 onClick={() => setShowDetailModal(false)}
-                className="text-secondarytext hover:text-primarytext rounded-full p-1 hover:bg-gray-100 transition-colors"
+                className="text-secondarytext hover:text-primarytext rounded-md p-1 hover:bg-gray-100 transition-colors"
               >
                 <X size={20} />
               </button>
@@ -343,7 +343,7 @@ export default function EVAssignmentsList() {
                 <label className="block text-xs font-semibold text-secondarytext uppercase tracking-wider mb-2">
                   EV Vehicle
                 </label>
-                <div className="flex items-center gap-2 px-4 py-3 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center gap-2 px-4 py-3 bg-green-50 border border-green-200 rounded-md">
                   <Truck size={16} className="text-green-600" />
                   <span className="text-gray-900 font-medium font-mono">
                     {formatVehicleLabel(selectedDetail)}
@@ -355,7 +355,7 @@ export default function EVAssignmentsList() {
                 <label className="block text-xs font-semibold text-secondarytext uppercase tracking-wider mb-2">
                   Assigned Cluster
                 </label>
-                <div className="flex items-center gap-2 px-4 py-3 bg-primarybg border border-gray-200 rounded-lg">
+                <div className="flex items-center gap-2 px-4 py-3 bg-primarybg border border-gray-200 rounded-md">
                   <Users size={16} className="text-primary" />
                   <span className="text-gray-900 font-medium">
                     {selectedDetail.cluster_name}
@@ -371,7 +371,7 @@ export default function EVAssignmentsList() {
                   <label className="block text-xs font-semibold text-secondarytext uppercase tracking-wider mb-2">
                     Start Date
                   </label>
-                  <div className="flex items-center gap-2 px-4 py-3 bg-primarybg border border-gray-200 rounded-lg">
+                  <div className="flex items-center gap-2 px-4 py-3 bg-primarybg border border-gray-200 rounded-md">
                     <Calendar size={16} className="text-primary" />
                     <span className="text-gray-900 font-medium">
                       {selectedDetail.start_date}
@@ -382,7 +382,7 @@ export default function EVAssignmentsList() {
                   <label className="block text-xs font-semibold text-secondarytext uppercase tracking-wider mb-2">
                     End Date
                   </label>
-                  <div className="flex items-center gap-2 px-4 py-3 bg-primarybg border border-gray-200 rounded-lg">
+                  <div className="flex items-center gap-2 px-4 py-3 bg-primarybg border border-gray-200 rounded-md">
                     <Calendar size={16} className="text-primary" />
                     <span className="text-gray-900 font-medium">
                       {selectedDetail.end_date}
@@ -394,7 +394,7 @@ export default function EVAssignmentsList() {
               <div className="pt-4 border-t border-gray-100 flex justify-end gap-3">
                 <button
                   onClick={() => setShowDetailModal(false)}
-                  className="px-6 py-3 text-secondarytext bg-primarybg border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors font-medium"
+                  className="px-6 py-3 text-secondarytext bg-primarybg border border-gray-200 rounded-md hover:bg-gray-100 transition-colors font-medium"
                 >
                   Close
                 </button>
@@ -404,7 +404,7 @@ export default function EVAssignmentsList() {
                     setShowDetailModal(false);
                     handleDelete(selectedDetail.id);
                   }}
-                  className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-semibold shadow-sm flex items-center gap-2"
+                  className="px-6 py-3 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors font-semibold shadow-sm flex items-center gap-2"
                 >
                   <Trash2 size={18} /> Delete Assignment
                 </button>

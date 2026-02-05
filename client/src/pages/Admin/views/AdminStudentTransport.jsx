@@ -1,6 +1,7 @@
 import React, {useState, useEffect} from "react";
 import {useToast} from "../../../context/ToastContext";
 import {formatTime} from "../../../utils/dateFormat";
+import Loading from "../../../components/ui/Loading";
 import {
   Users,
   Bus,
@@ -415,7 +416,7 @@ export default function AdminStudentTransport() {
     };
     return (
       <span
-        className={`px-3 py-1 rounded-full text-xs font-semibold ${styles[status] || "bg-secondarybg"}`}
+        className={`px-3 py-1 rounded-md text-xs font-semibold ${styles[status] || "bg-secondarybg"}`}
       >
         {status?.charAt(0).toUpperCase() + status?.slice(1)}
       </span>
@@ -473,17 +474,13 @@ export default function AdminStudentTransport() {
   ];
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary/20 border-t-primary"></div>
-      </div>
-    );
+    return <Loading fullScreen={false} />;
   }
 
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
-      <div className="bg-secondarybg rounded-2xl p-6 border border-primary/10">
+      <div className="bg-secondarybg rounded-md p-6 border border-primary/10">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-primarytext mb-2">
@@ -493,7 +490,7 @@ export default function AdminStudentTransport() {
               Manage student bus assignments, fees, and requests
             </p>
           </div>
-          <div className="bg-primary/10 p-4 rounded-xl">
+          <div className="bg-primary/10 p-4 rounded-md">
             <Users className="w-8 h-8 text-primary" />
           </div>
         </div>
@@ -504,7 +501,7 @@ export default function AdminStudentTransport() {
         {stats.map((stat, index) => (
           <div
             key={index}
-            className="bg-secondarybg rounded-xl p-6 border border-primarybg hover:shadow-lg transition-shadow"
+            className="bg-secondarybg rounded-md p-6 border border-primarybg hover:shadow-lg transition-shadow"
           >
             <div className="flex items-center justify-between">
               <div>
@@ -515,7 +512,7 @@ export default function AdminStudentTransport() {
                   {stat.value}
                 </p>
               </div>
-              <div className={`${stat.color} p-3 rounded-xl`}>
+              <div className={`${stat.color} p-3 rounded-md`}>
                 <stat.icon className={`w-6 h-6 ${stat.iconColor}`} />
               </div>
             </div>
@@ -524,7 +521,7 @@ export default function AdminStudentTransport() {
       </div>
 
       {/* Tabs */}
-      <div className="bg-secondarybg rounded-2xl border border-primarybg overflow-hidden">
+      <div className="bg-secondarybg rounded-md border border-primarybg overflow-hidden">
         <div className="flex overflow-x-auto border-b border-primarybg">
           {tabs.map((tab) => (
             <button
@@ -539,7 +536,7 @@ export default function AdminStudentTransport() {
               <tab.icon className="w-4 h-4" />
               {tab.label}
               {tab.badge > 0 && (
-                <span className="bg-red text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                <span className="bg-red text-white text-xs font-bold px-2 py-0.5 rounded-md">
                   {tab.badge}
                 </span>
               )}
@@ -569,7 +566,7 @@ export default function AdminStudentTransport() {
                   {transportRequests.map((req) => (
                     <div
                       key={req.id}
-                      className={`bg-primarybg rounded-xl p-5 border ${
+                      className={`bg-primarybg rounded-md p-5 border ${
                         req.status === "pending"
                           ? "border-pending/30"
                           : "border-primarybg"
@@ -592,7 +589,7 @@ export default function AdminStudentTransport() {
                         {getStatusBadge(req.status)}
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-secondarybg rounded-lg p-4 mb-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-secondarybg rounded-md p-4 mb-4">
                         <div>
                           <div className="flex items-center gap-2 mb-1">
                             <Bus className="w-4 h-4 text-primary" />
@@ -601,7 +598,7 @@ export default function AdminStudentTransport() {
                             </span>
                           </div>
                           <p className="font-medium text-primarytext">
-                            {req.bus_name}
+                            {req.vehicle_name}
                           </p>
                           <p className="text-xs text-secondarytext">
                             {req.route}
@@ -632,7 +629,7 @@ export default function AdminStudentTransport() {
                       </div>
 
                       {req.reason && (
-                        <div className="bg-secondarybg rounded-lg p-3 mb-3">
+                        <div className="bg-secondarybg rounded-md p-3 mb-3">
                           <p className="text-sm text-secondarytext">
                             <span className="font-semibold text-primarytext">
                               Reason:
@@ -657,7 +654,7 @@ export default function AdminStudentTransport() {
                               });
                               setShowTransportProcessModal(true);
                             }}
-                            className="flex items-center gap-2 px-4 py-2 bg-green text-white rounded-lg hover:opacity-90 transition-opacity font-medium"
+                            className="flex items-center gap-2 px-4 py-2 bg-green text-white rounded-md hover:opacity-90 transition-opacity font-medium"
                           >
                             <CheckCircle className="w-4 h-4" />
                             Approve
@@ -671,7 +668,7 @@ export default function AdminStudentTransport() {
                               });
                               setShowTransportProcessModal(true);
                             }}
-                            className="flex items-center gap-2 px-4 py-2 bg-red text-white rounded-lg hover:opacity-90 transition-opacity font-medium"
+                            className="flex items-center gap-2 px-4 py-2 bg-red text-white rounded-md hover:opacity-90 transition-opacity font-medium"
                           >
                             <XCircle className="w-4 h-4" />
                             Reject
@@ -706,14 +703,14 @@ export default function AdminStudentTransport() {
                   <button
                     key={bus.id}
                     onClick={() => fetchStudentsByBus(bus.id)}
-                    className={`w-full text-left p-4 rounded-xl border transition-all ${
+                    className={`w-full text-left p-4 rounded-md border transition-all ${
                       selectedBusId === bus.id
                         ? "border-primary bg-primary/5 shadow-md"
                         : "border-primarybg bg-primarybg hover:border-primary/30"
                     }`}
                   >
                     <div className="flex items-start gap-3">
-                      <div className="bg-primary/10 p-2 rounded-lg">
+                      <div className="bg-primary/10 p-2 rounded-md">
                         <Bus className="w-5 h-5 text-primary" />
                       </div>
                       <div className="flex-1">
@@ -728,7 +725,7 @@ export default function AdminStudentTransport() {
                             Driver: {bus.driver_name}
                           </span>
                           <span
-                            className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                            className={`px-2 py-1 rounded-md text-xs font-semibold ${
                               bus.student_count > 0
                                 ? "bg-green/10 text-green"
                                 : "bg-secondarytext/10 text-secondarytext"
@@ -750,14 +747,14 @@ export default function AdminStudentTransport() {
                 </h3>
 
                 {!selectedBusId ? (
-                  <div className="text-center py-12 bg-primarybg rounded-xl">
+                  <div className="text-center py-12 bg-primarybg rounded-md">
                     <Users className="w-12 h-12 text-secondarytext mx-auto mb-3" />
                     <p className="text-secondarytext">
                       Select a bus to view students
                     </p>
                   </div>
                 ) : selectedBusStudents.length === 0 ? (
-                  <div className="text-center py-12 bg-primarybg rounded-xl">
+                  <div className="text-center py-12 bg-primarybg rounded-md">
                     <AlertCircle className="w-12 h-12 text-secondarytext mx-auto mb-3" />
                     <p className="text-secondarytext">
                       No students assigned to this bus
@@ -772,7 +769,7 @@ export default function AdminStudentTransport() {
                           setSelectedStudent(student);
                           setShowStudentDetailModal(true);
                         }}
-                        className="p-4 bg-primarybg rounded-xl border border-primarybg hover:border-primary/30 hover:shadow-md cursor-pointer transition-all"
+                        className="p-4 bg-primarybg rounded-md border border-primarybg hover:border-primary/30 hover:shadow-md cursor-pointer transition-all"
                       >
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
@@ -789,7 +786,7 @@ export default function AdminStudentTransport() {
                           </div>
                           <div className="flex items-center gap-2">
                             <MapPin className="w-4 h-4 text-primary" />
-                            <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-lg font-medium">
+                            <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-md font-medium">
                               {student.stop_name}
                             </span>
                           </div>
@@ -825,7 +822,7 @@ export default function AdminStudentTransport() {
                 </h3>
                 <button
                   onClick={() => setShowAssignModal(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primarydull transition-colors font-medium"
+                  className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-md hover:bg-primarydull transition-colors font-medium"
                 >
                   <Plus className="w-4 h-4" />
                   Assign Student
@@ -833,12 +830,12 @@ export default function AdminStudentTransport() {
               </div>
 
               {studentTransports.length === 0 ? (
-                <div className="text-center py-12 bg-primarybg rounded-xl">
+                <div className="text-center py-12 bg-primarybg rounded-md">
                   <Users className="w-12 h-12 text-secondarytext mx-auto mb-3" />
                   <p className="text-secondarytext">No assignments found</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto bg-primarybg rounded-xl">
+                <div className="overflow-x-auto bg-primarybg rounded-md">
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-primarybg">
@@ -886,7 +883,7 @@ export default function AdminStudentTransport() {
                           </td>
                           <td className="px-4 py-3">
                             <div className="font-medium text-primarytext">
-                              {st.bus_name}
+                              {st.vehicle_name}
                             </div>
                             <div className="text-sm text-secondarytext">
                               {st.bus_number}
@@ -942,7 +939,7 @@ export default function AdminStudentTransport() {
                 </h3>
                 <button
                   onClick={() => setShowPaymentModal(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primarydull transition-colors font-medium"
+                  className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-md hover:bg-primarydull transition-colors font-medium"
                 >
                   <Plus className="w-4 h-4" />
                   Record Payment
@@ -950,12 +947,12 @@ export default function AdminStudentTransport() {
               </div>
 
               {payments.length === 0 ? (
-                <div className="text-center py-12 bg-primarybg rounded-xl">
+                <div className="text-center py-12 bg-primarybg rounded-md">
                   <CreditCard className="w-12 h-12 text-secondarytext mx-auto mb-3" />
                   <p className="text-secondarytext">No payment records found</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto bg-primarybg rounded-xl">
+                <div className="overflow-x-auto bg-primarybg rounded-md">
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-primarybg">
@@ -1020,7 +1017,7 @@ export default function AdminStudentTransport() {
               </h3>
 
               {stopChangeRequests.length === 0 ? (
-                <div className="text-center py-12 bg-primarybg rounded-xl">
+                <div className="text-center py-12 bg-primarybg rounded-md">
                   <FileText className="w-12 h-12 text-secondarytext mx-auto mb-3" />
                   <p className="text-secondarytext">
                     No stop change requests found
@@ -1031,7 +1028,7 @@ export default function AdminStudentTransport() {
                   {stopChangeRequests.map((req) => (
                     <div
                       key={req.id}
-                      className={`bg-primarybg rounded-xl p-5 border ${
+                      className={`bg-primarybg rounded-md p-5 border ${
                         req.status === "pending"
                           ? "border-pending/30"
                           : "border-primarybg"
@@ -1052,7 +1049,7 @@ export default function AdminStudentTransport() {
                         {getStatusBadge(req.status)}
                       </div>
 
-                      <div className="flex items-center gap-4 bg-secondarybg rounded-lg p-4 mb-3">
+                      <div className="flex items-center gap-4 bg-secondarybg rounded-md p-4 mb-3">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
                             <MapPin className="w-4 h-4 text-secondarytext" />
@@ -1096,7 +1093,7 @@ export default function AdminStudentTransport() {
                       </div>
 
                       {req.reason && (
-                        <div className="bg-secondarybg rounded-lg p-3 mb-3">
+                        <div className="bg-secondarybg rounded-md p-3 mb-3">
                           <p className="text-sm text-secondarytext">
                             <span className="font-semibold text-primarytext">
                               Reason:
@@ -1117,7 +1114,7 @@ export default function AdminStudentTransport() {
                               });
                               setShowProcessModal(true);
                             }}
-                            className="flex items-center gap-2 px-4 py-2 bg-green text-white rounded-lg hover:opacity-90 transition-opacity font-medium"
+                            className="flex items-center gap-2 px-4 py-2 bg-green text-white rounded-md hover:opacity-90 transition-opacity font-medium"
                           >
                             <CheckCircle className="w-4 h-4" />
                             Approve
@@ -1131,7 +1128,7 @@ export default function AdminStudentTransport() {
                               });
                               setShowProcessModal(true);
                             }}
-                            className="flex items-center gap-2 px-4 py-2 bg-red text-white rounded-lg hover:opacity-90 transition-opacity font-medium"
+                            className="flex items-center gap-2 px-4 py-2 bg-red text-white rounded-md hover:opacity-90 transition-opacity font-medium"
                           >
                             <XCircle className="w-4 h-4" />
                             Reject
@@ -1162,7 +1159,7 @@ export default function AdminStudentTransport() {
       {/* Assign Student Modal */}
       {showAssignModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-secondarybg rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-primarybg">
+          <div className="bg-secondarybg rounded-md shadow-2xl max-w-lg w-full p-6 border border-primarybg">
             <h3 className="text-xl font-bold text-primarytext mb-6">
               Assign Student to Bus
             </h3>
@@ -1178,7 +1175,7 @@ export default function AdminStudentTransport() {
                   user_id: parseInt(e.target.value),
                 })
               }
-              className="w-full px-4 py-3 border border-primarybg rounded-xl focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4 bg-secondarybg text-primarytext"
+              className="w-full px-4 py-3 border border-primarybg rounded-md focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4 bg-secondarybg text-primarytext"
             >
               <option value={0}>-- Select Student --</option>
               {students
@@ -1200,12 +1197,12 @@ export default function AdminStudentTransport() {
                 setAssignForm({...assignForm, bus_id: busId, stop_id: 0});
                 if (busId > 0) fetchBusStops(busId);
               }}
-              className="w-full px-4 py-3 border border-primarybg rounded-xl focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4 bg-secondarybg text-primarytext"
+              className="w-full px-4 py-3 border border-primarybg rounded-md focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4 bg-secondarybg text-primarytext"
             >
               <option value={0}>-- Select Bus --</option>
               {buses.map((b) => (
                 <option key={b.id} value={b.id}>
-                  {b.bus_name} - {b.vehicle_number} ({b.start_point} →{" "}
+                  {b.vehicle_name} - {b.vehicle_number} ({b.start_point} →{" "}
                   {b.end_point})
                 </option>
               ))}
@@ -1222,7 +1219,7 @@ export default function AdminStudentTransport() {
                   stop_id: parseInt(e.target.value),
                 })
               }
-              className="w-full px-4 py-3 border border-primarybg rounded-xl focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4 bg-secondarybg text-primarytext disabled:opacity-50"
+              className="w-full px-4 py-3 border border-primarybg rounded-md focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4 bg-secondarybg text-primarytext disabled:opacity-50"
               disabled={!assignForm.bus_id}
             >
               <option value={0}>-- Select Stop --</option>
@@ -1241,7 +1238,7 @@ export default function AdminStudentTransport() {
               onChange={(e) =>
                 setAssignForm({...assignForm, academic_year: e.target.value})
               }
-              className="w-full px-4 py-3 border border-primarybg rounded-xl focus:ring-2 focus:ring-primary/50 focus:border-primary mb-6 bg-secondarybg text-primarytext"
+              className="w-full px-4 py-3 border border-primarybg rounded-md focus:ring-2 focus:ring-primary/50 focus:border-primary mb-6 bg-secondarybg text-primarytext"
             >
               <option value="2025-2026">2025-2026</option>
               <option value="2024-2025">2024-2025</option>
@@ -1250,13 +1247,13 @@ export default function AdminStudentTransport() {
             <div className="flex gap-3">
               <button
                 onClick={() => setShowAssignModal(false)}
-                className="flex-1 py-3 bg-primarybg text-primarytext rounded-xl hover:bg-scroll transition-colors font-medium"
+                className="flex-1 py-3 bg-primarybg text-primarytext rounded-md hover:bg-scroll transition-colors font-medium"
               >
                 Cancel
               </button>
               <button
                 onClick={handleAssign}
-                className="flex-1 py-3 bg-primary text-white rounded-xl hover:bg-primarydull transition-colors font-medium"
+                className="flex-1 py-3 bg-primary text-white rounded-md hover:bg-primarydull transition-colors font-medium"
               >
                 Assign Student
               </button>
@@ -1268,7 +1265,7 @@ export default function AdminStudentTransport() {
       {/* Record Payment Modal */}
       {showPaymentModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-secondarybg rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-primarybg">
+          <div className="bg-secondarybg rounded-md shadow-2xl max-w-lg w-full p-6 border border-primarybg">
             <h3 className="text-xl font-bold text-primarytext mb-6">
               Record Payment
             </h3>
@@ -1284,7 +1281,7 @@ export default function AdminStudentTransport() {
                   student_transport_id: parseInt(e.target.value),
                 })
               }
-              className="w-full px-4 py-3 border border-primarybg rounded-xl focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4 bg-secondarybg text-primarytext"
+              className="w-full px-4 py-3 border border-primarybg rounded-md focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4 bg-secondarybg text-primarytext"
             >
               <option value={0}>-- Select Student --</option>
               {studentTransports.map((st) => (
@@ -1306,7 +1303,7 @@ export default function AdminStudentTransport() {
                   amount: parseFloat(e.target.value) || 0,
                 })
               }
-              className="w-full px-4 py-3 border border-primarybg rounded-xl focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4 bg-secondarybg text-primarytext"
+              className="w-full px-4 py-3 border border-primarybg rounded-md focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4 bg-secondarybg text-primarytext"
               placeholder="Enter amount"
             />
 
@@ -1319,7 +1316,7 @@ export default function AdminStudentTransport() {
               onChange={(e) =>
                 setPaymentForm({...paymentForm, payment_date: e.target.value})
               }
-              className="w-full px-4 py-3 border border-primarybg rounded-xl focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4 bg-secondarybg text-primarytext"
+              className="w-full px-4 py-3 border border-primarybg rounded-md focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4 bg-secondarybg text-primarytext"
             />
 
             <label className="block text-sm font-semibold text-primarytext mb-2">
@@ -1330,7 +1327,7 @@ export default function AdminStudentTransport() {
               onChange={(e) =>
                 setPaymentForm({...paymentForm, payment_method: e.target.value})
               }
-              className="w-full px-4 py-3 border border-primarybg rounded-xl focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4 bg-secondarybg text-primarytext"
+              className="w-full px-4 py-3 border border-primarybg rounded-md focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4 bg-secondarybg text-primarytext"
             >
               <option value="cash">Cash</option>
               <option value="upi">UPI</option>
@@ -1348,20 +1345,20 @@ export default function AdminStudentTransport() {
               onChange={(e) =>
                 setPaymentForm({...paymentForm, receipt_number: e.target.value})
               }
-              className="w-full px-4 py-3 border border-primarybg rounded-xl focus:ring-2 focus:ring-primary/50 focus:border-primary mb-6 bg-secondarybg text-primarytext"
+              className="w-full px-4 py-3 border border-primarybg rounded-md focus:ring-2 focus:ring-primary/50 focus:border-primary mb-6 bg-secondarybg text-primarytext"
               placeholder="Enter receipt number"
             />
 
             <div className="flex gap-3">
               <button
                 onClick={() => setShowPaymentModal(false)}
-                className="flex-1 py-3 bg-primarybg text-primarytext rounded-xl hover:bg-scroll transition-colors font-medium"
+                className="flex-1 py-3 bg-primarybg text-primarytext rounded-md hover:bg-scroll transition-colors font-medium"
               >
                 Cancel
               </button>
               <button
                 onClick={handleRecordPayment}
-                className="flex-1 py-3 bg-green text-white rounded-xl hover:opacity-90 transition-opacity font-medium"
+                className="flex-1 py-3 bg-green text-white rounded-md hover:opacity-90 transition-opacity font-medium"
               >
                 Record Payment
               </button>
@@ -1373,7 +1370,7 @@ export default function AdminStudentTransport() {
       {/* Process Request Modal */}
       {showProcessModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-secondarybg rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-primarybg">
+          <div className="bg-secondarybg rounded-md shadow-2xl max-w-lg w-full p-6 border border-primarybg">
             <h3 className="text-xl font-bold text-primarytext mb-6">
               Process Stop Change Request
             </h3>
@@ -1386,7 +1383,7 @@ export default function AdminStudentTransport() {
               onChange={(e) =>
                 setProcessForm({...processForm, admin_remarks: e.target.value})
               }
-              className="w-full px-4 py-3 border border-primarybg rounded-xl focus:ring-2 focus:ring-primary/50 focus:border-primary mb-6 bg-secondarybg text-primarytext"
+              className="w-full px-4 py-3 border border-primarybg rounded-md focus:ring-2 focus:ring-primary/50 focus:border-primary mb-6 bg-secondarybg text-primarytext"
               rows={3}
               placeholder="Enter any remarks..."
             />
@@ -1394,19 +1391,19 @@ export default function AdminStudentTransport() {
             <div className="flex gap-3">
               <button
                 onClick={() => setShowProcessModal(false)}
-                className="flex-1 py-3 bg-primarybg text-primarytext rounded-xl hover:bg-scroll transition-colors font-medium"
+                className="flex-1 py-3 bg-primarybg text-primarytext rounded-md hover:bg-scroll transition-colors font-medium"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleProcessRequest("rejected")}
-                className="flex-1 py-3 bg-red text-white rounded-xl hover:opacity-90 transition-opacity font-medium"
+                className="flex-1 py-3 bg-red text-white rounded-md hover:opacity-90 transition-opacity font-medium"
               >
                 Reject
               </button>
               <button
                 onClick={() => handleProcessRequest("approved")}
-                className="flex-1 py-3 bg-green text-white rounded-xl hover:opacity-90 transition-opacity font-medium"
+                className="flex-1 py-3 bg-green text-white rounded-md hover:opacity-90 transition-opacity font-medium"
               >
                 Approve
               </button>
@@ -1418,7 +1415,7 @@ export default function AdminStudentTransport() {
       {/* Process Transport Request Modal */}
       {showTransportProcessModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-secondarybg rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-primarybg">
+          <div className="bg-secondarybg rounded-md shadow-2xl max-w-lg w-full p-6 border border-primarybg">
             <h3 className="text-xl font-bold text-primarytext mb-6">
               Process Transport Request
             </h3>
@@ -1434,7 +1431,7 @@ export default function AdminStudentTransport() {
                   admin_remarks: e.target.value,
                 })
               }
-              className="w-full px-4 py-3 border border-primarybg rounded-xl focus:ring-2 focus:ring-primary/50 focus:border-primary mb-6 bg-secondarybg text-primarytext"
+              className="w-full px-4 py-3 border border-primarybg rounded-md focus:ring-2 focus:ring-primary/50 focus:border-primary mb-6 bg-secondarybg text-primarytext"
               rows={3}
               placeholder="Enter any remarks for the student..."
             />
@@ -1442,19 +1439,19 @@ export default function AdminStudentTransport() {
             <div className="flex gap-3">
               <button
                 onClick={() => setShowTransportProcessModal(false)}
-                className="flex-1 py-3 bg-primarybg text-primarytext rounded-xl hover:bg-scroll transition-colors font-medium"
+                className="flex-1 py-3 bg-primarybg text-primarytext rounded-md hover:bg-scroll transition-colors font-medium"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleProcessTransportRequest("rejected")}
-                className="flex-1 py-3 bg-red text-white rounded-xl hover:opacity-90 transition-opacity font-medium"
+                className="flex-1 py-3 bg-red text-white rounded-md hover:opacity-90 transition-opacity font-medium"
               >
                 Reject
               </button>
               <button
                 onClick={() => handleProcessTransportRequest("approved")}
-                className="flex-1 py-3 bg-green text-white rounded-xl hover:opacity-90 transition-opacity font-medium"
+                className="flex-1 py-3 bg-green text-white rounded-md hover:opacity-90 transition-opacity font-medium"
               >
                 Approve
               </button>
@@ -1466,14 +1463,14 @@ export default function AdminStudentTransport() {
       {/* Student Detail Modal */}
       {showStudentDetailModal && selectedStudent && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-secondarybg rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-primarybg">
+          <div className="bg-secondarybg rounded-md shadow-2xl max-w-lg w-full p-6 border border-primarybg">
             <h3 className="text-xl font-bold text-primarytext mb-6">
               Student Details
             </h3>
 
             <div className="space-y-4">
-              <div className="flex items-center gap-4 bg-primarybg rounded-xl p-4">
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+              <div className="flex items-center gap-4 bg-primarybg rounded-md p-4">
+                <div className="w-16 h-16 rounded-md bg-primary/10 flex items-center justify-center">
                   <Users className="w-8 h-8 text-primary" />
                 </div>
                 <div>
@@ -1486,7 +1483,7 @@ export default function AdminStudentTransport() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 bg-primarybg rounded-xl p-4">
+              <div className="grid grid-cols-2 gap-4 bg-primarybg rounded-md p-4">
                 <div>
                   <div className="text-sm text-secondarytext mb-1">
                     Department
@@ -1521,7 +1518,7 @@ export default function AdminStudentTransport() {
                 </div>
               </div>
 
-              <div className="bg-primary/5 rounded-xl p-4 border border-primary/20">
+              <div className="bg-primary/5 rounded-md p-4 border border-primary/20">
                 <div className="flex items-center gap-2 text-primary font-semibold mb-3">
                   <Bus className="w-4 h-4" />
                   Transport Details
@@ -1545,7 +1542,7 @@ export default function AdminStudentTransport() {
               </div>
 
               <div className="grid grid-cols-3 gap-3">
-                <div className="bg-primarybg rounded-xl p-3 text-center">
+                <div className="bg-primarybg rounded-md p-3 text-center">
                   <div className="text-sm text-secondarytext mb-1">
                     Total Fee
                   </div>
@@ -1553,14 +1550,14 @@ export default function AdminStudentTransport() {
                     ₹{selectedStudent.total_fee?.toLocaleString()}
                   </div>
                 </div>
-                <div className="bg-green/10 rounded-xl p-3 text-center border border-green/20">
+                <div className="bg-green/10 rounded-md p-3 text-center border border-green/20">
                   <div className="text-sm text-secondarytext mb-1">Paid</div>
                   <div className="text-lg font-bold text-green">
                     ₹{selectedStudent.paid_amount?.toLocaleString()}
                   </div>
                 </div>
                 <div
-                  className={`rounded-xl p-3 text-center ${selectedStudent.total_fee - selectedStudent.paid_amount > 0 ? "bg-red/10 border border-red/20" : "bg-green/10 border border-green/20"}`}
+                  className={`rounded-md p-3 text-center ${selectedStudent.total_fee - selectedStudent.paid_amount > 0 ? "bg-red/10 border border-red/20" : "bg-green/10 border border-green/20"}`}
                 >
                   <div className="text-sm text-secondarytext mb-1">Balance</div>
                   <div
@@ -1578,7 +1575,7 @@ export default function AdminStudentTransport() {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setShowStudentDetailModal(false)}
-                className="flex-1 py-3 bg-primarybg text-primarytext rounded-xl hover:bg-scroll transition-colors font-medium"
+                className="flex-1 py-3 bg-primarybg text-primarytext rounded-md hover:bg-scroll transition-colors font-medium"
               >
                 Close
               </button>
@@ -1591,7 +1588,7 @@ export default function AdminStudentTransport() {
                   setShowStudentDetailModal(false);
                   setShowPaymentModal(true);
                 }}
-                className="flex-1 py-3 bg-green text-white rounded-xl hover:opacity-90 transition-opacity font-medium"
+                className="flex-1 py-3 bg-green text-white rounded-md hover:opacity-90 transition-opacity font-medium"
               >
                 Add Payment
               </button>

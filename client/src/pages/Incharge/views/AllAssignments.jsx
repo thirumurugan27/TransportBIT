@@ -182,7 +182,7 @@ export default function AllAssignments() {
         <div className="bg-white rounded-md shadow-sm border border-gray-100 overflow-hidden">
           {loading ? (
             <div className="p-12 text-center text-gray-500">
-              <div className="animate-spin inline-block w-8 h-8 border-4 border-current border-t-transparent text-[var(--color-primary)] rounded-full mb-4"></div>
+              <div className="animate-spin inline-block w-8 h-8 border-4 border-current border-t-transparent text-[var(--color-primary)] rounded-md mb-4"></div>
               <p>Loading assignments...</p>
             </div>
           ) : (
@@ -258,7 +258,7 @@ export default function AllAssignments() {
                         </td>
                         <td className="px-6 py-4">
                           <span
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-medium ${
                               assignment.status === "COMPLETED"
                                 ? "bg-green-100 text-green-800"
                                 : "bg-blue-100 text-blue-800"
@@ -301,14 +301,14 @@ export default function AllAssignments() {
       {/* Edit Modal */}
       {showEditModal && editingAssignment && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md animate-in fade-in zoom-in duration-200">
+          <div className="bg-white rounded-md shadow-xl w-full max-w-md animate-in fade-in zoom-in duration-200">
             <div className="flex justify-between items-center p-6 border-b border-gray-100">
               <h3 className="text-lg font-bold text-gray-800">
                 Edit Assignment
               </h3>
               <button
                 onClick={() => setShowEditModal(false)}
-                className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-1"
+                className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md p-1"
               >
                 <X size={20} />
               </button>

@@ -101,8 +101,6 @@ func RegisterRoutes(r *gin.Engine) {
 	r.GET("/api/driver/assignment/today", driver.GetDriverTodayAssignment)
 	r.GET("/api/driver/assignments/today", driver.GetDriverTodayAssignments)
 	r.GET("/api/driver/assignments", driver.GetDriverAssignments)
-	r.GET("/api/driver/assignment/car-assignments", driver.GetDriverCarAssignments)
-	r.POST("/api/driver/assignment/verify-otp", driver.VerifyCarAssignmentOTP)
 	r.GET("/api/driver/km-logs", driver.GetDriverKmLogs)
 	r.POST("/api/driver/km-log/add", driver.AddDriverKmLog)
 	r.GET("/api/driver/vehicle-last-log", driver.GetLastLogForVehicle)
@@ -301,38 +299,14 @@ func RegisterRoutes(r *gin.Engine) {
 
 	// =========================
 	// FACULTY MANAGEMENT (Admin)
-	// =========================
-	r.GET("/api/admin/faculty", admin.GetAllFaculty)
-	r.POST("/api/admin/faculty/create", admin.CreateFaculty)
-	r.DELETE("/api/admin/faculty/delete", admin.DeleteFaculty)
-
-	// =========================
-	// CAR BOOKING MANAGEMENT (Admin)
-	// =========================
-	r.GET("/api/admin/car-bookings", admin.GetAllCarBookings)
-	r.GET("/api/admin/car-bookings/pending-count", admin.GetPendingCarBookingsCount)
-	r.POST("/api/admin/car-bookings/create", admin.AdminCreateCarBooking)
-	r.POST("/api/admin/car-bookings/approve", admin.ApproveCarBooking)
-	r.POST("/api/admin/car-bookings/reject", admin.RejectCarBooking)
-	r.POST("/api/admin/car-bookings/cancel", admin.CancelOnholdCarBooking)
-	r.GET("/api/admin/car-bookings/available-cars", admin.GetAvailableCarsForBooking)
-	r.GET("/api/admin/car-bookings/available-drivers", admin.GetAvailableDriversForCarBooking)
+	// // =========================
+	// r.GET("/api/admin/faculty", admin.GetAllFaculty)
+	// r.POST("/api/admin/faculty/create", admin.CreateFaculty)
+	// r.DELETE("/api/admin/faculty/delete", admin.DeleteFaculty)
 
 	// =========================
 	// FACULTY PORTAL
 	// =========================
 	r.GET("/api/faculty/profile", faculty.GetFacultyProfile)
 	r.POST("/api/faculty/profile/update", faculty.UpdateFacultyProfile)
-	r.GET("/api/faculty/cars/available", faculty.GetAvailableCars)
-	r.GET("/api/faculty/car-bookings", faculty.GetMyCarBookings)
-	r.POST("/api/faculty/car-bookings/create", faculty.CreateCarBooking)
-	r.POST("/api/faculty/car-bookings/cancel", faculty.CancelCarBooking)
-
-	// =========================
-	// DRIVER CAR BOOKING (OTP Verification)
-	// =========================
-	r.GET("/api/driver/car-bookings", driver.GetDriverCarBookings)
-	r.GET("/api/driver/car-bookings/today", driver.GetTodayCarBookings)
-	r.POST("/api/driver/car-bookings/verify-otp", driver.VerifyCarBookingOTP)
-	r.POST("/api/driver/car-bookings/complete", driver.CompleteCarBooking)
 }

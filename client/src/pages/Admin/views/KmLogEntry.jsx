@@ -53,7 +53,7 @@ const getVehicleTypeBadge = (type) => {
   };
   return (
     <span
-      className={`px-2 py-0.5 rounded-full text-xs font-medium ${colors[typeStr] || "bg-gray-100 text-gray-700"}`}
+      className={`px-2 py-0.5 rounded-md text-xs font-medium ${colors[typeStr] || "bg-gray-100 text-gray-700"}`}
     >
       {typeStr}
     </span>
@@ -298,7 +298,7 @@ export default function KmLogEntry() {
       </div>
 
       {/* KM Entry Form */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div className="bg-white rounded-md shadow-sm border border-gray-100 p-6">
         <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
           <Plus size={20} className="text-primary" />
           Add New KM Entry
@@ -318,7 +318,7 @@ export default function KmLogEntry() {
                 onChange={(e) =>
                   setForm((prev) => ({...prev, date: e.target.value}))
                 }
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className="w-full border border-gray-200 rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
             </div>
 
@@ -368,8 +368,8 @@ export default function KmLogEntry() {
                   options={filterMeta.vehicles.map((v) => ({
                     value: v.id,
                     label:
-                      v.bus_name && v.bus_name !== v.vehicle_number
-                        ? `${v.bus_name} (${v.vehicle_number})`
+                      v.vehicle_name && v.vehicle_name !== v.vehicle_number
+                        ? `${v.vehicle_name} (${v.vehicle_number})`
                         : v.vehicle_number,
                     subtitle: v.vehicle_type,
                   }))}
@@ -397,7 +397,7 @@ export default function KmLogEntry() {
                   setForm((prev) => ({...prev, start_km: e.target.value}))
                 }
                 placeholder="0"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className="w-full border border-gray-200 rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
             </div>
           </div>
@@ -416,7 +416,7 @@ export default function KmLogEntry() {
                   setForm((prev) => ({...prev, end_km: e.target.value}))
                 }
                 placeholder="0"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className="w-full border border-gray-200 rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
             </div>
 
@@ -425,7 +425,7 @@ export default function KmLogEntry() {
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
                 Total KM
               </label>
-              <div className="w-full border border-gray-100 bg-gray-50 rounded-lg px-3 py-2.5 text-sm font-semibold text-primary">
+              <div className="w-full border border-gray-100 bg-gray-50 rounded-md px-3 py-2.5 text-sm font-semibold text-primary">
                 {form.start_km && form.end_km
                   ? formatNumber(
                       parseFloat(form.end_km) - parseFloat(form.start_km),
@@ -448,7 +448,7 @@ export default function KmLogEntry() {
                   setForm((prev) => ({...prev, remarks: e.target.value}))
                 }
                 placeholder="Any notes..."
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className="w-full border border-gray-200 rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
             </div>
           </div>
@@ -457,7 +457,7 @@ export default function KmLogEntry() {
             <button
               type="submit"
               disabled={loading}
-              className="inline-flex items-center gap-2 bg-primary text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-2 bg-primary text-white px-6 py-2.5 rounded-md font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
               {loading ? (
                 <Loader2 size={18} className="animate-spin" />
@@ -510,14 +510,14 @@ export default function KmLogEntry() {
                             vehicle_id: v.vehicle_id,
                           }))
                         }
-                        className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                        className={`p-4 rounded-md border cursor-pointer transition-all ${
                           form.vehicle_id === v.vehicle_id
                             ? "border-primary bg-primary/5 ring-2 ring-primary/20"
                             : "border-gray-200 hover:border-primary/40 bg-white"
                         }`}
                       >
                         <div className="flex items-start gap-3">
-                          <div className="p-2 rounded-lg bg-gray-50">
+                          <div className="p-2 rounded-md bg-gray-50">
                             {getVehicleIcon(v.vehicle_type)}
                           </div>
                           <div className="flex-1 min-w-0">
@@ -558,7 +558,7 @@ export default function KmLogEntry() {
       </div>
 
       {/* KM Logs Table with Filters */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+      <div className="bg-white rounded-md shadow-sm border border-gray-100">
         {/* Filters Header */}
         <div className="px-6 py-5 border-b border-gray-100">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -597,7 +597,7 @@ export default function KmLogEntry() {
                     key={p.value}
                     type="button"
                     onClick={() => updateLogFilter("period", p.value)}
-                    className={`px-2 py-1 text-xs font-medium rounded ${
+                    className={`px-2 py-1 text-xs font-medium rounded-md ${
                       logFilters.period === p.value
                         ? "bg-primary text-white"
                         : "bg-white border border-gray-200 text-gray-600 hover:border-primary/40"
@@ -651,7 +651,7 @@ export default function KmLogEntry() {
                 type="date"
                 value={logFilters.startDate}
                 onChange={(e) => updateLogFilter("startDate", e.target.value)}
-                className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm"
+                className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-sm"
               />
             </div>
 
@@ -662,7 +662,7 @@ export default function KmLogEntry() {
                 value={logFilters.endDate}
                 min={logFilters.startDate}
                 onChange={(e) => updateLogFilter("endDate", e.target.value)}
-                className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm"
+                className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-sm"
               />
             </div>
 
@@ -681,7 +681,7 @@ export default function KmLogEntry() {
                   value={logFilters.search}
                   onChange={(e) => updateLogFilter("search", e.target.value)}
                   placeholder="Driver or vehicle..."
-                  className="w-full border border-gray-200 rounded pl-7 pr-2 py-1.5 text-sm"
+                  className="w-full border border-gray-200 rounded-md pl-7 pr-2 py-1.5 text-sm"
                 />
               </div>
             </div>

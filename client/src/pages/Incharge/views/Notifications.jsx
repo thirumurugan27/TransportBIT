@@ -156,10 +156,10 @@ export default function Notifications() {
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 text-sm">
-              <span className="px-3 py-1 bg-primary/10 text-primary rounded-full font-medium">
+              <span className="px-3 py-1 bg-primary/10 text-primary rounded-md font-medium">
                 {unreadCount} unread
               </span>
-              <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-full font-medium">
+              <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-md font-medium">
                 {totalCount} total
               </span>
             </div>
@@ -257,7 +257,7 @@ export default function Notifications() {
                 <div className="flex gap-4">
                   {/* Icon */}
                   <div
-                    className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${!notif.is_read ? "bg-primary/10" : "bg-gray-100"}`}
+                    className={`w-12 h-12 rounded-md flex items-center justify-center shrink-0 ${!notif.is_read ? "bg-primary/10" : "bg-gray-100"}`}
                   >
                     {getNotificationIcon(notif.type)}
                   </div>
@@ -273,12 +273,12 @@ export default function Notifications() {
                             {notif.title}
                           </h4>
                           <span
-                            className={`text-xs px-2 py-0.5 rounded-full ${getTypeBadgeColor(notif.type)}`}
+                            className={`text-xs px-2 py-0.5 rounded-md ${getTypeBadgeColor(notif.type)}`}
                           >
                             {getTypeLabel(notif.type)}
                           </span>
                           {!notif.is_read && (
-                            <span className="w-2 h-2 bg-primary rounded-full"></span>
+                            <span className="w-2 h-2 bg-primary rounded-md"></span>
                           )}
                         </div>
                         <p className="text-sm text-secondarytext mt-2 leading-relaxed">
@@ -313,7 +313,7 @@ export default function Notifications() {
           </div>
         ) : (
           <div className="p-12 text-center">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="w-16 h-16 bg-gray-100 rounded-md flex items-center justify-center mx-auto mb-4">
               <Bell className="w-8 h-8 text-gray-300" />
             </div>
             <p className="text-secondarytext font-medium">

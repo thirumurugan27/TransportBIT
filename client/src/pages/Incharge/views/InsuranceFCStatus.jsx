@@ -177,7 +177,7 @@ export default function InsuranceFCStatus() {
       const search = searchQuery.toLowerCase();
       if (
         !v.vehicle_number.toLowerCase().includes(search) &&
-        !(v.bus_name || "").toLowerCase().includes(search)
+        !(v.vehicle_name || "").toLowerCase().includes(search)
       )
         return false;
     }
@@ -228,7 +228,7 @@ export default function InsuranceFCStatus() {
       "Permit Expire",
     ];
     const rows = sortedVehicles.map((v) => [
-      v.bus_name || v.vehicle_number,
+      v.vehicle_name || v.vehicle_number,
       v.vehicle_type,
       v.insurance_expire_date || "-",
       v.fc_expire_date || "-",
@@ -275,14 +275,14 @@ export default function InsuranceFCStatus() {
         <div className="flex gap-2">
           <button
             onClick={fetchVehicles}
-            className="px-4 py-2 bg-secondarybg border border-gray-200 text-secondarytext rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2 text-sm font-medium"
+            className="px-4 py-2 bg-secondarybg border border-gray-200 text-secondarytext rounded-md hover:bg-gray-50 transition-colors flex items-center gap-2 text-sm font-medium"
           >
             <RefreshCw size={16} />
             Refresh
           </button>
           <button
             onClick={exportCSV}
-            className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primarydull transition-colors flex items-center gap-2 text-sm font-medium"
+            className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primarydull transition-colors flex items-center gap-2 text-sm font-medium"
           >
             <Download size={16} />
             Export
@@ -292,7 +292,7 @@ export default function InsuranceFCStatus() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-secondarybg rounded-lg border border-gray-100 p-4">
+        <div className="bg-secondarybg rounded-md border border-gray-100 p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-2xl font-bold text-primarytext">
@@ -300,40 +300,40 @@ export default function InsuranceFCStatus() {
               </p>
               <p className="text-sm text-secondarytext">Total Vehicles</p>
             </div>
-            <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+            <div className="w-10 h-10 bg-primary/10 rounded-md flex items-center justify-center">
               <CircleGauge size={20} className="text-primary" />
             </div>
           </div>
         </div>
-        <div className="bg-secondarybg rounded-lg border border-gray-100 p-4">
+        <div className="bg-secondarybg rounded-md border border-gray-100 p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-2xl font-bold text-red">{stats.expired}</p>
               <p className="text-sm text-secondarytext">Expired</p>
             </div>
-            <div className="w-10 h-10 bg-red/10 rounded-lg flex items-center justify-center">
+            <div className="w-10 h-10 bg-red/10 rounded-md flex items-center justify-center">
               <CircleX size={20} className="text-red" />
             </div>
           </div>
         </div>
-        <div className="bg-secondarybg rounded-lg border border-gray-100 p-4">
+        <div className="bg-secondarybg rounded-md border border-gray-100 p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-2xl font-bold text-red">{stats.critical}</p>
               <p className="text-sm text-secondarytext">Critical (&lt;30d)</p>
             </div>
-            <div className="w-10 h-10 bg-red/10 rounded-lg flex items-center justify-center">
+            <div className="w-10 h-10 bg-red/10 rounded-md flex items-center justify-center">
               <AlertTriangle size={20} className="text-red" />
             </div>
           </div>
         </div>
-        <div className="bg-secondarybg rounded-lg border border-gray-100 p-4">
+        <div className="bg-secondarybg rounded-md border border-gray-100 p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-2xl font-bold text-pending">{stats.warning}</p>
               <p className="text-sm text-secondarytext">Warning (&lt;90d)</p>
             </div>
-            <div className="w-10 h-10 bg-pending/10 rounded-lg flex items-center justify-center">
+            <div className="w-10 h-10 bg-pending/10 rounded-md flex items-center justify-center">
               <Clock size={20} className="text-pending" />
             </div>
           </div>
@@ -341,7 +341,7 @@ export default function InsuranceFCStatus() {
       </div>
 
       {/* Filters */}
-      <div className="bg-secondarybg rounded-lg border border-gray-100 p-4">
+      <div className="bg-secondarybg rounded-md border border-gray-100 p-4">
         <div className="flex flex-wrap gap-3 items-center">
           <div className="relative flex-1 min-w-[200px] max-w-md">
             <Search
@@ -353,7 +353,7 @@ export default function InsuranceFCStatus() {
               placeholder="Search by vehicle number or name..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-primarybg border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              className="w-full pl-10 pr-4 py-2 bg-primarybg border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
             />
           </div>
 
@@ -390,7 +390,7 @@ export default function InsuranceFCStatus() {
                 setFilterType("ALL");
                 setFilterStatus("ALL");
               }}
-              className="px-3 py-2 text-sm text-red hover:bg-red/10 rounded-lg transition-colors"
+              className="px-3 py-2 text-sm text-red hover:bg-red/10 rounded-md transition-colors"
             >
               Clear
             </button>
@@ -399,7 +399,7 @@ export default function InsuranceFCStatus() {
       </div>
 
       {/* Vehicle List */}
-      <div className="bg-secondarybg rounded-lg border border-gray-100 overflow-hidden">
+      <div className="bg-secondarybg rounded-md border border-gray-100 overflow-hidden">
         {loading ? (
           <div className="p-12 flex flex-col items-center justify-center text-secondarytext">
             <Loader2 className="w-8 h-8 animate-spin text-primary mb-3" />
@@ -449,9 +449,9 @@ export default function InsuranceFCStatus() {
                     >
                       <td className="px-4 py-3">
                         <p className="font-medium text-primarytext">
-                          {v.bus_name || v.vehicle_number}
+                          {v.vehicle_name || v.vehicle_number}
                         </p>
-                        {v.bus_name && (
+                        {v.vehicle_name && (
                           <p className="text-xs text-secondarytext">
                             {v.vehicle_number}
                           </p>
@@ -472,7 +472,7 @@ export default function InsuranceFCStatus() {
                           </span>
                           {insDays !== null && (
                             <span
-                              className={`text-xs px-2 py-0.5 rounded-full ${getStatusInfo(insDays).color}`}
+                              className={`text-xs px-2 py-0.5 rounded-md ${getStatusInfo(insDays).color}`}
                             >
                               {insDays < 0
                                 ? `${Math.abs(insDays)}d overdue`
@@ -488,7 +488,7 @@ export default function InsuranceFCStatus() {
                           </span>
                           {fcDays !== null && (
                             <span
-                              className={`text-xs px-2 py-0.5 rounded-full ${getStatusInfo(fcDays).color}`}
+                              className={`text-xs px-2 py-0.5 rounded-md ${getStatusInfo(fcDays).color}`}
                             >
                               {fcDays < 0
                                 ? `${Math.abs(fcDays)}d overdue`
@@ -504,7 +504,7 @@ export default function InsuranceFCStatus() {
                           </span>
                           {permitDays !== null && (
                             <span
-                              className={`text-xs px-2 py-0.5 rounded-full ${getStatusInfo(permitDays).color}`}
+                              className={`text-xs px-2 py-0.5 rounded-md ${getStatusInfo(permitDays).color}`}
                             >
                               {permitDays < 0
                                 ? `${Math.abs(permitDays)}d overdue`
@@ -516,7 +516,7 @@ export default function InsuranceFCStatus() {
                       <td className="px-4 py-3 text-center">
                         <span className="inline-flex items-center gap-1.5">
                           <span
-                            className={`w-2 h-2 rounded-full ${overallStatus.dotColor}`}
+                            className={`w-2 h-2 rounded-md ${overallStatus.dotColor}`}
                           ></span>
                           <span className="text-sm text-secondarytext">
                             {overallStatus.label}
@@ -535,12 +535,12 @@ export default function InsuranceFCStatus() {
       {/* Detail Modal (View Only for Incharge) */}
       {selectedVehicle && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/40">
-          <div className="bg-secondarybg rounded-xl shadow-xl w-full max-w-lg overflow-hidden">
+          <div className="bg-secondarybg rounded-md shadow-xl w-full max-w-lg overflow-hidden">
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <div>
                 <h3 className="text-lg font-bold text-primarytext">
-                  {selectedVehicle.bus_name || selectedVehicle.vehicle_number}
+                  {selectedVehicle.vehicle_name || selectedVehicle.vehicle_number}
                 </h3>
                 <p className="text-sm text-secondarytext">
                   {selectedVehicle.vehicle_number} •{" "}
@@ -549,7 +549,7 @@ export default function InsuranceFCStatus() {
               </div>
               <button
                 onClick={closeModal}
-                className="p-2 hover:bg-primarybg rounded-lg transition-colors"
+                className="p-2 hover:bg-primarybg rounded-md transition-colors"
               >
                 <X size={20} className="text-secondarytext" />
               </button>
@@ -558,7 +558,7 @@ export default function InsuranceFCStatus() {
             {/* Modal Body */}
             <div className="p-6 space-y-4">
               {/* Insurance */}
-              <div className="flex items-center justify-between p-4 bg-primarybg rounded-lg">
+              <div className="flex items-center justify-between p-4 bg-primarybg rounded-md">
                 <div className="flex items-center gap-3">
                   <Calendar size={18} className="text-secondarytext" />
                   <div>
@@ -573,7 +573,7 @@ export default function InsuranceFCStatus() {
                 {getDaysUntil(selectedVehicle.insurance_expire_date) !==
                   null && (
                   <span
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium ${getStatusInfo(getDaysUntil(selectedVehicle.insurance_expire_date)).color}`}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium ${getStatusInfo(getDaysUntil(selectedVehicle.insurance_expire_date)).color}`}
                   >
                     {getDaysUntil(selectedVehicle.insurance_expire_date) < 0
                       ? `${Math.abs(getDaysUntil(selectedVehicle.insurance_expire_date))}d overdue`
@@ -583,7 +583,7 @@ export default function InsuranceFCStatus() {
               </div>
 
               {/* FC */}
-              <div className="flex items-center justify-between p-4 bg-primarybg rounded-lg">
+              <div className="flex items-center justify-between p-4 bg-primarybg rounded-md">
                 <div className="flex items-center gap-3">
                   <Calendar size={18} className="text-secondarytext" />
                   <div>
@@ -597,7 +597,7 @@ export default function InsuranceFCStatus() {
                 </div>
                 {getDaysUntil(selectedVehicle.fc_expire_date) !== null && (
                   <span
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium ${getStatusInfo(getDaysUntil(selectedVehicle.fc_expire_date)).color}`}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium ${getStatusInfo(getDaysUntil(selectedVehicle.fc_expire_date)).color}`}
                   >
                     {getDaysUntil(selectedVehicle.fc_expire_date) < 0
                       ? `${Math.abs(getDaysUntil(selectedVehicle.fc_expire_date))}d overdue`
@@ -607,7 +607,7 @@ export default function InsuranceFCStatus() {
               </div>
 
               {/* Permit */}
-              <div className="flex items-center justify-between p-4 bg-primarybg rounded-lg">
+              <div className="flex items-center justify-between p-4 bg-primarybg rounded-md">
                 <div className="flex items-center gap-3">
                   <Calendar size={18} className="text-secondarytext" />
                   <div>
@@ -621,7 +621,7 @@ export default function InsuranceFCStatus() {
                 </div>
                 {getDaysUntil(selectedVehicle.permit_expire_date) !== null && (
                   <span
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium ${getStatusInfo(getDaysUntil(selectedVehicle.permit_expire_date)).color}`}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium ${getStatusInfo(getDaysUntil(selectedVehicle.permit_expire_date)).color}`}
                   >
                     {getDaysUntil(selectedVehicle.permit_expire_date) < 0
                       ? `${Math.abs(getDaysUntil(selectedVehicle.permit_expire_date))}d overdue`
@@ -635,7 +635,7 @@ export default function InsuranceFCStatus() {
             <div className="flex items-center justify-end px-6 py-4 border-t border-gray-100 bg-primarybg">
               <button
                 onClick={closeModal}
-                className="px-4 py-2 bg-secondarybg border border-gray-200 text-secondarytext rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+                className="px-4 py-2 bg-secondarybg border border-gray-200 text-secondarytext rounded-md hover:bg-gray-50 transition-colors text-sm font-medium"
               >
                 Close
               </button>

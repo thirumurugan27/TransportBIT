@@ -3,8 +3,6 @@ import {Routes, Route} from "react-router-dom";
 import {Sidebar} from "../../components/layout";
 import DashboardHeader from "../../components/DashboardHeader";
 import FacultyHome from "./views/FacultyHome";
-import CarBooking from "./views/CarBooking";
-import MyBookings from "./views/MyBookings";
 import FacultyProfile from "./views/FacultyProfile";
 import {useAuth} from "../../context/AuthContext";
 
@@ -26,8 +24,6 @@ export default function FacultyDashboard() {
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-primarybg p-6">
           <Routes>
             <Route path="" element={<FacultyHome />} />
-            <Route path="book-car" element={<CarBooking />} />
-            <Route path="my-bookings" element={<MyBookings />} />
             <Route path="profile" element={<FacultyProfile />} />
             <Route path="*" element={<FacultyHome />} />
           </Routes>

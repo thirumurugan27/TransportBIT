@@ -729,7 +729,7 @@ export default function Assignments() {
                           a.slots.map((slot, idx) => (
                             <span
                               key={idx}
-                              className="text-xs text-secondarytext px-2 py-0.5 rounded bg-gray-100"
+                              className="text-xs text-secondarytext px-2 py-0.5 rounded-md bg-gray-100"
                             >
                               {formatTimeAMPM(slot.start_time)} -{" "}
                               {formatTimeAMPM(slot.end_time)}
@@ -777,7 +777,7 @@ export default function Assignments() {
                             {a.drivers.slice(0, 4).map((driver, idx) => (
                               <div
                                 key={driver.driver_id}
-                                className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-xs font-medium border-2 border-white"
+                                className="w-8 h-8 rounded-md bg-primary text-white flex items-center justify-center text-xs font-medium border-2 border-white"
                                 title={driver.driver_name}
                               >
                                 {driver.driver_name
@@ -788,7 +788,7 @@ export default function Assignments() {
                               </div>
                             ))}
                             {a.drivers.length > 4 && (
-                              <div className="w-8 h-8 rounded-full bg-gray-300 text-gray-600 flex items-center justify-center text-xs font-medium border-2 border-white">
+                              <div className="w-8 h-8 rounded-md bg-gray-300 text-gray-600 flex items-center justify-center text-xs font-medium border-2 border-white">
                                 +{a.drivers.length - 4}
                               </div>
                             )}
@@ -841,7 +841,7 @@ export default function Assignments() {
           onClick={() => setShowCreateModal(false)}
         >
           <div
-            className="bg-secondarybg rounded-xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+            className="bg-secondarybg rounded-md shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="sticky top-0 z-10 bg-secondarybg px-8 py-5 border-b border-gray-100 flex justify-between items-center">
@@ -879,7 +879,7 @@ export default function Assignments() {
                   </label>
                   <input
                     type="date"
-                    className="w-full border border-gray-300 rounded-lg px-4 py-3 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                    className="w-full border border-gray-300 rounded-md px-4 py-3 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                     value={assignmentForm.end_date}
                     min={assignmentForm.start_date}
                     onChange={(e) =>
@@ -968,7 +968,7 @@ export default function Assignments() {
 
                       return {
                         value: v.id,
-                        label: v.bus_name || v.vehicle_number,
+                        label: v.vehicle_name || v.vehicle_number,
                         subtitle: conflictInfo,
                         available: isAvailable,
                         availableText:
@@ -1069,7 +1069,7 @@ export default function Assignments() {
               <div className="pt-4 border-t border-gray-100">
                 <button
                   onClick={() => handleCreate()}
-                  className="w-full bg-primary text-white rounded-lg py-3 font-semibold hover:bg-primary/90 transition-colors shadow-sm"
+                  className="w-full bg-primary text-white rounded-md py-3 font-semibold hover:bg-primary/90 transition-colors shadow-sm"
                 >
                   Create Assignment
                 </button>
@@ -1155,12 +1155,12 @@ export default function Assignments() {
           }}
         >
           <div
-            className="bg-secondarybg rounded-xl shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto"
+            className="bg-secondarybg rounded-md shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
             <div className="flex items-start gap-3 mb-4">
-              <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <div className="w-12 h-12 bg-amber-100 rounded-md flex items-center justify-center flex-shrink-0">
                 <AlertTriangle className="text-amber-600" size={24} />
               </div>
               <div className="flex-1">
@@ -1194,7 +1194,7 @@ export default function Assignments() {
                     (driverConflict, idx) => (
                       <div
                         key={idx}
-                        className="bg-amber-50 border border-amber-200 rounded-lg p-3"
+                        className="bg-amber-50 border border-amber-200 rounded-md p-3"
                       >
                         <div className="flex items-center gap-2 mb-2">
                           <User size={16} className="text-amber-600" />
@@ -1213,7 +1213,7 @@ export default function Assignments() {
                                 <span className="font-medium">
                                   {conflict.shift_name || "Shift"}
                                 </span>
-                                <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded">
+                                <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-md">
                                   {conflict.assignment_type || "Assignment"}
                                 </span>
                               </div>
@@ -1247,14 +1247,14 @@ export default function Assignments() {
                   {conflictModal.conflicts.map((conflict, idx) => (
                     <div
                       key={idx}
-                      className="bg-amber-50 border border-amber-200 rounded-lg p-3"
+                      className="bg-amber-50 border border-amber-200 rounded-md p-3"
                     >
                       <div className="flex items-center gap-2 mb-1">
                         <Clock size={14} className="text-amber-600" />
                         <span className="font-medium text-amber-800">
                           {conflict.shift_name || "Shift"}
                         </span>
-                        <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded">
+                        <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-md">
                           {conflict.assignment_type || "Assignment"}
                         </span>
                       </div>
@@ -1286,7 +1286,7 @@ export default function Assignments() {
               </h4>
 
               {/* Option 1: Force Assign */}
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-3">
+              <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-3">
                 <div className="flex items-start gap-3">
                   <div className="flex-1">
                     <h5 className="font-medium text-red-800">
@@ -1299,7 +1299,7 @@ export default function Assignments() {
                   </div>
                   <button
                     onClick={handleForceAssign}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium whitespace-nowrap"
+                    className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm font-medium whitespace-nowrap"
                   >
                     Force Assign
                   </button>
@@ -1308,7 +1308,7 @@ export default function Assignments() {
 
               {/* Option 2: Choose Different Driver (only for non-EV assignments) */}
               {createModalType !== "ev" && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="bg-green-50 border border-green-200 rounded-md p-4">
                   <div className="flex items-start gap-3">
                     <div className="flex-1">
                       <h5 className="font-medium text-green-800 flex items-center gap-2">
@@ -1332,7 +1332,7 @@ export default function Assignments() {
                               onClick={() =>
                                 handleSelectAlternateDriver(driverId)
                               }
-                              className={`flex items-center gap-2 p-3 border rounded-lg transition-all text-left ${
+                              className={`flex items-center gap-2 p-3 border rounded-md transition-all text-left ${
                                 isAvailable
                                   ? "bg-green-50 border-green-300 hover:bg-green-100 hover:border-green-400"
                                   : "bg-gray-100 border-gray-300 hover:bg-gray-200 opacity-75"
@@ -1344,7 +1344,7 @@ export default function Assignments() {
                               }
                             >
                               <div
-                                className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                                className={`w-2 h-2 rounded-md flex-shrink-0 ${
                                   isAvailable ? "bg-green-500" : "bg-gray-400"
                                 }`}
                               />
@@ -1394,7 +1394,7 @@ export default function Assignments() {
                   setConflictModal(null);
                   setConflictPendingForm(null);
                 }}
-                className="px-4 py-2 text-secondarytext hover:bg-gray-100 rounded-lg transition-colors"
+                className="px-4 py-2 text-secondarytext hover:bg-gray-100 rounded-md transition-colors"
               >
                 Cancel
               </button>
@@ -1413,7 +1413,7 @@ export default function Assignments() {
           }}
         >
           <div
-            className="bg-secondarybg rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+            className="bg-secondarybg rounded-md shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {loadingEvDetails ? (
@@ -1425,7 +1425,7 @@ export default function Assignments() {
                 {/* Header */}
                 <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-pending/5">
                   <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-lg bg-pending flex items-center justify-center text-white">
+                    <div className="w-14 h-14 rounded-md bg-pending flex items-center justify-center text-white">
                       <Zap size={28} />
                     </div>
                     <div>
@@ -1450,7 +1450,7 @@ export default function Assignments() {
 
                 {/* Stats Cards */}
                 <div className="p-6 grid grid-cols-2 md:grid-cols-4 gap-4 border-b border-gray-100">
-                  <div className="bg-primarybg rounded-lg p-4">
+                  <div className="bg-primarybg rounded-md p-4">
                     <p className="text-xs text-secondarytext uppercase tracking-wider">
                       Duration
                     </p>
@@ -1462,7 +1462,7 @@ export default function Assignments() {
                       {evDetails.assignment?.end_date}
                     </p>
                   </div>
-                  <div className="bg-green/10 rounded-lg p-4">
+                  <div className="bg-green/10 rounded-md p-4">
                     <p className="text-xs text-green uppercase tracking-wider">
                       Completed
                     </p>
@@ -1473,7 +1473,7 @@ export default function Assignments() {
                       {evDetails.assignment?.days_remaining} days remaining
                     </p>
                   </div>
-                  <div className="bg-primary/10 rounded-lg p-4">
+                  <div className="bg-primary/10 rounded-md p-4">
                     <p className="text-xs text-primary uppercase tracking-wider">
                       Total KM
                     </p>
@@ -1484,7 +1484,7 @@ export default function Assignments() {
                       Vehicle distance
                     </p>
                   </div>
-                  <div className="bg-pending/10 rounded-lg p-4">
+                  <div className="bg-pending/10 rounded-md p-4">
                     <p className="text-xs text-pending uppercase tracking-wider">
                       Drivers
                     </p>
@@ -1507,10 +1507,10 @@ export default function Assignments() {
                       {evDetails.drivers.map((driver) => (
                         <div
                           key={driver.driver_id}
-                          className="flex items-center justify-between p-3 bg-primarybg rounded-lg border border-gray-100"
+                          className="flex items-center justify-between p-3 bg-primarybg rounded-md border border-gray-100"
                         >
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center text-sm font-bold">
+                            <div className="w-10 h-10 rounded-md bg-primary text-white flex items-center justify-center text-sm font-bold">
                               {driver.initials ||
                                 driver.driver_name
                                   ?.split(" ")

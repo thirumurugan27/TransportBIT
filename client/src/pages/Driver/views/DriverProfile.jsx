@@ -2,6 +2,7 @@ import React, {useState, useEffect} from "react";
 import {useAuth} from "../../../context/AuthContext";
 import {apiGet} from "../../../utils/api";
 import {parseDate} from "../../../utils/dateFormat";
+import Loading from "../../../components/ui/Loading";
 
 // Check if date is expired
 const isExpired = (dateStr) => {
@@ -38,10 +39,7 @@ export default function DriverProfile() {
     }
   };
 
-  if (loading)
-    return (
-      <div className="p-8 text-center text-gray-500">Loading profile...</div>
-    );
+  if (loading) return <Loading fullScreen={false} text="Loading profile..." />;
   if (!profile)
     return (
       <div className="p-8 text-center text-red-500">Profile not found.</div>
@@ -51,7 +49,7 @@ export default function DriverProfile() {
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header Card */}
       <div className="bg-white rounded-md p-8 shadow-sm border border-gray-100 flex flex-col md:flex-row items-center gap-8">
-        <div className="w-24 h-24 bg-gradient-to-tr from-primary to-primarydull rounded-full flex items-center justify-center text-white text-3xl font-bold border-4 border-white shadow-lg">
+        <div className="w-24 h-24 bg-gradient-to-tr from-primary to-primarydull rounded-md flex items-center justify-center text-white text-3xl font-bold border-4 border-white shadow-lg">
           {profile.full_name?.charAt(0)}
         </div>
         <div className="text-center md:text-left flex-1">
@@ -138,6 +136,25 @@ export default function DriverProfile() {
                   }`}
                 >
                   {profile.license_expiry || "-"}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-between border-t border-gray-100 pt-3">
+              <div>
+                <label className="text-xs font-semibold text-gray-400 uppercase">
+                  Date of Joining
+                </label>
+                <p className="text-gray-800 font-medium">
+                  {profile.date_of_joining || "-"}
+                </p>
+              </div>
+              <div className="text-right">
+                <label className="text-xs font-semibold text-gray-400 uppercase">
+                  Date of Relieving
+                </label>
+                <p className="text-gray-800 font-medium">
+                  {profile.date_of_relieving || "-"}
                 </p>
               </div>
             </div>

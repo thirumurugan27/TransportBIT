@@ -27,7 +27,7 @@ func GetAvailableDrivers(c *gin.Context) {
 	shiftID := c.Query("shift_id")
 
 	query := `
-		SELECT d.id, u.full_name, d.license_type, d.experience_years, u.status,
+		SELECT d.id, u.full_name, d.license_type, d.experience_years, d.status,
 		       COALESCE(km.total_km, 0) as total_km_driven,
 		       CASE 
 		           WHEN EXISTS(SELECT 1 FROM leave_requests lr 
@@ -57,7 +57,7 @@ func GetAvailableDrivers(c *gin.Context) {
 			WHERE MONTH(date) = MONTH(CURDATE()) AND YEAR(date) = YEAR(CURDATE())
 			GROUP BY driver_id
 		) km ON km.driver_id = d.id
-		WHERE u.status = 'present'
+		WHERE d.status = 'active'
 		ORDER BY on_leave ASC, already_assigned ASC, total_km_driven ASC, d.experience_years DESC
 	`
 
@@ -136,7 +136,7 @@ func GetAssignmentsByCategory(c *gin.Context) {
 		           ELSE 'not_marked'
 		       END as driver_status,
 		       v.id as vehicle_id, v.vehicle_number, v.vehicle_type, v.fuel_type,
-		       COALESCE(v.name, b.bus_name, v.vehicle_number) as vehicle_name,
+		       COALESCE(v.vehicle_name, b.bus_name, v.vehicle_number) as vehicle_name,
 		       s.id as shift_id, s.name as shift_name, 
 		       TIME_FORMAT(s.start_time, '%H:%i') as start_time, 
 		       TIME_FORMAT(s.end_time, '%H:%i') as end_time,

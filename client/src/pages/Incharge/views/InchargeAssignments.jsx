@@ -113,7 +113,7 @@ export default function InchargeAssignments() {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900">
-                      {assignment.vehicle_number}
+                      {assignment.vehicle_name || assignment.vehicle_number}
                       <span className="text-xs text-gray-500 ml-1">
                         ({assignment.vehicle_type})
                       </span>

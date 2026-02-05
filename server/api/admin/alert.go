@@ -40,7 +40,7 @@ func GetAbsentDriverAlerts(c *gin.Context) {
 		LEFT JOIN driver_cluster_members dcm ON dcm.driver_id = d.id AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to
 		LEFT JOIN driver_clusters dc ON dcm.cluster_id = dc.id
 		WHERE a.assigned_date = ` + date + `
-		  AND (u.status = 'absent' OR u.status = 'on_leave')
+		  AND a.status IN ('absent', 'on_leave')
 		ORDER BY s.start_time
 	`)
 	if err != nil {

@@ -117,7 +117,7 @@ export default function EditProfile({onClose, onUpdate}) {
       }`}
     >
       <span
-        className={`w-5 h-5 rounded-full flex items-center justify-center text-xs ${
+        className={`w-5 h-5 rounded-md flex items-center justify-center text-xs ${
           met ? "bg-emerald-100" : "bg-gray-100"
         }`}
       >
@@ -423,7 +423,7 @@ export default function EditProfile({onClose, onUpdate}) {
               {/* Password Strength Indicator */}
               {passwords.newPassword && (
                 <div className="space-y-2">
-                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div className="h-2 bg-gray-200 rounded-md overflow-hidden">
                     <div
                       className={`h-full ${getStrengthColor()} ${getStrengthWidth()} transition-all duration-300`}
                     ></div>
@@ -433,8 +433,8 @@ export default function EditProfile({onClose, onUpdate}) {
                       passwordValidation.strength === "strong"
                         ? "text-emerald-600"
                         : passwordValidation.strength === "medium"
-                        ? "text-amber-600"
-                        : "text-red-600"
+                          ? "text-amber-600"
+                          : "text-red-600"
                     }`}
                   >
                     Strength: {passwordValidation.strength.toUpperCase()} (

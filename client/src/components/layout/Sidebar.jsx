@@ -76,7 +76,7 @@ export default function Sidebar({role, useLogo = true, isCollapsed = false}) {
             <img
               src={transportLogo}
               alt="Transport Logo"
-              className="w-14 h-14 rounded-full shadow-md"
+              className="w-14 h-14 rounded-md shadow-md"
             />
           ) : (
             <div className="w-14 h-14 bg-primary rounded-md flex items-center justify-center shadow-md shadow-primary/20">

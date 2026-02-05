@@ -323,7 +323,7 @@ export default function StudentTransport() {
     };
     return (
       <span
-        className={`px-3 py-1 rounded-full text-sm font-medium ${styles[status] || "bg-gray-100"}`}
+        className={`px-3 py-1 rounded-md text-sm font-medium ${styles[status] || "bg-gray-100"}`}
       >
         {status.charAt(0).toUpperCase() + status.slice(1)}
       </span>
@@ -333,7 +333,7 @@ export default function StudentTransport() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        <div className="animate-spin rounded-md h-12 w-12 border-t-2 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -343,7 +343,7 @@ export default function StudentTransport() {
     return (
       <div className="space-y-6">
         {/* Header */}
-        <div className="bg-gradient-to-r from-primary to-primarydull rounded-xl p-6 text-white shadow-lg">
+        <div className="bg-primary rounded-md p-6 text-white shadow-lg">
           <h2 className="text-2xl font-bold mb-1">Request Bus Transport</h2>
           <p className="text-white/80">
             You are not assigned to a bus yet. Request a bus and stop to get
@@ -352,7 +352,7 @@ export default function StudentTransport() {
         </div>
 
         {/* Request Transport Card */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-center">
+        <div className="bg-white rounded-md shadow-sm border border-gray-100 p-6 text-center">
           <h3 className="text-xl font-bold text-gray-800 mb-2">
             No Bus Assigned Yet
           </h3>
@@ -362,14 +362,14 @@ export default function StudentTransport() {
           </p>
           <button
             onClick={handleOpenTransportRequestModal}
-            className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primarydull transition-colors font-medium text-lg"
+            className="px-6 py-3 bg-primary text-white rounded-md hover:bg-primarydull transition-colors font-medium text-lg"
           >
             Request Bus Transport
           </button>
         </div>
 
         {/* My Transport Requests */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div className="bg-white rounded-md shadow-sm border border-gray-100 p-6">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">
             My Transport Requests
           </h3>
@@ -382,12 +382,12 @@ export default function StudentTransport() {
               {transportRequests.map((req) => (
                 <div
                   key={req.id}
-                  className="border border-gray-200 rounded-lg p-4"
+                  className="border border-gray-200 rounded-md p-4"
                 >
                   <div className="flex justify-between items-start mb-3">
                     <div>
                       <div className="font-medium text-gray-800">
-                        {req.bus_name}
+                        {req.vehicle_name}
                       </div>
                       <div className="text-sm text-gray-500">
                         Stop: {req.stop_name}
@@ -431,7 +431,7 @@ export default function StudentTransport() {
         {/* Transport Request Modal */}
         {showTransportRequestModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="bg-white rounded-md shadow-2xl max-w-md w-full p-6">
               <h3 className="text-xl font-bold text-gray-800 mb-4">
                 Request Bus Transport
               </h3>
@@ -442,16 +442,16 @@ export default function StudentTransport() {
               <select
                 value={transportRequestForm.bus_id}
                 onChange={handleBusChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4"
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4"
               >
                 <option value={0}>-- Select Bus --</option>
                 {allBuses.map((bus) => (
                   <option key={bus.id} value={bus.id}>
                     {bus.name} - {bus.route}
                   </option>
-                ))}
-              </select>
-
+                              <div className="mt-2 text-xs text-gray-400">
+                                Requested on: {req.created_at || "-"}
+                              </div>
               {transportRequestForm.bus_id > 0 && (
                 <>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -465,7 +465,7 @@ export default function StudentTransport() {
                         stop_id: parseInt(e.target.value),
                       })
                     }
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4"
                   >
                     <option value={0}>-- Select Stop --</option>
                     {busStops.map((stop) => (
@@ -496,7 +496,7 @@ export default function StudentTransport() {
                   })
                 }
                 placeholder="e.g., 2024-2025"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4"
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4"
               />
 
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -511,21 +511,21 @@ export default function StudentTransport() {
                   })
                 }
                 placeholder="Any additional information..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4"
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4"
                 rows={2}
               />
 
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowTransportRequestModal(false)}
-                  className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                  className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSubmitTransportRequest}
                   disabled={submitting}
-                  className="flex-1 py-2 bg-primary text-white rounded-lg hover:bg-primarydull transition-colors font-medium disabled:opacity-50"
+                  className="flex-1 py-2 bg-primary text-white rounded-md hover:bg-primarydull transition-colors font-medium disabled:opacity-50"
                 >
                   {submitting ? "Submitting..." : "Submit Request"}
                 </button>
@@ -540,7 +540,7 @@ export default function StudentTransport() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-primary to-primarydull rounded-xl p-6 text-white shadow-lg">
+      <div className="bg-primary rounded-md p-6 text-white shadow-lg">
         <h2 className="text-2xl font-bold mb-1">My Transport</h2>
         <p className="text-white/80">
           View your bus details, fees, and manage stop change requests
@@ -572,7 +572,7 @@ export default function StudentTransport() {
       {activeTab === "details" && transport && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Bus Info Card */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="bg-white rounded-md shadow-sm border border-gray-100 p-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">
               Bus Information
             </h3>
@@ -580,7 +580,7 @@ export default function StudentTransport() {
               <div className="flex justify-between py-2 border-b border-gray-100">
                 <span className="text-gray-500">Bus Name</span>
                 <span className="font-medium text-gray-800">
-                  {transport.bus_name}
+                  {transport.vehicle_name}
                 </span>
               </div>
               <div className="flex justify-between py-2 border-b border-gray-100">
@@ -599,7 +599,7 @@ export default function StudentTransport() {
           </div>
 
           {/* Stop Info Card */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="bg-white rounded-md shadow-sm border border-gray-100 p-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">
               My Stop
             </h3>
@@ -633,7 +633,7 @@ export default function StudentTransport() {
             </div>
             <button
               onClick={handleOpenRequestModal}
-              className="mt-4 w-full py-2 bg-primary text-white rounded-lg hover:bg-primarydull transition-colors font-medium"
+              className="mt-4 w-full py-2 bg-primary text-white rounded-md hover:bg-primarydull transition-colors font-medium"
             >
               Request Stop Change
             </button>
@@ -646,19 +646,19 @@ export default function StudentTransport() {
         <div className="space-y-6">
           {/* Fee Summary */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-center">
+            <div className="bg-white rounded-md shadow-sm border border-gray-100 p-6 text-center">
               <div className="text-sm text-gray-500 mb-1">Total Fee</div>
               <div className="text-2xl font-bold text-gray-800">
                 ₹{transport.total_fee?.toLocaleString()}
               </div>
             </div>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-center">
+            <div className="bg-white rounded-md shadow-sm border border-gray-100 p-6 text-center">
               <div className="text-sm text-gray-500 mb-1">Paid Amount</div>
               <div className="text-2xl font-bold text-green-600">
                 ₹{transport.paid_amount?.toLocaleString()}
               </div>
             </div>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-center">
+            <div className="bg-white rounded-md shadow-sm border border-gray-100 p-6 text-center">
               <div className="text-sm text-gray-500 mb-1">Balance Due</div>
               <div
                 className={`text-2xl font-bold ${transport.balance > 0 ? "text-red-600" : "text-green-600"}`}
@@ -669,7 +669,7 @@ export default function StudentTransport() {
           </div>
 
           {/* Payment History */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="bg-white rounded-md shadow-sm border border-gray-100 p-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">
               Payment History
             </h3>
@@ -719,14 +719,14 @@ export default function StudentTransport() {
 
       {/* Stop Change Requests Tab */}
       {activeTab === "requests" && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div className="bg-white rounded-md shadow-sm border border-gray-100 p-6">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-semibold text-gray-800">
               My Stop Change Requests
             </h3>
             <button
               onClick={handleOpenRequestModal}
-              className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primarydull transition-colors font-medium"
+              className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primarydull transition-colors font-medium"
             >
               + New Request
             </button>
@@ -740,7 +740,7 @@ export default function StudentTransport() {
               {stopRequests.map((req) => (
                 <div
                   key={req.id}
-                  className="border border-gray-200 rounded-lg p-4"
+                  className="border border-gray-200 rounded-md p-4"
                 >
                   <div className="flex justify-between items-start mb-3">
                     <div>
@@ -757,7 +757,7 @@ export default function StudentTransport() {
                         <button
                           onClick={() => handleCancelStopRequest(req.id)}
                           disabled={cancellingRequestId === req.id}
-                          className="px-3 py-1 text-sm rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                          className="px-3 py-1 text-sm rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
                         >
                           {cancellingRequestId === req.id
                             ? "Cancelling..."
@@ -809,13 +809,13 @@ export default function StudentTransport() {
       {/* Stop Change Request Modal */}
       {showRequestModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+          <div className="bg-white rounded-md shadow-2xl max-w-md w-full p-6">
             <h3 className="text-xl font-bold text-gray-800 mb-4">
               Request Stop Change
             </h3>
 
             {transport && (
-              <div className="bg-gray-50 rounded-lg p-3 mb-4">
+              <div className="bg-gray-50 rounded-md p-3 mb-4">
                 <div className="text-sm text-gray-500">Current Stop</div>
                 <div className="font-medium">{transport.stop_name}</div>
                 <div className="text-sm text-gray-500">
@@ -830,12 +830,12 @@ export default function StudentTransport() {
             <select
               value={stopChangeBusId}
               onChange={handleStopChangeBusSelect}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4"
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4"
             >
               <option value={0}>-- Select Bus --</option>
               {allBuses.map((bus) => (
                 <option key={bus.id} value={bus.id}>
-                  {bus.name || bus.bus_name} {bus.route ? `- ${bus.route}` : ""}
+                  {bus.vehicle_name || bus.vehicle_number} {bus.route ? `- ${bus.route}` : ""}
                 </option>
               ))}
             </select>
@@ -852,7 +852,7 @@ export default function StudentTransport() {
                 })
               }
               disabled={!stopChangeBusId}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4 disabled:bg-gray-50"
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4 disabled:bg-gray-50"
             >
               <option value={0}>
                 {stopChangeBusId ? "-- Select Stop --" : "Select a bus first"}
@@ -877,21 +877,21 @@ export default function StudentTransport() {
                 setRequestForm({...requestForm, reason: e.target.value})
               }
               placeholder="Please explain why you need to change your stop..."
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4"
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4"
               rows={3}
             />
 
             <div className="flex gap-3">
               <button
                 onClick={closeRequestModal}
-                className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors font-medium"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSubmitRequest}
                 disabled={submitting}
-                className="flex-1 py-2 bg-primary text-white rounded-lg hover:bg-primarydull transition-colors font-medium disabled:opacity-50"
+                className="flex-1 py-2 bg-primary text-white rounded-md hover:bg-primarydull transition-colors font-medium disabled:opacity-50"
               >
                 {submitting ? "Submitting..." : "Submit Request"}
               </button>

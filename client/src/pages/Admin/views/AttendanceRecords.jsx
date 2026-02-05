@@ -116,7 +116,7 @@ export default function AttendanceRecords() {
               onClick={setToday}
               className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 h-[38px] ${
                 startDate === today && endDate === today
-                  ? "bg-[var(--color-primary)] text-white"
+                  ? "bg-primary text-white"
                   : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-100"
               }`}
             >
@@ -132,7 +132,7 @@ export default function AttendanceRecords() {
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] bg-white text-sm"
+                className="px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white text-sm"
               />
             </div>
 
@@ -144,7 +144,7 @@ export default function AttendanceRecords() {
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] bg-white text-sm"
+                className="px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white text-sm"
               />
             </div>
 
@@ -168,7 +168,7 @@ export default function AttendanceRecords() {
 
             <button
               onClick={downloadCSV}
-              className="ml-auto xl:ml-2 px-4 py-2 bg-[var(--color-primary)] hover:bg-[var(--color-primary)]/90 text-white rounded-md transition-colors flex items-center gap-2 text-sm font-medium shadow-sm h-[38px]"
+              className="ml-auto xl:ml-2 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-md transition-colors flex items-center gap-2 text-sm font-medium shadow-sm h-[38px]"
               title="Download filtered attendance report"
             >
               <Download size={16} />
@@ -256,7 +256,7 @@ export default function AttendanceRecords() {
       <div className="bg-white rounded-md shadow-sm border border-gray-100 overflow-hidden">
         {loading ? (
           <div className="p-12 flex flex-col items-center justify-center text-gray-500">
-            <div className="animate-spin inline-block w-8 h-8 border-4 border-current border-t-transparent text-[var(--color-primary)] rounded-full mb-4"></div>
+            <div className="animate-spin inline-block w-8 h-8 border-4 border-current border-t-transparent text-primary rounded-md mb-4"></div>
             <p>Loading attendance records...</p>
           </div>
         ) : (
@@ -283,9 +283,9 @@ export default function AttendanceRecords() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {attendanceHistory && attendanceHistory.length > 0 ? (
-                  attendanceHistory.map((record) => (
+                  attendanceHistory.map((record, idx) => (
                     <tr
-                      key={record.id}
+                      key={`${record.id ?? "record"}-${record.date ?? "nodate"}-${idx}`}
                       className="hover:bg-gray-50/50 transition-colors"
                     >
                       <td className="px-6 py-4 font-medium text-gray-900">
@@ -296,7 +296,7 @@ export default function AttendanceRecords() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
+                          <div className="w-8 h-8 rounded-md bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
                             {record.full_name?.charAt(0) || "?"}
                           </div>
                           <span className="font-medium text-gray-800 text-sm">
@@ -306,7 +306,7 @@ export default function AttendanceRecords() {
                       </td>
                       <td className="px-6 py-4 text-center">
                         <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wide border ${
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wide border ${
                             record.status === "present"
                               ? "bg-emerald-50 text-emerald-700 border-emerald-100"
                               : record.status === "absent"
@@ -337,7 +337,7 @@ export default function AttendanceRecords() {
                       </td>
                       <td className="px-6 py-4 text-sm">
                         {record.marked_by_incharge_name ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs font-medium">
+                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-medium">
                             <UserCheck size={12} />
                             {record.marked_by_incharge_name}
                           </span>

@@ -583,7 +583,7 @@ func GetLeaveAffectedAssignments(c *gin.Context) {
 		ShiftEndTime   string `json:"shift_end_time"`
 		VehicleNumber  string `json:"vehicle_number"`
 		VehicleType    string `json:"vehicle_type"`
-		BusName        string `json:"bus_name"`
+		VehicleName    string `json:"vehicle_name"`
 		IsEVCluster    bool   `json:"is_ev_cluster"`
 		ClusterID      int    `json:"cluster_id"`
 		ClusterName    string `json:"cluster_name"`
@@ -598,7 +598,7 @@ func GetLeaveAffectedAssignments(c *gin.Context) {
 			TIME_FORMAT(s.start_time, '%H:%i') as shift_start_time,
 			TIME_FORMAT(s.end_time, '%H:%i') as shift_end_time,
 			v.vehicle_number, v.vehicle_type,
-			COALESCE(v.name, b.bus_name, '') as bus_name,
+			COALESCE(v.vehicle_name, b.bus_name, '') as vehicle_name,
 			0 as is_ev_cluster, 0 as cluster_id, '' as cluster_name
 		FROM assignments a
 		JOIN shifts s ON a.shift_id = s.id
@@ -626,7 +626,7 @@ func GetLeaveAffectedAssignments(c *gin.Context) {
 		var a AffectedAssignment
 		err := rows.Scan(&a.ID, &a.ShiftID, &a.VehicleID, &a.StartDate, &a.EndDate,
 			&a.ShiftName, &a.ShiftStartTime, &a.ShiftEndTime,
-			&a.VehicleNumber, &a.VehicleType, &a.BusName,
+			&a.VehicleNumber, &a.VehicleType, &a.VehicleName,
 			&a.IsEVCluster, &a.ClusterID, &a.ClusterName)
 		if err != nil {
 			log.Printf("Scan error: %v", err)
@@ -644,7 +644,7 @@ func GetLeaveAffectedAssignments(c *gin.Context) {
 			COALESCE(TIME_FORMAT(dc.start_time, '%H:%i'), '') as shift_start_time,
 			COALESCE(TIME_FORMAT(dc.end_time, '%H:%i'), '') as shift_end_time,
 			v.vehicle_number, v.vehicle_type,
-			COALESCE(v.name, v.vehicle_number) as bus_name,
+			COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name,
 			1 as is_ev_cluster, dc.id as cluster_id, dc.name as cluster_name
 		FROM ev_assignments ev
 		JOIN vehicles v ON ev.vehicle_id = v.id
@@ -669,7 +669,7 @@ func GetLeaveAffectedAssignments(c *gin.Context) {
 			var a AffectedAssignment
 			err := evRows.Scan(&a.ID, &a.ShiftID, &a.VehicleID, &a.StartDate, &a.EndDate,
 				&a.ShiftName, &a.ShiftStartTime, &a.ShiftEndTime,
-				&a.VehicleNumber, &a.VehicleType, &a.BusName,
+				&a.VehicleNumber, &a.VehicleType, &a.VehicleName,
 				&a.IsEVCluster, &a.ClusterID, &a.ClusterName)
 			if err != nil {
 				log.Printf("Scan EV assignment error: %v", err)

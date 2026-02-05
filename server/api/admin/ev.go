@@ -57,7 +57,7 @@ type ClusterDriverInfo struct {
 func GetEVVehicles(c *gin.Context) {
 	rows, err := config.DB.Query(`
 		SELECT v.id, v.vehicle_number, v.vehicle_type, v.fuel_type, v.seating_capacity, v.status,
-		       COALESCE(v.name, b.bus_name, v.vehicle_number) as bus_name
+		       COALESCE(v.vehicle_name, b.bus_name, v.vehicle_number) as vehicle_name
 		FROM vehicles v
 		LEFT JOIN buses b ON b.vehicle_id = v.id
 		WHERE v.fuel_type = 'EV'
@@ -73,7 +73,7 @@ func GetEVVehicles(c *gin.Context) {
 	var vehicles []models.Vehicle
 	for rows.Next() {
 		var v models.Vehicle
-		rows.Scan(&v.ID, &v.VehicleNumber, &v.VehicleType, &v.FuelType, &v.SeatingCapacity, &v.Status, &v.BusName)
+		rows.Scan(&v.ID, &v.VehicleNumber, &v.VehicleType, &v.FuelType, &v.SeatingCapacity, &v.Status, &v.VehicleName)
 		vehicles = append(vehicles, v)
 	}
 
@@ -197,7 +197,7 @@ func GetEVAssignments(c *gin.Context) {
 		// The frontend expects 'drivers' for the bubbles.
 		// Use cluster drivers logic
 		driverRows, _ := config.DB.Query(`
-			SELECT d.id, u.full_name, u.status,
+			SELECT d.id, u.full_name, d.status,
 			       EXISTS(SELECT 1 FROM leave_requests lr 
 			              WHERE lr.driver_id = d.id 
 			              AND lr.status = 'admin_approved'
@@ -721,7 +721,7 @@ func GetEVAssignmentDetails(c *gin.Context) {
 
 	// Fetch drivers and calculate KM based on ALL vehicles in the group
 	driverRows, err := config.DB.Query(`
-		SELECT d.id, u.full_name, u.status,
+		SELECT d.id, u.full_name, d.status,
 		       EXISTS(SELECT 1 FROM leave_requests lr 
 		              WHERE lr.driver_id = d.id 
 		              AND lr.status = 'admin_approved'

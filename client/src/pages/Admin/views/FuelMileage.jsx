@@ -114,7 +114,7 @@ export default function FuelMileage() {
             vehicle_id: parseInt(odometerForm.vehicle_id),
             driver_id: parseInt(odometerForm.driver_id),
           }),
-        }
+        },
       );
       if (res.ok) {
         setShowOdometerModal(false);
@@ -142,7 +142,7 @@ export default function FuelMileage() {
           odometerReadings.reduce(
             (sum, r) =>
               sum + (r.to_reading - r.from_reading) / (r.fuel_used || 1),
-            0
+            0,
           ) / odometerReadings.length
         ).toFixed(1)
       : "N/A";
@@ -241,7 +241,7 @@ export default function FuelMileage() {
           <h3 className="text-xl font-bold text-primarytext flex items-center gap-3">
             <AlertCircle className="text-pending" /> Pending Verifications
             {pendingIndents.length > 0 && (
-              <span className="bg-pending text-white text-[10px] px-2 py-0.5 rounded-full">
+              <span className="bg-pending text-white text-[10px] px-2 py-0.5 rounded-md">
                 {pendingIndents.length}
               </span>
             )}
@@ -253,7 +253,7 @@ export default function FuelMileage() {
 
         {loading ? (
           <div className="flex justify-center py-12">
-            <div className="w-8 h-8 border-4 border-primarybg border-t-primary rounded-full animate-spin"></div>
+            <div className="w-8 h-8 border-4 border-primarybg border-t-primary rounded-md animate-spin"></div>
           </div>
         ) : pendingIndents.length === 0 ? (
           <div className="text-center py-12">
@@ -575,7 +575,7 @@ export default function FuelMileage() {
                         </div>
                       </div>
                       <span
-                        className={`px-3 py-1 rounded-full text-[10px] uppercase font-bold ${
+                        className={`px-3 py-1 rounded-md text-[10px] uppercase font-bold ${
                           item.status === "completed"
                             ? "bg-green/10 text-green"
                             : "bg-pending/10 text-pending"

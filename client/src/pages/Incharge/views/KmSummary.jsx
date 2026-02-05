@@ -197,7 +197,7 @@ export default function KmSummary() {
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex bg-secondarybg rounded-lg p-1 overflow-hidden">
+          <div className="flex bg-secondarybg rounded-md p-1 overflow-hidden">
             {["today", "week", "month"].map((preset) => (
               <button
                 key={preset}
@@ -218,14 +218,14 @@ export default function KmSummary() {
           </div>
           <button
             onClick={fetchKmSummary}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 text-primary hover:bg-primary/20"
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-primary/10 text-primary hover:bg-primary/20"
           >
             <RefreshCw size={16} /> Refresh
           </button>
         </div>
       </div>
 
-      <div className="bg-secondarybg border border-primarybg rounded-2xl p-4 shadow-sm">
+      <div className="bg-secondarybg border border-primarybg rounded-md p-4 shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2 text-primarytext font-semibold">
             <Filter size={18} /> Advanced Filters
@@ -266,9 +266,9 @@ export default function KmSummary() {
               options={(options.vehicles || []).map((vehicle) => ({
                 value: vehicle.id,
                 label:
-                  vehicle.bus_name &&
-                  vehicle.bus_name !== vehicle.vehicle_number
-                    ? `${vehicle.bus_name} - ${vehicle.vehicle_number}`
+                  vehicle.vehicle_name &&
+                  vehicle.vehicle_name !== vehicle.vehicle_number
+                    ? `${vehicle.vehicle_name} - ${vehicle.vehicle_number}`
                     : vehicle.vehicle_number,
                 subtitle: vehicle.vehicle_type,
               }))}
@@ -285,7 +285,7 @@ export default function KmSummary() {
             </label>
             <input
               type="date"
-              className="w-full mt-1 rounded-lg border border-primarybg bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
+              className="w-full mt-1 rounded-md border border-primarybg bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
               value={filters.startDate}
               onChange={(e) => updateFilter("startDate", e.target.value)}
             />
@@ -296,7 +296,7 @@ export default function KmSummary() {
             </label>
             <input
               type="date"
-              className="w-full mt-1 rounded-lg border border-primarybg bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
+              className="w-full mt-1 rounded-md border border-primarybg bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
               value={filters.endDate}
               onChange={(e) => updateFilter("endDate", e.target.value)}
             />
@@ -307,7 +307,7 @@ export default function KmSummary() {
             {activeFilterBadges.map((chip) => (
               <span
                 key={chip.key}
-                className="text-xs bg-primary/10 text-primary px-3 py-1 rounded-full"
+                className="text-xs bg-primary/10 text-primary px-3 py-1 rounded-md"
               >
                 {chip.label}
               </span>
@@ -317,7 +317,7 @@ export default function KmSummary() {
       </div>
 
       {error && (
-        <div className="bg-red/10 border border-red/30 text-red rounded-xl px-4 py-3 text-sm">
+        <div className="bg-red/10 border border-red/30 text-red rounded-md px-4 py-3 text-sm">
           {error}
         </div>
       )}
@@ -332,9 +332,9 @@ export default function KmSummary() {
           return (
             <div
               key={card.key}
-              className="bg-secondarybg border border-primarybg rounded-2xl p-4 flex items-center gap-3 shadow-sm"
+              className="bg-secondarybg border border-primarybg rounded-md p-4 flex items-center gap-3 shadow-sm"
             >
-              <div className={`p-3 rounded-xl ${card.bg}`}>
+              <div className={`p-3 rounded-md ${card.bg}`}>
                 <Icon className={card.accent} size={20} />
               </div>
               <div>
@@ -380,7 +380,7 @@ export default function KmSummary() {
         </div>
       )}
 
-      <div className="bg-secondarybg rounded-2xl shadow-sm border border-primarybg overflow-hidden">
+      <div className="bg-secondarybg rounded-md shadow-sm border border-primarybg overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-4 border-b border-primarybg">
           <div className="flex items-center gap-2 text-primarytext font-semibold">
             <ClipboardList size={16} /> Detailed KM Ledger
@@ -395,7 +395,7 @@ export default function KmSummary() {
 
         {loading ? (
           <div className="p-12 flex justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
+            <div className="animate-spin rounded-md h-8 w-8 border-2 border-primary border-t-transparent" />
           </div>
         ) : data.logs?.length === 0 ? (
           <div className="p-12 text-center text-secondarytext">
@@ -439,7 +439,7 @@ export default function KmSummary() {
                   <tr key={log.id} className="hover:bg-gray-50 text-sm">
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-sm">
+                        <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center text-primary font-semibold text-sm">
                           {log.driver_name?.charAt(0) || "?"}
                         </div>
                         <span className="font-medium text-primarytext">
@@ -453,7 +453,7 @@ export default function KmSummary() {
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2">
                         <span
-                          className={`px-2 py-0.5 rounded text-xs font-medium ${getVehicleTypeColor(log.vehicle_type)}`}
+                          className={`px-2 py-0.5 rounded-md text-xs font-medium ${getVehicleTypeColor(log.vehicle_type)}`}
                         >
                           {log.vehicle_type}
                         </span>
@@ -464,7 +464,7 @@ export default function KmSummary() {
                     </td>
                     <td className="py-3 px-4">
                       <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${getShiftBadge(log.shift)}`}
+                        className={`px-2 py-1 rounded-md text-xs font-medium ${getShiftBadge(log.shift)}`}
                       >
                         {log.shift || "N/A"}
                       </span>
@@ -521,7 +521,7 @@ export default function KmSummary() {
       </div>
 
       {data.logs?.some((l) => l.remarks) && (
-        <div className="bg-secondarybg rounded-2xl p-5 border border-primarybg">
+        <div className="bg-secondarybg rounded-md p-5 border border-primarybg">
           <h4 className="font-semibold text-primarytext mb-3">
             Latest Remarks
           </h4>
@@ -532,7 +532,7 @@ export default function KmSummary() {
               .map((log) => (
                 <div
                   key={log.id}
-                  className="bg-white border border-gray-100 rounded-xl p-3"
+                  className="bg-white border border-gray-100 rounded-md p-3"
                 >
                   <div className="flex items-center gap-2 text-xs text-secondarytext mb-1">
                     <span className="font-semibold text-primarytext">
@@ -554,7 +554,7 @@ export default function KmSummary() {
 function FocusCard({title, primary, meta, value, icon, accent}) {
   return (
     <div
-      className={`p-4 rounded-2xl border border-primarybg bg-gradient-to-br ${accent} flex flex-col gap-2`}
+      className={`p-4 rounded-md border border-primarybg bg-gradient-to-br ${accent} flex flex-col gap-2`}
     >
       <div className="flex items-center justify-between text-xs uppercase tracking-wider text-secondarytext">
         <span>{title}</span>

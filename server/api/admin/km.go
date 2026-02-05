@@ -59,7 +59,7 @@ func GetDriverAssignedVehicles(c *gin.Context) {
 	// Query regular assignments
 	regQuery := `
 		SELECT v.id, v.vehicle_number, COALESCE(v.vehicle_type, 'BUS') as vehicle_type,
-		       NULLIF(COALESCE(v.name, ''), '') as vehicle_name,
+		       NULLIF(COALESCE(v.vehicle_name, ''), '') as vehicle_name,
 		       a.id as assignment_id, 'REGULAR' as assignment_type,
 		       s.name as shift_name,
 		       TIME_FORMAT(s.start_time, '%H:%i') as start_time,
@@ -100,7 +100,7 @@ func GetDriverAssignedVehicles(c *gin.Context) {
 	// Query temporary assignments
 	tempQuery := `
 		SELECT v.id, v.vehicle_number, COALESCE(v.vehicle_type, 'BUS') as vehicle_type,
-		       NULLIF(COALESCE(v.name, ''), '') as vehicle_name,
+		       NULLIF(COALESCE(v.vehicle_name, ''), '') as vehicle_name,
 		       ta.id as assignment_id, 'TEMPORARY' as assignment_type,
 		       s.name as shift_name,
 		       TIME_FORMAT(s.start_time, '%H:%i') as start_time,
@@ -137,7 +137,7 @@ func GetDriverAssignedVehicles(c *gin.Context) {
 	// Query EV assignments via cluster
 	evQuery := `
 		SELECT v.id, v.vehicle_number, COALESCE(v.vehicle_type, 'EV') as vehicle_type,
-		       NULLIF(COALESCE(v.name, ''), '') as vehicle_name,
+		       NULLIF(COALESCE(v.vehicle_name, ''), '') as vehicle_name,
 		       ev.id as assignment_id, 'EV_CLUSTER' as assignment_type,
 		       COALESCE(s.name, 'EV Duty') as shift_name,
 		       COALESCE(TIME_FORMAT(s.start_time, '%H:%i'), TIME_FORMAT(dc.start_time, '%H:%i'), '08:00') as start_time,
@@ -232,7 +232,7 @@ func GetKmFilterMeta(c *gin.Context) {
     vehicleRows, err := config.DB.Query(`
         SELECT v.id, v.vehicle_number, 
                COALESCE(v.vehicle_type, 'UNKNOWN') as vehicle_type,
-               COALESCE(NULLIF(v.name, ''), v.vehicle_number) as bus_name
+               COALESCE(NULLIF(v.vehicle_name, ''), v.vehicle_number) as vehicle_name
         FROM vehicles v
         WHERE v.status IN ('active', 'available')
         ORDER BY v.vehicle_number
@@ -248,13 +248,13 @@ func GetKmFilterMeta(c *gin.Context) {
         ID            int    `json:"id"`
         VehicleNumber string `json:"vehicle_number"`
         VehicleType   string `json:"vehicle_type"`
-        BusName       string `json:"bus_name"`
+        VehicleName   string `json:"vehicle_name"`
     }
 
     var vehicles []filterVehicle
     for vehicleRows.Next() {
         var v filterVehicle
-        if err := vehicleRows.Scan(&v.ID, &v.VehicleNumber, &v.VehicleType, &v.BusName); err != nil {
+        if err := vehicleRows.Scan(&v.ID, &v.VehicleNumber, &v.VehicleType, &v.VehicleName); err != nil {
             log.Printf("Error scanning vehicle row: %v", err)
             continue
         }
@@ -849,7 +849,7 @@ func GetVehicleKmSummary(c *gin.Context) {
         SELECT 
             v.id,
             v.vehicle_number,
-            COALESCE(v.name, '') AS vehicle_name,
+            COALESCE(v.vehicle_name, '') AS vehicle_name,
             COALESCE(v.vehicle_type, 'UNKNOWN') AS vehicle_type,
             COALESCE(v.fuel_type, '') AS fuel_type,
             SUM(kl.total_km) AS total_km,
@@ -861,7 +861,7 @@ func GetVehicleKmSummary(c *gin.Context) {
         ` + vehicleWhere + `
         AND COALESCE(kl.vehicle_id, a.vehicle_id) IS NOT NULL
         GROUP BY 
-            v.id, v.vehicle_number, v.name, v.vehicle_type, v.fuel_type
+            v.id, v.vehicle_number, v.vehicle_name, v.vehicle_type, v.fuel_type
         ORDER BY total_km DESC
     `
 
@@ -1042,7 +1042,7 @@ func GetDriverKmHistory(c *gin.Context) {
 
     vehicleRows, err := config.DB.Query(`
         SELECT v.id, v.vehicle_number, COALESCE(v.vehicle_type, 'UNKNOWN'),
-               NULLIF(COALESCE(v.name, ''), '') as vehicle_name,
+               NULLIF(COALESCE(v.vehicle_name, ''), '') as vehicle_name,
                SUM(kl.total_km) as total_km, COUNT(*) as trips,
                AVG(kl.total_km) as avg_trip,
                MIN(kl.date) as first_date, MAX(kl.date) as last_date

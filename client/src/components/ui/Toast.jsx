@@ -34,9 +34,9 @@ const Toast = ({message, type = "info", onClose}) => {
   return (
     <div className="w-full max-w-xl">
       <div
-        className={`flex items-start gap-3 rounded-xl border ${cfg.border} bg-secondarybg shadow-md px-4 py-3`}
+        className={`flex items-start gap-3 rounded-md border ${cfg.border} bg-secondarybg shadow-md px-4 py-3`}
       >
-        <span className={`p-2 rounded-full ${cfg.badge} ${cfg.accent}`}>
+        <span className={`p-2 rounded-md ${cfg.badge} ${cfg.accent}`}>
           {cfg.icon}
         </span>
         <div className="text-sm text-primarytext leading-relaxed flex-1">
@@ -46,7 +46,7 @@ const Toast = ({message, type = "info", onClose}) => {
           type="button"
           aria-label="Close alert"
           onClick={onClose}
-          className="text-secondarytext hover:text-primary p-1 rounded transition-colors"
+          className="text-secondarytext hover:text-primary p-1 rounded-md transition-colors"
         >
           <X size={16} />
         </button>

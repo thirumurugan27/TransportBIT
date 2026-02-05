@@ -250,7 +250,7 @@ export default function LeaveApprovals() {
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+      <div className="bg-white rounded-md p-4 shadow-sm border border-gray-200">
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -259,7 +259,7 @@ export default function LeaveApprovals() {
               placeholder="Search by driver name, leave type, or reason..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8b5cf6]/30 focus:border-[#8b5cf6] text-sm"
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#8b5cf6]/30 focus:border-[#8b5cf6] text-sm"
             />
           </div>
           <div className="flex items-center gap-3">
@@ -280,7 +280,7 @@ export default function LeaveApprovals() {
       </div>
 
       {/* Leave Requests Table */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-md shadow-sm border border-gray-200 overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <Loader2 className="w-8 h-8 animate-spin text-[#8b5cf6]" />
@@ -354,7 +354,7 @@ export default function LeaveApprovals() {
                     >
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-[#8b5cf6]/10 text-[#8b5cf6] flex items-center justify-center font-semibold text-sm">
+                          <div className="w-10 h-10 rounded-md bg-[#8b5cf6]/10 text-[#8b5cf6] flex items-center justify-center font-semibold text-sm">
                             {leave.driver_name?.charAt(0) || "D"}
                           </div>
                           <div>
@@ -368,7 +368,7 @@ export default function LeaveApprovals() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-[#8b5cf6]/10 text-[#8b5cf6]">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-[#8b5cf6]/10 text-[#8b5cf6]">
                           {leave.leave_type}
                         </span>
                       </td>
@@ -401,7 +401,7 @@ export default function LeaveApprovals() {
                       </td>
                       <td className="px-6 py-4">
                         <span
-                          className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
+                          className={`inline-flex items-center px-3 py-1 rounded-md text-xs font-semibold ${
                             inchargeApproved
                               ? "bg-green-100 text-green-700"
                               : inchargeRejected
@@ -418,7 +418,7 @@ export default function LeaveApprovals() {
                       </td>
                       <td className="px-6 py-4">
                         <span
-                          className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
+                          className={`inline-flex items-center px-3 py-1 rounded-md text-xs font-semibold ${
                             adminApproved
                               ? "bg-green-100 text-green-700"
                               : adminRejected
@@ -452,7 +452,7 @@ export default function LeaveApprovals() {
       {/* Leave Details Modal */}
       {showLeaveModal && selectedLeave && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl animate-scaleIn overflow-hidden max-h-[90vh] flex flex-col">
+          <div className="bg-white w-full max-w-2xl rounded-md shadow-2xl animate-scaleIn overflow-hidden max-h-[90vh] flex flex-col">
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-[#8b5cf6]/5 to-transparent">
               <h3 className="text-xl font-bold text-gray-800">
@@ -486,7 +486,7 @@ export default function LeaveApprovals() {
                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
                       Type
                     </p>
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-[#8b5cf6] text-white">
+                    <span className="inline-flex items-center px-3 py-1 rounded-md text-xs font-semibold bg-[#8b5cf6] text-white">
                       {selectedLeave.leave_type}
                     </span>
                   </div>
@@ -552,7 +552,7 @@ export default function LeaveApprovals() {
                       Status
                     </p>
                     <span
-                      className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(selectedLeave).bg} ${getStatusColor(selectedLeave).text}`}
+                      className={`inline-flex items-center px-3 py-1 rounded-md text-xs font-semibold ${getStatusColor(selectedLeave).bg} ${getStatusColor(selectedLeave).text}`}
                     >
                       {getStatusLabel(selectedLeave)}
                     </span>
@@ -575,7 +575,7 @@ export default function LeaveApprovals() {
                 </h4>
                 <div className="space-y-3">
                   {/* Incharge Approval */}
-                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <div className="bg-gray-50 rounded-md p-4 border border-gray-200">
                     <div className="flex items-start gap-3">
                       <User className="w-5 h-5 text-gray-600 mt-0.5" />
                       <div className="flex-1">
@@ -603,7 +603,7 @@ export default function LeaveApprovals() {
                         )}
                       </div>
                       <span
-                        className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                        className={`px-3 py-1 rounded-md text-xs font-semibold ${
                           modalInchargeApproved
                             ? "bg-green-100 text-green-700"
                             : modalInchargeRejected
@@ -621,7 +621,7 @@ export default function LeaveApprovals() {
                   </div>
 
                   {/* Admin Approval */}
-                  <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                  <div className="bg-blue-50 rounded-md p-4 border border-blue-200">
                     <div className="flex items-start gap-3">
                       <ShieldCheck className="w-5 h-5 text-blue-600 mt-0.5" />
                       <div className="flex-1">
@@ -649,7 +649,7 @@ export default function LeaveApprovals() {
                         )}
                       </div>
                       <span
-                        className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                        className={`px-3 py-1 rounded-md text-xs font-semibold ${
                           modalAdminApproved
                             ? "bg-green-100 text-green-700"
                             : modalAdminRejected
@@ -680,7 +680,7 @@ export default function LeaveApprovals() {
                       onChange={(e) => setRemarks(e.target.value)}
                       placeholder="Add your remarks here..."
                       rows="3"
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8b5cf6]/30 focus:border-[#8b5cf6] text-sm resize-none"
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#8b5cf6]/30 focus:border-[#8b5cf6] text-sm resize-none"
                     />
                   </div>
                 )}
@@ -694,7 +694,7 @@ export default function LeaveApprovals() {
                   <button
                     onClick={() => approveLeave(selectedLeave.id, "rejected")}
                     disabled={actionProcessing === selectedLeave.id}
-                    className="px-5 py-2.5 bg-white hover:bg-red-50 text-red-600 border border-red-200 rounded-lg font-semibold text-sm transition-colors disabled:opacity-50 flex items-center gap-2"
+                    className="px-5 py-2.5 bg-white hover:bg-red-50 text-red-600 border border-red-200 rounded-md font-semibold text-sm transition-colors disabled:opacity-50 flex items-center gap-2"
                   >
                     {actionProcessing === selectedLeave.id ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -706,7 +706,7 @@ export default function LeaveApprovals() {
                   <button
                     onClick={() => handleApproveClick(selectedLeave)}
                     disabled={actionProcessing === selectedLeave.id}
-                    className="px-6 py-2.5 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white rounded-lg font-semibold text-sm shadow-sm transition-all disabled:opacity-50 flex items-center gap-2"
+                    className="px-6 py-2.5 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white rounded-md font-semibold text-sm shadow-sm transition-all disabled:opacity-50 flex items-center gap-2"
                   >
                     {actionProcessing === selectedLeave.id ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -719,7 +719,7 @@ export default function LeaveApprovals() {
               ) : (
                 <button
                   onClick={() => setShowLeaveModal(false)}
-                  className="w-full py-3 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white rounded-lg font-semibold text-sm transition-colors"
+                  className="w-full py-3 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white rounded-md font-semibold text-sm transition-colors"
                 >
                   Close
                 </button>
@@ -732,7 +732,7 @@ export default function LeaveApprovals() {
       {/* Temporary Assignment Modal */}
       {showAssignmentModal && selectedLeave && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-4xl rounded-xl shadow-2xl animate-scaleIn overflow-hidden max-h-[90vh] flex flex-col">
+          <div className="bg-white w-full max-w-4xl rounded-md shadow-2xl animate-scaleIn overflow-hidden max-h-[90vh] flex flex-col">
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-[#8b5cf6]/5 to-transparent">
               <div>
@@ -769,7 +769,7 @@ export default function LeaveApprovals() {
                   <Loader2 className="w-8 h-8 animate-spin text-[#8b5cf6]" />
                 </div>
               ) : affectedAssignments.length === 0 ? (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
+                <div className="bg-green-50 border border-green-200 rounded-md p-6 text-center">
                   <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto mb-3" />
                   <h4 className="text-lg font-semibold text-green-800 mb-2">
                     No Active Assignments
@@ -781,7 +781,7 @@ export default function LeaveApprovals() {
                 </div>
               ) : (
                 <>
-                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
+                  <div className="bg-amber-50 border border-amber-200 rounded-md p-4 flex items-start gap-3">
                     <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
                     <div>
                       <p className="text-sm font-semibold text-amber-800">
@@ -800,20 +800,20 @@ export default function LeaveApprovals() {
                     {affectedAssignments.map((assignment) => (
                       <div
                         key={assignment.id}
-                        className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow"
+                        className="bg-white border border-gray-200 rounded-md p-5 shadow-sm hover:shadow-md transition-shadow"
                       >
                         {/* Assignment Info */}
                         <div className="flex items-start gap-4">
-                          <div className="w-12 h-12 rounded-xl bg-[#8b5cf6]/10 flex items-center justify-center flex-shrink-0">
+                          <div className="w-12 h-12 rounded-md bg-[#8b5cf6]/10 flex items-center justify-center flex-shrink-0">
                             <Truck className="w-6 h-6 text-[#8b5cf6]" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
                               <p className="font-bold text-gray-800 text-lg">
-                                {assignment.bus_name ||
+                                {assignment.vehicle_name ||
                                   assignment.vehicle_number}
                               </p>
-                              <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
+                              <span className="px-2 py-0.5 text-xs font-medium rounded-md bg-gray-100 text-gray-600">
                                 {assignment.vehicle_type}
                               </span>
                             </div>
@@ -854,7 +854,7 @@ export default function LeaveApprovals() {
                             Select an available driver who doesn't have
                             conflicting assignments:
                           </p>
-                          <div className="border border-gray-200 rounded-lg overflow-hidden divide-y divide-gray-100">
+                          <div className="border border-gray-200 rounded-md overflow-hidden divide-y divide-gray-100">
                             {availableDrivers.map((driver) => {
                               const isSelected =
                                 tempAssignments[assignment.id]
@@ -918,7 +918,7 @@ export default function LeaveApprovals() {
                   onChange={(e) => setRemarks(e.target.value)}
                   placeholder="Add any remarks for this leave approval..."
                   rows="2"
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8b5cf6]/30 focus:border-[#8b5cf6] text-sm resize-none"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#8b5cf6]/30 focus:border-[#8b5cf6] text-sm resize-none"
                 />
               </div>
             </div>
@@ -946,14 +946,14 @@ export default function LeaveApprovals() {
                     setShowAssignmentModal(false);
                     setTempAssignments({});
                   }}
-                  className="px-5 py-2.5 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 rounded-lg font-semibold text-sm transition-colors"
+                  className="px-5 py-2.5 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 rounded-md font-semibold text-sm transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={approveWithAssignments}
                   disabled={actionProcessing === selectedLeave.id}
-                  className="px-6 py-2.5 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white rounded-lg font-semibold text-sm shadow-sm transition-all disabled:opacity-50 flex items-center gap-2"
+                  className="px-6 py-2.5 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white rounded-md font-semibold text-sm shadow-sm transition-all disabled:opacity-50 flex items-center gap-2"
                 >
                   {actionProcessing === selectedLeave.id ? (
                     <Loader2 className="w-4 h-4 animate-spin" />

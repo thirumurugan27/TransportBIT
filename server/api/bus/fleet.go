@@ -69,7 +69,7 @@ type UpdateBusRouteRequest struct {
 	VehicleID  int    `json:"vehicle_id"`
 	StartPoint string `json:"start_point"`
 	EndPoint   string `json:"end_point"`
-	BusName    string `json:"bus_name"`
+	VehicleName string `json:"vehicle_name"`
 }
 
 /*
@@ -85,7 +85,7 @@ func InitBusStopsTable() {
 		CREATE TABLE IF NOT EXISTS buses (
 			id INT AUTO_INCREMENT PRIMARY KEY,
 			vehicle_id INT NOT NULL UNIQUE,
-			bus_name VARCHAR(100),
+			name VARCHAR(100),
 			start_point VARCHAR(100),
 			end_point VARCHAR(100),
 			route_number VARCHAR(50),
@@ -127,7 +127,7 @@ func InitBusStopsTable() {
 
 	// Auto-populate buses table with existing BUS vehicles
 	config.DB.Exec(`
-		INSERT IGNORE INTO buses (vehicle_id, bus_name)
+		INSERT IGNORE INTO buses (vehicle_id, name)
 		SELECT id, vehicle_number FROM vehicles WHERE vehicle_type = 'BUS'
 	`)
 }
@@ -155,12 +155,12 @@ func GetBusFleet(c *gin.Context) {
 			 LIMIT 1) as driver_name,
 			COALESCE(b.start_point, '') as start_point, 
 			COALESCE(b.end_point, '') as end_point,
-			COALESCE(v.name, b.bus_name, v.vehicle_number) as bus_name,
+			COALESCE(b.bus_name, v.vehicle_number) as vehicle_name,
 			(SELECT COUNT(*) FROM bus_stops bs WHERE bs.vehicle_id = v.id) as total_stops
 		FROM vehicles v
 		LEFT JOIN buses b ON b.vehicle_id = v.id
 		WHERE v.vehicle_type = 'BUS'
-		ORDER BY bus_name ASC
+		ORDER BY COALESCE(b.bus_name, v.vehicle_number) ASC
 	`)
 	if err != nil {
 		log.Printf("Get bus fleet error: %v", err)
@@ -180,7 +180,7 @@ func GetBusFleet(c *gin.Context) {
 		DriverName      *string `json:"driver_name"`
 		StartPoint      string  `json:"start_point"`
 		EndPoint        string  `json:"end_point"`
-		BusName         string  `json:"bus_name"`
+		VehicleName     string  `json:"vehicle_name"`
 		TotalStops      int     `json:"total_stops"`
 	}
 
@@ -188,7 +188,7 @@ func GetBusFleet(c *gin.Context) {
 	for rows.Next() {
 		var b BusFleetItemExtended
 		rows.Scan(&b.ID, &b.VehicleNumber, &b.VehicleType, &b.FuelType, &b.SeatingCapacity, &b.Status,
-			&b.DriverID, &b.DriverName, &b.StartPoint, &b.EndPoint, &b.BusName, &b.TotalStops)
+			&b.DriverID, &b.DriverName, &b.StartPoint, &b.EndPoint, &b.VehicleName, &b.TotalStops)
 		buses = append(buses, b)
 	}
 
@@ -378,10 +378,10 @@ func UpdateBusRoute(c *gin.Context) {
 
 	// Update or insert into buses table
 	_, err := config.DB.Exec(`
-		INSERT INTO buses (vehicle_id, start_point, end_point, bus_name)
+		INSERT INTO buses (vehicle_id, start_point, end_point, name)
 		VALUES (?, ?, ?, ?)
-		ON DUPLICATE KEY UPDATE start_point=VALUES(start_point), end_point=VALUES(end_point), bus_name=VALUES(bus_name)
-	`, vehicleID, req.StartPoint, req.EndPoint, req.BusName)
+		ON DUPLICATE KEY UPDATE start_point=VALUES(start_point), end_point=VALUES(end_point), name=VALUES(name)
+	`, vehicleID, req.StartPoint, req.EndPoint, req.VehicleName)
 
 	if err != nil {
 		log.Printf("Update bus route error: %v", err)

@@ -74,13 +74,17 @@ export default function Vehicles() {
   const [editingExpiry, setEditingExpiry] = useState(null); // { vehicleId, field }
   const [expiryFormValue, setExpiryFormValue] = useState("");
 
+  // Detail Modal State
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedVehicle, setSelectedVehicle] = useState(null);
+
   // Form State
   const initialFormState = {
     vehicle_type: "BUS",
     vehicle_number: "",
     seating_capacity: 0,
     fuel_type: "DIESEL",
-    bus_name: "",
+    vehicle_name: "",
     start_point: "",
     end_point: "",
     insurance_expire_date: "",
@@ -111,16 +115,38 @@ export default function Vehicles() {
     const matchesType = filterType === "ALL" || v.vehicle_type === filterType;
     const matchesSearch =
       v.vehicle_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (v.bus_name &&
-        v.bus_name.toLowerCase().includes(searchQuery.toLowerCase()));
+      (v.vehicle_name &&
+        v.vehicle_name.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesType && matchesSearch;
   });
 
   const getVehicleLabel = (v) => {
-    if (v.bus_name) {
-      return v.bus_name;
+    if (v.vehicle_name) {
+      return v.vehicle_name;
     }
     return v.vehicle_number;
+  };
+
+  // Open detail modal
+  const openDetailModal = (vehicle) => {
+    setSelectedVehicle(vehicle);
+    setShowDetailModal(true);
+  };
+
+  // Get vehicle type display name
+  const getVehicleTypeLabel = (type) => {
+    switch (type) {
+      case "BUS":
+        return "College Bus";
+      case "CAR":
+        return "Car";
+      case "BATTERY_VEHICLE":
+        return "Battery Vehicle";
+      case "OTHER":
+        return "Special Purpose";
+      default:
+        return type;
+    }
   };
 
   const handleEdit = (vehicle) => {
@@ -130,7 +156,7 @@ export default function Vehicles() {
       seating_capacity: vehicle.seating_capacity,
       fuel_type: vehicle.fuel_type,
       status: vehicle.status || "available",
-      bus_name: vehicle.bus_name || "",
+      vehicle_name: vehicle.vehicle_name || "",
       start_point: vehicle.start_point || "",
       end_point: vehicle.end_point || "",
       insurance_expire_date: vehicle.insurance_expire_date
@@ -187,7 +213,7 @@ export default function Vehicles() {
     }
     if (
       vehicleForm.vehicle_type === "BUS" &&
-      (!vehicleForm.bus_name ||
+      (!vehicleForm.vehicle_name ||
         !vehicleForm.start_point ||
         !vehicleForm.end_point)
     ) {
@@ -345,24 +371,24 @@ export default function Vehicles() {
   return (
     <div className="space-y-6">
       {/* View Mode Toggle */}
-      <div className="flex justify-between">
-        <div className="flex bg-secondarybg rounded-md border border-gray-200 p-1 gap-1">
+      <div className="flex justify-between items-center">
+        <div className="flex bg-secondarybg rounded-md border border-primary/10 p-1.5 gap-1">
           <button
             onClick={() => setViewMode("fleet")}
-            className={`px-5 py-2.5 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
+            className={`px-5 py-2.5 rounded-md text-sm font-semibold transition-all flex items-center gap-2 ${
               viewMode === "fleet"
                 ? "bg-primary text-white shadow-sm"
-                : "text-secondarytext hover:bg-primarybg"
+                : "text-secondarytext hover:bg-primary/5 hover:text-primary"
             }`}
           >
             <Bus size={16} /> Fleet View
           </button>
           <button
             onClick={() => setViewMode("expiry")}
-            className={`px-5 py-2.5 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
+            className={`px-5 py-2.5 rounded-md text-sm font-semibold transition-all flex items-center gap-2 ${
               viewMode === "expiry"
                 ? "bg-primary text-white shadow-sm"
-                : "text-secondarytext hover:bg-primarybg"
+                : "text-secondarytext hover:bg-primary/5 hover:text-primary"
             }`}
           >
             <Shield size={16} /> Insurance/FC/Permit Status
@@ -370,7 +396,7 @@ export default function Vehicles() {
               expiryStats.fc.expired +
               expiryStats.permit.expired >
               0 && (
-              <span className="ml-1 px-2 py-0.5 bg-red text-white text-xs rounded-full font-semibold">
+              <span className="ml-1 px-2 py-0.5 bg-red text-white text-xs rounded-md font-bold">
                 {expiryStats.insurance.expired +
                   expiryStats.fc.expired +
                   expiryStats.permit.expired}
@@ -384,7 +410,7 @@ export default function Vehicles() {
             setVehicleForm(initialFormState);
             setShowCreateModal(true);
           }}
-          className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-md hover:bg-primarydull transition-colors font-medium shadow-sm"
+          className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-md hover:bg-primarydull transition-all font-semibold shadow-sm hover:shadow-md"
         >
           <Plus size={18} />
           Add New Vehicle
@@ -392,85 +418,85 @@ export default function Vehicles() {
       </div>
 
       {/* Stats Section */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <div className="bg-white rounded-md p-4 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="bg-secondarybg rounded-md p-5 shadow-sm border border-primary/10 hover:shadow-md hover:border-primary/20 transition-all">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-secondarytext mb-1">
+              <p className="text-xs font-bold text-secondarytext uppercase tracking-wide mb-1">
                 Total Vehicles
               </p>
-              <p className="text-2xl font-bold text-primarytext">
+              <p className="text-3xl font-bold text-primarytext">
                 {vehicles?.length || 0}
               </p>
             </div>
-            <div className="p-2.5 bg-primary/10 rounded-md">
-              <Bus size={20} className="text-primary" />
+            <div className="p-3 bg-primary/10 rounded-md">
+              <Bus size={24} className="text-primary" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-md p-4 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+        <div className="bg-secondarybg rounded-md p-5 shadow-sm border border-primary/10 hover:shadow-md hover:border-primary/20 transition-all">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-secondarytext mb-1">
+              <p className="text-xs font-bold text-secondarytext uppercase tracking-wide mb-1">
                 Buses
               </p>
-              <p className="text-2xl font-bold text-primarytext">
+              <p className="text-3xl font-bold text-primarytext">
                 {vehicles?.filter((v) => v.vehicle_type === "BUS").length || 0}
               </p>
             </div>
-            <div className="p-2.5 bg-primary/10 rounded-md">
-              <Bus size={20} className="text-primary" />
+            <div className="p-3 bg-primary/10 rounded-md">
+              <Bus size={24} className="text-primary" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-md p-4 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+        <div className="bg-secondarybg rounded-md p-5 shadow-sm border border-green/10 hover:shadow-md hover:border-green/20 transition-all">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-secondarytext mb-1">
+              <p className="text-xs font-bold text-secondarytext uppercase tracking-wide mb-1">
                 Cars
               </p>
-              <p className="text-2xl font-bold text-primarytext">
+              <p className="text-3xl font-bold text-primarytext">
                 {vehicles?.filter((v) => v.vehicle_type === "CAR").length || 0}
               </p>
             </div>
-            <div className="p-2.5 bg-green/10 rounded-md">
-              <Car size={20} className="text-green" />
+            <div className="p-3 bg-green/10 rounded-md">
+              <Car size={24} className="text-green" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-md p-4 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+        <div className="bg-secondarybg rounded-md p-5 shadow-sm border border-pending/10 hover:shadow-md hover:border-pending/20 transition-all">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-secondarytext mb-1">
+              <p className="text-xs font-bold text-secondarytext uppercase tracking-wide mb-1">
                 Battery Vehicles
               </p>
-              <p className="text-2xl font-bold text-primarytext">
+              <p className="text-3xl font-bold text-primarytext">
                 {vehicles?.filter((v) => v.vehicle_type === "BATTERY_VEHICLE")
                   .length || 0}
               </p>
             </div>
-            <div className="p-2.5 bg-pending/10 rounded-md">
-              <Zap size={20} className="text-pending" />
+            <div className="p-3 bg-pending/10 rounded-md">
+              <Zap size={24} className="text-pending" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-md p-4 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+        <div className="bg-secondarybg rounded-md p-5 shadow-sm border border-secondarytext/10 hover:shadow-md hover:border-secondarytext/20 transition-all">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-secondarytext mb-1">
+              <p className="text-xs font-bold text-secondarytext uppercase tracking-wide mb-1">
                 Others
               </p>
-              <p className="text-2xl font-bold text-primarytext">
+              <p className="text-3xl font-bold text-primarytext">
                 {vehicles?.filter((v) => v.vehicle_type === "OTHER").length ||
                   0}
               </p>
             </div>
-            <div className="p-2.5 bg-secondarytext/10 rounded-md">
-              <Truck size={20} className="text-secondarytext" />
+            <div className="p-3 bg-secondarytext/10 rounded-md">
+              <Truck size={24} className="text-secondarytext" />
             </div>
           </div>
         </div>
@@ -482,27 +508,27 @@ export default function Vehicles() {
       <div className="flex flex-col md:flex-row gap-4">
         <div className="relative flex-1">
           <Search
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-secondarytext"
+            className="absolute left-4 top-1/2 -translate-y-1/2 text-secondarytext"
             size={18}
           />
           <input
             type="text"
             placeholder="Search by vehicle number or bus name..."
-            className="w-full pl-10 pr-4 py-2.5 bg-secondarybg border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-primarytext placeholder:text-secondarytext"
+            className="w-full pl-12 pr-4 py-3 bg-secondarybg border border-primary/10 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-primarytext placeholder:text-secondarytext/60 text-sm"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <div className="flex bg-secondarybg rounded-md border border-gray-200 p-1 gap-1">
+        <div className="flex bg-secondarybg rounded-md border border-primary/10 p-1.5 gap-1">
           {["ALL", "BUS", "CAR", "BATTERY_VEHICLE", "OTHER"].map((type) => {
             return (
               <button
                 key={type}
                 onClick={() => setFilterType(type)}
-                className={`min-w-[100px] px-4 py-2 rounded-md text-sm font-medium transition-all whitespace-nowrap ${
+                className={`min-w-24 px-4 py-2.5 rounded-md text-sm font-semibold transition-all whitespace-nowrap ${
                   filterType === type
                     ? "bg-primary text-white shadow-sm"
-                    : "text-secondarytext hover:bg-primarybg"
+                    : "text-secondarytext hover:bg-primary/5 hover:text-primary"
                 }`}
               >
                 {type === "ALL"
@@ -677,7 +703,7 @@ export default function Vehicles() {
                                   <Car size={16} className="text-green-500" />
                                 )}
                                 <span className="font-semibold text-gray-900">
-                                  {v.bus_name || v.vehicle_number} (
+                                  {v.vehicle_name || v.vehicle_number} (
                                   {v.vehicle_number})
                                 </span>
                               </div>
@@ -698,18 +724,18 @@ export default function Vehicles() {
                                     onChange={(e) =>
                                       setExpiryFormValue(e.target.value)
                                     }
-                                    className="px-2 py-1 text-sm border border-primary rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                                    className="px-2 py-1 text-sm border border-primary rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
                                     autoFocus
                                   />
                                   <button
                                     onClick={handleExpiryUpdate}
-                                    className="p-1 text-green-600 hover:bg-green-50 rounded"
+                                    className="p-1 text-green-600 hover:bg-green-50 rounded-md"
                                   >
                                     <Save size={14} />
                                   </button>
                                   <button
                                     onClick={cancelExpiryEdit}
-                                    className="p-1 text-gray-400 hover:bg-gray-100 rounded"
+                                    className="p-1 text-gray-400 hover:bg-gray-100 rounded-md"
                                   >
                                     <X size={14} />
                                   </button>
@@ -722,7 +748,7 @@ export default function Vehicles() {
                                       "insurance_expire_date",
                                     )
                                   }
-                                  className="px-2 py-1 text-sm text-gray-700 hover:bg-blue-50 rounded border border-transparent hover:border-blue-200 transition-all cursor-pointer"
+                                  className="px-2 py-1 text-sm text-gray-700 hover:bg-blue-50 rounded-md border border-transparent hover:border-blue-200 transition-all cursor-pointer"
                                   title="Click to update"
                                 >
                                   {formatDate(v.insurance_expire_date)}
@@ -732,7 +758,7 @@ export default function Vehicles() {
                             <td className="px-4 py-3 text-center">
                               {insDays !== null ? (
                                 <span
-                                  className={`px-2 py-1 rounded text-xs font-bold ${getStatusColor(insDays)}`}
+                                  className={`px-2 py-1 rounded-md text-xs font-bold ${getStatusColor(insDays)}`}
                                 >
                                   {insDays < 0
                                     ? `${Math.abs(insDays)} overdue`
@@ -754,18 +780,18 @@ export default function Vehicles() {
                                     onChange={(e) =>
                                       setExpiryFormValue(e.target.value)
                                     }
-                                    className="px-2 py-1 text-sm border border-primary rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                                    className="px-2 py-1 text-sm border border-primary rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
                                     autoFocus
                                   />
                                   <button
                                     onClick={handleExpiryUpdate}
-                                    className="p-1 text-green-600 hover:bg-green-50 rounded"
+                                    className="p-1 text-green-600 hover:bg-green-50 rounded-md"
                                   >
                                     <Save size={14} />
                                   </button>
                                   <button
                                     onClick={cancelExpiryEdit}
-                                    className="p-1 text-gray-400 hover:bg-gray-100 rounded"
+                                    className="p-1 text-gray-400 hover:bg-gray-100 rounded-md"
                                   >
                                     <X size={14} />
                                   </button>
@@ -775,7 +801,7 @@ export default function Vehicles() {
                                   onClick={() =>
                                     handleExpiryClick(v, "fc_expire_date")
                                   }
-                                  className="px-2 py-1 text-sm text-gray-700 hover:bg-green-50 rounded border border-transparent hover:border-green-200 transition-all cursor-pointer"
+                                  className="px-2 py-1 text-sm text-gray-700 hover:bg-green-50 rounded-md border border-transparent hover:border-green-200 transition-all cursor-pointer"
                                   title="Click to update"
                                 >
                                   {formatDate(v.fc_expire_date)}
@@ -785,7 +811,7 @@ export default function Vehicles() {
                             <td className="px-4 py-3 text-center">
                               {fcDays !== null ? (
                                 <span
-                                  className={`px-2 py-1 rounded text-xs font-bold ${getStatusColor(fcDays)}`}
+                                  className={`px-2 py-1 rounded-md text-xs font-bold ${getStatusColor(fcDays)}`}
                                 >
                                   {fcDays < 0
                                     ? `${Math.abs(fcDays)} overdue`
@@ -807,18 +833,18 @@ export default function Vehicles() {
                                     onChange={(e) =>
                                       setExpiryFormValue(e.target.value)
                                     }
-                                    className="px-2 py-1 text-sm border border-primary rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                                    className="px-2 py-1 text-sm border border-primary rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
                                     autoFocus
                                   />
                                   <button
                                     onClick={handleExpiryUpdate}
-                                    className="p-1 text-green-600 hover:bg-green-50 rounded"
+                                    className="p-1 text-green-600 hover:bg-green-50 rounded-md"
                                   >
                                     <Save size={14} />
                                   </button>
                                   <button
                                     onClick={cancelExpiryEdit}
-                                    className="p-1 text-gray-400 hover:bg-gray-100 rounded"
+                                    className="p-1 text-gray-400 hover:bg-gray-100 rounded-md"
                                   >
                                     <X size={14} />
                                   </button>
@@ -828,7 +854,7 @@ export default function Vehicles() {
                                   onClick={() =>
                                     handleExpiryClick(v, "permit_expire_date")
                                   }
-                                  className="px-2 py-1 text-sm text-gray-700 hover:bg-purple-50 rounded border border-transparent hover:border-purple-200 transition-all cursor-pointer"
+                                  className="px-2 py-1 text-sm text-gray-700 hover:bg-purple-50 rounded-md border border-transparent hover:border-purple-200 transition-all cursor-pointer"
                                   title="Click to update"
                                 >
                                   {formatDate(v.permit_expire_date)}
@@ -838,7 +864,7 @@ export default function Vehicles() {
                             <td className="px-4 py-3 text-center">
                               {permitDays !== null ? (
                                 <span
-                                  className={`px-2 py-1 rounded text-xs font-bold ${getStatusColor(permitDays)}`}
+                                  className={`px-2 py-1 rounded-md text-xs font-bold ${getStatusColor(permitDays)}`}
                                 >
                                   {permitDays < 0
                                     ? `${Math.abs(permitDays)} overdue`
@@ -870,17 +896,17 @@ export default function Vehicles() {
 
       {/* Vehicles Table - Fleet View */}
       {viewMode === "fleet" && (
-        <div className="bg-secondarybg rounded-md shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-secondarybg rounded-md shadow-sm border border-primary/10 overflow-hidden">
           {loading ? (
-            <div className="p-12 text-center text-secondarytext flex flex-col items-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
-              <p>Loading fleet data...</p>
+            <div className="p-16 text-center text-secondarytext flex flex-col items-center">
+              <div className="animate-spin rounded-md h-10 w-10 border-2 border-primary border-t-transparent mb-4"></div>
+              <p className="text-sm">Loading fleet data...</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-primarybg border-b border-gray-200">
-                  <tr>
+                <thead>
+                  <tr className="bg-primarybg/50">
                     <th className="px-6 py-4 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
                       Vehicle Info
                     </th>
@@ -893,25 +919,27 @@ export default function Vehicles() {
                     <th className="px-6 py-4 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
                       Route / Location
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
+                    <th className="px-6 py-4 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">
                       Status
-                    </th>
-                    <th className="px-6 py-4 text-right text-xs font-bold text-secondarytext uppercase tracking-wider">
-                      Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody>
                   {filteredVehicles && filteredVehicles.length > 0 ? (
-                    filteredVehicles.map((v) => (
+                    filteredVehicles.map((v, index) => (
                       <tr
                         key={v.id}
-                        className="hover:bg-primarybg transition-colors group"
+                        onClick={() => openDetailModal(v)}
+                        className={`group cursor-pointer transition-all duration-200 hover:bg-primary/5 ${
+                          index !== filteredVehicles.length - 1
+                            ? "border-b border-primary/5"
+                            : ""
+                        }`}
                       >
-                        <td className="px-6 py-4">
+                        <td className="px-6 py-5">
                           <div className="flex items-center gap-4">
                             <div
-                              className={`h-11 w-11 rounded-md flex items-center justify-center transition-colors ${
+                              className={`h-12 w-12 rounded-md flex items-center justify-center shadow-sm ${
                                 v.vehicle_type === "BUS"
                                   ? "bg-primary/10 text-primary"
                                   : v.vehicle_type === "CAR"
@@ -922,109 +950,134 @@ export default function Vehicles() {
                               }`}
                             >
                               {v.vehicle_type === "BUS" ? (
-                                <Bus size={20} />
+                                <Bus size={22} />
                               ) : v.vehicle_type === "CAR" ? (
-                                <Car size={20} />
+                                <Car size={22} />
                               ) : v.vehicle_type === "BATTERY_VEHICLE" ? (
-                                <Zap size={20} />
+                                <Zap size={22} />
                               ) : (
-                                <Truck size={20} />
+                                <Truck size={22} />
                               )}
                             </div>
                             <div>
-                              <div className="font-semibold text-primarytext">
+                              <div className="font-bold text-primarytext text-base group-hover:text-primary transition-colors">
                                 {getVehicleLabel(v)}
                               </div>
-                              <div className="text-xs text-secondarytext font-mono mt-0.5">
-                                #{v.id} • {v.vehicle_number}
+                              <div className="text-xs text-secondarytext mt-1 flex items-center gap-2">
+                                <span className="bg-primarybg px-2 py-0.5 rounded-md font-mono">
+                                  #{v.id}
+                                </span>
+                                <span className="text-secondarytext/60">•</span>
+                                <span className="font-medium">
+                                  {v.vehicle_number}
+                                </span>
                               </div>
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4">
-                          {v.vehicle_type === "BUS" && (
-                            <span className="inline-flex px-3 py-1 text-xs font-medium rounded-full bg-primary/10 text-primary border border-primary/20">
-                              College Bus
-                            </span>
-                          )}
-                          {v.vehicle_type === "CAR" &&
-                            v.seating_capacity <= 5 && (
-                              <span className="inline-flex px-3 py-1 text-xs font-medium rounded-full bg-green/10 text-green border border-green/20">
-                                Car (5-Seater)
-                              </span>
+                        <td className="px-6 py-5">
+                          <span
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md ${
+                              v.vehicle_type === "BUS"
+                                ? "bg-primary/10 text-primary"
+                                : v.vehicle_type === "CAR"
+                                  ? "bg-green/10 text-green"
+                                  : v.vehicle_type === "BATTERY_VEHICLE"
+                                    ? "bg-pending/10 text-pending"
+                                    : "bg-secondarytext/10 text-secondarytext"
+                            }`}
+                          >
+                            {v.vehicle_type === "BUS" && (
+                              <>
+                                <Bus size={12} />
+                                College Bus
+                              </>
                             )}
-                          {v.vehicle_type === "CAR" &&
-                            v.seating_capacity > 5 && (
-                              <span className="inline-flex px-3 py-1 text-xs font-medium rounded-full bg-green/10 text-green border border-green/20">
-                                Car (7-Seater)
-                              </span>
+                            {v.vehicle_type === "CAR" && (
+                              <>
+                                <Car size={12} />
+                                {v.seating_capacity <= 5
+                                  ? "Car (5-Seater)"
+                                  : "Car (7-Seater)"}
+                              </>
                             )}
-                          {v.vehicle_type === "BATTERY_VEHICLE" && (
-                            <span className="inline-flex px-3 py-1 text-xs font-medium rounded-full bg-pending/10 text-pending border border-pending/20">
-                              Battery Vehicle
-                            </span>
-                          )}
-                          {v.vehicle_type === "OTHER" && (
-                            <span className="inline-flex px-3 py-1 text-xs font-medium rounded-full bg-secondarytext/10 text-secondarytext border border-secondarytext/20">
-                              Special Purpose
-                            </span>
-                          )}
+                            {v.vehicle_type === "BATTERY_VEHICLE" && (
+                              <>
+                                <Zap size={12} />
+                                Battery Vehicle
+                              </>
+                            )}
+                            {v.vehicle_type === "OTHER" && (
+                              <>
+                                <Truck size={12} />
+                                Special Purpose
+                              </>
+                            )}
+                          </span>
                         </td>
-                        <td className="px-6 py-4">
-                          <div className="flex flex-col gap-1.5">
-                            <div className="flex items-center gap-2 text-xs font-medium text-primarytext">
-                              {v.fuel_type === "EV" ? (
-                                <Zap size={14} className="text-primary" />
-                              ) : (
-                                <Fuel
-                                  size={14}
-                                  className="text-secondarytext"
-                                />
-                              )}
-                              {v.fuel_type}
+                        <td className="px-6 py-5">
+                          <div className="flex flex-col gap-2">
+                            <div className="flex items-center gap-2">
+                              <div
+                                className={`p-1.5 rounded-md ${v.fuel_type === "EV" ? "bg-primary/10" : "bg-primarybg"}`}
+                              >
+                                {v.fuel_type === "EV" ? (
+                                  <Zap size={12} className="text-primary" />
+                                ) : (
+                                  <Fuel
+                                    size={12}
+                                    className="text-secondarytext"
+                                  />
+                                )}
+                              </div>
+                              <span className="text-sm font-medium text-primarytext">
+                                {v.fuel_type}
+                              </span>
                             </div>
-                            <div className="text-xs text-secondarytext">
+                            <div className="text-xs text-secondarytext bg-primarybg px-2 py-1 rounded-md w-fit">
                               {v.seating_capacity} Seats
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-sm text-secondarytext">
+                        <td className="px-6 py-5">
                           {v.vehicle_type === "BUS" ? (
-                            <div className="flex flex-col text-xs gap-1">
-                              <div className="flex items-center gap-1.5">
-                                <div className="w-1.5 h-1.5 rounded-full bg-green"></div>
-                                <span className="font-medium text-primarytext">
-                                  {v.start_point || "?"}
+                            <div className="flex flex-col gap-0.5">
+                              <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-green shadow-sm"></div>
+                                <span className="text-sm font-medium text-primarytext">
+                                  {v.start_point || "-"}
                                 </span>
                               </div>
-                              <div className="h-3 border-l border-gray-200 ml-[3px]"></div>
-                              <div className="flex items-center gap-1.5">
-                                <div className="w-1.5 h-1.5 rounded-full bg-red"></div>
-                                <span className="font-medium text-primarytext">
-                                  {v.end_point || "?"}
+                              <div className="ml-1 h-4 border-l-2 border-dashed border-secondarytext/30"></div>
+                              <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-red shadow-sm"></div>
+                                <span className="text-sm font-medium text-primarytext">
+                                  {v.end_point || "-"}
                                 </span>
                               </div>
                             </div>
                           ) : (
-                            <span className="text-secondarytext">-</span>
+                            <span className="text-secondarytext text-sm">
+                              -
+                            </span>
                           )}
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-6 py-5 text-center">
                           <span
-                            className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full border ${
+                            className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-md min-w-24 ${
                               v.status === "available"
-                                ? "bg-green/10 text-green border-green/20"
+                                ? "bg-green/10 text-green"
                                 : v.status === "not_available"
-                                  ? "bg-red-100 text-red-600 border-red-200"
-                                  : "bg-pending/10 text-pending border-pending/20"
+                                  ? "bg-red/10 text-red"
+                                  : "bg-pending/10 text-pending"
                             }`}
                           >
                             {v.status === "available" ? (
-                              <CheckCircle size={12} />
+                              <CheckCircle size={14} />
                             ) : v.status === "not_available" ? (
-                              <AlertCircle size={12} />
+                              <AlertCircle size={14} />
                             ) : (
-                              <AlertCircle size={12} />
+                              <AlertCircle size={14} />
                             )}
                             {v.status === "available"
                               ? "Available"
@@ -1033,37 +1086,23 @@ export default function Vehicles() {
                                 : "In Service"}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-right">
-                          <div className="flex justify-end gap-2">
-                            <button
-                              className="p-2 text-secondarytext hover:text-primary hover:bg-primary/10 rounded-md transition-all"
-                              onClick={() => handleEdit(v)}
-                              title="Edit Vehicle"
-                            >
-                              <Edit2 size={16} />
-                            </button>
-                            <button
-                              className="p-2 text-secondarytext hover:text-red hover:bg-red/10 rounded-md transition-all"
-                              onClick={() => handleDelete(v.id)}
-                              title="Delete Vehicle"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        </td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td
-                        colSpan="6"
-                        className="px-6 py-12 text-center text-secondarytext"
-                      >
-                        <div className="flex flex-col items-center gap-3">
-                          <div className="w-12 h-12 bg-primarybg rounded-full flex items-center justify-center">
-                            <Bus size={24} className="text-secondarytext" />
+                      <td colSpan="5" className="px-6 py-16 text-center">
+                        <div className="flex flex-col items-center gap-4">
+                          <div className="w-16 h-16 bg-primarybg rounded-md flex items-center justify-center">
+                            <Bus size={32} className="text-secondarytext/50" />
                           </div>
-                          <p>No vehicles found. Add one to get started.</p>
+                          <div>
+                            <p className="text-primarytext font-medium mb-1">
+                              No vehicles found
+                            </p>
+                            <p className="text-secondarytext text-sm">
+                              Add a vehicle to get started
+                            </p>
+                          </div>
                         </div>
                       </td>
                     </tr>
@@ -1072,6 +1111,256 @@ export default function Vehicles() {
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Vehicle Detail Modal */}
+      {showDetailModal && selectedVehicle && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => setShowDetailModal(false)}
+        >
+          <div
+            className="bg-secondarybg rounded-md shadow-2xl w-full max-w-lg overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="px-6 py-5 border-b border-gray-100 flex items-start justify-between">
+              <div className="flex items-center gap-4">
+                <div
+                  className={`p-3 rounded-md ${
+                    selectedVehicle.vehicle_type === "BUS"
+                      ? "bg-primary text-white"
+                      : selectedVehicle.vehicle_type === "CAR"
+                        ? "bg-green text-white"
+                        : selectedVehicle.vehicle_type === "BATTERY_VEHICLE"
+                          ? "bg-pending text-white"
+                          : "bg-secondarytext text-white"
+                  }`}
+                >
+                  {selectedVehicle.vehicle_type === "BUS" ? (
+                    <Bus size={24} />
+                  ) : selectedVehicle.vehicle_type === "CAR" ? (
+                    <Car size={24} />
+                  ) : selectedVehicle.vehicle_type === "BATTERY_VEHICLE" ? (
+                    <Zap size={24} />
+                  ) : (
+                    <Truck size={24} />
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-primarytext">
+                    {getVehicleLabel(selectedVehicle)}
+                  </h3>
+                  <p className="text-sm text-secondarytext mt-0.5">
+                    {selectedVehicle.vehicle_number} •{" "}
+                    {getVehicleTypeLabel(selectedVehicle.vehicle_type)}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowDetailModal(false)}
+                className="p-2 text-secondarytext hover:text-primarytext hover:bg-primarybg rounded-md transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                {/* Vehicle Information */}
+                <div className="bg-primarybg rounded-md p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Bus size={16} className="text-primary" />
+                    <h4 className="text-sm font-bold text-secondarytext uppercase tracking-wide">
+                      Vehicle Information
+                    </h4>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-secondarytext">
+                        Vehicle Number
+                      </span>
+                      <span className="text-sm font-semibold text-primarytext font-mono">
+                        {selectedVehicle.vehicle_number}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-secondarytext">Type</span>
+                      <span className="text-sm font-semibold text-primarytext">
+                        {getVehicleTypeLabel(selectedVehicle.vehicle_type)}
+                      </span>
+                    </div>
+                    {selectedVehicle.vehicle_name && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-secondarytext">Name</span>
+                        <span className="text-sm font-semibold text-primarytext">
+                          {selectedVehicle.vehicle_name}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Specifications */}
+                <div className="bg-primarybg rounded-md p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Fuel size={16} className="text-primary" />
+                    <h4 className="text-sm font-bold text-secondarytext uppercase tracking-wide">
+                      Specifications
+                    </h4>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-secondarytext">
+                        Fuel Type
+                      </span>
+                      <span className="text-sm font-semibold text-primarytext">
+                        {selectedVehicle.fuel_type}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-secondarytext">
+                        Seating Capacity
+                      </span>
+                      <span className="text-sm font-semibold text-primarytext">
+                        {selectedVehicle.seating_capacity} Seats
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Route Details (for Bus) */}
+                {selectedVehicle.vehicle_type === "BUS" && (
+                  <div className="bg-primarybg rounded-md p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Calendar size={16} className="text-primary" />
+                      <h4 className="text-sm font-bold text-secondarytext uppercase tracking-wide">
+                        Route Details
+                      </h4>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-secondarytext">
+                          Start Point
+                        </span>
+                        <span className="text-sm font-semibold text-primarytext">
+                          {selectedVehicle.start_point || "-"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-secondarytext">
+                          End Point
+                        </span>
+                        <span className="text-sm font-semibold text-primarytext">
+                          {selectedVehicle.end_point || "-"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Status */}
+                <div className="bg-primarybg rounded-md p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <CheckCircle size={16} className="text-primary" />
+                    <h4 className="text-sm font-bold text-secondarytext uppercase tracking-wide">
+                      Status
+                    </h4>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-secondarytext">
+                        Current Status
+                      </span>
+                      <span
+                        className={`px-3 py-1 rounded-md text-xs font-semibold ${
+                          selectedVehicle.status === "available"
+                            ? "bg-green/20 text-green"
+                            : selectedVehicle.status === "not_available"
+                              ? "bg-red/20 text-red"
+                              : "bg-pending/20 text-pending"
+                        }`}
+                      >
+                        {selectedVehicle.status === "available"
+                          ? "Available"
+                          : selectedVehicle.status === "not_available"
+                            ? "Not Available"
+                            : "In Service"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Expiry Details */}
+              {(selectedVehicle.insurance_expire_date ||
+                selectedVehicle.fc_expire_date ||
+                selectedVehicle.permit_expire_date) && (
+                <div className="bg-primarybg rounded-md p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Shield size={16} className="text-primary" />
+                    <h4 className="text-sm font-bold text-secondarytext uppercase tracking-wide">
+                      Documents & Expiry
+                    </h4>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="text-center p-3 bg-secondarybg rounded-md border border-gray-100">
+                      <p className="text-xs text-secondarytext mb-1">
+                        Insurance
+                      </p>
+                      <p className="text-sm font-semibold text-primarytext">
+                        {formatDate(selectedVehicle.insurance_expire_date)}
+                      </p>
+                    </div>
+                    <div className="text-center p-3 bg-secondarybg rounded-md border border-gray-100">
+                      <p className="text-xs text-secondarytext mb-1">FC</p>
+                      <p className="text-sm font-semibold text-primarytext">
+                        {formatDate(selectedVehicle.fc_expire_date)}
+                      </p>
+                    </div>
+                    <div className="text-center p-3 bg-secondarybg rounded-md border border-gray-100">
+                      <p className="text-xs text-secondarytext mb-1">Permit</p>
+                      <p className="text-sm font-semibold text-primarytext">
+                        {formatDate(selectedVehicle.permit_expire_date)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer with Actions */}
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end items-center gap-3">
+              <button
+                onClick={() => setShowDetailModal(false)}
+                className="px-5 py-2.5 text-secondarytext hover:text-primarytext hover:bg-primarybg rounded-md font-semibold transition-colors text-sm"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  setShowDetailModal(false);
+                  handleDelete(selectedVehicle.id);
+                }}
+                className="px-5 py-2.5 border border-red text-red hover:bg-red/10 rounded-md font-semibold transition-colors text-sm flex items-center gap-2"
+              >
+                <Trash2 size={16} />
+                Delete
+              </button>
+              <button
+                onClick={() => {
+                  setShowDetailModal(false);
+                  handleEdit(selectedVehicle);
+                }}
+                className="px-5 py-2.5 bg-primary text-white rounded-md font-semibold hover:bg-primarydull transition-colors text-sm flex items-center gap-2"
+              >
+                <Edit2 size={16} />
+                Edit Vehicle
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1113,7 +1402,7 @@ export default function Vehicles() {
                       }
                       className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-md text-sm font-medium border transition-all ${
                         vehicleForm.vehicle_type === type
-                          ? "bg-[var(--color-primary)]/10 border-[var(--color-primary)] text-[var(--color-primary)] ring-1 ring-[var(--color-primary)]"
+                          ? "bg-primary/10 border-primary text-primary ring-1 ring-primary"
                           : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
                       }`}
                     >
@@ -1150,14 +1439,14 @@ export default function Vehicles() {
                   </label>
                   <input
                     placeholder="e.g., Route A Express or Staff Car"
-                    value={vehicleForm.bus_name}
+                    value={vehicleForm.vehicle_name}
                     onChange={(e) =>
                       setVehicleForm({
                         ...vehicleForm,
-                        bus_name: e.target.value,
+                        vehicle_name: e.target.value,
                       })
                     }
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none transition-all"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
                   />
                 </div>
 
@@ -1174,7 +1463,7 @@ export default function Vehicles() {
                         vehicle_number: e.target.value.toUpperCase(),
                       })
                     }
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none font-mono uppercase transition-all"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none font-mono uppercase transition-all"
                   />
                 </div>
 
@@ -1190,7 +1479,7 @@ export default function Vehicles() {
                         status: e.target.value,
                       })
                     }
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-white transition-all"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white transition-all"
                   >
                     <option value="available">✅ Available</option>
                     <option value="in_service">🚌 In Service</option>
@@ -1213,7 +1502,7 @@ export default function Vehicles() {
                         fuel_type: e.target.value,
                       })
                     }
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-white transition-all"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white transition-all"
                   >
                     <option value="DIESEL">🛢️ Diesel</option>
                     <option value="PETROL">⛽ Petrol</option>
@@ -1234,7 +1523,7 @@ export default function Vehicles() {
                         seating_capacity: parseInt(e.target.value) || 0,
                       })
                     }
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none transition-all"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
                     min="0"
                   />
                 </div>
@@ -1260,7 +1549,7 @@ export default function Vehicles() {
                             start_point: e.target.value,
                           })
                         }
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-white transition-all"
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white transition-all"
                       />
                     </div>
                     <div>
@@ -1276,7 +1565,7 @@ export default function Vehicles() {
                             end_point: e.target.value,
                           })
                         }
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-white transition-all"
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white transition-all"
                       />
                     </div>
                   </div>
@@ -1302,7 +1591,7 @@ export default function Vehicles() {
                           insurance_expire_date: e.target.value,
                         })
                       }
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-white transition-all"
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white transition-all"
                     />
                   </div>
                   <div>
@@ -1318,7 +1607,7 @@ export default function Vehicles() {
                           fc_expire_date: e.target.value,
                         })
                       }
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-white transition-all"
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white transition-all"
                     />
                   </div>
                   <div>
@@ -1334,7 +1623,7 @@ export default function Vehicles() {
                           permit_expire_date: e.target.value,
                         })
                       }
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none bg-white transition-all"
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white transition-all"
                     />
                   </div>
                 </div>
@@ -1342,7 +1631,7 @@ export default function Vehicles() {
 
               <button
                 onClick={handleSubmit}
-                className="w-full px-4 py-3 bg-[var(--color-primary)] text-white rounded-md hover:opacity-90 transition-all font-bold shadow-lg shadow-[var(--color-primary)]/25 hover:shadow-xl transform hover:-translate-y-0.5"
+                className="w-full px-4 py-3 bg-primary text-white rounded-md hover:opacity-90 transition-all font-bold shadow-lg shadow-primary/25 hover:shadow-xl transform hover:-translate-y-0.5"
               >
                 {isEditing ? "Update" : "Create"} Vehicle
               </button>

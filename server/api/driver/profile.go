@@ -29,6 +29,8 @@ type DriverProfile struct {
 	LicenseType     string `json:"license_type"`
 	LicenseExpiry   string `json:"license_expiry"`
 	ExperienceYears int    `json:"experience_years"`
+	DateOfJoining   string `json:"date_of_joining"`
+	DateOfRelieving string `json:"date_of_relieving"`
 	IsIncharge      bool   `json:"is_incharge"`
 	Status          string `json:"status"`
 }
@@ -124,7 +126,10 @@ func GetDriverProfile(c *gin.Context) {
 			COALESCE(u.email, '') as email,
 			d.license_number, d.license_type, 
 			DATE_FORMAT(d.license_expiry, '%d-%m-%Y') as license_expiry,
-			d.experience_years, d.is_incharge,
+			d.experience_years, 
+			DATE_FORMAT(d.date_of_joining, '%d-%m-%Y') as date_of_joining,
+			DATE_FORMAT(d.date_of_relieving, '%d-%m-%Y') as date_of_relieving,
+			d.is_incharge,
 			CASE 
 				WHEN EXISTS(SELECT 1 FROM leave_requests lr 
 				            WHERE lr.driver_id = d.id 
@@ -142,7 +147,8 @@ func GetDriverProfile(c *gin.Context) {
 		&profile.ID, &profile.UserID, &profile.FullName,
 		&profile.Phone, &profile.Email, &profile.LicenseNumber,
 		&profile.LicenseType, &profile.LicenseExpiry,
-		&profile.ExperienceYears, &profile.IsIncharge, &profile.Status,
+		&profile.ExperienceYears, &profile.DateOfJoining, &profile.DateOfRelieving,
+		&profile.IsIncharge, &profile.Status,
 	)
 
 	if err != nil {

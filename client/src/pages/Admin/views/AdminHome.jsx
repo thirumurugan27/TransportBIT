@@ -48,7 +48,9 @@ export default function AdminHome() {
         const alertsData = await alertsRes.json();
         setStats(statsData);
         setRecentAssignments((assignmentsData || []).slice(0, 4));
-        setVehicleAlerts(alertsData || { alerts: [], expired: 0, critical: 0, total: 0 });
+        setVehicleAlerts(
+          alertsData || {alerts: [], expired: 0, critical: 0, total: 0},
+        );
       } catch (err) {
         console.error(err);
       } finally {
@@ -156,7 +158,7 @@ export default function AdminHome() {
         <div className="bg-secondarybg p-8 rounded-md shadow-sm border border-gray-100">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-bold text-primarytext flex items-center gap-3">
-              <span className="w-1.5 h-6 bg-primary rounded-full"></span>
+              <span className="w-1.5 h-6 bg-primary rounded-md"></span>
               Recent Assignments
             </h2>
             <button
@@ -169,7 +171,7 @@ export default function AdminHome() {
           <div className="space-y-4">
             {loading ? (
               <div className="flex justify-center py-8">
-                <div className="w-8 h-8 border-4 border-primarybg border-t-primary rounded-full animate-spin"></div>
+                <div className="w-8 h-8 border-4 border-primarybg border-t-primary rounded-md animate-spin"></div>
               </div>
             ) : recentAssignments.length > 0 ? (
               recentAssignments.map((assignment, i) => (
@@ -192,12 +194,12 @@ export default function AdminHome() {
                     </div>
                   </div>
                   <span
-                    className={`px-3 py-1 rounded-full text-[10px] uppercase font-bold tracking-wider ${
+                    className={`px-3 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider ${
                       assignment.status === "completed"
                         ? "bg-green/10 text-green"
                         : assignment.status === "in_progress"
-                        ? "bg-primary/10 text-primary"
-                        : "bg-pending/10 text-pending"
+                          ? "bg-primary/10 text-primary"
+                          : "bg-pending/10 text-pending"
                     }`}
                   >
                     {assignment.status || "Pending"}
@@ -216,7 +218,7 @@ export default function AdminHome() {
         <div className="bg-secondarybg p-8 rounded-md shadow-sm border border-gray-100">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-bold text-primarytext flex items-center gap-3">
-              <span className="w-1.5 h-6 bg-green rounded-full"></span>
+              <span className="w-1.5 h-6 bg-green rounded-md"></span>
               Fleet Health
             </h2>
             <Fuel className="w-5 h-5 text-gray-300" />
@@ -230,9 +232,9 @@ export default function AdminHome() {
                 </span>
                 <span className="text-primary font-bold">{vehicleUsage}%</span>
               </div>
-              <div className="h-3 bg-primarybg rounded-full overflow-hidden">
+              <div className="h-3 bg-primarybg rounded-md overflow-hidden">
                 <div
-                  className="h-full bg-primary rounded-full transition-all duration-500 ease-out"
+                  className="h-full bg-primary rounded-md transition-all duration-500 ease-out"
                   style={{width: `${Math.min(vehicleUsage, 100)}%`}}
                 ></div>
               </div>
@@ -248,9 +250,9 @@ export default function AdminHome() {
                   {driverAvailability}%
                 </span>
               </div>
-              <div className="h-3 bg-primarybg rounded-full overflow-hidden">
+              <div className="h-3 bg-primarybg rounded-md overflow-hidden">
                 <div
-                  className="h-full bg-green rounded-full transition-all duration-500 ease-out"
+                  className="h-full bg-green rounded-md transition-all duration-500 ease-out"
                   style={{width: `${Math.min(driverAvailability, 100)}%`}}
                 ></div>
               </div>
@@ -308,20 +310,40 @@ export default function AdminHome() {
 
       {/* Vehicle Document Alert Section */}
       {vehicleAlerts.total > 0 && (
-        <div className={`${vehicleAlerts.expired > 0 ? 'bg-red/10 border-red/20' : 'bg-pending/10 border-pending/20'} border rounded-md p-6 flex items-center justify-between`}>
+        <div
+          className={`${vehicleAlerts.expired > 0 ? "bg-red/10 border-red/20" : "bg-pending/10 border-pending/20"} border rounded-md p-6 flex items-center justify-between`}
+        >
           <div className="flex items-center gap-4">
-            <div className={`w-12 h-12 ${vehicleAlerts.expired > 0 ? 'bg-red/20' : 'bg-pending/20'} rounded-md flex items-center justify-center`}>
-              <Shield className={`w-6 h-6 ${vehicleAlerts.expired > 0 ? 'text-red' : 'text-pending'}`} />
+            <div
+              className={`w-12 h-12 ${vehicleAlerts.expired > 0 ? "bg-red/20" : "bg-pending/20"} rounded-md flex items-center justify-center`}
+            >
+              <Shield
+                className={`w-6 h-6 ${vehicleAlerts.expired > 0 ? "text-red" : "text-pending"}`}
+              />
             </div>
             <div>
-              <h3 className={`font-bold ${vehicleAlerts.expired > 0 ? 'text-red' : 'text-pending'}`}>
+              <h3
+                className={`font-bold ${vehicleAlerts.expired > 0 ? "text-red" : "text-pending"}`}
+              >
                 ⚠️ Vehicle Document Alerts
               </h3>
-              <p className={`text-sm ${vehicleAlerts.expired > 0 ? 'text-red/80' : 'text-pending/80'}`}>
-                {vehicleAlerts.expired > 0 && <span className="font-semibold">{vehicleAlerts.expired} vehicle(s) with expired documents</span>}
-                {vehicleAlerts.expired > 0 && vehicleAlerts.critical > 0 && ' • '}
-                {vehicleAlerts.critical > 0 && <span>{vehicleAlerts.critical} vehicle(s) expiring within 10 days</span>}
-                {' — Insurance, FC, or Permit'}
+              <p
+                className={`text-sm ${vehicleAlerts.expired > 0 ? "text-red/80" : "text-pending/80"}`}
+              >
+                {vehicleAlerts.expired > 0 && (
+                  <span className="font-semibold">
+                    {vehicleAlerts.expired} vehicle(s) with expired documents
+                  </span>
+                )}
+                {vehicleAlerts.expired > 0 &&
+                  vehicleAlerts.critical > 0 &&
+                  " • "}
+                {vehicleAlerts.critical > 0 && (
+                  <span>
+                    {vehicleAlerts.critical} vehicle(s) expiring within 10 days
+                  </span>
+                )}
+                {" — Insurance, FC, or Permit"}
               </p>
             </div>
           </div>
@@ -331,12 +353,6 @@ export default function AdminHome() {
               className="px-4 py-2 bg-primary hover:bg-primarydull text-white rounded-md font-medium transition-colors text-sm"
             >
               Manage Replacements
-            </button>
-            <button
-              onClick={() => navigate("/admin-dashboard/insurance-fc-status")}
-              className={`px-4 py-2 ${vehicleAlerts.expired > 0 ? 'bg-red hover:bg-red/90' : 'bg-pending hover:bg-pending/90'} text-white rounded-md font-medium transition-colors text-sm`}
-            >
-              View Status
             </button>
           </div>
         </div>

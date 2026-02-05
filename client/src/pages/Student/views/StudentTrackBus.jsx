@@ -82,12 +82,12 @@ export default function StudentTrackBus() {
                 onClick={() => toggleExpand(bus.id)}
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold">
+                  <div className="w-10 h-10 bg-blue-100 rounded-md flex items-center justify-center text-blue-600 font-bold">
                     {bus.vehicle_number?.substring(0, 2)}
                   </div>
                   <div>
                     <h3 className="font-bold text-gray-800">
-                      {bus.bus_name || bus.vehicle_number}
+                      {bus.vehicle_name || bus.vehicle_number}
                     </h3>
                     <div className="text-sm text-gray-500 flex items-center gap-2">
                       <span>{bus.start_point || "Start"}</span>
@@ -97,7 +97,7 @@ export default function StudentTrackBus() {
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                  <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                  <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-md">
                     {bus.total_stops} Stops
                   </span>
                   {expandedBus === bus.id ? (
@@ -132,7 +132,7 @@ export default function StudentTrackBus() {
                             key={stop.id}
                             className="relative flex items-start gap-4 p-2 hover:bg-white rounded-md transition-colors"
                           >
-                            <div className="z-10 w-8 h-8 rounded-full bg-white border-2 border-blue-500 flex items-center justify-center shrink-0 text-xs font-bold text-blue-600">
+                            <div className="z-10 w-8 h-8 rounded-md bg-white border-2 border-blue-500 flex items-center justify-center shrink-0 text-xs font-bold text-blue-600">
                               {index + 1}
                             </div>
                             <div className="flex-1">

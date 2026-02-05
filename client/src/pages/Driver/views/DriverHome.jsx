@@ -137,7 +137,7 @@ export default function DriverHome() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-linear-to-r from-primary to-primarydull rounded-md p-8 text-white shadow-xl relative">
+      <div className="bg-primary rounded-md p-8 text-white shadow-xl relative">
         <div className="flex justify-between items-start">
           <div>
             <h2 className="text-3xl font-bold mb-2">
@@ -151,11 +151,11 @@ export default function DriverHome() {
           <div className="relative">
             <button
               onClick={() => setShowNotifications(!showNotifications)}
-              className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors relative"
+              className="p-2 rounded-md bg-white/10 hover:bg-white/20 transition-colors relative"
             >
               <Bell className="w-6 h-6" />
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
+                <span className="absolute -top-1 -right-1 bg-red text-white text-xs w-5 h-5 rounded-md flex items-center justify-center font-bold">
                   {unreadCount > 9 ? "9+" : unreadCount}
                 </span>
               )}
@@ -172,7 +172,7 @@ export default function DriverHome() {
               <Bell className="w-5 h-5 text-primary" />
               Notifications
               {unreadCount > 0 && (
-                <span className="px-2 py-0.5 bg-primary/10 text-primary text-xs rounded-full">
+                <span className="px-2 py-0.5 bg-primary/10 text-primary text-xs rounded-md">
                   {unreadCount} new
                 </span>
               )}
@@ -203,7 +203,7 @@ export default function DriverHome() {
                 >
                   <div className="flex gap-3">
                     <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${!notif.is_read ? "bg-primary/10" : "bg-gray-100"}`}
+                      className={`w-10 h-10 rounded-md flex items-center justify-center shrink-0 ${!notif.is_read ? "bg-primary/10" : "bg-gray-100"}`}
                     >
                       {getNotificationIcon(notif.type)}
                     </div>
@@ -266,7 +266,7 @@ export default function DriverHome() {
                 {vehicleAlerts.alerts?.map((v) => (
                   <div key={v.id} className="text-sm">
                     <span className="font-semibold text-primarytext">
-                      {v.vehicle_number}
+                      {v.vehicle_name || v.vehicle_number}
                     </span>
                     <span className="text-secondarytext ml-1">
                       ({v.vehicle_type})
@@ -337,14 +337,14 @@ export default function DriverHome() {
                     <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-green"></div>
 
                     {/* EV Badge */}
-                    <div className="absolute top-2 right-2 flex items-center gap-1 bg-green text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                    <div className="absolute top-2 right-2 flex items-center gap-1 bg-green text-white text-xs font-bold px-2 py-0.5 rounded-md">
                       <Zap size={12} />
                       EV Assignment
                     </div>
 
                     <div className="flex flex-col md:flex-row md:items-center gap-5 pl-2">
                       {/* Icon */}
-                      <div className="p-3 rounded-full shrink-0 bg-green/10 text-green">
+                      <div className="p-3 rounded-md shrink-0 bg-green/10 text-green">
                         <Zap size={24} />
                       </div>
 
@@ -358,10 +358,10 @@ export default function DriverHome() {
                             {assignment.vehicle_group_name}
                           </p>
                           <div className="flex flex-wrap gap-2 mt-1">
-                            <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-green/10 text-green">
+                            <span className="text-xs font-medium px-1.5 py-0.5 rounded-md bg-green/10 text-green">
                               EV
                             </span>
-                            <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                            <span className="text-xs font-medium px-1.5 py-0.5 rounded-md bg-primary/10 text-primary">
                               {assignment.group_vehicles?.length || 0} Vehicles
                             </span>
                           </div>
@@ -432,7 +432,7 @@ export default function DriverHome() {
                   <div className="flex flex-col md:flex-row md:items-center gap-5 pl-2">
                     {/* Icon */}
                     <div
-                      className={`p-3 rounded-full shrink-0 ${
+                      className={`p-3 rounded-md shrink-0 ${
                         isTemp
                           ? "bg-pending/10 text-pending"
                           : "bg-primarybg text-primary group-hover:bg-primary group-hover:text-white transition-colors"
@@ -452,10 +452,10 @@ export default function DriverHome() {
                           Vehicle
                         </p>
                         <p className="font-bold text-primarytext text-lg">
-                          {assignment.vehicle_number}
+                          {assignment.vehicle_name || assignment.vehicle_number}
                         </p>
                         <span
-                          className={`text-xs font-medium px-1.5 py-0.5 rounded ${
+                          className={`text-xs font-medium px-1.5 py-0.5 rounded-md ${
                             isTemp
                               ? "bg-pending/10 text-pending"
                               : "bg-green/10 text-green"
@@ -501,7 +501,7 @@ export default function DriverHome() {
                           Status
                         </p>
                         <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold ${
                             assignment.status === "completed"
                               ? "bg-green/10 text-green"
                               : isTemp
@@ -512,7 +512,7 @@ export default function DriverHome() {
                           {assignment.status === "completed" ? (
                             <CheckCircle2 size={12} />
                           ) : (
-                            <div className="w-2 h-2 rounded-full bg-current animate-pulse" />
+                            <div className="w-2 h-2 rounded-md bg-current animate-pulse" />
                           )}
                           {assignment.status || "Scheduled"}
                         </span>
@@ -525,7 +525,7 @@ export default function DriverHome() {
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-10 text-center bg-gray-50 rounded-md border border-dashed border-gray-200">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-3">
+            <div className="w-16 h-16 bg-gray-100 rounded-md flex items-center justify-center mb-3">
               <AlertCircle className="w-8 h-8 text-gray-400" />
             </div>
             <p className="text-secondarytext font-medium">
@@ -541,11 +541,11 @@ export default function DriverHome() {
       {/* EV Assignment Details Modal */}
       {selectedEVAssignment && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden">
+          <div className="bg-white rounded-md shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden">
             {/* Header */}
             <div className="bg-gradient-to-r from-green to-green-600 text-white p-5 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-white/20 rounded-lg">
+                <div className="p-2 bg-white/20 rounded-md">
                   <Zap size={24} />
                 </div>
                 <div>
@@ -557,7 +557,7 @@ export default function DriverHome() {
               </div>
               <button
                 onClick={() => setSelectedEVAssignment(null)}
-                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                className="p-2 hover:bg-white/20 rounded-md transition-colors"
               >
                 <X size={20} />
               </button>
@@ -566,7 +566,7 @@ export default function DriverHome() {
             {/* Content */}
             <div className="p-5 space-y-5 max-h-[60vh] overflow-y-auto">
               {/* Time Info */}
-              <div className="flex items-center gap-3 p-3 bg-green/5 rounded-lg">
+              <div className="flex items-center gap-3 p-3 bg-green/5 rounded-md">
                 <Clock className="text-green" size={20} />
                 <div>
                   <p className="text-xs text-secondarytext">Shift Time</p>
@@ -587,12 +587,12 @@ export default function DriverHome() {
                   {selectedEVAssignment.group_vehicles?.map((vehicle) => (
                     <div
                       key={vehicle.id}
-                      className="p-3 bg-gray-50 rounded-lg border border-gray-100"
+                      className="p-3 bg-gray-50 rounded-md border border-gray-100"
                     >
                       <p className="font-medium text-primarytext">
-                        {vehicle.vehicle_number}
+                        {vehicle.vehicle_name || vehicle.vehicle_number}
                       </p>
-                      <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-green/10 text-green">
+                      <span className="text-xs font-medium px-1.5 py-0.5 rounded-md bg-green/10 text-green">
                         {vehicle.fuel_type}
                       </span>
                     </div>
@@ -616,9 +616,9 @@ export default function DriverHome() {
                   {selectedEVAssignment.group_drivers?.map((driver) => (
                     <div
                       key={driver.id}
-                      className="p-3 bg-gray-50 rounded-lg border border-gray-100 flex items-center gap-2"
+                      className="p-3 bg-gray-50 rounded-md border border-gray-100 flex items-center gap-2"
                     >
-                      <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-primary font-bold text-sm">
+                      <div className="w-8 h-8 bg-primary/10 rounded-md flex items-center justify-center text-primary font-bold text-sm">
                         {driver.name?.charAt(0).toUpperCase()}
                       </div>
                       <p className="font-medium text-primarytext text-sm">
@@ -636,10 +636,10 @@ export default function DriverHome() {
               </div>
 
               {/* Status */}
-              <div className="flex items-center justify-between p-3 bg-green/5 rounded-lg">
+              <div className="flex items-center justify-between p-3 bg-green/5 rounded-md">
                 <span className="text-secondarytext">Status</span>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-green/10 text-green">
-                  <div className="w-2 h-2 rounded-full bg-green animate-pulse" />
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-green/10 text-green">
+                  <div className="w-2 h-2 rounded-md bg-green animate-pulse" />
                   {selectedEVAssignment.status}
                 </span>
               </div>
@@ -649,7 +649,7 @@ export default function DriverHome() {
             <div className="p-4 border-t border-gray-100">
               <button
                 onClick={() => setSelectedEVAssignment(null)}
-                className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-primarytext font-medium rounded-lg transition-colors"
+                className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-primarytext font-medium rounded-md transition-colors"
               >
                 Close
               </button>

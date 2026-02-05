@@ -528,14 +528,14 @@ export default function ScheduleManagement() {
                               shift.slots.map((slot, idx) => (
                                 <span
                                   key={idx}
-                                  className="bg-white border border-gray-200 px-3 py-1 rounded-full text-xs font-medium text-primary shadow-sm"
+                                  className="bg-white border border-gray-200 px-3 py-1 rounded-md text-xs font-medium text-primary shadow-sm"
                                 >
                                   {formatTimeAMPM(slot.start_time)} -{" "}
                                   {formatTimeAMPM(slot.end_time)}
                                 </span>
                               ))
                             ) : (
-                              <span className="bg-white border border-gray-200 px-3 py-1 rounded-full text-xs font-medium text-primary shadow-sm">
+                              <span className="bg-white border border-gray-200 px-3 py-1 rounded-md text-xs font-medium text-primary shadow-sm">
                                 {formatTimeAMPM(shift.start_time)} -{" "}
                                 {formatTimeAMPM(shift.end_time)}
                               </span>
@@ -779,7 +779,7 @@ export default function ScheduleManagement() {
                   <div>
                     <h4 className="flex justify-between items-center text-sm font-bold text-primary border-b border-gray-100 pb-2 mb-4 mt-6">
                       <span>Select Drivers</span>
-                      <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
+                      <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-md">
                         {clusterForm.driver_ids.length} Selected
                       </span>
                     </h4>
@@ -830,7 +830,7 @@ export default function ScheduleManagement() {
                               >
                                 <div className="flex items-center gap-3">
                                   <div
-                                    className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${
+                                    className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${
                                       isSelected
                                         ? "bg-primary border-primary"
                                         : "bg-white border-gray-300"
@@ -921,7 +921,7 @@ export default function ScheduleManagement() {
                       <label className="block text-xs font-bold text-secondarytext uppercase tracking-widest">
                         Time Slots
                       </label>
-                      <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-medium">
+                      <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-md font-medium">
                         {shiftForm.slots.length} slot
                         {shiftForm.slots.length !== 1 ? "s" : ""}
                       </span>

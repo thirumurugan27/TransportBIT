@@ -79,12 +79,6 @@ export const adminMenuConfig = {
       path: "/attendance-records",
     },
     {
-      key: "insuranceFCStatus",
-      label: "Insurance & FC Status",
-      icon: <VehicleIcon />,
-      path: "/insurance-fc-status",
-    },
-    {
       key: "fcReplacement",
       label: "FC Replacements",
       icon: <AssignmentIcon />,
@@ -257,18 +251,6 @@ export const facultyMenuConfig = {
       label: "Dashboard",
       icon: <DashboardIcon />,
       path: "",
-    },
-    {
-      key: "bookCar",
-      label: "Book a Car",
-      icon: <VehicleIcon />,
-      path: "/book-car",
-    },
-    {
-      key: "myBookings",
-      label: "My Bookings",
-      icon: <AssignmentIcon />,
-      path: "/my-bookings",
     },
     {
       key: "profile",

@@ -61,7 +61,7 @@ const getVehicleTypeBadge = (type) => {
   };
   return (
     <span
-      className={`px-2 py-0.5 rounded-full text-xs font-medium ${colors[typeStr] || "bg-gray-100 text-gray-700"}`}
+      className={`px-2 py-0.5 rounded-md text-xs font-medium ${colors[typeStr] || "bg-gray-100 text-gray-700"}`}
     >
       {typeStr}
     </span>
@@ -454,7 +454,7 @@ export default function KmManagement() {
   return (
     <div className="space-y-6 pb-12">
       {/* Header with Tabs */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-md shadow-sm border border-gray-100 overflow-hidden">
         <div className="px-6 py-5 border-b border-gray-100">
           <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
             <Route size={28} className="text-primary" />
@@ -500,7 +500,7 @@ export default function KmManagement() {
       {activeTab === "summary" && (
         <>
           {/* Summary Filters */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+          <div className="bg-white rounded-md shadow-sm border border-gray-100">
             <div className="px-6 py-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-2 text-gray-700 font-semibold">
                 <Filter size={18} className="text-primary" />
@@ -538,7 +538,7 @@ export default function KmManagement() {
                         onClick={() =>
                           updateSummaryFilter("period", preset.value)
                         }
-                        className={`px-3 py-2 text-xs font-semibold rounded-full border transition-all ${
+                        className={`px-3 py-2 text-xs font-semibold rounded-md border transition-all ${
                           isActive
                             ? "bg-primary text-white border-primary shadow"
                             : "border-gray-200 text-gray-600 hover:border-primary/40"
@@ -581,9 +581,9 @@ export default function KmManagement() {
                   options={(filterMeta.vehicles || []).map((vehicle) => ({
                     value: vehicle.id,
                     label:
-                      vehicle.bus_name &&
-                      vehicle.bus_name !== vehicle.vehicle_number
-                        ? `${vehicle.bus_name} (${vehicle.vehicle_number})`
+                      vehicle.vehicle_name &&
+                      vehicle.vehicle_name !== vehicle.vehicle_number
+                        ? `${vehicle.vehicle_name} (${vehicle.vehicle_number})`
                         : vehicle.vehicle_number,
                     subtitle: vehicle.vehicle_type,
                   }))}
@@ -607,7 +607,7 @@ export default function KmManagement() {
                     onChange={(e) =>
                       updateSummaryFilter("startDate", e.target.value)
                     }
-                    className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="border border-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                   <input
                     type="date"
@@ -616,7 +616,7 @@ export default function KmManagement() {
                     onChange={(e) =>
                       updateSummaryFilter("endDate", e.target.value)
                     }
-                    className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="border border-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 </div>
               </div>
@@ -627,7 +627,7 @@ export default function KmManagement() {
                 {activeBadges.map((label, idx) => (
                   <span
                     key={`${label}-${idx}`}
-                    className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-white border border-primary/20 text-primary shadow-sm"
+                    className="inline-flex items-center gap-2 px-3 py-1 rounded-md text-xs font-semibold bg-white border border-primary/20 text-primary shadow-sm"
                   >
                     {label}
                   </span>
@@ -638,7 +638,7 @@ export default function KmManagement() {
 
           {loading ? (
             <div className="flex justify-center p-20">
-              <div className="animate-spin inline-block w-8 h-8 border-4 border-current border-t-transparent text-primary rounded-full"></div>
+              <div className="animate-spin inline-block w-8 h-8 border-4 border-current border-t-transparent text-primary rounded-md"></div>
             </div>
           ) : (
             <>
@@ -646,10 +646,10 @@ export default function KmManagement() {
               {(selectedDriver || selectedVehicle) && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {selectedDriver && (
-                    <div className="bg-white rounded-xl border border-primary/20 shadow-sm p-5 flex flex-col gap-4">
+                    <div className="bg-white rounded-md border border-primary/20 shadow-sm p-5 flex flex-col gap-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className="p-3 rounded-full bg-primary/10 text-primary">
+                          <div className="p-3 rounded-md bg-primary/10 text-primary">
                             <User size={22} />
                           </div>
                           <div>
@@ -661,7 +661,7 @@ export default function KmManagement() {
                             </p>
                           </div>
                         </div>
-                        <span className="text-xs font-semibold text-primary bg-primary/10 px-3 py-1 rounded-full">
+                        <span className="text-xs font-semibold text-primary bg-primary/10 px-3 py-1 rounded-md">
                           #{selectedDriver.driver_id}
                         </span>
                       </div>
@@ -699,10 +699,10 @@ export default function KmManagement() {
                     </div>
                   )}
                   {selectedVehicle && (
-                    <div className="bg-white rounded-xl border border-emerald-100 shadow-sm p-5 flex flex-col gap-4">
+                    <div className="bg-white rounded-md border border-emerald-100 shadow-sm p-5 flex flex-col gap-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className="p-3 rounded-full bg-emerald-50 text-emerald-600">
+                          <div className="p-3 rounded-md bg-emerald-50 text-emerald-600">
                             <Truck size={22} />
                           </div>
                           <div>
@@ -717,7 +717,7 @@ export default function KmManagement() {
                             </p>
                           </div>
                         </div>
-                        <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full">
+                        <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-md">
                           #{selectedVehicle.vehicle_id}
                         </span>
                       </div>
@@ -760,12 +760,12 @@ export default function KmManagement() {
 
               {/* Stats Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 relative overflow-hidden group">
+                <div className="bg-white rounded-md p-6 shadow-sm border border-gray-100 relative overflow-hidden group">
                   <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                     <Map size={64} className="text-primary" />
                   </div>
                   <div className="flex items-center gap-4 relative z-10">
-                    <div className="p-3 bg-primary/10 rounded-lg text-primary">
+                    <div className="p-3 bg-primary/10 rounded-md text-primary">
                       <Map size={24} />
                     </div>
                     <div>
@@ -782,12 +782,12 @@ export default function KmManagement() {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 relative overflow-hidden group">
+                <div className="bg-white rounded-md p-6 shadow-sm border border-gray-100 relative overflow-hidden group">
                   <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                     <Route size={64} className="text-green-500" />
                   </div>
                   <div className="flex items-center gap-4 relative z-10">
-                    <div className="p-3 bg-green-50 rounded-lg text-green-600">
+                    <div className="p-3 bg-green-50 rounded-md text-green-600">
                       <Route size={24} />
                     </div>
                     <div>
@@ -801,12 +801,12 @@ export default function KmManagement() {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 relative overflow-hidden group">
+                <div className="bg-white rounded-md p-6 shadow-sm border border-gray-100 relative overflow-hidden group">
                   <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                     <TrendingUp size={64} className="text-amber-500" />
                   </div>
                   <div className="flex items-center gap-4 relative z-10">
-                    <div className="p-3 bg-amber-50 rounded-lg text-amber-600">
+                    <div className="p-3 bg-amber-50 rounded-md text-amber-600">
                       <TrendingUp size={24} />
                     </div>
                     <div>
@@ -823,12 +823,12 @@ export default function KmManagement() {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 relative overflow-hidden group">
+                <div className="bg-white rounded-md p-6 shadow-sm border border-gray-100 relative overflow-hidden group">
                   <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                     <Truck size={64} className="text-indigo-500" />
                   </div>
                   <div className="flex items-center gap-4 relative z-10">
-                    <div className="p-3 bg-indigo-50 rounded-lg text-indigo-600">
+                    <div className="p-3 bg-indigo-50 rounded-md text-indigo-600">
                       <Truck size={24} />
                     </div>
                     <div>
@@ -846,7 +846,7 @@ export default function KmManagement() {
               {/* Vehicle Types and Top Drivers */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* By Vehicle Type */}
-                <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col">
+                <div className="lg:col-span-2 bg-white rounded-md shadow-sm border border-gray-100 flex flex-col">
                   <div className="px-6 py-5 border-b border-gray-100">
                     <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
                       <Truck size={20} className="text-primary" />
@@ -867,13 +867,13 @@ export default function KmManagement() {
                         return (
                           <div
                             key={item.vehicle_type}
-                            className="bg-gray-50 rounded-lg p-5 border border-gray-100 hover:border-primary/30 hover:shadow-sm transition-all"
+                            className="bg-gray-50 rounded-md p-5 border border-gray-100 hover:border-primary/30 hover:shadow-sm transition-all"
                           >
                             <div className="flex items-start justify-between mb-4">
-                              <div className="p-2.5 bg-white rounded-lg shadow-sm text-gray-700">
+                              <div className="p-2.5 bg-white rounded-md shadow-sm text-gray-700">
                                 {getVehicleIcon(item.vehicle_type)}
                               </div>
-                              <span className="px-2.5 py-1 bg-primary/10 text-primary text-xs font-bold rounded-full">
+                              <span className="px-2.5 py-1 bg-primary/10 text-primary text-xs font-bold rounded-md">
                                 {percentage}%
                               </span>
                             </div>
@@ -890,9 +890,9 @@ export default function KmManagement() {
                               {item.total_trips} trips •{" "}
                               {formatNumber(item.avg_km_per_trip, 1)} km/trip
                             </p>
-                            <div className="w-full bg-gray-200 rounded-full h-1.5 mt-4 overflow-hidden">
+                            <div className="w-full bg-gray-200 rounded-md h-1.5 mt-4 overflow-hidden">
                               <div
-                                className="bg-primary h-full rounded-full transition-all duration-500"
+                                className="bg-primary h-full rounded-md transition-all duration-500"
                                 style={{width: `${percentage}%`}}
                               ></div>
                             </div>
@@ -911,7 +911,7 @@ export default function KmManagement() {
                 </div>
 
                 {/* Top Drivers */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col h-full">
+                <div className="bg-white rounded-md shadow-sm border border-gray-100 flex flex-col h-full">
                   <div className="px-6 py-5 border-b border-gray-100">
                     <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
                       <Award size={20} className="text-amber-500" />
@@ -924,10 +924,10 @@ export default function KmManagement() {
                         <div
                           key={d.driver_id}
                           onClick={() => viewDriverHistory(d.driver_id)}
-                          className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100 hover:border-primary/30 transition-all hover:bg-white hover:shadow-sm cursor-pointer group"
+                          className="flex items-center gap-3 p-3 bg-gray-50 rounded-md border border-gray-100 hover:border-primary/30 transition-all hover:bg-white hover:shadow-sm cursor-pointer group"
                         >
                           <div
-                            className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center font-bold text-xs ${
+                            className={`w-8 h-8 shrink-0 rounded-md flex items-center justify-center font-bold text-xs ${
                               i === 0
                                 ? "bg-amber-100 text-amber-700 ring-4 ring-amber-50"
                                 : i === 1
@@ -980,7 +980,7 @@ export default function KmManagement() {
               </div>
 
               {/* Individual Vehicles Table */}
-              <div className="bg-secondarybg rounded-xl shadow-sm border border-gray-100">
+              <div className="bg-secondarybg rounded-md shadow-sm border border-gray-100">
                 <div className="px-6 py-5 border-b border-gray-100">
                   <h3 className="text-lg font-bold text-primarytext flex items-center gap-2">
                     <Gauge size={20} className="text-primary" />
@@ -993,7 +993,7 @@ export default function KmManagement() {
                 <div className="p-6">
                   {vehicleSummaryLoading ? (
                     <div className="flex justify-center p-12">
-                      <div className="animate-spin inline-block w-7 h-7 border-4 border-current border-t-transparent text-primary rounded-full"></div>
+                      <div className="animate-spin inline-block w-7 h-7 border-4 border-current border-t-transparent text-primary rounded-md"></div>
                     </div>
                   ) : vehicleSummary.length > 0 ? (
                     <div className="overflow-x-auto">
@@ -1031,7 +1031,7 @@ export default function KmManagement() {
                               >
                                 <td className="py-3 px-4">
                                   <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                                    <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center text-primary">
                                       {getVehicleIcon(vehicle.vehicle_type)}
                                     </div>
                                     <div>
@@ -1046,7 +1046,7 @@ export default function KmManagement() {
                                   </div>
                                 </td>
                                 <td className="py-3 px-4">
-                                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">
+                                  <span className="px-3 py-1 rounded-md text-xs font-medium bg-primary/10 text-primary">
                                     {vehicle.vehicle_type}
                                   </span>
                                 </td>
@@ -1066,9 +1066,9 @@ export default function KmManagement() {
                                 </td>
                                 <td className="py-3 px-4 w-40">
                                   <div className="flex items-center gap-2">
-                                    <div className="w-full bg-primarybg rounded-full h-2.5 overflow-hidden">
+                                    <div className="w-full bg-primarybg rounded-md h-2.5 overflow-hidden">
                                       <div
-                                        className="h-full rounded-full bg-primary transition-all duration-500"
+                                        className="h-full rounded-md bg-primary transition-all duration-500"
                                         style={{
                                           width: `${percentage.toFixed(0)}%`,
                                         }}
@@ -1095,7 +1095,7 @@ export default function KmManagement() {
               </div>
 
               {/* Trip-wise summary table */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+              <div className="bg-white rounded-md shadow-sm border border-gray-100">
                 <div className="px-6 py-5 border-b border-gray-100">
                   <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
                     <Gauge size={20} className="text-primary" />
@@ -1193,10 +1193,10 @@ export default function KmManagement() {
       {activeTab === "entry" && (
         <>
           {/* Entry Form - Clean & Simple */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <div className="bg-white rounded-md shadow-sm border border-gray-200">
             <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-primary/10 rounded-lg">
+                <div className="p-2 bg-primary/10 rounded-md">
                   <Plus size={20} className="text-primary" />
                 </div>
                 <div>
@@ -1230,7 +1230,7 @@ export default function KmManagement() {
                         setForm((prev) => ({...prev, date: e.target.value}))
                       }
                       max={getToday()}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
                       required
                     />
                   </div>
@@ -1256,9 +1256,9 @@ export default function KmManagement() {
 
                 {/* Driver Info */}
                 {driverInfo && (
-                  <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="mt-4 p-4 bg-blue-50 rounded-md border border-blue-200">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center font-bold">
+                      <div className="w-10 h-10 rounded-md bg-primary text-white flex items-center justify-center font-bold">
                         {driverInfo.name?.charAt(0).toUpperCase()}
                       </div>
                       <div>
@@ -1307,8 +1307,8 @@ export default function KmManagement() {
                         options={filterMeta.vehicles.map((v) => ({
                           value: v.id,
                           label:
-                            v.bus_name && v.bus_name !== v.vehicle_number
-                              ? `${v.bus_name} (${v.vehicle_number})`
+                            v.vehicle_name && v.vehicle_name !== v.vehicle_number
+                              ? `${v.vehicle_name} (${v.vehicle_number})`
                               : v.vehicle_number,
                           subtitle: v.vehicle_type,
                         }))}
@@ -1334,7 +1334,7 @@ export default function KmManagement() {
                       onChange={(e) =>
                         setForm((prev) => ({...prev, start_km: e.target.value}))
                       }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
                       placeholder="0.0"
                       required
                       min="0"
@@ -1353,7 +1353,7 @@ export default function KmManagement() {
                       onChange={(e) =>
                         setForm((prev) => ({...prev, end_km: e.target.value}))
                       }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
                       placeholder="0.0"
                       required
                       min={form.start_km || "0"}
@@ -1364,7 +1364,7 @@ export default function KmManagement() {
 
                 {/* Total KM Display */}
                 {(form.start_km || form.end_km) && totalKm > 0 && (
-                  <div className="mt-4 p-4 bg-green-50 rounded-lg border border-green-200">
+                  <div className="mt-4 p-4 bg-green-50 rounded-md border border-green-200">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-gray-700">
                         Total Distance
@@ -1386,7 +1386,7 @@ export default function KmManagement() {
                     onChange={(e) =>
                       setForm((prev) => ({...prev, remarks: e.target.value}))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
                     rows="3"
                     placeholder="Add any notes..."
                   />
@@ -1407,14 +1407,14 @@ export default function KmManagement() {
                     });
                     setSelectedDriverId("");
                   }}
-                  className="px-5 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium"
+                  className="px-5 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 font-medium"
                 >
                   Reset
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="inline-flex items-center gap-2 px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 font-medium"
+                  className="inline-flex items-center gap-2 px-6 py-2 bg-primary text-white rounded-md hover:bg-primary/90 disabled:opacity-50 font-medium"
                 >
                   {loading ? (
                     <>
@@ -1434,7 +1434,7 @@ export default function KmManagement() {
 
           {/* Assigned Vehicles */}
           {showDriverVehicles && driverInfo && (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div className="bg-white rounded-md shadow-sm border border-gray-200">
               <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
                 <div className="flex items-center justify-between">
                   <h3 className="font-semibold text-gray-800 flex items-center gap-2">
@@ -1442,7 +1442,7 @@ export default function KmManagement() {
                     Assigned Vehicles for {driverInfo.name}
                   </h3>
                   {assignedVehicles.length > 0 && (
-                    <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-semibold">
+                    <span className="px-3 py-1 bg-primary/10 text-primary rounded-md text-sm font-semibold">
                       {assignedVehicles.length} Vehicles
                     </span>
                   )}
@@ -1458,7 +1458,7 @@ export default function KmManagement() {
                     {assignedVehicles.map((vehicle) => (
                       <div
                         key={vehicle.vehicle_id}
-                        className="p-4 border border-gray-200 rounded-lg hover:border-primary hover:shadow-sm transition-all"
+                        className="p-4 border border-gray-200 rounded-md hover:border-primary hover:shadow-sm transition-all"
                       >
                         <div className="flex items-start justify-between mb-2">
                           <div className="flex items-center gap-2">
@@ -1490,7 +1490,7 @@ export default function KmManagement() {
           )}
 
           {/* Recent Logs */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <div className="bg-white rounded-md shadow-sm border border-gray-200">
             <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
               <h2 className="font-semibold text-gray-800 flex items-center gap-2">
                 <History size={20} className="text-primary" />
@@ -1514,7 +1514,7 @@ export default function KmManagement() {
                         onClick={() =>
                           setLogFilters((prev) => ({...prev, period: p.value}))
                         }
-                        className={`flex-1 px-3 py-2 text-xs font-semibold rounded-lg transition-all ${
+                        className={`flex-1 px-3 py-2 text-xs font-semibold rounded-md transition-all ${
                           logFilters.period === p.value
                             ? "bg-primary text-white"
                             : "bg-white border border-gray-300 text-gray-700 hover:border-primary"
@@ -1554,8 +1554,8 @@ export default function KmManagement() {
                     options={filterMeta.vehicles.map((v) => ({
                       value: v.id,
                       label:
-                        v.bus_name && v.bus_name !== v.vehicle_number
-                          ? `${v.bus_name} (${v.vehicle_number})`
+                        v.vehicle_name && v.vehicle_name !== v.vehicle_number
+                          ? `${v.vehicle_name} (${v.vehicle_number})`
                           : v.vehicle_number,
                     }))}
                     value={logFilters.vehicleId}
@@ -1582,20 +1582,20 @@ export default function KmManagement() {
                       }))
                     }
                     placeholder="Search..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
                   />
                 </div>
               </div>
 
               {/* Summary */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-                <div className="p-3 bg-white rounded-lg border border-gray-200">
+                <div className="p-3 bg-white rounded-md border border-gray-200">
                   <p className="text-xs text-gray-600 font-medium">Total KM</p>
                   <p className="text-xl font-bold text-primary mt-1">
                     {formatNumber(logSummary.total_km)}
                   </p>
                 </div>
-                <div className="p-3 bg-white rounded-lg border border-gray-200">
+                <div className="p-3 bg-white rounded-md border border-gray-200">
                   <p className="text-xs text-gray-600 font-medium">
                     Total Trips
                   </p>
@@ -1603,7 +1603,7 @@ export default function KmManagement() {
                     {logSummary.total_trips}
                   </p>
                 </div>
-                <div className="p-3 bg-white rounded-lg border border-gray-200">
+                <div className="p-3 bg-white rounded-md border border-gray-200">
                   <p className="text-xs text-gray-600 font-medium">
                     Avg / Trip
                   </p>
@@ -1615,7 +1615,7 @@ export default function KmManagement() {
                       : "0"}
                   </p>
                 </div>
-                <div className="p-3 bg-white rounded-lg border border-gray-200">
+                <div className="p-3 bg-white rounded-md border border-gray-200">
                   <p className="text-xs text-gray-600 font-medium">Records</p>
                   <p className="text-xl font-bold text-gray-800 mt-1">
                     {logs.length}
@@ -1706,11 +1706,11 @@ export default function KmManagement() {
       {/* Driver History Modal */}
       {showDriverModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <div className="bg-white rounded-md shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
             {/* Modal Header */}
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-primary/5 to-transparent">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-primary/10 rounded-full">
+                <div className="p-2 bg-primary/10 rounded-md">
                   <User size={20} className="text-primary" />
                 </div>
                 <div>
@@ -1729,7 +1729,7 @@ export default function KmManagement() {
               </div>
               <button
                 onClick={closeDriverModal}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-2 hover:bg-gray-100 rounded-md transition-colors"
               >
                 <X size={20} className="text-gray-500" />
               </button>
@@ -1745,7 +1745,7 @@ export default function KmManagement() {
                 <div className="space-y-6">
                   {/* Summary Stats */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-gray-50 rounded-lg p-4 text-center">
+                    <div className="bg-gray-50 rounded-md p-4 text-center">
                       <p className="text-xs text-gray-500 uppercase font-semibold">
                         Total KM
                       </p>
@@ -1753,7 +1753,7 @@ export default function KmManagement() {
                         {formatNumber(selectedDriverHistory.total_km)}
                       </p>
                     </div>
-                    <div className="bg-gray-50 rounded-lg p-4 text-center">
+                    <div className="bg-gray-50 rounded-md p-4 text-center">
                       <p className="text-xs text-gray-500 uppercase font-semibold">
                         Total Trips
                       </p>
@@ -1761,7 +1761,7 @@ export default function KmManagement() {
                         {selectedDriverHistory.total_trips || 0}
                       </p>
                     </div>
-                    <div className="bg-gray-50 rounded-lg p-4 text-center">
+                    <div className="bg-gray-50 rounded-md p-4 text-center">
                       <p className="text-xs text-gray-500 uppercase font-semibold">
                         Avg per Trip
                       </p>
@@ -1769,7 +1769,7 @@ export default function KmManagement() {
                         {formatNumber(selectedDriverHistory.avg_km_per_trip)} km
                       </p>
                     </div>
-                    <div className="bg-gray-50 rounded-lg p-4 text-center">
+                    <div className="bg-gray-50 rounded-md p-4 text-center">
                       <p className="text-xs text-gray-500 uppercase font-semibold">
                         Vehicles Driven
                       </p>
@@ -1802,9 +1802,9 @@ export default function KmManagement() {
                         {selectedDriverHistory.by_vehicle.map((v, idx) => (
                           <div
                             key={v.vehicle_id || idx}
-                            className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100"
+                            className="flex items-center gap-3 p-3 bg-gray-50 rounded-md border border-gray-100"
                           >
-                            <div className="p-2 bg-white rounded-lg shadow-sm">
+                            <div className="p-2 bg-white rounded-md shadow-sm">
                               {getVehicleIcon(v.vehicle_type)}
                             </div>
                             <div className="flex-1 min-w-0">
@@ -1813,7 +1813,7 @@ export default function KmManagement() {
                               </p>
                               <div className="flex items-center gap-2 text-xs text-gray-500">
                                 <span
-                                  className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                  className={`px-1.5 py-0.5 rounded-md text-[10px] font-medium ${
                                     v.vehicle_type === "BUS"
                                       ? "bg-blue-100 text-blue-700"
                                       : v.vehicle_type === "CAR"
@@ -1917,7 +1917,7 @@ export default function KmManagement() {
                         {selectedDriverHistory.monthly_trends.map((m, idx) => (
                           <div
                             key={m.month || idx}
-                            className="bg-gray-50 rounded-lg px-4 py-3 text-center min-w-[100px]"
+                            className="bg-gray-50 rounded-md px-4 py-3 text-center min-w-[100px]"
                           >
                             <p className="text-xs text-gray-500 font-medium">
                               {m.month}
@@ -1946,7 +1946,7 @@ export default function KmManagement() {
             <div className="px-6 py-4 border-t border-gray-100 flex justify-end">
               <button
                 onClick={closeDriverModal}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md font-medium hover:bg-gray-200 transition-colors"
               >
                 Close
               </button>

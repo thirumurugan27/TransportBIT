@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, {useState, useEffect} from "react";
 import {
   MapPin,
   Clock,
@@ -13,7 +13,7 @@ import {
   Route,
   Users,
 } from "lucide-react";
-import { showSuccess, showError, showConfirm } from "../../../utils/swal";
+import {showSuccess, showError, showConfirm} from "../../../utils/swal";
 import API_BASE from "../../../utils/api";
 
 export default function BusFleet() {
@@ -24,7 +24,7 @@ export default function BusFleet() {
   const [stopsLoading, setStopsLoading] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editRouteForm, setEditRouteForm] = useState({
-    bus_name: "",
+    vehicle_name: "",
     start_point: "",
     end_point: "",
   });
@@ -78,7 +78,7 @@ export default function BusFleet() {
     setSelectedBus(bus);
     fetchBusStops(bus.id);
     setEditRouteForm({
-      bus_name: bus.bus_name || "",
+      vehicle_name: bus.vehicle_name || "",
       start_point: bus.start_point || "",
       end_point: bus.end_point || "",
     });
@@ -89,14 +89,14 @@ export default function BusFleet() {
       const payload = {
         id: selectedBus.id,
         vehicle_id: selectedBus.id,
-        bus_name: editRouteForm.bus_name,
+        vehicle_name: editRouteForm.vehicle_name,
         start_point: editRouteForm.start_point,
         end_point: editRouteForm.end_point,
       };
 
       const res = await fetch(`${API_BASE}/api/admin/bus-route/update`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {"Content-Type": "application/json"},
         body: JSON.stringify(payload),
       });
 
@@ -104,7 +104,7 @@ export default function BusFleet() {
         showSuccess("Success", "Route updated successfully!");
         setIsEditModalOpen(false);
         // Refresh data
-        const updatedBus = { ...selectedBus, ...editRouteForm };
+        const updatedBus = {...selectedBus, ...editRouteForm};
         setSelectedBus(updatedBus);
         fetchBusFleet();
       } else {
@@ -141,7 +141,7 @@ export default function BusFleet() {
 
       const res = await fetch(`${API_BASE}/api/admin/bus-stop/add`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {"Content-Type": "application/json"},
         body: JSON.stringify(payload),
       });
 
@@ -177,8 +177,8 @@ export default function BusFleet() {
     try {
       const res = await fetch(`${API_BASE}/api/admin/bus-stop/delete`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: stopId }),
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({id: stopId}),
       });
       if (res.ok) {
         showSuccess("Success", "Stop removed");
@@ -198,7 +198,7 @@ export default function BusFleet() {
   };
 
   const getVehicleLabel = (bus) => {
-    return bus.bus_name || bus.vehicle_number;
+    return bus.vehicle_name || bus.vehicle_number;
   };
 
   // DETAIL VIEW - When a bus is selected
@@ -206,7 +206,7 @@ export default function BusFleet() {
     return (
       <div className="min-h-screen bg-primarybg p-6 space-y-6">
         {/* Header with Back Button */}
-        <div className="flex items-center justify-between bg-white rounded-xl shadow-sm p-6">
+        <div className="flex items-center justify-between bg-white rounded-md shadow-sm p-6">
           <div className="flex items-center gap-6">
             <button
               onClick={() => setSelectedBus(null)}
@@ -217,12 +217,12 @@ export default function BusFleet() {
             </button>
             <div className="h-8 w-px bg-slate-200"></div>
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-primary/10 rounded-xl">
+              <div className="p-3 bg-primary/10 rounded-md">
                 <Bus className="w-6 h-6 text-primary" />
               </div>
               <div>
                 <h2 className="text-xl font-bold text-slate-900">
-                  {selectedBus.bus_name || selectedBus.vehicle_number}
+                  {selectedBus.vehicle_name || selectedBus.vehicle_number}
                 </h2>
                 <p className="text-sm text-slate-500 font-mono">
                   {selectedBus.vehicle_number}
@@ -234,7 +234,9 @@ export default function BusFleet() {
                 <div className="h-8 w-px bg-slate-200"></div>
                 <div className="flex items-center gap-2 text-slate-500">
                   <Route className="w-4 h-4 text-primary" />
-                  <span className="font-semibold">{selectedBus.start_point}</span>
+                  <span className="font-semibold">
+                    {selectedBus.start_point}
+                  </span>
                   <ArrowRight className="w-4 h-4" />
                   <span className="font-semibold">{selectedBus.end_point}</span>
                 </div>
@@ -244,7 +246,7 @@ export default function BusFleet() {
 
           <button
             onClick={() => setIsEditModalOpen(true)}
-            className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white hover:bg-primarydull rounded-xl transition-all font-bold text-sm shadow-lg shadow-primary/20"
+            className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white hover:bg-primarydull rounded-md transition-all font-bold text-sm shadow-lg shadow-primary/20"
           >
             <Route className="w-4 h-4" />
             Edit Route Info
@@ -255,12 +257,14 @@ export default function BusFleet() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* LEFT: Stops List */}
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div className="bg-white rounded-md shadow-sm overflow-hidden">
               <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
                 <div className="flex items-center gap-3">
                   <MapPinned className="w-5 h-5 text-primary" />
-                  <h3 className="font-bold text-slate-900 text-lg">Route Stops</h3>
-                  <span className="bg-primary/10 text-primary text-sm font-bold px-3 py-1 rounded-full">
+                  <h3 className="font-bold text-slate-900 text-lg">
+                    Route Stops
+                  </h3>
+                  <span className="bg-primary/10 text-primary text-sm font-bold px-3 py-1 rounded-md">
                     {busStops.length}
                   </span>
                 </div>
@@ -272,52 +276,79 @@ export default function BusFleet() {
                 </div>
               ) : busStops.length === 0 ? (
                 <div className="p-12 text-center">
-                  <div className="w-16 h-16 bg-primary/5 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <div className="w-16 h-16 bg-primary/5 rounded-md flex items-center justify-center mx-auto mb-4">
                     <MapPinned className="w-8 h-8 text-primary/30" />
                   </div>
-                  <p className="text-slate-500 font-semibold mb-2">No stops added yet</p>
-                  <p className="text-sm text-slate-400">Use the form on the right to add stops to this route</p>
+                  <p className="text-slate-500 font-semibold mb-2">
+                    No stops added yet
+                  </p>
+                  <p className="text-sm text-slate-400">
+                    Use the form on the right to add stops to this route
+                  </p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="bg-slate-50/50">
-                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">#</th>
-                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Stop Name</th>
-                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Distance</th>
-                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Fee</th>
-                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Arrival</th>
-                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                          #
+                        </th>
+                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                          Stop Name
+                        </th>
+                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                          Distance
+                        </th>
+                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                          Fee
+                        </th>
+                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                          Arrival
+                        </th>
+                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">
+                          Actions
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                       {busStops.map((stop) => (
-                        <tr key={stop.id} className="hover:bg-primary/5 transition-colors group">
+                        <tr
+                          key={stop.id}
+                          className="hover:bg-primary/5 transition-colors group"
+                        >
                           <td className="px-6 py-4">
-                            <span className="w-8 h-8 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center text-xs">
+                            <span className="w-8 h-8 rounded-md bg-primary/10 text-primary font-bold flex items-center justify-center text-xs">
                               {stop.stop_order.toString().padStart(2, "0")}
                             </span>
                           </td>
                           <td className="px-6 py-4">
-                            <span className="font-bold text-slate-900">{stop.stop_name}</span>
+                            <span className="font-bold text-slate-900">
+                              {stop.stop_name}
+                            </span>
                           </td>
                           <td className="px-6 py-4">
-                            <span className="text-slate-500 font-medium">{stop.distance_km} km</span>
+                            <span className="text-slate-500 font-medium">
+                              {stop.distance_km} km
+                            </span>
                           </td>
                           <td className="px-6 py-4">
-                            <span className="text-green-600 font-bold">₹{stop.fee}</span>
+                            <span className="text-green-600 font-bold">
+                              ₹{stop.fee}
+                            </span>
                           </td>
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-2 text-slate-500 text-sm">
                               <Clock className="w-4 h-4 text-primary/60" />
-                              <span className="font-mono font-semibold">{formattedTime(stop.arrival_time)}</span>
+                              <span className="font-mono font-semibold">
+                                {formattedTime(stop.arrival_time)}
+                              </span>
                             </div>
                           </td>
                           <td className="px-6 py-4 text-right">
                             <button
                               onClick={() => deleteBusStop(stop.id)}
-                              className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                              className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-all"
                               title="Delete Stop"
                             >
                               <Trash2 className="w-5 h-5" />
@@ -334,12 +365,14 @@ export default function BusFleet() {
 
           {/* RIGHT: Add Form */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl shadow-sm p-6 sticky top-6 border border-slate-100">
+            <div className="bg-white rounded-md shadow-sm p-6 sticky top-6 border border-slate-100">
               <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-primary/10 rounded-lg">
+                <div className="p-2 bg-primary/10 rounded-md">
                   <Plus className="w-5 h-5 text-primary" />
                 </div>
-                <h3 className="font-bold text-slate-900 text-lg">Add New Stop</h3>
+                <h3 className="font-bold text-slate-900 text-lg">
+                  Add New Stop
+                </h3>
               </div>
 
               <div className="space-y-4">
@@ -348,36 +381,55 @@ export default function BusFleet() {
                     Stop Name <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
-                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                    <MapPin
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                      size={18}
+                    />
                     <input
                       type="text"
                       placeholder="e.g. Central Station"
                       value={busStopForm.stop_name}
-                      onChange={(e) => setBusStopForm({ ...busStopForm, stop_name: e.target.value })}
-                      className="w-full pl-10 pr-4 py-3 rounded-lg border-2 border-slate-100 focus:border-primary focus:outline-none transition-all text-slate-900 font-medium placeholder:text-slate-300"
+                      onChange={(e) =>
+                        setBusStopForm({
+                          ...busStopForm,
+                          stop_name: e.target.value,
+                        })
+                      }
+                      className="w-full pl-10 pr-4 py-3 rounded-md border-2 border-slate-100 focus:border-primary focus:outline-none transition-all text-slate-900 font-medium placeholder:text-slate-300"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-bold text-slate-500 mb-2">Distance (km)</label>
+                    <label className="block text-sm font-bold text-slate-500 mb-2">
+                      Distance (km)
+                    </label>
                     <input
                       type="number"
                       placeholder="0"
                       value={busStopForm.distance_km}
-                      onChange={(e) => setBusStopForm({ ...busStopForm, distance_km: e.target.value })}
-                      className="w-full px-4 py-3 rounded-lg border-2 border-slate-100 focus:border-primary focus:outline-none transition-all text-slate-900 font-medium placeholder:text-slate-300"
+                      onChange={(e) =>
+                        setBusStopForm({
+                          ...busStopForm,
+                          distance_km: e.target.value,
+                        })
+                      }
+                      className="w-full px-4 py-3 rounded-md border-2 border-slate-100 focus:border-primary focus:outline-none transition-all text-slate-900 font-medium placeholder:text-slate-300"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-slate-500 mb-2">Fee (₹)</label>
+                    <label className="block text-sm font-bold text-slate-500 mb-2">
+                      Fee (₹)
+                    </label>
                     <input
                       type="number"
                       placeholder="0"
                       value={busStopForm.fee}
-                      onChange={(e) => setBusStopForm({ ...busStopForm, fee: e.target.value })}
-                      className="w-full px-4 py-3 rounded-lg border-2 border-slate-100 focus:border-primary focus:outline-none transition-all text-slate-900 font-medium placeholder:text-slate-300"
+                      onChange={(e) =>
+                        setBusStopForm({...busStopForm, fee: e.target.value})
+                      }
+                      className="w-full px-4 py-3 rounded-md border-2 border-slate-100 focus:border-primary focus:outline-none transition-all text-slate-900 font-medium placeholder:text-slate-300"
                     />
                   </div>
                 </div>
@@ -387,26 +439,36 @@ export default function BusFleet() {
                     Arrival Time <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
-                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                    <Clock
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                      size={18}
+                    />
                     <input
                       type="time"
                       value={busStopForm.arrival_time}
-                      onChange={(e) => setBusStopForm({ ...busStopForm, arrival_time: e.target.value })}
-                      className="w-full pl-10 pr-4 py-3 rounded-lg border-2 border-slate-100 focus:border-primary focus:outline-none transition-all text-slate-900 font-medium"
+                      onChange={(e) =>
+                        setBusStopForm({
+                          ...busStopForm,
+                          arrival_time: e.target.value,
+                        })
+                      }
+                      className="w-full pl-10 pr-4 py-3 rounded-md border-2 border-slate-100 focus:border-primary focus:outline-none transition-all text-slate-900 font-medium"
                     />
                   </div>
                 </div>
 
                 <button
                   onClick={addBusStop}
-                  className="w-full py-4 bg-primary text-white rounded-xl font-bold hover:bg-primarydull active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20 mt-2"
+                  className="w-full py-4 bg-primary text-white rounded-md font-bold hover:bg-primarydull active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20 mt-2"
                 >
                   <Save size={18} />
                   Add Stop to Route
                 </button>
 
                 <div className="pt-4 border-t border-slate-100">
-                  <p className="text-xs text-slate-400 text-center">Stops are ordered automatically by sequence</p>
+                  <p className="text-xs text-slate-400 text-center">
+                    Stops are ordered automatically by sequence
+                  </p>
                 </div>
               </div>
             </div>
@@ -416,52 +478,75 @@ export default function BusFleet() {
         {/* Edit Route Modal */}
         {isEditModalOpen && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="bg-white rounded-md shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
               <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-                <h3 className="text-xl font-bold text-slate-900">Edit Route Info</h3>
+                <h3 className="text-xl font-bold text-slate-900">
+                  Edit Route Info
+                </h3>
                 <button
                   onClick={() => setIsEditModalOpen(false)}
-                  className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                  className="p-2 hover:bg-slate-100 rounded-md transition-colors"
                 >
                   <Plus className="w-6 h-6 rotate-45 text-slate-400" />
                 </button>
               </div>
               <div className="p-6 space-y-4">
                 <div>
-                  <label className="block text-sm font-bold text-slate-500 mb-2">Bus Name</label>
+                  <label className="block text-sm font-bold text-slate-500 mb-2">
+                    Bus Name
+                  </label>
                   <input
                     type="text"
-                    value={editRouteForm.bus_name}
-                    onChange={(e) => setEditRouteForm({ ...editRouteForm, bus_name: e.target.value })}
+                    value={editRouteForm.vehicle_name}
+                    onChange={(e) =>
+                      setEditRouteForm({
+                        ...editRouteForm,
+                        vehicle_name: e.target.value,
+                      })
+                    }
                     placeholder="e.g. Campus Express"
-                    className="w-full px-4 py-3 rounded-lg border-2 border-slate-100 focus:border-primary focus:outline-none transition-all text-slate-900 font-medium placeholder:text-slate-300"
+                    className="w-full px-4 py-3 rounded-md border-2 border-slate-100 focus:border-primary focus:outline-none transition-all text-slate-900 font-medium placeholder:text-slate-300"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-bold text-slate-500 mb-2">Start Point</label>
+                    <label className="block text-sm font-bold text-slate-500 mb-2">
+                      Start Point
+                    </label>
                     <input
                       type="text"
                       value={editRouteForm.start_point}
-                      onChange={(e) => setEditRouteForm({ ...editRouteForm, start_point: e.target.value })}
+                      onChange={(e) =>
+                        setEditRouteForm({
+                          ...editRouteForm,
+                          start_point: e.target.value,
+                        })
+                      }
                       placeholder="e.g. Campus"
-                      className="w-full px-4 py-3 rounded-lg border-2 border-slate-100 focus:border-primary focus:outline-none transition-all text-slate-900 font-medium placeholder:text-slate-300"
+                      className="w-full px-4 py-3 rounded-md border-2 border-slate-100 focus:border-primary focus:outline-none transition-all text-slate-900 font-medium placeholder:text-slate-300"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-slate-500 mb-2">End Point</label>
+                    <label className="block text-sm font-bold text-slate-500 mb-2">
+                      End Point
+                    </label>
                     <input
                       type="text"
                       value={editRouteForm.end_point}
-                      onChange={(e) => setEditRouteForm({ ...editRouteForm, end_point: e.target.value })}
+                      onChange={(e) =>
+                        setEditRouteForm({
+                          ...editRouteForm,
+                          end_point: e.target.value,
+                        })
+                      }
                       placeholder="e.g. Erode"
-                      className="w-full px-4 py-3 rounded-lg border-2 border-slate-100 focus:border-primary focus:outline-none transition-all text-slate-900 font-medium placeholder:text-slate-300"
+                      className="w-full px-4 py-3 rounded-md border-2 border-slate-100 focus:border-primary focus:outline-none transition-all text-slate-900 font-medium placeholder:text-slate-300"
                     />
                   </div>
                 </div>
                 <button
                   onClick={updateBusRoute}
-                  className="w-full py-4 bg-primary text-white rounded-xl font-bold hover:bg-primarydull transition-all shadow-lg shadow-primary/20 mt-4"
+                  className="w-full py-4 bg-primary text-white rounded-md font-bold hover:bg-primarydull transition-all shadow-lg shadow-primary/20 mt-4"
                 >
                   Save Changes
                 </button>
@@ -477,18 +562,18 @@ export default function BusFleet() {
   return (
     <div className="min-h-screen bg-primarybg p-6">
       {/* Header Section */}
-      <div className="bg-secondarybg rounded-xl shadow-sm p-6 mb-6">
+      <div className="bg-secondarybg rounded-md shadow-sm p-6 mb-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
             <h1 className="text-3xl font-bold text-primarytext mb-2">
-               Management
+              Management
             </h1>
             <p className="text-secondarytext font-medium">
               Comprehensive overview of all buses, routes, and assignments
             </p>
           </div>
-          <div className="flex items-center gap-4 bg-primary/5 rounded-xl px-6 py-4">
-            <div className="p-3 bg-primary rounded-xl">
+          <div className="flex items-center gap-4 bg-primary/5 rounded-md px-6 py-4">
+            <div className="p-3 bg-primary rounded-md">
               <Bus className="w-6 h-6 text-secondarybg" />
             </div>
             <div>
@@ -513,30 +598,31 @@ export default function BusFleet() {
             <div
               key={bus.id}
               onClick={() => selectBus(bus)}
-              className="bg-secondarybg rounded-xl shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden group border-2 border-transparent hover:border-primary"
+              className="bg-secondarybg rounded-md shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden group border-2 border-transparent hover:border-primary"
             >
               {/* Card Header */}
               <div className="p-6 border-b border-gray-100">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-primary/10 group-hover:bg-primary rounded-xl flex items-center justify-center transition-all">
+                    <div className="w-12 h-12 bg-primary/10 group-hover:bg-primary rounded-md flex items-center justify-center transition-all">
                       <Bus className="w-6 h-6 text-primary group-hover:text-secondarybg transition-all" />
                     </div>
                     <div>
                       <h3 className="text-lg font-bold text-primarytext">
-                        {bus.bus_name || bus.vehicle_number}
+                        {bus.vehicle_name || bus.vehicle_number}
                       </h3>
-                      <p className="text-xs font-mono font-semibold text-secondarytext bg-gray-100 px-2 py-0.5 rounded w-fit mt-1">
+                      <p className="text-xs font-mono font-semibold text-secondarytext bg-gray-100 px-2 py-0.5 rounded-md w-fit mt-1">
                         {bus.vehicle_number}
                       </p>
                     </div>
                   </div>
                   {/* Status Badge */}
                   <div
-                    className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${bus.status === "active" || bus.status === "available"
-                      ? "bg-green/10 text-green"
-                      : "bg-pending/10 text-pending"
-                      }`}
+                    className={`px-3 py-1 rounded-md text-xs font-bold uppercase ${
+                      bus.status === "active" || bus.status === "available"
+                        ? "bg-green/10 text-green"
+                        : "bg-pending/10 text-pending"
+                    }`}
                   >
                     {bus.status || "Active"}
                   </div>
@@ -544,7 +630,7 @@ export default function BusFleet() {
 
                 {/* Route Visualization */}
                 {bus.start_point && bus.end_point ? (
-                  <div className="bg-primarybg rounded-lg p-4">
+                  <div className="bg-primarybg rounded-md p-4">
                     <div className="flex items-center gap-2 mb-3">
                       <Route className="w-4 h-4 text-primary" />
                       <span className="text-xs font-bold text-secondarytext uppercase tracking-wider">
@@ -557,7 +643,7 @@ export default function BusFleet() {
 
                       {/* Start Point */}
                       <div className="flex flex-col items-center gap-2 z-10 bg-primarybg px-2">
-                        <div className="w-3 h-3 rounded-full bg-green border-2 border-secondarybg shadow-sm"></div>
+                        <div className="w-3 h-3 rounded-md bg-green border-2 border-secondarybg shadow-sm"></div>
                         <span
                           className="text-xs font-bold text-primarytext max-w-20 truncate text-center"
                           title={bus.start_point}
@@ -568,7 +654,7 @@ export default function BusFleet() {
 
                       {/* End Point */}
                       <div className="flex flex-col items-center gap-2 z-10 bg-primarybg px-2">
-                        <div className="w-3 h-3 rounded-full bg-red border-2 border-secondarybg shadow-sm"></div>
+                        <div className="w-3 h-3 rounded-md bg-red border-2 border-secondarybg shadow-sm"></div>
                         <span
                           className="text-xs font-bold text-primarytext max-w-20 truncate text-center"
                           title={bus.end_point}
@@ -579,7 +665,7 @@ export default function BusFleet() {
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-primarybg rounded-lg p-4 text-center">
+                  <div className="bg-primarybg rounded-md p-4 text-center">
                     <Route className="w-6 h-6 text-secondarytext/30 mx-auto mb-2" />
                     <p className="text-sm text-secondarytext/70 italic">
                       No route configured
@@ -623,8 +709,8 @@ export default function BusFleet() {
           ))}
         </div>
       ) : (
-        <div className="bg-secondarybg rounded-xl shadow-sm p-12 text-center">
-          <div className="w-20 h-20 bg-primary/5 rounded-full flex items-center justify-center mx-auto mb-6">
+        <div className="bg-secondarybg rounded-md shadow-sm p-12 text-center">
+          <div className="w-20 h-20 bg-primary/5 rounded-md flex items-center justify-center mx-auto mb-6">
             <Bus className="w-10 h-10 text-primary/30" />
           </div>
           <h3 className="text-xl font-bold text-primarytext mb-2">

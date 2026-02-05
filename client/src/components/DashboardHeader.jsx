@@ -17,7 +17,7 @@ export default function DashboardHeader({
       <div className="flex items-center gap-6">
         {/* Profile */}
         <div className="flex items-center gap-4 px-6 py-2 rounded-md bg-primarybg shadow-sm">
-          <div className="w-10 h-10 rounded-full text-white flex items-center justify-center font-bold text-base shadow-md bg-primary shadow-primary/20">
+          <div className="w-10 h-10 rounded-md text-white flex items-center justify-center font-bold text-base shadow-md bg-primary shadow-primary/20">
             {user.name?.charAt(0).toUpperCase()}
           </div>
           <div className="hidden sm:block text-left">

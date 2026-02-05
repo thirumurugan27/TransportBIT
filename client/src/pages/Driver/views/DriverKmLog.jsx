@@ -208,7 +208,7 @@ export default function DriverKmLog() {
 
       {loading ? (
         <div className="flex justify-center p-20">
-          <div className="animate-spin inline-block w-8 h-8 border-4 border-current border-t-transparent text-primary rounded-full"></div>
+          <div className="animate-spin inline-block w-8 h-8 border-4 border-current border-t-transparent text-primary rounded-md"></div>
         </div>
       ) : (
         <>
@@ -293,7 +293,7 @@ export default function DriverKmLog() {
                 <Calendar size={18} className="text-gray-500" />
                 Recent Logs
               </h3>
-              <span className="text-xs text-gray-500 bg-white px-2 py-1 rounded border border-gray-200">
+              <span className="text-xs text-gray-500 bg-white px-2 py-1 rounded-md border border-gray-200">
                 Last {logs.length} entries
               </span>
             </div>
@@ -346,7 +346,7 @@ export default function DriverKmLog() {
                                   {log.vehicle_number}
                                 </span>
                               )}
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 w-fit mt-0.5">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-600 w-fit mt-0.5">
                                 {log.vehicle_type || "BUS"}
                               </span>
                             </div>

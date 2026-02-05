@@ -116,7 +116,7 @@ func GetAllStudentTransport(c *gin.Context) {
 	rows, err := config.DB.Query(`
 		SELECT 
 			st.id, st.user_id, COALESCE(u.full_name, u.username, ''), COALESCE(u.email, ''),
-			st.bus_id, COALESCE(b.bus_name, ''), COALESCE(v.vehicle_number, ''), COALESCE(b.start_point, ''), COALESCE(b.end_point, ''),
+			st.bus_id, COALESCE(b.name, ''), COALESCE(v.vehicle_number, ''), COALESCE(b.start_point, ''), COALESCE(b.end_point, ''),
 			st.stop_id, COALESCE(bs.stop_name, ''), '',
 			st.total_fee, st.paid_amount, st.balance,
 			st.academic_year, st.status,
@@ -140,7 +140,7 @@ func GetAllStudentTransport(c *gin.Context) {
 		var t models.StudentTransport
 		err := rows.Scan(
 			&t.ID, &t.UserID, &t.StudentName, &t.StudentEmail,
-			&t.BusID, &t.BusName, &t.BusNumber, &t.RouteStart, &t.RouteEnd,
+			&t.BusID, &t.VehicleName, &t.BusNumber, &t.RouteStart, &t.RouteEnd,
 			&t.StopID, &t.StopName, &t.StopLocation,
 			&t.TotalFee, &t.PaidAmount, &t.Balance,
 			&t.AcademicYear, &t.Status,
@@ -654,7 +654,7 @@ func GetAllTransportRequests(c *gin.Context) {
 			COALESCE(u.department, '') as department,
 			COALESCE(u.year, 0) as year,
 			COALESCE(u.roll_number, '') as roll_number,
-			COALESCE(b.bus_name, '') as bus_name, 
+			COALESCE(b.name, '') as vehicle_name, 
 			COALESCE(CONCAT(b.start_point, ' → ', b.end_point), '') as route,
 			COALESCE(bs.stop_name, '') as stop_name, 
 			COALESCE(bs.fee, 0) as fee
@@ -693,7 +693,7 @@ func GetAllTransportRequests(c *gin.Context) {
 			&createdAt,
 			&req.StudentName, &req.Email, &req.Phone,
 			&req.Department, &req.Year, &req.RollNumber,
-			&req.BusName, &req.Route,
+			&req.VehicleName, &req.Route,
 			&req.StopName, &req.Fee,
 		)
 		if err != nil {
@@ -937,7 +937,7 @@ func GetStudentsByBus(c *gin.Context) {
 func GetBusesWithStudentCounts(c *gin.Context) {
 	rows, err := config.DB.Query(`
 		SELECT 
-			b.id, b.bus_name, CONCAT(COALESCE(b.start_point, ''), ' → ', COALESCE(b.end_point, '')), 
+			b.id, b.name, CONCAT(COALESCE(b.start_point, ''), ' → ', COALESCE(b.end_point, '')), 
 			COALESCE(v.seating_capacity, 50),
 			0 as driver_id,
 			'Unassigned' as driver_name,
@@ -945,8 +945,8 @@ func GetBusesWithStudentCounts(c *gin.Context) {
 		FROM buses b
 		LEFT JOIN vehicles v ON b.vehicle_id = v.id
 		LEFT JOIN student_transport st ON b.id = st.bus_id AND st.status = 'active'
-		GROUP BY b.id, b.bus_name, b.start_point, b.end_point, v.seating_capacity
-		ORDER BY b.bus_name
+		GROUP BY b.id, b.name, b.start_point, b.end_point, v.seating_capacity
+		ORDER BY b.name
 	`)
 	if err != nil {
 		log.Printf("Error fetching buses with students: %v", err)

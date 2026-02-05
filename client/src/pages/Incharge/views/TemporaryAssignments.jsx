@@ -219,7 +219,7 @@ export default function TemporaryAssignments({openModal}) {
       {/* List */}
       {loading ? (
         <div className="p-12 text-center text-gray-500 bg-white rounded-md shadow-sm border border-gray-100">
-          <div className="animate-spin inline-block w-8 h-8 border-4 border-current border-t-transparent text-[var(--color-primary)] rounded-full mb-4"></div>
+          <div className="animate-spin inline-block w-8 h-8 border-4 border-current border-t-transparent text-[var(--color-primary)] rounded-md mb-4"></div>
           <p>Loading temporary assignments...</p>
         </div>
       ) : tempAssignments.length === 0 ? (
@@ -313,21 +313,21 @@ export default function TemporaryAssignments({openModal}) {
       {/* Create Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-secondarybg rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in duration-200">
+          <div className="bg-secondarybg rounded-md shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in duration-200">
             <div className="sticky top-0 z-10 bg-secondarybg flex justify-between items-center px-8 py-5 border-b border-gray-100">
               <h3 className="text-2xl font-bold text-primarytext">
                 New Temporary Assignment
               </h3>
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="text-secondarytext hover:text-primarytext rounded-full p-1 hover:bg-gray-100 transition-colors"
+                className="text-secondarytext hover:text-primarytext rounded-md p-1 hover:bg-gray-100 transition-colors"
               >
                 <X size={20} />
               </button>
             </div>
 
             <form onSubmit={handleCreate} className="px-8 py-6 space-y-6">
-              <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 flex items-start gap-3">
+              <div className="bg-blue-50 p-4 rounded-md border border-blue-100 flex items-start gap-3">
                 <AlertCircle
                   className="text-blue-600 mt-0.5 flex-shrink-0"
                   size={20}
@@ -350,7 +350,7 @@ export default function TemporaryAssignments({openModal}) {
                     onChange={(e) =>
                       setNewTemp({...newTemp, start_date: e.target.value})
                     }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                   />
                 </div>
                 <div>
@@ -363,7 +363,7 @@ export default function TemporaryAssignments({openModal}) {
                     onChange={(e) =>
                       setNewTemp({...newTemp, end_date: e.target.value})
                     }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                   />
                 </div>
               </div>
@@ -470,7 +470,7 @@ export default function TemporaryAssignments({openModal}) {
                   onChange={(e) =>
                     setNewTemp({...newTemp, reason: e.target.value})
                   }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none"
                   placeholder="e.g. Medical leave replacement"
                 ></textarea>
               </div>
@@ -479,13 +479,13 @@ export default function TemporaryAssignments({openModal}) {
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-6 py-3 text-secondarytext bg-primarybg border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors font-medium"
+                  className="px-6 py-3 text-secondarytext bg-primarybg border border-gray-200 rounded-md hover:bg-gray-100 transition-colors font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-3 bg-primary text-secondarybg rounded-lg hover:bg-primarydull transition-colors font-semibold shadow-sm"
+                  className="px-6 py-3 bg-primary text-secondarybg rounded-md hover:bg-primarydull transition-colors font-semibold shadow-sm"
                 >
                   Create Assignment
                 </button>
@@ -502,7 +502,7 @@ export default function TemporaryAssignments({openModal}) {
           onClick={() => setShowDetailModal(false)}
         >
           <div
-            className="bg-secondarybg rounded-xl shadow-xl w-full max-w-2xl animate-in fade-in zoom-in duration-200"
+            className="bg-secondarybg rounded-md shadow-xl w-full max-w-2xl animate-in fade-in zoom-in duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-8 py-5 border-b border-gray-100 flex justify-between items-center">
@@ -511,7 +511,7 @@ export default function TemporaryAssignments({openModal}) {
               </h3>
               <button
                 onClick={() => setShowDetailModal(false)}
-                className="text-secondarytext hover:text-primarytext rounded-full p-1 hover:bg-gray-100 transition-colors"
+                className="text-secondarytext hover:text-primarytext rounded-md p-1 hover:bg-gray-100 transition-colors"
               >
                 <X size={20} />
               </button>
@@ -523,7 +523,7 @@ export default function TemporaryAssignments({openModal}) {
                   <label className="block text-xs font-semibold text-secondarytext uppercase tracking-wider mb-2">
                     Original Driver
                   </label>
-                  <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-md">
                     <User size={16} className="text-red-600" />
                     <span className="text-gray-900 font-medium line-through decoration-red-500 decoration-2">
                       {selectedDetail.original_driver_name}
@@ -534,7 +534,7 @@ export default function TemporaryAssignments({openModal}) {
                   <label className="block text-xs font-semibold text-secondarytext uppercase tracking-wider mb-2">
                     Replacement Driver
                   </label>
-                  <div className="flex items-center gap-2 px-4 py-3 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center gap-2 px-4 py-3 bg-green-50 border border-green-200 rounded-md">
                     <User size={16} className="text-green-600" />
                     <span className="text-gray-900 font-medium">
                       {selectedDetail.replacement_driver_name}
@@ -548,7 +548,7 @@ export default function TemporaryAssignments({openModal}) {
                   <label className="block text-xs font-semibold text-secondarytext uppercase tracking-wider mb-2">
                     Start Date
                   </label>
-                  <div className="flex items-center gap-2 px-4 py-3 bg-primarybg border border-gray-200 rounded-lg">
+                  <div className="flex items-center gap-2 px-4 py-3 bg-primarybg border border-gray-200 rounded-md">
                     <Calendar size={16} className="text-primary" />
                     <span className="text-gray-900 font-medium">
                       {selectedDetail.start_date}
@@ -559,7 +559,7 @@ export default function TemporaryAssignments({openModal}) {
                   <label className="block text-xs font-semibold text-secondarytext uppercase tracking-wider mb-2">
                     End Date
                   </label>
-                  <div className="flex items-center gap-2 px-4 py-3 bg-primarybg border border-gray-200 rounded-lg">
+                  <div className="flex items-center gap-2 px-4 py-3 bg-primarybg border border-gray-200 rounded-md">
                     <Calendar size={16} className="text-primary" />
                     <span className="text-gray-900 font-medium">
                       {selectedDetail.end_date || selectedDetail.start_date}
@@ -572,7 +572,7 @@ export default function TemporaryAssignments({openModal}) {
                 <label className="block text-xs font-semibold text-secondarytext uppercase tracking-wider mb-2">
                   Shift Details
                 </label>
-                <div className="px-4 py-3 bg-primarybg border border-gray-200 rounded-lg">
+                <div className="px-4 py-3 bg-primarybg border border-gray-200 rounded-md">
                   <div className="flex items-center gap-2 mb-3">
                     <Clock size={16} className="text-primary" />
                     <span className="text-gray-900 font-semibold">
@@ -587,9 +587,9 @@ export default function TemporaryAssignments({openModal}) {
                       {selectedDetail.slots.map((slot, idx) => (
                         <div
                           key={idx}
-                          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-gray-200"
+                          className="flex items-center gap-2 px-3 py-2 rounded-md bg-white border border-gray-200"
                         >
-                          <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                          <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
                             <Clock size={12} className="text-primary" />
                           </div>
                           <span className="font-medium text-gray-900 text-sm">
@@ -604,7 +604,7 @@ export default function TemporaryAssignments({openModal}) {
                     </div>
                   ) : (
                     selectedDetail.start_time && (
-                      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-gray-200">
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-white border border-gray-200">
                         <span className="font-medium text-gray-900 text-sm">
                           {formatTimeAMPM(selectedDetail.start_time)} →{" "}
                           {formatTimeAMPM(selectedDetail.end_time)}
@@ -619,7 +619,7 @@ export default function TemporaryAssignments({openModal}) {
                 <label className="block text-xs font-semibold text-secondarytext uppercase tracking-wider mb-2">
                   Vehicle
                 </label>
-                <div className="flex items-center gap-2 px-4 py-3 bg-primarybg border border-gray-200 rounded-lg">
+                <div className="flex items-center gap-2 px-4 py-3 bg-primarybg border border-gray-200 rounded-md">
                   <Truck size={16} className="text-primary" />
                   <span className="text-gray-900 font-medium font-mono">
                     {formatVehicleLabel(selectedDetail)}
@@ -632,7 +632,7 @@ export default function TemporaryAssignments({openModal}) {
                   <label className="block text-xs font-semibold text-secondarytext uppercase tracking-wider mb-2">
                     Reason
                   </label>
-                  <div className="px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="px-4 py-3 bg-blue-50 border border-blue-200 rounded-md">
                     <p className="text-gray-900 italic">
                       {selectedDetail.reason}
                     </p>
@@ -643,7 +643,7 @@ export default function TemporaryAssignments({openModal}) {
               <div className="pt-4 border-t border-gray-100 flex justify-end gap-3">
                 <button
                   onClick={() => setShowDetailModal(false)}
-                  className="px-6 py-3 text-secondarytext bg-primarybg border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors font-medium"
+                  className="px-6 py-3 text-secondarytext bg-primarybg border border-gray-200 rounded-md hover:bg-gray-100 transition-colors font-medium"
                 >
                   Close
                 </button>
@@ -653,7 +653,7 @@ export default function TemporaryAssignments({openModal}) {
                     setShowDetailModal(false);
                     handleCancel(selectedDetail.id);
                   }}
-                  className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-semibold shadow-sm flex items-center gap-2"
+                  className="px-6 py-3 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors font-semibold shadow-sm flex items-center gap-2"
                 >
                   <Trash2 size={18} /> Cancel Assignment
                 </button>

@@ -159,7 +159,7 @@ func GetMyTransport(c *gin.Context) {
 	err = config.DB.QueryRow(`
 		SELECT 
 			st.id, st.user_id, COALESCE(u.full_name, u.username) as student_name, COALESCE(u.email, ''),
-			st.bus_id, COALESCE(b.bus_name, '') as bus_name, COALESCE(v.vehicle_number, '') as bus_number, 
+			st.bus_id, COALESCE(b.name, '') as vehicle_name, COALESCE(v.vehicle_number, '') as bus_number, 
 			COALESCE(b.start_point, '') as route_start, COALESCE(b.end_point, '') as route_end,
 			st.stop_id, COALESCE(bs.stop_name, '') as stop_name, '' as stop_location,
 			st.total_fee, st.paid_amount, st.balance,
@@ -175,7 +175,7 @@ func GetMyTransport(c *gin.Context) {
 		ORDER BY st.id DESC LIMIT 1
 	`, userID).Scan(
 		&transport.ID, &transport.UserID, &transport.StudentName, &transport.StudentEmail,
-		&transport.BusID, &transport.BusName, &transport.BusNumber, &transport.RouteStart, &transport.RouteEnd,
+		&transport.BusID, &transport.VehicleName, &transport.BusNumber, &transport.RouteStart, &transport.RouteEnd,
 		&transport.StopID, &transport.StopName, &transport.StopLocation,
 		&transport.TotalFee, &transport.PaidAmount, &transport.Balance,
 		&transport.AcademicYear, &transport.Status,
@@ -600,11 +600,11 @@ func GetAvailableStops(c *gin.Context) {
 func GetAllBuses(c *gin.Context) {
 	rows, err := config.DB.Query(`
 		SELECT 
-			b.id, b.bus_name, v.vehicle_number, 
+			b.id, b.name, v.vehicle_number, 
 			COALESCE(b.start_point, ''), COALESCE(b.end_point, ''), COALESCE(v.seating_capacity, 0)
 		FROM buses b
 		JOIN vehicles v ON b.vehicle_id = v.id
-		ORDER BY b.bus_name
+		ORDER BY b.name
 	`)
 	if err != nil {
 		log.Printf("Error fetching buses: %v", err)
@@ -616,7 +616,7 @@ func GetAllBuses(c *gin.Context) {
 	type BusInfo struct {
 		ID              int    `json:"id"`
 		Name            string `json:"name"`
-		BusName         string `json:"bus_name"`
+		VehicleName     string `json:"vehicle_name"`
 		VehicleNumber   string `json:"vehicle_number"`
 		Route           string `json:"route"`
 		StartPoint      string `json:"start_point"`
@@ -627,11 +627,11 @@ func GetAllBuses(c *gin.Context) {
 	var buses []BusInfo
 	for rows.Next() {
 		var b BusInfo
-		if err := rows.Scan(&b.ID, &b.BusName, &b.VehicleNumber, &b.StartPoint, &b.EndPoint, &b.SeatingCapacity); err != nil {
+		if err := rows.Scan(&b.ID, &b.VehicleName, &b.VehicleNumber, &b.StartPoint, &b.EndPoint, &b.SeatingCapacity); err != nil {
 			log.Printf("Error scanning bus: %v", err)
 			continue
 		}
-		b.Name = b.BusName
+		b.Name = b.VehicleName
 		b.Route = b.StartPoint + " → " + b.EndPoint
 		buses = append(buses, b)
 	}
@@ -710,7 +710,7 @@ func GetMyTransportRequests(c *gin.Context) {
 	rows, err := config.DB.Query(`
 		SELECT 
 			tr.id, tr.user_id,
-			tr.bus_id, b.bus_name, CONCAT(b.start_point, ' → ', b.end_point) as route,
+			tr.bus_id, b.name, CONCAT(b.start_point, ' → ', b.end_point) as route,
 			tr.stop_id, bs.stop_name, bs.fee,
 			tr.academic_year, COALESCE(tr.reason, ''), tr.status,
 			COALESCE(tr.admin_remarks, ''),
@@ -736,7 +736,7 @@ func GetMyTransportRequests(c *gin.Context) {
 		var processedBy sql.NullInt64
 		err := rows.Scan(
 			&r.ID, &r.UserID,
-			&r.BusID, &r.BusName, &r.Route,
+			&r.BusID, &r.VehicleName, &r.Route,
 			&r.StopID, &r.StopName, &r.Fee,
 			&r.AcademicYear, &r.Reason, &r.Status,
 			&r.AdminRemarks,

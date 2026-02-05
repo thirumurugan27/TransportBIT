@@ -1,8 +1,6 @@
 export const formatVehicleLabel = (item = {}) => {
     const name =
-        item.bus_name ||
         item.vehicle_name ||
-        item.name ||
         item.vehicleLabel ||
         item.model_name;
     const number =

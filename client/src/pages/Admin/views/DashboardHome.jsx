@@ -14,6 +14,7 @@ import {
   Zap,
   LayoutDashboard,
 } from "lucide-react";
+import Loading from "../../../components/ui/Loading";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
@@ -38,7 +39,7 @@ export default function DashboardHome() {
         const [statsRes, leaveStatsRes, leaveReqRes, fleetRes] =
           await Promise.all([
             fetch(`${API_BASE}/api/admin/dashboard/stats`).then((r) =>
-              r.json()
+              r.json(),
             ),
             fetch(`${API_BASE}/api/admin/leave/stats`).then((r) => r.json()),
             fetch(`${API_BASE}/api/admin/leave/pending`).then((r) => r.json()),
@@ -60,12 +61,7 @@ export default function DashboardHome() {
   }, []);
 
   if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center p-20 text-[var(--color-primary)]">
-        <div className="animate-spin inline-block w-10 h-10 border-4 border-current border-t-transparent rounded-full mb-4"></div>
-        <p className="text-gray-500 font-medium">Loading Dashboard...</p>
-      </div>
-    );
+    return <Loading fullScreen={false} text="Loading Dashboard..." />;
   }
 
   // Calculate percentages with fallbacks
@@ -83,7 +79,8 @@ export default function DashboardHome() {
   const activeRoutesPercent =
     busFleet.length > 0
       ? Math.round(
-          (busFleet.filter((b) => b.start_point).length / busFleet.length) * 100
+          (busFleet.filter((b) => b.start_point).length / busFleet.length) *
+            100,
         )
       : 0;
 
@@ -100,7 +97,7 @@ export default function DashboardHome() {
             Real-time transport fleet metrics and request management.
           </p>
         </div>
-        <div className="flex gap-2 text-sm text-gray-500 bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-100">
+        <div className="flex gap-2 text-sm text-gray-500 bg-white px-4 py-2 rounded-md shadow-sm border border-gray-100">
           <Calendar size={16} className="text-gray-400" />
           {new Date().toLocaleDateString("en-US", {
             weekday: "long",
@@ -150,7 +147,7 @@ export default function DashboardHome() {
       {/* Main Content Split */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Requests - Takes 2 columns */}
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+        <div className="lg:col-span-2 bg-white rounded-md shadow-sm border border-gray-100 overflow-hidden flex flex-col">
           <div className="p-5 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
             <h3 className="font-bold text-gray-800 flex items-center gap-2">
               <Clock size={18} className="text-gray-400" /> Recent Leave
@@ -172,7 +169,7 @@ export default function DashboardHome() {
                     key={req.id}
                     className="p-4 hover:bg-gray-50 transition-colors flex items-center gap-4"
                   >
-                    <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center font-bold text-sm">
+                    <div className="w-10 h-10 rounded-md bg-amber-100 text-amber-600 flex items-center justify-center font-bold text-sm">
                       {req.driver_name?.charAt(0)}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -181,7 +178,7 @@ export default function DashboardHome() {
                           {req.driver_name}
                         </h4>
                         <span
-                          className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wide
+                          className={`px-2 py-0.5 rounded-md text-[10px] uppercase font-bold tracking-wide
                            ${
                              req.status === "pending"
                                ? "bg-amber-100 text-amber-700"
@@ -213,7 +210,7 @@ export default function DashboardHome() {
         </div>
 
         {/* Fleet Health - Takes 1 column */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col">
+        <div className="bg-white rounded-md shadow-sm border border-gray-100 flex flex-col">
           <div className="p-5 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
             <h3 className="font-bold text-gray-800 flex items-center gap-2">
               <Activity size={18} className="text-gray-400" /> Fleet Health
@@ -231,9 +228,9 @@ export default function DashboardHome() {
                   {vehicleUsagePercent}%
                 </span>
               </div>
-              <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+              <div className="h-2 w-full bg-gray-100 rounded-md overflow-hidden">
                 <div
-                  className="h-full bg-blue-500 rounded-full transition-all duration-1000 ease-out"
+                  className="h-full bg-blue-500 rounded-md transition-all duration-1000 ease-out"
                   style={{width: `${vehicleUsagePercent}%`}}
                 ></div>
               </div>
@@ -252,9 +249,9 @@ export default function DashboardHome() {
                   {driverAvailPercent}%
                 </span>
               </div>
-              <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+              <div className="h-2 w-full bg-gray-100 rounded-md overflow-hidden">
                 <div
-                  className="h-full bg-emerald-500 rounded-full transition-all duration-1000 ease-out"
+                  className="h-full bg-emerald-500 rounded-md transition-all duration-1000 ease-out"
                   style={{width: `${driverAvailPercent}%`}}
                 ></div>
               </div>
@@ -271,9 +268,9 @@ export default function DashboardHome() {
                   {activeRoutesPercent}%
                 </span>
               </div>
-              <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+              <div className="h-2 w-full bg-gray-100 rounded-md overflow-hidden">
                 <div
-                  className="h-full bg-indigo-500 rounded-full transition-all duration-1000 ease-out"
+                  className="h-full bg-indigo-500 rounded-md transition-all duration-1000 ease-out"
                   style={{width: `${activeRoutesPercent}%`}}
                 ></div>
               </div>
@@ -283,7 +280,7 @@ export default function DashboardHome() {
             </div>
 
             {/* Fuel Warning? (Mock) */}
-            <div className="p-3 bg-red-50 rounded-lg border border-red-100 flex gap-3 items-start mt-4">
+            <div className="p-3 bg-red-50 rounded-md border border-red-100 flex gap-3 items-start mt-4">
               <AlertCircle size={16} className="text-red-500 mt-0.5 shrink-0" />
               <div>
                 <h4 className="text-xs font-bold text-red-700">
@@ -331,12 +328,12 @@ export default function DashboardHome() {
 
 function StatCard({label, value, icon: Icon, color, bg, text}) {
   return (
-    <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between transition-transform hover:scale-[1.01]">
+    <div className="bg-white p-5 rounded-md shadow-sm border border-gray-100 flex items-center justify-between transition-transform hover:scale-[1.01]">
       <div>
         <p className="text-sm font-medium text-gray-500">{label}</p>
         <h2 className="text-2xl font-bold text-gray-800 mt-1">{value}</h2>
       </div>
-      <div className={`p-4 rounded-lg ${bg} ${text}`}>
+      <div className={`p-4 rounded-md ${bg} ${text}`}>
         <Icon size={24} />
       </div>
     </div>
@@ -353,9 +350,9 @@ function SecondaryStat({
   iconColor,
 }) {
   return (
-    <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex items-center px-6">
+    <div className="bg-white p-5 rounded-md shadow-sm border border-gray-100 flex items-center px-6">
       <div
-        className={`p-3 rounded-full mr-4 ${
+        className={`p-3 rounded-md mr-4 ${
           iconColor || "bg-gray-100 text-gray-600"
         }`}
       >

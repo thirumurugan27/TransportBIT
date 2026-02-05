@@ -200,7 +200,7 @@ export default function DriverApplyLeave() {
           </div>
         ) : filteredLeaves.length === 0 ? (
           <div className="p-12 text-center">
-            <div className="bg-primarybg w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="bg-primarybg w-16 h-16 rounded-md flex items-center justify-center mx-auto mb-4">
               <FileText className="w-8 h-8 text-secondarytext" />
             </div>
             <h3 className="text-primarytext font-medium mb-1">
@@ -236,7 +236,7 @@ export default function DriverApplyLeave() {
                       {leave.leave_type}
                     </td>
                     <td className="px-6 py-4">
-                      <span className="inline-flex px-3 py-1 bg-[#0ea5e9] text-white rounded-full text-xs font-medium shadow-sm">
+                      <span className="inline-flex px-3 py-1 bg-[#0ea5e9] text-white rounded-md text-xs font-medium shadow-sm">
                         Leave
                       </span>
                     </td>
@@ -254,7 +254,7 @@ export default function DriverApplyLeave() {
                     </td>
                     <td className="px-6 py-4">
                       <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium ${
                           leave.incharge_approved_at ||
                           getStatus(leave) === "incharge_approved" ||
                           getStatus(leave) === "admin_approved" ||
@@ -281,7 +281,7 @@ export default function DriverApplyLeave() {
                     </td>
                     <td className="px-6 py-4">
                       <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium ${
                           leave.admin_approved_at ||
                           getStatus(leave) === "admin_approved" ||
                           getStatus(leave) === "approved"
@@ -313,7 +313,7 @@ export default function DriverApplyLeave() {
         <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/30 text-xs text-gray-500 flex justify-between items-center">
           <span>
             Show{" "}
-            <select className="border border-gray-300 rounded px-1 py-0.5">
+            <select className="border border-gray-300 rounded-md px-1 py-0.5">
               <option>10</option>
               <option>50</option>
             </select>{" "}
@@ -326,7 +326,7 @@ export default function DriverApplyLeave() {
       {/* Apply Leave Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-2xl rounded-lg shadow-2xl animate-scaleIn overflow-hidden">
+          <div className="bg-white w-full max-w-2xl rounded-md shadow-2xl animate-scaleIn overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <h3 className="text-lg font-bold text-gray-800">
                 Apply for Leave
@@ -477,7 +477,7 @@ export default function DriverApplyLeave() {
       {/* Details Modal */}
       {showDetailsModal && selectedLeave && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-3xl rounded-lg shadow-2xl animate-scaleIn overflow-hidden">
+          <div className="bg-white w-full max-w-3xl rounded-md shadow-2xl animate-scaleIn overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <h3 className="text-lg font-bold text-gray-800">
                 Leave Details - {selectedLeave.leave_type}
@@ -503,7 +503,7 @@ export default function DriverApplyLeave() {
                 </div>
                 <div>
                   <p className="text-gray-500 mb-1">Type</p>
-                  <span className="inline-flex px-3 py-0.5 bg-[#8b5cf6] text-white rounded-full text-xs font-medium">
+                  <span className="inline-flex px-3 py-0.5 bg-[#8b5cf6] text-white rounded-md text-xs font-medium">
                     Leave
                   </span>
                 </div>
@@ -537,7 +537,7 @@ export default function DriverApplyLeave() {
                 <div>
                   <p className="text-gray-500 mb-1">Status</p>
                   <span
-                    className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium text-white ${
+                    className={`inline-flex items-center px-3 py-1 rounded-md text-xs font-medium text-white ${
                       getStatus(selectedLeave) === "approved"
                         ? "bg-[#22c55e]"
                         : getStatus(selectedLeave) === "rejected"
@@ -562,7 +562,7 @@ export default function DriverApplyLeave() {
                 </h4>
                 <div className="flex flex-col gap-3">
                   {/* Incharge */}
-                  <div className="border border-gray-200 rounded-lg p-3 bg-white">
+                  <div className="border border-gray-200 rounded-md p-3 bg-white">
                     <div className="flex justify-between items-center">
                       <div>
                         <p className="text-sm font-bold text-gray-700">
@@ -579,7 +579,7 @@ export default function DriverApplyLeave() {
                         )}
                       </div>
                       <span
-                        className={`text-xs font-bold px-2 py-1 rounded ${
+                        className={`text-xs font-bold px-2 py-1 rounded-md ${
                           selectedLeave.incharge_approved_at
                             ? "bg-green/10 text-green"
                             : "bg-pending/10 text-pending"
@@ -591,14 +591,14 @@ export default function DriverApplyLeave() {
                       </span>
                     </div>
                     {selectedLeave.incharge_remarks && (
-                      <p className="text-xs text-gray-600 mt-2 bg-gray-50 p-2 rounded">
+                      <p className="text-xs text-gray-600 mt-2 bg-gray-50 p-2 rounded-md">
                         Note: {selectedLeave.incharge_remarks}
                       </p>
                     )}
                   </div>
 
                   {/* Admin */}
-                  <div className="border border-gray-200 rounded-lg p-3 bg-white">
+                  <div className="border border-gray-200 rounded-md p-3 bg-white">
                     <div className="flex justify-between items-center">
                       <div>
                         <p className="text-sm font-bold text-gray-700">
@@ -615,7 +615,7 @@ export default function DriverApplyLeave() {
                         )}
                       </div>
                       <span
-                        className={`text-xs font-bold px-2 py-1 rounded ${
+                        className={`text-xs font-bold px-2 py-1 rounded-md ${
                           selectedLeave.admin_approved_at
                             ? "bg-green/10 text-green"
                             : "bg-pending/10 text-pending"
@@ -627,7 +627,7 @@ export default function DriverApplyLeave() {
                       </span>
                     </div>
                     {selectedLeave.admin_remarks && (
-                      <p className="text-xs text-gray-600 mt-2 bg-gray-50 p-2 rounded">
+                      <p className="text-xs text-gray-600 mt-2 bg-gray-50 p-2 rounded-md">
                         Note: {selectedLeave.admin_remarks}
                       </p>
                     )}

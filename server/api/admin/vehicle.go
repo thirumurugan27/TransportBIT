@@ -18,8 +18,10 @@ import (
 func GetAllVehicles(c *gin.Context) {
 	rows, err := config.DB.Query(`
 		SELECT v.id, v.vehicle_number, v.vehicle_type, v.fuel_type, v.seating_capacity, v.status,
-		       v.insurance_expire_date, v.fc_expire_date, v.permit_expire_date,
-		       COALESCE(v.name, b.bus_name, v.vehicle_number) as bus_name,
+		       DATE_FORMAT(v.insurance_expire_date, '%d-%m-%Y') as insurance_expire_date,
+		       DATE_FORMAT(v.fc_expire_date, '%d-%m-%Y') as fc_expire_date,
+		       DATE_FORMAT(v.permit_expire_date, '%d-%m-%Y') as permit_expire_date,
+		       COALESCE(v.vehicle_name, b.bus_name, v.vehicle_number) as vehicle_name,
 		       COALESCE(b.start_point, ''),
 		       COALESCE(b.end_point, ''),
 		       fcr.id as fc_replacement_id,
@@ -55,7 +57,7 @@ func GetAllVehicles(c *gin.Context) {
 		InsuranceExpireDate      *string `json:"insurance_expire_date"`
 		FCExpireDate             *string `json:"fc_expire_date"`
 		PermitExpireDate         *string `json:"permit_expire_date"`
-		BusName                  string  `json:"bus_name"`
+		VehicleName              string  `json:"vehicle_name"`
 		StartPoint               string  `json:"start_point"`
 		EndPoint                 string  `json:"end_point"`
 		FCReplacementID          *int    `json:"fc_replacement_id"`
@@ -73,7 +75,7 @@ func GetAllVehicles(c *gin.Context) {
 		var v VehicleWithReplacement
 		rows.Scan(&v.ID, &v.VehicleNumber, &v.VehicleType, &v.FuelType, &v.SeatingCapacity, &v.Status,
 			&v.InsuranceExpireDate, &v.FCExpireDate, &v.PermitExpireDate,
-			&v.BusName, &v.StartPoint, &v.EndPoint,
+			&v.VehicleName, &v.StartPoint, &v.EndPoint,
 			&v.FCReplacementID, &v.FCReplacementStatus, &v.FCStartDate, &v.FCEndDate,
 			&v.FCReason, &v.ReplacementVehicleNumber,
 			&v.VehicleGroupID, &v.VehicleGroupName)
@@ -95,7 +97,7 @@ func CreateVehicle(c *gin.Context) {
 		INSERT INTO vehicles (name, vehicle_number, vehicle_type, fuel_type, seating_capacity, 
 		                      insurance_expire_date, fc_expire_date, permit_expire_date)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-	`, req.BusName, req.VehicleNumber, req.VehicleType, req.FuelType, req.SeatingCapacity,
+	`, req.VehicleName, req.VehicleNumber, req.VehicleType, req.FuelType, req.SeatingCapacity,
 		req.InsuranceExpireDate, req.FCExpireDate, req.PermitExpireDate)
 
 	if err != nil {
@@ -107,12 +109,12 @@ func CreateVehicle(c *gin.Context) {
 	// If it's a bus, also create a record in the buses table
 	if req.VehicleType == "BUS" {
 		vehicleID, _ := result.LastInsertId()
-		busName := req.BusName
+		busName := req.VehicleName
 		if busName == "" {
 			busName = req.VehicleNumber
 		}
 		_, err = config.DB.Exec(`
-			INSERT INTO buses (vehicle_id, bus_name, start_point, end_point)
+			INSERT INTO buses (vehicle_id, name, start_point, end_point)
 			VALUES (?, ?, ?, ?)
 		`, vehicleID, busName, req.StartPoint, req.EndPoint)
 		if err != nil {
@@ -133,14 +135,14 @@ func CreateVehicle(c *gin.Context) {
 func GetBusFleet(c *gin.Context) {
 	rows, err := config.DB.Query(`
 		SELECT v.id, v.vehicle_number, v.vehicle_type, v.fuel_type, v.seating_capacity, v.status,
-		       COALESCE(v.name, b.bus_name, v.vehicle_number) as bus_name, 
+		       COALESCE(v.vehicle_name, b.bus_name, v.vehicle_number) as vehicle_name, 
 		       COALESCE(b.start_point, '') as start_point,
 		       COALESCE(b.end_point, '') as end_point,
 		       (SELECT COUNT(*) FROM bus_stops bs WHERE bs.vehicle_id = v.id) as stops_count
 		FROM vehicles v
 		LEFT JOIN buses b ON v.id = b.vehicle_id
 		WHERE v.vehicle_type = 'BUS'
-		ORDER BY bus_name ASC
+		ORDER BY name ASC
 	`)
 	if err != nil {
 		log.Printf("Get bus fleet error: %v", err)
@@ -156,7 +158,7 @@ func GetBusFleet(c *gin.Context) {
 		FuelType        string `json:"fuel_type"`
 		SeatingCapacity int    `json:"seating_capacity"`
 		Status          string `json:"status"`
-		BusName         string `json:"bus_name"`
+		VehicleName     string `json:"vehicle_name"`
 		StartPoint      string `json:"start_point"`
 		EndPoint        string `json:"end_point"`
 		StopsCount      int    `json:"stops_count"`
@@ -166,7 +168,7 @@ func GetBusFleet(c *gin.Context) {
 	for rows.Next() {
 		var item BusFleetItem
 		err := rows.Scan(&item.ID, &item.VehicleNumber, &item.VehicleType, &item.FuelType,
-			&item.SeatingCapacity, &item.Status, &item.BusName, &item.StartPoint, &item.EndPoint, &item.StopsCount)
+			&item.SeatingCapacity, &item.Status, &item.VehicleName, &item.StartPoint, &item.EndPoint, &item.StopsCount)
 		if err != nil {
 			continue
 		}
@@ -188,7 +190,7 @@ func UpdateVehicle(c *gin.Context) {
 		UPDATE vehicles SET name=?, vehicle_number=?, vehicle_type=?, fuel_type=?, seating_capacity=?, status=?,
 		       insurance_expire_date=?, fc_expire_date=?, permit_expire_date=?
 		WHERE id=?
-	`, v.BusName, v.VehicleNumber, v.VehicleType, v.FuelType, v.SeatingCapacity, v.Status,
+	`, v.VehicleName, v.VehicleNumber, v.VehicleType, v.FuelType, v.SeatingCapacity, v.Status,
 		v.InsuranceExpireDate, v.FCExpireDate, v.PermitExpireDate, v.ID)
 
 	if err != nil {
@@ -199,10 +201,10 @@ func UpdateVehicle(c *gin.Context) {
 	// If it's a bus, update or create the bus record
 	if v.VehicleType == "BUS" {
 		_, err = config.DB.Exec(`
-			INSERT INTO buses (vehicle_id, bus_name, start_point, end_point)
+			INSERT INTO buses (vehicle_id, name, start_point, end_point)
 			VALUES (?, ?, ?, ?)
-			ON DUPLICATE KEY UPDATE bus_name = VALUES(bus_name), start_point = VALUES(start_point), end_point = VALUES(end_point)
-		`, v.ID, v.BusName, v.StartPoint, v.EndPoint)
+			ON DUPLICATE KEY UPDATE name = VALUES(name), start_point = VALUES(start_point), end_point = VALUES(end_point)
+		`, v.ID, v.VehicleName, v.StartPoint, v.EndPoint)
 		if err != nil {
 			log.Printf("Update bus error: %v", err)
 		}

@@ -110,7 +110,7 @@ export default function TopBar({
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="font-semibold text-red-600 flex items-center gap-2">
-                            <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                            <span className="w-2 h-2 bg-red-500 rounded-md animate-pulse" />
                             {alert.driver_name}
                           </p>
                           {alert.cluster_name && (
@@ -185,7 +185,7 @@ export default function TopBar({
             onClick={() => setShowProfileMenu(!showProfileMenu)}
             className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-50 transition-all duration-200 border border-transparent hover:border-gray-200"
           >
-            <div className="w-9 h-9 rounded-md bg-linear-to-br from-primary to-primarydull text-white flex items-center justify-center font-bold text-sm shadow-md shadow-primary/20">
+            <div className="w-9 h-9 rounded-md bg-primary text-white flex items-center justify-center font-bold text-sm shadow-md shadow-primary/20">
               {adminName.charAt(0).toUpperCase()}
             </div>
             <div className="hidden sm:block text-left">

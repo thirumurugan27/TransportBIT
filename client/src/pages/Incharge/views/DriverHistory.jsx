@@ -12,7 +12,7 @@ export default function DriverHistory() {
   const [loading, setLoading] = useState(false);
 
   const [historyStartDate, setHistoryStartDate] = useState(
-    new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
+    new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
   );
   const [historyEndDate, setHistoryEndDate] = useState(getToday());
   const [attendanceStatusFilter, setAttendanceStatusFilter] = useState("all");
@@ -64,7 +64,7 @@ export default function DriverHistory() {
       ? record.driver_name
           ?.toLowerCase()
           .includes(driverSearchTerm.toLowerCase())
-      : true
+      : true,
   );
 
   const filteredLeaves = leaveHistory.filter((leave) =>
@@ -72,7 +72,7 @@ export default function DriverHistory() {
       ? leave.driver_name
           ?.toLowerCase()
           .includes(driverSearchTerm.toLowerCase())
-      : true
+      : true,
   );
 
   return (
@@ -88,7 +88,7 @@ export default function DriverHistory() {
         </div>
       </div>
 
-      <div className="bg-secondarybg rounded-xl p-4 shadow-sm border border-primarybg flex flex-col gap-4">
+      <div className="bg-secondarybg rounded-md p-4 shadow-sm border border-primarybg flex flex-col gap-4">
         {/* Filters Top Row */}
         <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
           <div className="relative w-full md:w-64">
@@ -97,7 +97,7 @@ export default function DriverHistory() {
               placeholder="Search by driver name..."
               value={driverSearchTerm}
               onChange={(e) => setDriverSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-primarybg border-none rounded-lg text-primarytext focus:ring-2 focus:ring-primary outline-none"
+              className="w-full pl-10 pr-4 py-2 bg-primarybg border-none rounded-md text-primarytext focus:ring-2 focus:ring-primary outline-none"
             />
             <svg
               className="w-5 h-5 text-secondarytext absolute left-3 top-2.5"
@@ -123,7 +123,7 @@ export default function DriverHistory() {
                 type="date"
                 value={historyStartDate}
                 onChange={(e) => setHistoryStartDate(e.target.value)}
-                className="px-3 py-2 bg-primarybg border-none rounded-lg text-primarytext focus:ring-2 focus:ring-primary outline-none"
+                className="px-3 py-2 bg-primarybg border-none rounded-md text-primarytext focus:ring-2 focus:ring-primary outline-none"
               />
             </div>
             <div className="flex items-center gap-2">
@@ -134,7 +134,7 @@ export default function DriverHistory() {
                 type="date"
                 value={historyEndDate}
                 onChange={(e) => setHistoryEndDate(e.target.value)}
-                className="px-3 py-2 bg-primarybg border-none rounded-lg text-primarytext focus:ring-2 focus:ring-primary outline-none"
+                className="px-3 py-2 bg-primarybg border-none rounded-md text-primarytext focus:ring-2 focus:ring-primary outline-none"
               />
             </div>
             <div className="flex items-center gap-2">
@@ -144,7 +144,7 @@ export default function DriverHistory() {
               <select
                 value={attendanceStatusFilter}
                 onChange={(e) => setAttendanceStatusFilter(e.target.value)}
-                className="px-3 py-2 bg-primarybg border-none rounded-lg text-primarytext focus:ring-2 focus:ring-primary outline-none cursor-pointer"
+                className="px-3 py-2 bg-primarybg border-none rounded-md text-primarytext focus:ring-2 focus:ring-primary outline-none cursor-pointer"
               >
                 <option value="all">All</option>
                 <option value="present">Present</option>
@@ -157,9 +157,9 @@ export default function DriverHistory() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-secondarybg rounded-xl p-5 shadow-sm border border-primarybg">
+        <div className="bg-secondarybg rounded-md p-5 shadow-sm border border-primarybg">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-green/10 rounded-xl flex items-center justify-center text-xl">
+            <div className="w-10 h-10 bg-green/10 rounded-md flex items-center justify-center text-xl">
               ✅
             </div>
             <div>
@@ -171,9 +171,9 @@ export default function DriverHistory() {
             </div>
           </div>
         </div>
-        <div className="bg-secondarybg rounded-xl p-5 shadow-sm border border-primarybg">
+        <div className="bg-secondarybg rounded-md p-5 shadow-sm border border-primarybg">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-red/10 rounded-xl flex items-center justify-center text-xl">
+            <div className="w-10 h-10 bg-red/10 rounded-md flex items-center justify-center text-xl">
               ❌
             </div>
             <div>
@@ -185,9 +185,9 @@ export default function DriverHistory() {
             </div>
           </div>
         </div>
-        <div className="bg-secondarybg rounded-xl p-5 shadow-sm border border-primarybg">
+        <div className="bg-secondarybg rounded-md p-5 shadow-sm border border-primarybg">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-xl">
+            <div className="w-10 h-10 bg-primary/10 rounded-md flex items-center justify-center text-xl">
               🏖️
             </div>
             <div>
@@ -198,9 +198,9 @@ export default function DriverHistory() {
             </div>
           </div>
         </div>
-        <div className="bg-secondarybg rounded-xl p-5 shadow-sm border border-primarybg">
+        <div className="bg-secondarybg rounded-md p-5 shadow-sm border border-primarybg">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-pending/10 rounded-xl flex items-center justify-center text-xl">
+            <div className="w-10 h-10 bg-pending/10 rounded-md flex items-center justify-center text-xl">
               ⏳
             </div>
             <div>
@@ -220,7 +220,7 @@ export default function DriverHistory() {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Attendance Records */}
-          <div className="bg-secondarybg rounded-xl shadow-sm border border-primarybg overflow-hidden h-full">
+          <div className="bg-secondarybg rounded-md shadow-sm border border-primarybg overflow-hidden h-full">
             <div className="bg-primary/10 px-6 py-4 border-b border-primarybg">
               <h4 className="text-primary font-bold flex items-center gap-2">
                 Attendance Records
@@ -259,7 +259,7 @@ export default function DriverHistory() {
                         </td>
                         <td className="px-4 py-3">
                           <span
-                            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${
+                            className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border ${
                               record.status === "present"
                                 ? "bg-green/10 text-green border-green/20"
                                 : "bg-red/10 text-red border-red/20"
@@ -270,7 +270,7 @@ export default function DriverHistory() {
                         </td>
                         <td className="px-4 py-3 text-sm">
                           {record.marked_by_incharge_name ? (
-                            <span className="inline-flex items-center px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs font-medium">
+                            <span className="inline-flex items-center px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-medium">
                               {record.marked_by_incharge_name}
                             </span>
                           ) : (
@@ -295,7 +295,7 @@ export default function DriverHistory() {
           </div>
 
           {/* Leave Records */}
-          <div className="bg-secondarybg rounded-xl shadow-sm border border-primarybg overflow-hidden h-full">
+          <div className="bg-secondarybg rounded-md shadow-sm border border-primarybg overflow-hidden h-full">
             <div className="bg-pending/10 px-6 py-4 border-b border-primarybg">
               <h4 className="text-pending font-bold flex items-center gap-2">
                 Leave Records
@@ -331,12 +331,12 @@ export default function DriverHistory() {
                         </td>
                         <td className="px-4 py-3">
                           <span
-                            className={`px-2 py-1 rounded-full text-xs font-medium border ${
+                            className={`px-2 py-1 rounded-md text-xs font-medium border ${
                               leave.leave_type === "SICK"
                                 ? "bg-red/10 text-red border-red/20"
                                 : leave.leave_type === "EMERGENCY"
-                                ? "bg-pending/10 text-pending border-pending/20"
-                                : "bg-primary/10 text-primary border-primary/20"
+                                  ? "bg-pending/10 text-pending border-pending/20"
+                                  : "bg-primary/10 text-primary border-primary/20"
                             }`}
                           >
                             {leave.leave_type}
@@ -347,23 +347,23 @@ export default function DriverHistory() {
                         </td>
                         <td className="px-4 py-3">
                           <span
-                            className={`px-2 py-1 rounded-full text-xs font-medium border ${
+                            className={`px-2 py-1 rounded-md text-xs font-medium border ${
                               leave.status === "admin_approved"
                                 ? "bg-green/10 text-green border-green/20"
                                 : leave.status === "rejected"
-                                ? "bg-red/10 text-red border-red/20"
-                                : leave.status === "incharge_approved"
-                                ? "bg-primary/10 text-primary border-primary/20"
-                                : "bg-pending/10 text-pending border-pending/20"
+                                  ? "bg-red/10 text-red border-red/20"
+                                  : leave.status === "incharge_approved"
+                                    ? "bg-primary/10 text-primary border-primary/20"
+                                    : "bg-pending/10 text-pending border-pending/20"
                             }`}
                           >
                             {leave.status === "admin_approved"
                               ? "Approved"
                               : leave.status === "rejected"
-                              ? "Rejected"
-                              : leave.status === "incharge_approved"
-                              ? "Awaiting Admin"
-                              : "Pending"}
+                                ? "Rejected"
+                                : leave.status === "incharge_approved"
+                                  ? "Awaiting Admin"
+                                  : "Pending"}
                           </span>
                         </td>
                       </tr>

@@ -12,15 +12,13 @@ import LeaveApprovals from "./views/LeaveApprovals";
 import ScheduleManagement from "./views/ScheduleManagement";
 import KmManagement from "./views/KmManagement";
 import AttendanceRecords from "./views/AttendanceRecords";
-import InsuranceFCStatus from "./views/InsuranceFCStatus";
 import FCReplacementManagement from "./views/FCReplacementManagement";
 import AdminStudentTransport from "./views/AdminStudentTransport";
-import CarBookingManagement from "./views/CarBookingManagement";
 import ComingSoon from "./views/ComingSoon";
 
 import {useAuth} from "../../context/AuthContext";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
+const API_BASE = import.meta.env.VITE_API_BASE;
 
 export default function AdminDashboard() {
   const {user, logout} = useAuth();
@@ -95,7 +93,6 @@ export default function AdminDashboard() {
             <Route path="km-management" element={<KmManagement />} />
             <Route path="leave-approvals" element={<LeaveApprovals />} />
             <Route path="attendance-records" element={<AttendanceRecords />} />
-            <Route path="insurance-fc-status" element={<InsuranceFCStatus />} />
             <Route
               path="fc-replacement"
               element={<FCReplacementManagement />}
@@ -103,10 +100,6 @@ export default function AdminDashboard() {
             <Route
               path="student-transport"
               element={<AdminStudentTransport />}
-            />
-            <Route
-              path="car-bookings"
-              element={<CarBookingManagement />}
             />
             <Route path="*" element={<AdminHome />} />
           </Routes>

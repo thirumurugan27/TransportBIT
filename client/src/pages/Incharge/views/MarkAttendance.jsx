@@ -125,7 +125,7 @@ export default function MarkAttendance() {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-secondarybg rounded-xl p-4 shadow-sm border border-primarybg flex flex-col justify-center items-center">
+        <div className="bg-secondarybg rounded-md p-4 shadow-sm border border-primarybg flex flex-col justify-center items-center">
           <span className="text-secondarytext text-xs uppercase tracking-wider font-semibold">
             Total
           </span>
@@ -133,19 +133,19 @@ export default function MarkAttendance() {
             {stats.total}
           </span>
         </div>
-        <div className="bg-secondarybg rounded-xl p-4 shadow-sm border border-primarybg flex flex-col justify-center items-center">
+        <div className="bg-secondarybg rounded-md p-4 shadow-sm border border-primarybg flex flex-col justify-center items-center">
           <span className="text-green text-xs uppercase tracking-wider font-semibold">
             Present
           </span>
           <span className="text-2xl font-bold text-green">{stats.present}</span>
         </div>
-        <div className="bg-secondarybg rounded-xl p-4 shadow-sm border border-primarybg flex flex-col justify-center items-center">
+        <div className="bg-secondarybg rounded-md p-4 shadow-sm border border-primarybg flex flex-col justify-center items-center">
           <span className="text-red text-xs uppercase tracking-wider font-semibold">
             Absent
           </span>
           <span className="text-2xl font-bold text-red">{stats.absent}</span>
         </div>
-        <div className="bg-secondarybg rounded-xl p-4 shadow-sm border border-primarybg flex flex-col justify-center items-center">
+        <div className="bg-secondarybg rounded-md p-4 shadow-sm border border-primarybg flex flex-col justify-center items-center">
           <span className="text-pending text-xs uppercase tracking-wider font-semibold">
             Pending
           </span>
@@ -155,7 +155,7 @@ export default function MarkAttendance() {
         </div>
       </div>
 
-      <div className="bg-secondarybg rounded-xl p-4 shadow-sm border border-primarybg flex flex-col md:flex-row gap-4 items-center justify-between">
+      <div className="bg-secondarybg rounded-md p-4 shadow-sm border border-primarybg flex flex-col md:flex-row gap-4 items-center justify-between">
         <div className="flex items-center gap-3 w-full md:w-auto">
           <div className="relative w-full md:w-64">
             <input
@@ -163,7 +163,7 @@ export default function MarkAttendance() {
               placeholder="Search by name..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-primarybg border-none rounded-lg text-primarytext focus:ring-2 focus:ring-primary outline-none"
+              className="w-full pl-10 pr-4 py-2 bg-primarybg border-none rounded-md text-primarytext focus:ring-2 focus:ring-primary outline-none"
             />
             <svg
               className="w-5 h-5 text-secondarytext absolute left-3 top-2.5"
@@ -208,7 +208,7 @@ export default function MarkAttendance() {
               type="date"
               value={attendanceDate}
               onChange={(e) => setAttendanceDate(e.target.value)}
-              className="w-full md:w-auto px-3 py-2 bg-primarybg border-none rounded-lg text-primarytext focus:ring-2 focus:ring-primary outline-none"
+              className="w-full md:w-auto px-3 py-2 bg-primarybg border-none rounded-md text-primarytext focus:ring-2 focus:ring-primary outline-none"
             />
           </div>
         </div>
@@ -219,7 +219,7 @@ export default function MarkAttendance() {
           Fetching driver list...
         </div>
       ) : (
-        <div className="bg-secondarybg rounded-xl shadow-sm border border-primarybg overflow-hidden">
+        <div className="bg-secondarybg rounded-md shadow-sm border border-primarybg overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -265,7 +265,7 @@ export default function MarkAttendance() {
                       </td>
                       <td className="px-6 py-4">
                         <span
-                          className={`inline-flex px-3 py-1 rounded-full text-xs font-medium border ${
+                          className={`inline-flex px-3 py-1 rounded-md text-xs font-medium border ${
                             d.attendance_status === "present"
                               ? "bg-green/10 text-green border-green/20"
                               : d.attendance_status === "absent"
@@ -285,7 +285,7 @@ export default function MarkAttendance() {
                       </td>
                       <td className="px-6 py-4 text-sm">
                         {d.marked_by_incharge_name ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs font-medium">
+                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-medium">
                             {d.marked_by_incharge_name}
                           </span>
                         ) : (
@@ -302,7 +302,7 @@ export default function MarkAttendance() {
                               d.attendance_status === "present" ||
                               d.has_approved_leave
                             }
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
                               d.attendance_status === "present" ||
                               d.has_approved_leave
                                 ? "bg-gray-100 text-gray-400 cursor-not-allowed"
@@ -316,7 +316,7 @@ export default function MarkAttendance() {
                               handleMarkAttendance(d.user_id, "absent")
                             }
                             disabled={d.attendance_status === "absent"}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
                               d.attendance_status === "absent"
                                 ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                                 : "bg-red text-white hover:bg-red/90 shadow-sm hover:shadow"

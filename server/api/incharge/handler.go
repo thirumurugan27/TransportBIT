@@ -95,6 +95,7 @@ type InchargeAssignment struct {
 	DriverName    string `json:"driver_name"`
 	DriverStatus  string `json:"driver_status"`
 	VehicleID     int    `json:"vehicle_id"`
+	VehicleName   string `json:"vehicle_name"`
 	VehicleNumber string `json:"vehicle_number"`
 	VehicleType   string `json:"vehicle_type"`
 	ShiftID       int    `json:"shift_id"`
@@ -136,7 +137,7 @@ func GetInchargeAssignments(c *gin.Context) {
 				    WHEN att.status = 'absent' THEN 'absent'
 				    ELSE 'not_marked'
 				END as driver_status,
-				a.vehicle_id, v.vehicle_number, v.vehicle_type,
+				a.vehicle_id, COALESCE(b.bus_name, v.vehicle_number) as vehicle_name, v.vehicle_number, v.vehicle_type,
 				a.shift_id, s.name as shift_name, 
 				TIME_FORMAT(s.start_time, '%H:%i') as start_time,
 				TIME_FORMAT(s.end_time, '%H:%i') as end_time,
@@ -148,6 +149,7 @@ func GetInchargeAssignments(c *gin.Context) {
 			JOIN drivers d ON a.driver_id = d.id
 			JOIN users u ON d.user_id = u.id
 			JOIN vehicles v ON a.vehicle_id = v.id
+			LEFT JOIN buses b ON b.vehicle_id = v.id
 			JOIN shifts s ON a.shift_id = s.id
 			LEFT JOIN attendance att ON att.user_id = d.user_id AND att.date = ?
 			WHERE ? BETWEEN a.start_date AND a.end_date
@@ -168,7 +170,7 @@ func GetInchargeAssignments(c *gin.Context) {
 				    WHEN att.status = 'absent' THEN 'absent'
 				    ELSE 'not_marked'
 				END as driver_status,
-				a.vehicle_id, v.vehicle_number, v.vehicle_type,
+				a.vehicle_id, COALESCE(b.bus_name, v.vehicle_number) as vehicle_name, v.vehicle_number, v.vehicle_type,
 				a.shift_id, s.name as shift_name, 
 				TIME_FORMAT(s.start_time, '%H:%i') as start_time,
 				TIME_FORMAT(s.end_time, '%H:%i') as end_time,
@@ -180,6 +182,7 @@ func GetInchargeAssignments(c *gin.Context) {
 			JOIN drivers d ON a.driver_id = d.id
 			JOIN users u ON d.user_id = u.id
 			JOIN vehicles v ON a.vehicle_id = v.id
+			LEFT JOIN buses b ON b.vehicle_id = v.id
 			JOIN shifts s ON a.shift_id = s.id
 			LEFT JOIN attendance att ON att.user_id = d.user_id AND att.date = a.assigned_date
 			ORDER BY a.assigned_date DESC, s.start_time ASC
@@ -201,7 +204,7 @@ func GetInchargeAssignments(c *gin.Context) {
 		var assignedDate, startDate, endDate []byte
 
 		err := rows.Scan(&a.ID, &a.DriverID, &a.DriverName, &a.DriverStatus,
-			&a.VehicleID, &a.VehicleNumber, &a.VehicleType,
+			&a.VehicleID, &a.VehicleName, &a.VehicleNumber, &a.VehicleType,
 			&a.ShiftID, &a.ShiftName, &a.StartTime, &a.EndTime,
 			&assignedDate, &startDate, &endDate, &a.Status)
 		if err != nil {
@@ -1449,7 +1452,7 @@ func GetInchargeKmFilters(c *gin.Context) {
 	vehicleRows, err := config.DB.Query(`
 		SELECT v.id, v.vehicle_number, 
 		       COALESCE(v.vehicle_type, 'UNKNOWN') as vehicle_type,
-		       COALESCE(NULLIF(v.name, ''), v.vehicle_number) as bus_name
+		       COALESCE(NULLIF(v.vehicle_name, ''), v.vehicle_number) as vehicle_name
 		FROM vehicles v
 		WHERE v.status IN ('active', 'available')
 		ORDER BY v.vehicle_number
@@ -1465,13 +1468,13 @@ func GetInchargeKmFilters(c *gin.Context) {
 		ID            int    `json:"id"`
 		VehicleNumber string `json:"vehicle_number"`
 		VehicleType   string `json:"vehicle_type"`
-		BusName       string `json:"bus_name"`
+		VehicleName   string `json:"vehicle_name"`
 	}
 
 	var vehicles []filterVehicle
 	for vehicleRows.Next() {
 		var v filterVehicle
-		if err := vehicleRows.Scan(&v.ID, &v.VehicleNumber, &v.VehicleType, &v.BusName); err != nil {
+		if err := vehicleRows.Scan(&v.ID, &v.VehicleNumber, &v.VehicleType, &v.VehicleName); err != nil {
 			log.Printf("Error scanning vehicle row: %v", err)
 			continue
 		}

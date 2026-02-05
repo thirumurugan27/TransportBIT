@@ -442,7 +442,7 @@ export default function FCReplacementManagement() {
               <button
                 key={status}
                 onClick={() => setFilter(status)}
-                className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${
+                className={`px-3 py-1 rounded-md text-xs font-medium capitalize ${
                   filter === status
                     ? "bg-primary text-white"
                     : "bg-gray-100 text-secondarytext hover:bg-gray-200"
@@ -493,7 +493,7 @@ export default function FCReplacementManagement() {
             {loading ? (
               <tr>
                 <td colSpan={7} className="p-8 text-center">
-                  <div className="w-8 h-8 border-4 border-primarybg border-t-primary rounded-full animate-spin mx-auto"></div>
+                  <div className="w-8 h-8 border-4 border-primarybg border-t-primary rounded-md animate-spin mx-auto"></div>
                 </td>
               </tr>
             ) : requests.length === 0 ? (
@@ -564,7 +564,7 @@ export default function FCReplacementManagement() {
                   </td>
                   <td className="p-4">
                     <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${getStatusBadge(
+                      className={`px-2 py-1 rounded-md text-xs font-medium capitalize ${getStatusBadge(
                         req.status,
                       )}`}
                     >
@@ -577,14 +577,14 @@ export default function FCReplacementManagement() {
                         <>
                           <button
                             onClick={() => openApproveModal(req)}
-                            className="p-1.5 bg-green/10 text-green rounded hover:bg-green/20"
+                            className="p-1.5 bg-green/10 text-green rounded-md hover:bg-green/20"
                             title="Approve & Assign"
                           >
                             <CheckCircle className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleReject(req.id)}
-                            className="p-1.5 bg-red/10 text-red rounded hover:bg-red/20"
+                            className="p-1.5 bg-red/10 text-red rounded-md hover:bg-red/20"
                             title="Reject"
                           >
                             <XCircle className="w-4 h-4" />
@@ -594,7 +594,7 @@ export default function FCReplacementManagement() {
                       {req.status === "approved" && (
                         <button
                           onClick={() => handleComplete(req.id)}
-                          className="px-2 py-1 bg-green/10 text-green rounded text-xs font-medium hover:bg-green/20"
+                          className="px-2 py-1 bg-green/10 text-green rounded-md text-xs font-medium hover:bg-green/20"
                         >
                           Complete
                         </button>
@@ -605,14 +605,14 @@ export default function FCReplacementManagement() {
                         <>
                           <button
                             onClick={() => openEditModal(req)}
-                            className="p-1.5 bg-blue-100 text-blue-600 rounded hover:bg-blue-200"
+                            className="p-1.5 bg-blue-100 text-blue-600 rounded-md hover:bg-blue-200"
                             title="Edit Request"
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleDelete(req.id)}
-                            className="p-1.5 bg-gray-100 text-gray-600 rounded hover:bg-red-100 hover:text-red"
+                            className="p-1.5 bg-gray-100 text-gray-600 rounded-md hover:bg-red-100 hover:text-red"
                             title="Delete Request"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -631,7 +631,7 @@ export default function FCReplacementManagement() {
       {/* Create Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-md p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold text-primarytext mb-4">
               Create Vehicle Replacement Request
             </h2>
@@ -701,7 +701,7 @@ export default function FCReplacementManagement() {
                               driver_id: d.id.toString(),
                             })
                           }
-                          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
                             formData.driver_id === d.id.toString()
                               ? "bg-primary text-white"
                               : "bg-white text-primarytext border border-gray-200 hover:border-primary"
@@ -897,7 +897,7 @@ export default function FCReplacementManagement() {
       {/* Approve Modal */}
       {showApproveModal && selectedRequest && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-lg">
+          <div className="bg-white rounded-md p-6 w-full max-w-lg">
             <h2 className="text-xl font-bold text-primarytext mb-4">
               Approve & Assign Replacement Vehicle
             </h2>
@@ -970,7 +970,7 @@ export default function FCReplacementManagement() {
       {/* Edit Modal */}
       {showEditModal && selectedRequest && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-lg">
+          <div className="bg-white rounded-md p-6 w-full max-w-lg">
             <h2 className="text-xl font-bold text-primarytext mb-4">
               Edit Replacement Request
             </h2>
@@ -986,7 +986,7 @@ export default function FCReplacementManagement() {
               <p className="text-sm">
                 <span className="font-medium">Status:</span>{" "}
                 <span
-                  className={`px-2 py-0.5 rounded text-xs font-medium capitalize ${getStatusBadge(selectedRequest.status)}`}
+                  className={`px-2 py-0.5 rounded-md text-xs font-medium capitalize ${getStatusBadge(selectedRequest.status)}`}
                 >
                   {selectedRequest.status}
                 </span>

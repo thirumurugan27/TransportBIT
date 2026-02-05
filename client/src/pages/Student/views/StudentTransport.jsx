@@ -3,6 +3,7 @@ import {useAuth} from "../../../context/AuthContext";
 import {useToast} from "../../../context/ToastContext";
 import {showConfirm} from "../../../utils/swal";
 import {formatTime} from "../../../utils/dateFormat";
+import Loading from "../../../components/ui/Loading";
 import {
   Bus,
   MapPin,
@@ -337,7 +338,7 @@ export default function StudentTransport() {
     };
     return (
       <span
-        className={`px-3 py-1 rounded-full text-xs font-semibold ${styles[status] || "bg-secondarybg"}`}
+        className={`px-3 py-1 rounded-md text-xs font-semibold ${styles[status] || "bg-secondarybg"}`}
       >
         {status.charAt(0).toUpperCase() + status.slice(1)}
       </span>
@@ -345,11 +346,7 @@ export default function StudentTransport() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary/20 border-t-primary"></div>
-      </div>
-    );
+    return <Loading fullScreen={false} />;
   }
 
   // Show request UI if not assigned or transport is null
@@ -357,7 +354,7 @@ export default function StudentTransport() {
     return (
       <div className="space-y-6 p-6">
         {/* Header */}
-        <div className="bg-secondarybg rounded-2xl p-6 border border-primary/10">
+        <div className="bg-secondarybg rounded-md p-6 border border-primary/10">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-primarytext mb-2">
@@ -368,15 +365,15 @@ export default function StudentTransport() {
                 started!
               </p>
             </div>
-            <div className="bg-primary/10 p-4 rounded-xl">
+            <div className="bg-primary/10 p-4 rounded-md">
               <Bus className="w-8 h-8 text-primary" />
             </div>
           </div>
         </div>
 
         {/* Request Transport Card */}
-        <div className="bg-secondarybg rounded-2xl shadow-sm border border-primarybg p-8 text-center">
-          <div className="bg-primary/10 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+        <div className="bg-secondarybg rounded-md shadow-sm border border-primarybg p-8 text-center">
+          <div className="bg-primary/10 w-20 h-20 rounded-md flex items-center justify-center mx-auto mb-4">
             <Send className="w-10 h-10 text-primary" />
           </div>
           <h3 className="text-2xl font-bold text-primarytext mb-2">
@@ -388,14 +385,14 @@ export default function StudentTransport() {
           </p>
           <button
             onClick={handleOpenTransportRequestModal}
-            className="px-8 py-3 bg-primary text-white rounded-xl hover:bg-primarydull transition-colors font-semibold text-lg shadow-lg"
+            className="px-8 py-3 bg-primary text-white rounded-md hover:bg-primarydull transition-colors font-semibold text-lg shadow-lg"
           >
             Request Bus Transport
           </button>
         </div>
 
         {/* My Transport Requests */}
-        <div className="bg-secondarybg rounded-2xl shadow-sm border border-primarybg p-6">
+        <div className="bg-secondarybg rounded-md shadow-sm border border-primarybg p-6">
           <h3 className="text-lg font-semibold text-primarytext mb-4 flex items-center gap-2">
             <FileText className="w-5 h-5 text-primary" />
             My Transport Requests
@@ -412,7 +409,7 @@ export default function StudentTransport() {
               {transportRequests.map((req) => (
                 <div
                   key={req.id}
-                  className={`bg-primarybg rounded-xl p-5 border ${
+                  className={`bg-primarybg rounded-md p-5 border ${
                     req.status === "pending"
                       ? "border-pending/30"
                       : "border-primarybg"
@@ -423,7 +420,7 @@ export default function StudentTransport() {
                       <div className="flex items-center gap-2 mb-1">
                         <Bus className="w-5 h-5 text-primary" />
                         <span className="font-semibold text-primarytext text-lg">
-                          {req.bus_name}
+                          {req.vehicle_name}
                         </span>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-secondarytext">
@@ -433,7 +430,7 @@ export default function StudentTransport() {
                     </div>
                     {getStatusBadge(req.status)}
                   </div>
-                  <div className="grid grid-cols-2 gap-4 text-sm bg-secondarybg rounded-lg p-3">
+                  <div className="grid grid-cols-2 gap-4 text-sm bg-secondarybg rounded-md p-3">
                     <div>
                       <span className="text-secondarytext">Academic Year:</span>
                       <span className="ml-2 font-semibold text-primarytext">
@@ -448,7 +445,7 @@ export default function StudentTransport() {
                     </div>
                   </div>
                   {req.reason && (
-                    <div className="mt-3 text-sm text-secondarytext bg-secondarybg rounded-lg p-3">
+                    <div className="mt-3 text-sm text-secondarytext bg-secondarybg rounded-md p-3">
                       <span className="font-semibold text-primarytext">
                         Reason:
                       </span>{" "}
@@ -456,7 +453,7 @@ export default function StudentTransport() {
                     </div>
                   )}
                   {req.admin_remarks && req.status !== "pending" && (
-                    <div className="mt-2 text-sm text-secondarytext bg-secondarybg rounded-lg p-3">
+                    <div className="mt-2 text-sm text-secondarytext bg-secondarybg rounded-md p-3">
                       <span className="font-semibold text-primarytext">
                         Admin Remarks:
                       </span>{" "}
@@ -475,7 +472,7 @@ export default function StudentTransport() {
         {/* Transport Request Modal */}
         {showTransportRequestModal && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-secondarybg rounded-2xl shadow-2xl max-w-md w-full p-6 border border-primarybg">
+            <div className="bg-secondarybg rounded-md shadow-2xl max-w-md w-full p-6 border border-primarybg">
               <h3 className="text-xl font-bold text-primarytext mb-6">
                 Request Bus Transport
               </h3>
@@ -486,7 +483,7 @@ export default function StudentTransport() {
               <select
                 value={transportRequestForm.bus_id}
                 onChange={handleBusChange}
-                className="w-full px-4 py-3 border border-primarybg rounded-xl focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4 bg-secondarybg text-primarytext"
+                className="w-full px-4 py-3 border border-primarybg rounded-md focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4 bg-secondarybg text-primarytext"
               >
                 <option value={0}>-- Select Bus --</option>
                 {allBuses.map((bus) => (
@@ -509,7 +506,7 @@ export default function StudentTransport() {
                         stop_id: parseInt(e.target.value),
                       })
                     }
-                    className="w-full px-4 py-3 border border-primarybg rounded-xl focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4 bg-secondarybg text-primarytext"
+                    className="w-full px-4 py-3 border border-primarybg rounded-md focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4 bg-secondarybg text-primarytext"
                   >
                     <option value={0}>-- Select Stop --</option>
                     {busStops.map((stop) => (
@@ -540,7 +537,7 @@ export default function StudentTransport() {
                   })
                 }
                 placeholder="e.g., 2024-2025"
-                className="w-full px-4 py-3 border border-primarybg rounded-xl focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4 bg-secondarybg text-primarytext"
+                className="w-full px-4 py-3 border border-primarybg rounded-md focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4 bg-secondarybg text-primarytext"
               />
 
               <label className="block text-sm font-semibold text-primarytext mb-2">
@@ -555,21 +552,21 @@ export default function StudentTransport() {
                   })
                 }
                 placeholder="Any additional information..."
-                className="w-full px-4 py-3 border border-primarybg rounded-xl focus:ring-2 focus:ring-primary/50 focus:border-primary mb-6 bg-secondarybg text-primarytext"
+                className="w-full px-4 py-3 border border-primarybg rounded-md focus:ring-2 focus:ring-primary/50 focus:border-primary mb-6 bg-secondarybg text-primarytext"
                 rows={3}
               />
 
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowTransportRequestModal(false)}
-                  className="flex-1 py-3 bg-primarybg text-primarytext rounded-xl hover:bg-scroll transition-colors font-medium"
+                  className="flex-1 py-3 bg-primarybg text-primarytext rounded-md hover:bg-scroll transition-colors font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSubmitTransportRequest}
                   disabled={submitting}
-                  className="flex-1 py-3 bg-primary text-white rounded-xl hover:bg-primarydull transition-colors font-medium disabled:opacity-50"
+                  className="flex-1 py-3 bg-primary text-white rounded-md hover:bg-primarydull transition-colors font-medium disabled:opacity-50"
                 >
                   {submitting ? "Submitting..." : "Submit Request"}
                 </button>
@@ -590,7 +587,7 @@ export default function StudentTransport() {
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
-      <div className="bg-secondarybg rounded-2xl p-6 border border-primary/10">
+      <div className="bg-secondarybg rounded-md p-6 border border-primary/10">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-primarytext mb-2">
@@ -600,14 +597,14 @@ export default function StudentTransport() {
               View your bus details, fees, and manage stop change requests
             </p>
           </div>
-          <div className="bg-primary/10 p-4 rounded-xl">
+          <div className="bg-primary/10 p-4 rounded-md">
             <Bus className="w-8 h-8 text-primary" />
           </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="bg-secondarybg rounded-2xl border border-primarybg overflow-hidden">
+      <div className="bg-secondarybg rounded-md border border-primarybg overflow-hidden">
         <div className="flex border-b border-primarybg">
           {tabs.map((tab) => (
             <button
@@ -631,9 +628,9 @@ export default function StudentTransport() {
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Bus Info Card */}
-                <div className="bg-primarybg rounded-xl p-6 border border-primarybg">
+                <div className="bg-primarybg rounded-md p-6 border border-primarybg">
                   <div className="flex items-center gap-2 mb-4">
-                    <div className="bg-primary/10 p-2 rounded-lg">
+                    <div className="bg-primary/10 p-2 rounded-md">
                       <Bus className="w-5 h-5 text-primary" />
                     </div>
                     <h3 className="text-lg font-semibold text-primarytext">
@@ -644,7 +641,7 @@ export default function StudentTransport() {
                     <div className="flex justify-between py-3 border-b border-primarybg">
                       <span className="text-secondarytext">Bus Name</span>
                       <span className="font-semibold text-primarytext">
-                        {transport.bus_name}
+                        {transport.vehicle_name}
                       </span>
                     </div>
                     <div className="flex justify-between py-3 border-b border-primarybg">
@@ -663,9 +660,9 @@ export default function StudentTransport() {
                 </div>
 
                 {/* Stop Info Card */}
-                <div className="bg-primarybg rounded-xl p-6 border border-primarybg">
+                <div className="bg-primarybg rounded-md p-6 border border-primarybg">
                   <div className="flex items-center gap-2 mb-4">
-                    <div className="bg-primary/10 p-2 rounded-lg">
+                    <div className="bg-primary/10 p-2 rounded-md">
                       <MapPin className="w-5 h-5 text-primary" />
                     </div>
                     <h3 className="text-lg font-semibold text-primarytext">
@@ -706,7 +703,7 @@ export default function StudentTransport() {
                   </div>
                   <button
                     onClick={handleOpenRequestModal}
-                    className="mt-6 w-full py-3 bg-primary text-white rounded-xl hover:bg-primarydull transition-colors font-medium"
+                    className="mt-6 w-full py-3 bg-primary text-white rounded-md hover:bg-primarydull transition-colors font-medium"
                   >
                     Request Stop Change
                   </button>
@@ -720,7 +717,7 @@ export default function StudentTransport() {
             <div className="space-y-6">
               {/* Fee Summary */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-primarybg rounded-xl p-6 text-center border border-primarybg">
+                <div className="bg-primarybg rounded-md p-6 text-center border border-primarybg">
                   <div className="text-sm text-secondarytext mb-2">
                     Total Fee
                   </div>
@@ -728,7 +725,7 @@ export default function StudentTransport() {
                     ₹{transport.total_fee?.toLocaleString()}
                   </div>
                 </div>
-                <div className="bg-green/5 rounded-xl p-6 text-center border border-green/20">
+                <div className="bg-green/5 rounded-md p-6 text-center border border-green/20">
                   <div className="text-sm text-secondarytext mb-2">
                     Paid Amount
                   </div>
@@ -737,7 +734,7 @@ export default function StudentTransport() {
                   </div>
                 </div>
                 <div
-                  className={`rounded-xl p-6 text-center border ${
+                  className={`rounded-md p-6 text-center border ${
                     transport.balance > 0
                       ? "bg-red/5 border-red/20"
                       : "bg-green/5 border-green/20"
@@ -755,7 +752,7 @@ export default function StudentTransport() {
               </div>
 
               {/* Payment History */}
-              <div className="bg-primarybg rounded-xl p-6 border border-primarybg">
+              <div className="bg-primarybg rounded-md p-6 border border-primarybg">
                 <div className="flex items-center gap-2 mb-4">
                   <CreditCard className="w-5 h-5 text-primary" />
                   <h3 className="text-lg font-semibold text-primarytext">
@@ -826,7 +823,7 @@ export default function StudentTransport() {
                 </h3>
                 <button
                   onClick={handleOpenRequestModal}
-                  className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primarydull transition-colors font-medium"
+                  className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-md hover:bg-primarydull transition-colors font-medium"
                 >
                   <Send className="w-4 h-4" />
                   New Request
@@ -834,7 +831,7 @@ export default function StudentTransport() {
               </div>
 
               {stopRequests.length === 0 ? (
-                <div className="text-center py-12 bg-primarybg rounded-xl">
+                <div className="text-center py-12 bg-primarybg rounded-md">
                   <FileText className="w-12 h-12 text-secondarytext mx-auto mb-3" />
                   <p className="text-secondarytext">
                     No stop change requests found
@@ -845,7 +842,7 @@ export default function StudentTransport() {
                   {stopRequests.map((req) => (
                     <div
                       key={req.id}
-                      className={`bg-primarybg rounded-xl p-5 border ${
+                      className={`bg-primarybg rounded-md p-5 border ${
                         req.status === "pending"
                           ? "border-pending/30"
                           : "border-primarybg"
@@ -869,7 +866,7 @@ export default function StudentTransport() {
                             <button
                               onClick={() => handleCancelStopRequest(req.id)}
                               disabled={cancellingRequestId === req.id}
-                              className="px-3 py-1 text-sm rounded-lg border border-red/20 text-red hover:bg-red/10 disabled:opacity-50 font-medium"
+                              className="px-3 py-1 text-sm rounded-md border border-red/20 text-red hover:bg-red/10 disabled:opacity-50 font-medium"
                             >
                               {cancellingRequestId === req.id
                                 ? "Cancelling..."
@@ -879,7 +876,7 @@ export default function StudentTransport() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-3 gap-4 text-sm bg-secondarybg rounded-lg p-4">
+                      <div className="grid grid-cols-3 gap-4 text-sm bg-secondarybg rounded-md p-4">
                         <div>
                           <span className="text-secondarytext">
                             Current Fee:
@@ -908,7 +905,7 @@ export default function StudentTransport() {
                       </div>
 
                       {req.reason && (
-                        <div className="mt-3 text-sm text-secondarytext bg-secondarybg rounded-lg p-3">
+                        <div className="mt-3 text-sm text-secondarytext bg-secondarybg rounded-md p-3">
                           <span className="font-semibold text-primarytext">
                             Reason:
                           </span>{" "}
@@ -916,7 +913,7 @@ export default function StudentTransport() {
                         </div>
                       )}
                       {req.admin_remarks && req.status !== "pending" && (
-                        <div className="mt-2 text-sm text-secondarytext bg-secondarybg rounded-lg p-3">
+                        <div className="mt-2 text-sm text-secondarytext bg-secondarybg rounded-md p-3">
                           <span className="font-semibold text-primarytext">
                             Admin Remarks:
                           </span>{" "}
@@ -935,13 +932,13 @@ export default function StudentTransport() {
       {/* Stop Change Request Modal */}
       {showRequestModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-secondarybg rounded-2xl shadow-2xl max-w-md w-full p-6 border border-primarybg">
+          <div className="bg-secondarybg rounded-md shadow-2xl max-w-md w-full p-6 border border-primarybg">
             <h3 className="text-xl font-bold text-primarytext mb-6">
               Request Stop Change
             </h3>
 
             {transport && (
-              <div className="bg-primarybg rounded-xl p-4 mb-4 border border-primary/20">
+              <div className="bg-primarybg rounded-md p-4 mb-4 border border-primary/20">
                 <div className="text-sm text-secondarytext mb-1">
                   Current Stop
                 </div>
@@ -960,12 +957,13 @@ export default function StudentTransport() {
             <select
               value={stopChangeBusId}
               onChange={handleStopChangeBusSelect}
-              className="w-full px-4 py-3 border border-primarybg rounded-xl focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4 bg-secondarybg text-primarytext"
+              className="w-full px-4 py-3 border border-primarybg rounded-md focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4 bg-secondarybg text-primarytext"
             >
               <option value={0}>-- Select Bus --</option>
               {allBuses.map((bus) => (
                 <option key={bus.id} value={bus.id}>
-                  {bus.name || bus.bus_name} {bus.route ? `- ${bus.route}` : ""}
+                  {bus.vehicle_name || bus.vehicle_number}{" "}
+                  {bus.route ? `- ${bus.route}` : ""}
                 </option>
               ))}
             </select>
@@ -982,7 +980,7 @@ export default function StudentTransport() {
                 })
               }
               disabled={!stopChangeBusId}
-              className="w-full px-4 py-3 border border-primarybg rounded-xl focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4 bg-secondarybg text-primarytext disabled:opacity-50"
+              className="w-full px-4 py-3 border border-primarybg rounded-md focus:ring-2 focus:ring-primary/50 focus:border-primary mb-4 bg-secondarybg text-primarytext disabled:opacity-50"
             >
               <option value={0}>
                 {stopChangeBusId ? "-- Select Stop --" : "Select a bus first"}
@@ -1009,21 +1007,21 @@ export default function StudentTransport() {
                 setRequestForm({...requestForm, reason: e.target.value})
               }
               placeholder="Please explain why you need to change your stop..."
-              className="w-full px-4 py-3 border border-primarybg rounded-xl focus:ring-2 focus:ring-primary/50 focus:border-primary mb-6 bg-secondarybg text-primarytext"
+              className="w-full px-4 py-3 border border-primarybg rounded-md focus:ring-2 focus:ring-primary/50 focus:border-primary mb-6 bg-secondarybg text-primarytext"
               rows={3}
             />
 
             <div className="flex gap-3">
               <button
                 onClick={closeRequestModal}
-                className="flex-1 py-3 bg-primarybg text-primarytext rounded-xl hover:bg-scroll transition-colors font-medium"
+                className="flex-1 py-3 bg-primarybg text-primarytext rounded-md hover:bg-scroll transition-colors font-medium"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSubmitRequest}
                 disabled={submitting}
-                className="flex-1 py-3 bg-primary text-white rounded-xl hover:bg-primarydull transition-colors font-medium disabled:opacity-50"
+                className="flex-1 py-3 bg-primary text-white rounded-md hover:bg-primarydull transition-colors font-medium disabled:opacity-50"
               >
                 {submitting ? "Submitting..." : "Submit Request"}
               </button>

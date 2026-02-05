@@ -260,9 +260,9 @@ export default function DriverManagement() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-secondarybg rounded-xl p-4 shadow-sm border border-primarybg">
+        <div className="bg-secondarybg rounded-md p-4 shadow-sm border border-primarybg">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 bg-primary/10 rounded-md flex items-center justify-center">
               <Users className="text-primary" size={20} />
             </div>
             <div>
@@ -273,9 +273,9 @@ export default function DriverManagement() {
             </div>
           </div>
         </div>
-        <div className="bg-secondarybg rounded-xl p-4 shadow-sm border border-primarybg">
+        <div className="bg-secondarybg rounded-md p-4 shadow-sm border border-primarybg">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-green/10 rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 bg-green/10 rounded-md flex items-center justify-center">
               <Car className="text-green" size={20} />
             </div>
             <div>
@@ -286,9 +286,9 @@ export default function DriverManagement() {
             </div>
           </div>
         </div>
-        <div className="bg-secondarybg rounded-xl p-4 shadow-sm border border-primarybg">
+        <div className="bg-secondarybg rounded-md p-4 shadow-sm border border-primarybg">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 bg-blue-100 rounded-md flex items-center justify-center">
               <MapPin className="text-blue-600" size={20} />
             </div>
             <div>
@@ -299,9 +299,9 @@ export default function DriverManagement() {
             </div>
           </div>
         </div>
-        <div className="bg-secondarybg rounded-xl p-4 shadow-sm border border-primarybg">
+        <div className="bg-secondarybg rounded-md p-4 shadow-sm border border-primarybg">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 bg-amber-100 rounded-md flex items-center justify-center">
               <Clock className="text-amber-600" size={20} />
             </div>
             <div>
@@ -315,7 +315,7 @@ export default function DriverManagement() {
       </div>
 
       {/* Search */}
-      <div className="bg-secondarybg rounded-xl p-4 shadow-sm border border-primarybg">
+      <div className="bg-secondarybg rounded-md p-4 shadow-sm border border-primarybg">
         <div className="relative">
           <Search
             className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
@@ -326,7 +326,7 @@ export default function DriverManagement() {
             placeholder="Search by driver name or vehicle number..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-primarybg border-none rounded-lg text-primarytext focus:ring-2 focus:ring-primary outline-none"
+            className="w-full pl-10 pr-4 py-2.5 bg-primarybg border-none rounded-md text-primarytext focus:ring-2 focus:ring-primary outline-none"
           />
         </div>
       </div>
@@ -346,12 +346,12 @@ export default function DriverManagement() {
               return (
                 <div
                   key={driver.driver_id}
-                  className="bg-secondarybg rounded-xl shadow-sm border border-primarybg overflow-hidden"
+                  className="bg-secondarybg rounded-md shadow-sm border border-primarybg overflow-hidden"
                 >
                   {/* Main Row */}
                   <div className="p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-lg">
+                      <div className="w-12 h-12 rounded-md bg-primary/10 text-primary flex items-center justify-center font-bold text-lg">
                         {driver.full_name?.charAt(0) || "?"}
                       </div>
                       <div>
@@ -360,16 +360,16 @@ export default function DriverManagement() {
                         </h4>
                         <div className="flex flex-wrap gap-2 mt-1">
                           {driver.assigned_vehicle ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green/10 text-green text-xs font-medium rounded">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green/10 text-green text-xs font-medium rounded-md">
                               <Car size={12} /> {driver.assigned_vehicle}
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-500 text-xs font-medium rounded">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-500 text-xs font-medium rounded-md">
                               No Vehicle
                             </span>
                           )}
                           {driver.cluster_name && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-600 text-xs font-medium rounded">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-600 text-xs font-medium rounded-md">
                               {driver.cluster_name}
                             </span>
                           )}
@@ -385,19 +385,19 @@ export default function DriverManagement() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <button
                         onClick={() => openKmModal(driver)}
-                        className="px-3 py-1.5 bg-primary text-white text-sm rounded-lg hover:bg-primary/90 flex items-center gap-1"
+                        className="px-3 py-1.5 bg-primary text-white text-sm rounded-md hover:bg-primary/90 flex items-center gap-1"
                       >
                         <Plus size={14} /> Add KM Log
                       </button>
                       <button
                         onClick={() => openLeaveModal(driver)}
-                        className="px-3 py-1.5 bg-amber-500 text-white text-sm rounded-lg hover:bg-amber-600 flex items-center gap-1"
+                        className="px-3 py-1.5 bg-amber-500 text-white text-sm rounded-md hover:bg-amber-600 flex items-center gap-1"
                       >
                         <Calendar size={14} /> Apply Leave
                       </button>
                       <button
                         onClick={() => toggleDriverExpand(driver.driver_id)}
-                        className="px-3 py-1.5 bg-gray-100 text-gray-600 text-sm rounded-lg hover:bg-gray-200 flex items-center gap-1"
+                        className="px-3 py-1.5 bg-gray-100 text-gray-600 text-sm rounded-md hover:bg-gray-200 flex items-center gap-1"
                       >
                         {isExpanded ? (
                           <ChevronUp size={14} />
@@ -420,13 +420,14 @@ export default function DriverManagement() {
                             Assignment Details
                           </h5>
                           {assignment ? (
-                            <div className="bg-white rounded-lg p-3 space-y-2 text-sm">
+                            <div className="bg-white rounded-md p-3 space-y-2 text-sm">
                               <p>
                                 <span className="text-secondarytext">
                                   Vehicle:
                                 </span>{" "}
                                 <span className="font-medium">
-                                  {assignment.vehicle_number}
+                                  {assignment.vehicle_name ||
+                                    assignment.vehicle_number}
                                 </span>{" "}
                                 ({assignment.vehicle_type})
                               </p>
@@ -454,7 +455,7 @@ export default function DriverManagement() {
                                   Status:
                                 </span>
                                 <span
-                                  className={`ml-1 px-2 py-0.5 rounded text-xs font-medium ${
+                                  className={`ml-1 px-2 py-0.5 rounded-md text-xs font-medium ${
                                     assignment.assignment_status === "active"
                                       ? "bg-green/10 text-green"
                                       : "bg-gray-100 text-gray-600"
@@ -478,7 +479,7 @@ export default function DriverManagement() {
                             Recent KM Logs
                           </h5>
                           {driverKmLogs.length > 0 ? (
-                            <div className="bg-white rounded-lg p-3 max-h-40 overflow-y-auto">
+                            <div className="bg-white rounded-md p-3 max-h-40 overflow-y-auto">
                               <table className="w-full text-sm">
                                 <thead>
                                   <tr className="text-secondarytext text-xs">
@@ -529,7 +530,7 @@ export default function DriverManagement() {
       {/* Add KM Log Modal */}
       {showKmModal && selectedDriver && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+          <div className="bg-white rounded-md p-6 w-full max-w-md mx-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-primarytext">
                 Add KM Log
@@ -542,7 +543,7 @@ export default function DriverManagement() {
               </button>
             </div>
 
-            <div className="mb-4 p-3 bg-primary/5 rounded-lg">
+            <div className="mb-4 p-3 bg-primary/5 rounded-md">
               <p className="text-sm text-primarytext">
                 Adding KM log for:{" "}
                 <span className="font-semibold">
@@ -560,7 +561,7 @@ export default function DriverManagement() {
                   type="date"
                   value={kmForm.date}
                   onChange={(e) => setKmForm({...kmForm, date: e.target.value})}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-primary"
+                  className="w-full border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:border-primary"
                 />
               </div>
 
@@ -576,7 +577,7 @@ export default function DriverManagement() {
                       setKmForm({...kmForm, start_km: e.target.value})
                     }
                     placeholder="0"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-primary"
+                    className="w-full border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:border-primary"
                   />
                 </div>
                 <div>
@@ -590,13 +591,13 @@ export default function DriverManagement() {
                       setKmForm({...kmForm, end_km: e.target.value})
                     }
                     placeholder="0"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-primary"
+                    className="w-full border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:border-primary"
                   />
                 </div>
               </div>
 
               {kmForm.start_km && kmForm.end_km && (
-                <div className="p-3 bg-green/10 rounded-lg text-center">
+                <div className="p-3 bg-green/10 rounded-md text-center">
                   <p className="text-sm text-secondarytext">Total Distance</p>
                   <p className="text-2xl font-bold text-green">
                     {Math.max(
@@ -627,12 +628,12 @@ export default function DriverManagement() {
                       assignment_id: selectedVehicle?.assignment_id || "",
                     });
                   }}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-primary"
+                  className="w-full border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:border-primary"
                 >
                   <option value="">Select Vehicle</option>
                   {driverVehicles.map((v) => (
                     <option key={v.id} value={v.id}>
-                      {v.vehicle_number} ({v.vehicle_type})
+                      {v.vehicle_name || v.vehicle_number} ({v.vehicle_type})
                     </option>
                   ))}
                 </select>
@@ -645,7 +646,7 @@ export default function DriverManagement() {
 
               {/* Vehicle Type is auto-set from selected vehicle */}
               {kmForm.vehicle_id && (
-                <div className="p-3 bg-blue-50 rounded-lg">
+                <div className="p-3 bg-blue-50 rounded-md">
                   <p className="text-sm text-secondarytext">Vehicle Type</p>
                   <p className="font-semibold text-primarytext">
                     {kmForm.vehicle_type}
@@ -664,7 +665,7 @@ export default function DriverManagement() {
                   }
                   rows={2}
                   placeholder="Optional remarks..."
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-primary"
+                  className="w-full border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:border-primary"
                 />
               </div>
             </div>
@@ -672,14 +673,14 @@ export default function DriverManagement() {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setShowKmModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-secondarytext hover:bg-gray-50"
+                className="flex-1 px-4 py-2 border border-gray-200 rounded-md text-secondarytext hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleAddKmLog}
                 disabled={submitting}
-                className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50"
+                className="flex-1 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 disabled:opacity-50"
               >
                 {submitting ? "Adding..." : "Add KM Log"}
               </button>
@@ -691,7 +692,7 @@ export default function DriverManagement() {
       {/* Apply Leave Modal */}
       {showLeaveModal && selectedDriver && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+          <div className="bg-white rounded-md p-6 w-full max-w-md mx-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-primarytext">
                 Apply Leave
@@ -704,7 +705,7 @@ export default function DriverManagement() {
               </button>
             </div>
 
-            <div className="mb-4 p-3 bg-amber-50 rounded-lg">
+            <div className="mb-4 p-3 bg-amber-50 rounded-md">
               <p className="text-sm text-amber-800">
                 Applying leave for:{" "}
                 <span className="font-semibold">
@@ -723,7 +724,7 @@ export default function DriverManagement() {
                   onChange={(e) =>
                     setLeaveForm({...leaveForm, leave_type: e.target.value})
                   }
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-primary"
+                  className="w-full border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:border-primary"
                 >
                   <option value="CASUAL">Casual Leave</option>
                   <option value="SICK">Sick Leave</option>
@@ -743,7 +744,7 @@ export default function DriverManagement() {
                     onChange={(e) =>
                       setLeaveForm({...leaveForm, start_date: e.target.value})
                     }
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-primary"
+                    className="w-full border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:border-primary"
                   />
                 </div>
                 <div>
@@ -756,7 +757,7 @@ export default function DriverManagement() {
                     onChange={(e) =>
                       setLeaveForm({...leaveForm, end_date: e.target.value})
                     }
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-primary"
+                    className="w-full border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:border-primary"
                   />
                 </div>
                 <div>
@@ -770,7 +771,7 @@ export default function DriverManagement() {
                       onChange={(e) =>
                         setLeaveForm({...leaveForm, start_time: e.target.value})
                       }
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-primary"
+                      className="w-full border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:border-primary"
                     />
                     <Clock className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
                   </div>
@@ -786,7 +787,7 @@ export default function DriverManagement() {
                       onChange={(e) =>
                         setLeaveForm({...leaveForm, end_time: e.target.value})
                       }
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-primary"
+                      className="w-full border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:border-primary"
                     />
                     <Clock className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
                   </div>
@@ -804,12 +805,12 @@ export default function DriverManagement() {
                   }
                   rows={3}
                   placeholder="Enter reason for leave..."
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-primary"
+                  className="w-full border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:border-primary"
                   required
                 />
               </div>
 
-              <div className="p-3 bg-blue-50 rounded-lg">
+              <div className="p-3 bg-blue-50 rounded-md">
                 <p className="text-xs text-blue-700">
                   <strong>Note:</strong> This leave request will be submitted on
                   behalf of the driver and will require admin approval.
@@ -820,14 +821,14 @@ export default function DriverManagement() {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setShowLeaveModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-secondarytext hover:bg-gray-50"
+                className="flex-1 px-4 py-2 border border-gray-200 rounded-md text-secondarytext hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleApplyLeave}
                 disabled={submitting || !leaveForm.reason}
-                className="flex-1 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50"
+                className="flex-1 px-4 py-2 bg-amber-500 text-white rounded-md hover:bg-amber-600 disabled:opacity-50"
               >
                 {submitting ? "Submitting..." : "Submit Leave"}
               </button>

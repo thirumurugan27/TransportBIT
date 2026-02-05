@@ -272,7 +272,7 @@ export default function CreateDriver({onClose}) {
                   name="is_incharge"
                   checked={form.is_incharge}
                   onChange={handleChange}
-                  className="w-5 h-5 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                  className="w-5 h-5 rounded-md border-gray-300 text-primary focus:ring-primary cursor-pointer"
                 />
                 <div>
                   <span className="text-sm font-medium text-gray-800">
