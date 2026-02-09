@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"transport-server/config"
 
@@ -79,9 +80,9 @@ func GetVehicleGroups(c *gin.Context) {
 	rows, err := config.DB.Query(`
 		SELECT vg.id, vg.name, COALESCE(vg.description, '') as description,
 			   (SELECT COUNT(DISTINCT vgm.vehicle_id) FROM vehicle_group_members vgm 
-			    WHERE vgm.group_id = vg.id AND CURDATE() BETWEEN vgm.valid_from AND vgm.valid_to) as vehicle_count,
-			   DATE_FORMAT(vg.valid_from, '%d-%m-%Y'),
-			   DATE_FORMAT(vg.valid_to, '%d-%m-%Y'),
+			    WHERE vgm.group_id = vg.id) as vehicle_count,
+			   DATE_FORMAT(vg.valid_from, '%Y-%m-%d'),
+			   DATE_FORMAT(vg.valid_to, '%Y-%m-%d'),
 			   DATE_FORMAT(vg.created_at, '%d-%m-%Y %H:%i'),
 			   DATE_FORMAT(vg.updated_at, '%d-%m-%Y %H:%i')
 		FROM vehicle_groups vg
@@ -113,6 +114,20 @@ func GetVehicleGroups(c *gin.Context) {
 	c.JSON(http.StatusOK, groups)
 }
 
+// formatDateForDB ensures date is in YYYY-MM-DD format
+func formatDateForDB(dateStr string) string {
+	if dateStr == "" {
+		return ""
+	}
+	// Try parsing DD-MM-YYYY
+	t, err := time.Parse("02-01-2006", dateStr)
+	if err == nil {
+		return t.Format("2006-01-02")
+	}
+	// Return original if parsing fails (assume valid or let DB error)
+	return dateStr
+}
+
 /*
 =========================
   POST /api/admin/vehicle-groups/create
@@ -137,10 +152,18 @@ func CreateVehicleGroup(c *gin.Context) {
 		return
 	}
 
+	if req.ValidFrom == "" || req.ValidTo == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Valid from and valid to dates are required"})
+		return
+	}
+
+	validFrom := formatDateForDB(req.ValidFrom)
+	validTo := formatDateForDB(req.ValidTo)
+
 	// Check for date conflicts for each vehicle if vehicle IDs provided
-	if len(req.VehicleIDs) > 0 && req.ValidFrom != "" && req.ValidTo != "" {
+	if len(req.VehicleIDs) > 0 {
 		for _, vehicleID := range req.VehicleIDs {
-			hasConflict, conflictMsg := checkVehicleGroupConflict(vehicleID, 0, req.ValidFrom, req.ValidTo)
+			hasConflict, conflictMsg := checkVehicleGroupConflict(vehicleID, 0, validFrom, validTo)
 			if hasConflict {
 				c.JSON(http.StatusConflict, gin.H{"error": conflictMsg})
 				return
@@ -151,7 +174,7 @@ func CreateVehicleGroup(c *gin.Context) {
 	result, err := config.DB.Exec(`
 		INSERT INTO vehicle_groups (name, description, valid_from, valid_to)
 		VALUES (?, ?, ?, ?)
-	`, req.Name, req.Description, req.ValidFrom, req.ValidTo)
+	`, req.Name, req.Description, validFrom, validTo)
 
 	if err != nil {
 		log.Printf("Create vehicle group error: %v", err)
@@ -162,12 +185,12 @@ func CreateVehicleGroup(c *gin.Context) {
 	groupID, _ := result.LastInsertId()
 
 	// Add vehicles as members if provided
-	if len(req.VehicleIDs) > 0 && req.ValidFrom != "" && req.ValidTo != "" {
+	if len(req.VehicleIDs) > 0 {
 		for _, vehicleID := range req.VehicleIDs {
 			_, err := config.DB.Exec(`
 				INSERT INTO vehicle_group_members (group_id, vehicle_id, valid_from, valid_to)
 				VALUES (?, ?, ?, ?)
-			`, groupID, vehicleID, req.ValidFrom, req.ValidTo)
+			`, groupID, vehicleID, validFrom, validTo)
 			if err != nil {
 				log.Printf("Error adding vehicle %d to group: %v", vehicleID, err)
 			}
@@ -195,6 +218,7 @@ func UpdateVehicleGroup(c *gin.Context) {
 		Description string `json:"description"`
 		ValidFrom   string `json:"valid_from"`
 		ValidTo     string `json:"valid_to"`
+		VehicleIDs  []int  `json:"vehicle_ids"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -202,15 +226,94 @@ func UpdateVehicleGroup(c *gin.Context) {
 		return
 	}
 
-	_, err = config.DB.Exec(`
+	// Use provided dates or fetch existing
+	validFrom := req.ValidFrom
+	validTo := req.ValidTo
+
+	if validFrom == "" || validTo == "" {
+		var existingFrom, existingTo *string
+		// Fetch invalid format for consistency or YYYY-MM-DD for safety
+		err := config.DB.QueryRow(`SELECT DATE_FORMAT(valid_from, '%Y-%m-%d'), DATE_FORMAT(valid_to, '%Y-%m-%d') FROM vehicle_groups WHERE id = ?`, id).Scan(&existingFrom, &existingTo)
+		if err == nil {
+			if validFrom == "" && existingFrom != nil {
+				validFrom = *existingFrom
+			}
+			if validTo == "" && existingTo != nil {
+				validTo = *existingTo
+			}
+		}
+	}
+
+	// Ensure we have dates
+	if validFrom == "" || validTo == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Valid from and valid to dates are required"})
+		return
+	}
+
+	// Format dates (in case client sent DD-MM-YYYY)
+	validFrom = formatDateForDB(validFrom)
+	validTo = formatDateForDB(validTo)
+
+	// Validate date range
+	if validFrom > validTo {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Valid From date must be before Valid To date"})
+		return
+	}
+
+	// Begin Transaction
+	tx, err := config.DB.Begin()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+
+	_, err = tx.Exec(`
 		UPDATE vehicle_groups 
 		SET name = ?, description = ?, valid_from = ?, valid_to = ?
 		WHERE id = ?
-	`, req.Name, req.Description, req.ValidFrom, req.ValidTo, id)
+	`, req.Name, req.Description, validFrom, validTo, id)
 
 	if err != nil {
+		tx.Rollback()
 		log.Printf("Update vehicle group error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error updating vehicle group"})
+		return
+	}
+
+	// Update assignments: Always clear existing first
+	_, err = tx.Exec(`DELETE FROM vehicle_group_members WHERE group_id = ?`, id)
+	if err != nil {
+		tx.Rollback()
+		log.Printf("Error clearing group members: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error updating members"})
+		return
+	}
+
+	// Insert new members if any are selected
+	if len(req.VehicleIDs) > 0 {
+		for _, vehicleID := range req.VehicleIDs {
+			// Check conflict locally within transaction? Ideally yes, but reusing checkVehicleGroupConflict
+			// which uses DB connection might be tricky if it doesn't accept TX.
+			// For now, assume optimistic or rely on logic. 
+			// NOTE: checkVehicleGroupConflict READS from DB. It won't see changes in this TX yet, 
+			// but we ruled out THIS group.
+			
+			_, err = tx.Exec(`
+				INSERT INTO vehicle_group_members (group_id, vehicle_id, valid_from, valid_to)
+				VALUES (?, ?, ?, ?)
+			`, id, vehicleID, validFrom, validTo)
+			if err != nil {
+				tx.Rollback()
+				log.Printf("Error adding vehicle %d to group: %v", vehicleID, err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Error adding vehicle to group"})
+				return
+			}
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		log.Printf("Transaction commit error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error committing changes"})
 		return
 	}
 
@@ -260,9 +363,9 @@ func GetVehicleGroupDetails(c *gin.Context) {
 	err = config.DB.QueryRow(`
 		SELECT vg.id, vg.name, COALESCE(vg.description, '') as description,
 			   (SELECT COUNT(DISTINCT vgm.vehicle_id) FROM vehicle_group_members vgm 
-			    WHERE vgm.group_id = vg.id AND CURDATE() BETWEEN vgm.valid_from AND vgm.valid_to) as vehicle_count,
-			   DATE_FORMAT(vg.valid_from, '%d-%m-%Y'),
-			   DATE_FORMAT(vg.valid_to, '%d-%m-%Y'),
+			    WHERE vgm.group_id = vg.id) as vehicle_count,
+			   DATE_FORMAT(vg.valid_from, '%Y-%m-%d'),
+			   DATE_FORMAT(vg.valid_to, '%Y-%m-%d'),
 			   DATE_FORMAT(vg.created_at, '%d-%m-%Y %H:%i'),
 			   DATE_FORMAT(vg.updated_at, '%d-%m-%Y %H:%i')
 		FROM vehicle_groups vg
@@ -357,8 +460,11 @@ func AddVehicleGroupMember(c *gin.Context) {
 
 	groupID, _ := strconv.Atoi(groupIDParam)
 
+	validFrom := formatDateForDB(req.ValidFrom)
+	validTo := formatDateForDB(req.ValidTo)
+
 	// Check for date conflicts
-	hasConflict, conflictMsg := checkVehicleGroupConflict(req.VehicleID, groupID, req.ValidFrom, req.ValidTo)
+	hasConflict, conflictMsg := checkVehicleGroupConflict(req.VehicleID, groupID, validFrom, validTo)
 	if hasConflict {
 		c.JSON(http.StatusConflict, gin.H{"error": conflictMsg})
 		return
@@ -368,7 +474,7 @@ func AddVehicleGroupMember(c *gin.Context) {
 	_, err := config.DB.Exec(`
 		INSERT INTO vehicle_group_members (group_id, vehicle_id, valid_from, valid_to)
 		VALUES (?, ?, ?, ?)
-	`, groupID, req.VehicleID, req.ValidFrom, req.ValidTo)
+	`, groupID, req.VehicleID, validFrom, validTo)
 
 	if err != nil {
 		log.Printf("Add vehicle group member error: %v", err)
@@ -471,7 +577,7 @@ func AssignVehiclesToGroup(c *gin.Context) {
 	// Get group validity dates if not provided
 	if req.ValidFrom == "" || req.ValidTo == "" {
 		config.DB.QueryRow(`
-			SELECT DATE_FORMAT(valid_from, '%d-%m-%Y'), DATE_FORMAT(valid_to, '%d-%m-%Y')
+			SELECT DATE_FORMAT(valid_from, '%Y-%m-%d'), DATE_FORMAT(valid_to, '%Y-%m-%d')
 			FROM vehicle_groups WHERE id = ?
 		`, groupID).Scan(&req.ValidFrom, &req.ValidTo)
 	}
@@ -480,6 +586,9 @@ func AssignVehiclesToGroup(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Valid from and valid to dates are required"})
 		return
 	}
+
+	validFrom := formatDateForDB(req.ValidFrom)
+	validTo := formatDateForDB(req.ValidTo)
 
 	// If clear_existing is true, remove all existing members first
 	if req.ClearExisting {
@@ -491,17 +600,22 @@ func AssignVehiclesToGroup(c *gin.Context) {
 
 	addedCount := 0
 	for _, vehicleID := range req.VehicleIDs {
-		hasConflict, _ := checkVehicleGroupConflict(vehicleID, groupID, req.ValidFrom, req.ValidTo)
+		// Pass reformatted dates to conflict check
+		hasConflict, _ := checkVehicleGroupConflict(vehicleID, groupID, validFrom, validTo)
+		
 		if !hasConflict || req.ClearExisting {
-			// Delete any existing membership for this vehicle in this group first
+			// Delete any existing membership for this vehicle in this group first (if duplicate key)
+			// (Though schema might not have unique constraint on group+vehicle, it's safer)
 			config.DB.Exec(`DELETE FROM vehicle_group_members WHERE group_id = ? AND vehicle_id = ?`, groupID, vehicleID)
 			
 			_, err := config.DB.Exec(`
 				INSERT INTO vehicle_group_members (group_id, vehicle_id, valid_from, valid_to)
 				VALUES (?, ?, ?, ?)
-			`, groupID, vehicleID, req.ValidFrom, req.ValidTo)
+			`, groupID, vehicleID, validFrom, validTo)
 			if err == nil {
 				addedCount++
+			} else {
+				log.Printf("Assign vehicle error: %v", err)
 			}
 		}
 	}

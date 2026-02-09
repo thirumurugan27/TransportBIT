@@ -159,7 +159,7 @@ func GetMyTransport(c *gin.Context) {
 	err = config.DB.QueryRow(`
 		SELECT 
 			st.id, st.user_id, COALESCE(u.full_name, u.username) as student_name, COALESCE(u.email, ''),
-			st.bus_id, COALESCE(b.name, '') as vehicle_name, COALESCE(v.vehicle_number, '') as bus_number, 
+			st.bus_id, COALESCE(v.vehicle_name, '') as vehicle_name, COALESCE(v.vehicle_number, '') as bus_number, 
 			COALESCE(b.start_point, '') as route_start, COALESCE(b.end_point, '') as route_end,
 			st.stop_id, COALESCE(bs.stop_name, '') as stop_name, '' as stop_location,
 			st.total_fee, st.paid_amount, st.balance,
@@ -600,11 +600,11 @@ func GetAvailableStops(c *gin.Context) {
 func GetAllBuses(c *gin.Context) {
 	rows, err := config.DB.Query(`
 		SELECT 
-			b.id, b.name, v.vehicle_number, 
+			b.id, COALESCE(v.vehicle_name, v.vehicle_number, ''), v.vehicle_number, 
 			COALESCE(b.start_point, ''), COALESCE(b.end_point, ''), COALESCE(v.seating_capacity, 0)
 		FROM buses b
 		JOIN vehicles v ON b.vehicle_id = v.id
-		ORDER BY b.name
+		ORDER BY COALESCE(v.vehicle_name, v.vehicle_number) ASC
 	`)
 	if err != nil {
 		log.Printf("Error fetching buses: %v", err)
@@ -710,7 +710,7 @@ func GetMyTransportRequests(c *gin.Context) {
 	rows, err := config.DB.Query(`
 		SELECT 
 			tr.id, tr.user_id,
-			tr.bus_id, b.name, CONCAT(b.start_point, ' → ', b.end_point) as route,
+			tr.bus_id, COALESCE(v.vehicle_name, v.vehicle_number, ''), CONCAT(b.start_point, ' → ', b.end_point) as route,
 			tr.stop_id, bs.stop_name, bs.fee,
 			tr.academic_year, COALESCE(tr.reason, ''), tr.status,
 			COALESCE(tr.admin_remarks, ''),

@@ -16,18 +16,18 @@ import (
 
 // GET /api/admin/vehicles - List all vehicles
 func GetAllVehicles(c *gin.Context) {
-	rows, err := config.DB.Query(`
+	query := `
 		SELECT v.id, v.vehicle_number, v.vehicle_type, v.fuel_type, v.seating_capacity, v.status,
-		       DATE_FORMAT(v.insurance_expire_date, '%d-%m-%Y') as insurance_expire_date,
-		       DATE_FORMAT(v.fc_expire_date, '%d-%m-%Y') as fc_expire_date,
-		       DATE_FORMAT(v.permit_expire_date, '%d-%m-%Y') as permit_expire_date,
-		       COALESCE(v.vehicle_name, b.bus_name, v.vehicle_number) as vehicle_name,
+		       DATE_FORMAT(v.insurance_expire_date, '%%d-%%m-%%Y') as insurance_expire_date,
+		       DATE_FORMAT(v.fc_expire_date, '%%d-%%m-%%Y') as fc_expire_date,
+		       DATE_FORMAT(v.permit_expire_date, '%%d-%%m-%%Y') as permit_expire_date,
+		       COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name,
 		       COALESCE(b.start_point, ''),
 		       COALESCE(b.end_point, ''),
 		       fcr.id as fc_replacement_id,
 		       fcr.status as fc_replacement_status,
-		       DATE_FORMAT(fcr.start_date, '%d-%m-%Y') as fc_start_date,
-		       DATE_FORMAT(fcr.end_date, '%d-%m-%Y') as fc_end_date,
+		       DATE_FORMAT(fcr.start_date, '%%d-%%m-%%Y') as fc_start_date,
+		       DATE_FORMAT(fcr.end_date, '%%d-%%m-%%Y') as fc_end_date,
 		       fcr.reason as fc_reason,
 		       rv.vehicle_number as replacement_vehicle_number,
 		       vgm.group_id as vehicle_group_id,
@@ -40,7 +40,9 @@ func GetAllVehicles(c *gin.Context) {
 		LEFT JOIN vehicle_group_members vgm ON vgm.vehicle_id = v.id AND CURDATE() BETWEEN vgm.valid_from AND vgm.valid_to
 		LEFT JOIN vehicle_groups vg ON vg.id = vgm.group_id
 		ORDER BY v.id DESC
-	`)
+	`
+
+	rows, err := config.DB.Query(query)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -93,11 +95,13 @@ func CreateVehicle(c *gin.Context) {
 		return
 	}
 
-	result, err := config.DB.Exec(`
-		INSERT INTO vehicles (name, vehicle_number, vehicle_type, fuel_type, seating_capacity, 
+	query := `
+		INSERT INTO vehicles (vehicle_name, vehicle_number, vehicle_type, fuel_type, seating_capacity, 
 		                      insurance_expire_date, fc_expire_date, permit_expire_date)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-	`, req.VehicleName, req.VehicleNumber, req.VehicleType, req.FuelType, req.SeatingCapacity,
+	`
+	result, err := config.DB.Exec(query,
+		req.VehicleName, req.VehicleNumber, req.VehicleType, req.FuelType, req.SeatingCapacity,
 		req.InsuranceExpireDate, req.FCExpireDate, req.PermitExpireDate)
 
 	if err != nil {
@@ -133,17 +137,19 @@ func CreateVehicle(c *gin.Context) {
 =========================
 */
 func GetBusFleet(c *gin.Context) {
-	rows, err := config.DB.Query(`
+	query := `
 		SELECT v.id, v.vehicle_number, v.vehicle_type, v.fuel_type, v.seating_capacity, v.status,
-		       COALESCE(v.vehicle_name, b.bus_name, v.vehicle_number) as vehicle_name, 
+		       COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name, 
 		       COALESCE(b.start_point, '') as start_point,
 		       COALESCE(b.end_point, '') as end_point,
 		       (SELECT COUNT(*) FROM bus_stops bs WHERE bs.vehicle_id = v.id) as stops_count
 		FROM vehicles v
 		LEFT JOIN buses b ON v.id = b.vehicle_id
 		WHERE v.vehicle_type = 'BUS'
-		ORDER BY name ASC
-	`)
+		ORDER BY vehicle_name ASC
+	`
+
+	rows, err := config.DB.Query(query)
 	if err != nil {
 		log.Printf("Get bus fleet error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching bus fleet"})
@@ -186,11 +192,13 @@ func UpdateVehicle(c *gin.Context) {
 		return
 	}
 
-	_, err := config.DB.Exec(`
-		UPDATE vehicles SET name=?, vehicle_number=?, vehicle_type=?, fuel_type=?, seating_capacity=?, status=?,
+	query := `
+		UPDATE vehicles SET vehicle_name=?, vehicle_number=?, vehicle_type=?, fuel_type=?, seating_capacity=?, status=?,
 		       insurance_expire_date=?, fc_expire_date=?, permit_expire_date=?
 		WHERE id=?
-	`, v.VehicleName, v.VehicleNumber, v.VehicleType, v.FuelType, v.SeatingCapacity, v.Status,
+	`
+	_, err := config.DB.Exec(query,
+		v.VehicleName, v.VehicleNumber, v.VehicleType, v.FuelType, v.SeatingCapacity, v.Status,
 		v.InsuranceExpireDate, v.FCExpireDate, v.PermitExpireDate, v.ID)
 
 	if err != nil {

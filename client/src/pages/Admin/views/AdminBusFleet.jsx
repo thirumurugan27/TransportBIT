@@ -674,9 +674,6 @@ export default function AdminBusFleet() {
       <div className="bg-secondarybg rounded-md border border-primary/10 p-6 shadow-sm">
         <div className="flex flex-col gap-4">
           <div>
-            <p className="text-xs font-bold text-secondarytext/70 uppercase tracking-widest mb-2">
-              Admin Dashboard
-            </p>
             <h1 className="text-3xl font-extrabold text-primarytext mb-2">
               Bus Fleet Management
             </h1>

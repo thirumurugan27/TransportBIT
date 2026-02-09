@@ -57,7 +57,7 @@ type ClusterDriverInfo struct {
 func GetEVVehicles(c *gin.Context) {
 	rows, err := config.DB.Query(`
 		SELECT v.id, v.vehicle_number, v.vehicle_type, v.fuel_type, v.seating_capacity, v.status,
-		       COALESCE(v.vehicle_name, b.bus_name, v.vehicle_number) as vehicle_name
+		       COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name
 		FROM vehicles v
 		LEFT JOIN buses b ON b.vehicle_id = v.id
 		WHERE v.fuel_type = 'EV'

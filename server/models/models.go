@@ -579,7 +579,7 @@ type ProcessTransportRequest struct {
 }
 
 /* =========================
-   FACULTY & CAR BOOKING MODELS
+   FACULTY MODELS
 ========================= */
 
 // Faculty - Faculty user profile
@@ -611,4 +611,104 @@ type UpdateFacultyRequest struct {
 	Department  string `json:"department"`
 	Designation string `json:"designation"`
 }
+
+/* =========================
+   VEHICLE BOOKING/REQUEST MODELS
+========================= */
+
+// VehicleRequest - Faculty vehicle booking request
+// VehicleRequest - Faculty vehicle booking request (using vehiclerequests table)
+type VehicleRequest struct {
+	ID        int    `json:"id"`
+	FacultyID int    `json:"faculty_id"`
+
+	// Booking Details
+	BookingType  string `json:"booking_type"`
+	TripType     string `json:"trip_type"`
+	TripMode     string `json:"trip_mode"`
+	RequestUnder string `json:"request_under"`
+	Purpose      string `json:"purpose"`
+	CountPerson  int    `json:"count_person"`
+
+	// Onward Trip
+	OnwardFromPlace    string `json:"onward_from_place"`
+	OnwardToPlace      string `json:"onward_to_place"`
+	OnwardFromDateTime string `json:"onward_from_datetime"`
+	OnwardToDateTime   string `json:"onward_to_datetime"`
+
+	// Return Trip (for round trip)
+	ReturnFromPlace    string `json:"return_from_place"`
+	ReturnToPlace      string `json:"return_to_place"`
+	ReturnFromDateTime string `json:"return_from_datetime"`
+	ReturnToDateTime   string `json:"return_to_datetime"`
+
+	// Contact Info
+	ContactName  string `json:"contact_name"`
+	ContactPhone string `json:"contact_phone"`
+
+	// Assignment
+	VehicleID *int `json:"vehicle_id"`
+	DriverID  *int `json:"driver_id"`
+
+	// Status and Approval
+	Status       string  `json:"status"`
+	AdminRemarks string  `json:"admin_remarks"`
+	ApprovedBy   *int    `json:"approved_by"`
+	ApprovedAt   *string `json:"approved_at"`
+	AssignedAt   *string `json:"assigned_at"`
+	CreatedAt    string  `json:"created_at"`
+
+	// Joined fields
+	FacultyName       string `json:"faculty_name"`
+	FacultyEmail      string `json:"faculty_email"`
+	FacultyPhone      string `json:"faculty_phone"`
+	FacultyDepartment string `json:"faculty_department"`
+	VehicleNumber     string `json:"vehicle_number"`
+	VehicleType       string `json:"vehicle_type"`
+	VehicleName       string `json:"vehicle_name"`
+	DriverName        string `json:"driver_name"`
+	DriverPhone       string `json:"driver_phone"`
+}
+
+// CreateVehicleRequestInput - Input for creating a vehicle request
+type CreateVehicleRequestInput struct {
+	BookingType  string `json:"booking_type"`
+	TripType     string `json:"trip_type"`
+	TripMode     string `json:"trip_mode"`
+	RequestUnder string `json:"request_under"`
+	Purpose      string `json:"purpose"`
+	// Legacy/DB-aligned aliases (optional)
+	PurposeOfVisit string `json:"purpose_of_visit"`
+	CountPerson  int    `json:"count_person"`
+
+	// Onward Trip
+	OnwardFromPlace    string `json:"onward_from_place"`
+	OnwardToPlace      string `json:"onward_to_place"`
+	OnwardFromDateTime string `json:"onward_from_datetime"`
+	OnwardToDateTime   string `json:"onward_to_datetime"`
+
+	// Return Trip (for round trip)
+	ReturnFromPlace    string `json:"return_from_place"`
+	ReturnToPlace      string `json:"return_to_place"`
+	ReturnFromDateTime string `json:"return_from_datetime"`
+	ReturnToDateTime   string `json:"return_to_datetime"`
+
+	// Contact Info
+	ContactName  string `json:"contact_name"`
+	ContactPhone string `json:"contact_phone"`
+
+	// Legacy/DB-aligned optional fields
+	MobileNumber string `json:"mobile_number"`
+	GuestName    string `json:"guest_name"`
+	Address      string `json:"address"`
+	TaskID       string `json:"task_id"`
+}
+
+// AssignVehicleRequestInput - Input for assigning vehicle and driver to a request
+type AssignVehicleRequestInput struct {
+	RequestID int `json:"request_id"`
+	VehicleID int `json:"vehicle_id"`
+	DriverID  int `json:"driver_id"`
+}
+
 

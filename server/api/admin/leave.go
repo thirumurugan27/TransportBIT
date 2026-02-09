@@ -598,7 +598,7 @@ func GetLeaveAffectedAssignments(c *gin.Context) {
 			TIME_FORMAT(s.start_time, '%H:%i') as shift_start_time,
 			TIME_FORMAT(s.end_time, '%H:%i') as shift_end_time,
 			v.vehicle_number, v.vehicle_type,
-			COALESCE(v.vehicle_name, b.bus_name, '') as vehicle_name,
+			COALESCE(v.vehicle_name, '') as vehicle_name,
 			0 as is_ev_cluster, 0 as cluster_id, '' as cluster_name
 		FROM assignments a
 		JOIN shifts s ON a.shift_id = s.id

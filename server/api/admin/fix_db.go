@@ -109,6 +109,54 @@ func FixDatabaseSchema() {
 		log.Println("Schema Fix: user_notifications table created/verified")
 	}
 
+	// 11. Fix vehiclerequests schema (add missing columns)
+	vrColumns := []string{
+		"ALTER TABLE vehiclerequests ADD COLUMN BookingType VARCHAR(50) DEFAULT 'faculty'",
+		"ALTER TABLE vehiclerequests ADD COLUMN TripType VARCHAR(50) DEFAULT 'one_way'",
+		"ALTER TABLE vehiclerequests ADD COLUMN TripMode VARCHAR(50) DEFAULT 'official'",
+		"ALTER TABLE vehiclerequests ADD COLUMN RequestUnder VARCHAR(100) NULL",
+		"ALTER TABLE vehiclerequests ADD COLUMN Purpose TEXT",
+		"ALTER TABLE vehiclerequests ADD COLUMN CountPerson INT DEFAULT 1",
+		"ALTER TABLE vehiclerequests ADD COLUMN OnwardFromPlace VARCHAR(255)",
+		"ALTER TABLE vehiclerequests ADD COLUMN OnwardToPlace VARCHAR(255)",
+		"ALTER TABLE vehiclerequests ADD COLUMN OnwardFromDateTime DATETIME",
+		"ALTER TABLE vehiclerequests ADD COLUMN OnwardTodateTime DATETIME",
+		"ALTER TABLE vehiclerequests ADD COLUMN ReturnFromPlace VARCHAR(255)",
+		"ALTER TABLE vehiclerequests ADD COLUMN ReturnToPlace VARCHAR(255)",
+		"ALTER TABLE vehiclerequests ADD COLUMN ReturnFromDateTime DATETIME",
+		"ALTER TABLE vehiclerequests ADD COLUMN ReturnTodateTime DATETIME",
+		"ALTER TABLE vehiclerequests ADD COLUMN ContactName VARCHAR(100)",
+		"ALTER TABLE vehiclerequests ADD COLUMN ContactPhone VARCHAR(20)",
+		"ALTER TABLE vehiclerequests ADD COLUMN vehicle_id INT DEFAULT NULL",
+		"ALTER TABLE vehiclerequests ADD COLUMN driver_id INT DEFAULT NULL",
+		"ALTER TABLE vehiclerequests ADD COLUMN admin_remarks TEXT",
+		"ALTER TABLE vehiclerequests ADD COLUMN status VARCHAR(50) DEFAULT 'pending'",
+		"ALTER TABLE vehiclerequests ADD COLUMN approved_by INT NULL",
+		"ALTER TABLE vehiclerequests ADD COLUMN approved_at DATETIME NULL",
+		"ALTER TABLE vehiclerequests ADD COLUMN assigned_at DATETIME NULL",
+		"ALTER TABLE vehiclerequests ADD COLUMN faculty_id INT NOT NULL",
+		// Fix legacy/strict columns by making them nullable
+		"ALTER TABLE vehiclerequests MODIFY COLUMN IndenterName VARCHAR(255) NULL",
+		"ALTER TABLE vehiclerequests MODIFY COLUMN DeptName VARCHAR(255) NULL",
+		"ALTER TABLE vehiclerequests MODIFY COLUMN IndenterDepartment VARCHAR(255) NULL",
+		"ALTER TABLE vehiclerequests MODIFY COLUMN Designation VARCHAR(255) NULL",
+		"ALTER TABLE vehiclerequests MODIFY COLUMN IndenterDesignation VARCHAR(255) NULL",
+		"ALTER TABLE vehiclerequests MODIFY COLUMN IndenterMobileNo VARCHAR(50) NULL",
+		"ALTER TABLE vehiclerequests MODIFY COLUMN MobileNumber VARCHAR(50) NULL",
+		"ALTER TABLE vehiclerequests MODIFY COLUMN Guestname VARCHAR(255) NULL",
+		"ALTER TABLE vehiclerequests MODIFY COLUMN Address VARCHAR(255) NULL",
+		"ALTER TABLE vehiclerequests MODIFY COLUMN PurposeOfVisit TEXT NULL",
+		"ALTER TABLE vehiclerequests MODIFY COLUMN TaskID VARCHAR(100) NULL",
+		"ALTER TABLE vehiclerequests MODIFY COLUMN IndenterID VARCHAR(50) NULL",
+	}
+
+	for _, q := range vrColumns {
+		_, err := config.DB.Exec(q)
+		if err == nil {
+			log.Println("Schema Fix: Added missing column to vehiclerequests")
+		}
+	}
+
 	// 10. Mark attendance as absent for all approved leaves that haven't been marked yet
 	fixApprovedLeaveAttendance()
 }

@@ -136,7 +136,7 @@ func GetAssignmentsByCategory(c *gin.Context) {
 		           ELSE 'not_marked'
 		       END as driver_status,
 		       v.id as vehicle_id, v.vehicle_number, v.vehicle_type, v.fuel_type,
-		       COALESCE(v.vehicle_name, b.bus_name, v.vehicle_number) as vehicle_name,
+		       COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name,
 		       s.id as shift_id, s.name as shift_name, 
 		       TIME_FORMAT(s.start_time, '%H:%i') as start_time, 
 		       TIME_FORMAT(s.end_time, '%H:%i') as end_time,

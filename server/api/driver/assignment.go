@@ -72,7 +72,7 @@ func GetDriverTodayAssignment(c *gin.Context) {
 	var assignment DriverAssignment
 	err := config.DB.QueryRow(`
 		SELECT 
-			a.id, v.id as vehicle_id, COALESCE(b.bus_name, v.vehicle_number) as vehicle_name, v.vehicle_number, v.vehicle_type,
+				a.id, v.id as vehicle_id, COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name, v.vehicle_number, v.vehicle_type,
 			s.name as shift_name, 
 			TIME_FORMAT(s.start_time, '%H:%i') as start_time,
 			TIME_FORMAT(s.end_time, '%H:%i') as end_time,
@@ -94,7 +94,7 @@ func GetDriverTodayAssignment(c *gin.Context) {
 		// Try temporary assignments
 		err = config.DB.QueryRow(`
 			SELECT 
-				ta.id, v.id as vehicle_id, COALESCE(b.bus_name, v.vehicle_number) as vehicle_name, v.vehicle_number, v.vehicle_type,
+				ta.id, v.id as vehicle_id, COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name, v.vehicle_number, v.vehicle_type,
 				COALESCE(s.name, 'EV Duty') as shift_name, 
 				COALESCE(TIME_FORMAT(s.start_time, '%H:%i'), '08:00') as start_time,
 				COALESCE(TIME_FORMAT(s.end_time, '%H:%i'), '17:00') as end_time,
@@ -152,7 +152,7 @@ func GetDriverTodayAssignments(c *gin.Context) {
 	// Check if today falls within the assignment date range (start_date to end_date)
 	rows, err := config.DB.Query(`
 		SELECT 
-			a.id, v.id as vehicle_id, COALESCE(b.bus_name, v.vehicle_number) as vehicle_name, v.vehicle_number, v.vehicle_type,
+				a.id, v.id as vehicle_id, COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name, v.vehicle_number, v.vehicle_type,
 			s.name as shift_name, 
 			TIME_FORMAT(s.start_time, '%H:%i') as start_time,
 			TIME_FORMAT(s.end_time, '%H:%i') as end_time,
@@ -270,7 +270,7 @@ func GetDriverTodayAssignments(c *gin.Context) {
 	// 3. Get TEMPORARY assignments (where this driver is the REPLACEMENT)
 	tempRows, err := config.DB.Query(`
 		SELECT 
-			ta.id, v.id as vehicle_id, COALESCE(b.bus_name, v.vehicle_number) as vehicle_name, v.vehicle_number, v.vehicle_type,
+				ta.id, v.id as vehicle_id, COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name, v.vehicle_number, v.vehicle_type,
 			COALESCE(s.name, 'EV Duty') as shift_name, 
 			COALESCE(TIME_FORMAT(s.start_time, '%H:%i'), '08:00') as start_time,
 			COALESCE(TIME_FORMAT(s.end_time, '%H:%i'), '17:00') as end_time,
@@ -349,7 +349,7 @@ func GetDriverAssignments(c *gin.Context) {
 	// 1. Get individual assignments (Bus, Car, etc.)
 	rows, err := config.DB.Query(`
 		SELECT 
-			a.id, v.id as vehicle_id, COALESCE(b.bus_name, v.vehicle_number) as vehicle_name, v.vehicle_number, v.vehicle_type,
+				a.id, v.id as vehicle_id, COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name, v.vehicle_number, v.vehicle_type,
 			s.name as shift_name, 
 			COALESCE(TIME_FORMAT(s.start_time, '%H:%i'), '') as start_time,
 			COALESCE(TIME_FORMAT(s.end_time, '%H:%i'), '') as end_time,
@@ -477,7 +477,7 @@ func GetDriverAssignments(c *gin.Context) {
 	// 3. Get temporary assignments
 	tempRows, err := config.DB.Query(`
 		SELECT 
-			ta.id, v.id as vehicle_id, COALESCE(b.bus_name, v.vehicle_number) as vehicle_name, v.vehicle_number, v.vehicle_type,
+				ta.id, v.id as vehicle_id, COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name, v.vehicle_number, v.vehicle_type,
 			COALESCE(s.name, 'EV Duty') as shift_name, 
 			COALESCE(TIME_FORMAT(s.start_time, '%H:%i'), '08:00') as start_time,
 			COALESCE(TIME_FORMAT(s.end_time, '%H:%i'), '17:00') as end_time,
@@ -534,7 +534,7 @@ func GetDriverVehicleAlerts(c *gin.Context) {
 
 	// Get vehicles assigned to this driver with expiring documents
 	rows, err := config.DB.Query(`
-		SELECT DISTINCT v.id, COALESCE(b.bus_name, v.vehicle_number) as vehicle_name, v.vehicle_number, v.vehicle_type, v.status,
+		SELECT DISTINCT v.id, COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name, v.vehicle_number, v.vehicle_type, v.status,
 		       v.insurance_expire_date, v.fc_expire_date, v.permit_expire_date,
 		       DATEDIFF(v.insurance_expire_date, CURDATE()) as insurance_days,
 		       DATEDIFF(v.fc_expire_date, CURDATE()) as fc_days,
@@ -738,7 +738,7 @@ func GetDriverCarAssignments(c *gin.Context) {
 	}
 
 	rows, err := config.DB.Query(`
-		SELECT a.id, a.vehicle_id, COALESCE(b.bus_name, v.vehicle_number) as vehicle_name, v.vehicle_number, v.vehicle_type,
+		SELECT a.id, a.vehicle_id, COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name, v.vehicle_number, v.vehicle_type,
 		       COALESCE(s.name, 'Custom') as shift_name,
 		       COALESCE(a.start_time, TIME_FORMAT(s.start_time, '%H:%i')) as start_time,
 		       COALESCE(a.end_time, TIME_FORMAT(s.end_time, '%H:%i')) as end_time,

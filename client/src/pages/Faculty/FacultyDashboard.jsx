@@ -4,6 +4,7 @@ import {Sidebar} from "../../components/layout";
 import DashboardHeader from "../../components/DashboardHeader";
 import FacultyHome from "./views/FacultyHome";
 import FacultyProfile from "./views/FacultyProfile";
+import VehicleBooking from "./views/VehicleBooking";
 import {useAuth} from "../../context/AuthContext";
 
 export default function FacultyDashboard() {
@@ -24,6 +25,7 @@ export default function FacultyDashboard() {
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-primarybg p-6">
           <Routes>
             <Route path="" element={<FacultyHome />} />
+            <Route path="vehicle-booking" element={<VehicleBooking />} />
             <Route path="profile" element={<FacultyProfile />} />
             <Route path="*" element={<FacultyHome />} />
           </Routes>

@@ -99,6 +99,20 @@ func InitBusStopsTable() {
 		log.Println("✅ buses table ready")
 	}
 
+	// Backward-compat: some older schemas used `bus_name` instead of `name`.
+	// Ensure `name` exists so API queries using b.name don't fail.
+	if cols, colErr := config.HasColumns("buses", "name", "bus_name"); colErr == nil {
+		if !cols["name"] && cols["bus_name"] {
+			if _, alterErr := config.DB.Exec("ALTER TABLE buses ADD COLUMN name VARCHAR(100) NULL"); alterErr != nil {
+				log.Printf("Error adding buses.name column: %v", alterErr)
+			} else {
+				log.Println("Schema Fix: Added buses.name column")
+				// Backfill
+				_, _ = config.DB.Exec("UPDATE buses SET name = bus_name WHERE (name IS NULL OR name = '')")
+			}
+		}
+	}
+
 	// Create bus_stops table
 	_, err = config.DB.Exec(`
 		CREATE TABLE IF NOT EXISTS bus_stops (
@@ -155,12 +169,12 @@ func GetBusFleet(c *gin.Context) {
 			 LIMIT 1) as driver_name,
 			COALESCE(b.start_point, '') as start_point, 
 			COALESCE(b.end_point, '') as end_point,
-			COALESCE(b.bus_name, v.vehicle_number) as vehicle_name,
+			COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name,
 			(SELECT COUNT(*) FROM bus_stops bs WHERE bs.vehicle_id = v.id) as total_stops
 		FROM vehicles v
 		LEFT JOIN buses b ON b.vehicle_id = v.id
 		WHERE v.vehicle_type = 'BUS'
-		ORDER BY COALESCE(b.bus_name, v.vehicle_number) ASC
+		ORDER BY COALESCE(v.vehicle_name, v.vehicle_number) ASC
 	`)
 	if err != nil {
 		log.Printf("Get bus fleet error: %v", err)

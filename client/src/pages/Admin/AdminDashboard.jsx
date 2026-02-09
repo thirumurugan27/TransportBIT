@@ -13,6 +13,7 @@ import ScheduleManagement from "./views/ScheduleManagement";
 import KmManagement from "./views/KmManagement";
 import AttendanceRecords from "./views/AttendanceRecords";
 import FCReplacementManagement from "./views/FCReplacementManagement";
+import VehicleRequests from "./views/VehicleRequests";
 import AdminStudentTransport from "./views/AdminStudentTransport";
 import ComingSoon from "./views/ComingSoon";
 
@@ -51,7 +52,7 @@ export default function AdminDashboard() {
 
       <div className="flex-1 flex flex-col overflow-hidden ml-[220px]">
         <DashboardHeader
-          title="Admin Dashboard"
+          title="BIT Transport"
           user={{name: adminName, role: "Admin"}}
           onLogout={logout}
           alerts={absentAlerts}
@@ -97,6 +98,7 @@ export default function AdminDashboard() {
               path="fc-replacement"
               element={<FCReplacementManagement />}
             />
+            <Route path="vehicle-requests" element={<VehicleRequests />} />
             <Route
               path="student-transport"
               element={<AdminStudentTransport />}

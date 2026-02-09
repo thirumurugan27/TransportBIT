@@ -32,7 +32,7 @@ func getGoogleConfig() *oauth2.Config {
 
 	redirectURL := os.Getenv("GOOGLE_REDIRECT_URL")
 	if redirectURL == "" {
-		redirectURL = "http://localhost:8080/auth/google"
+		redirectURL = "http://localhost:8000/auth/google"
 	}
 
 	googleOauthConfig = &oauth2.Config{

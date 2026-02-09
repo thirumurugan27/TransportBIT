@@ -85,6 +85,12 @@ export const adminMenuConfig = {
       path: "/fc-replacement",
     },
     {
+      key: "vehicleRequests",
+      label: "Vehicle Requests",
+      icon: <VehicleIcon />,
+      path: "/vehicle-requests",
+    },
+    {
       key: "studentTransport",
       label: "Student Transport",
       icon: <BusIcon />,
@@ -110,6 +116,12 @@ export const driverMenuConfig = {
       label: "My Assignments",
       icon: <AssignmentIcon />,
       path: "/assignments",
+    },
+    {
+      key: "vehicle-requests",
+      label: "Vehicle Requests",
+      icon: <VehicleIcon />,
+      path: "/vehicle-requests",
     },
     {
       key: "km-log",
@@ -251,6 +263,12 @@ export const facultyMenuConfig = {
       label: "Dashboard",
       icon: <DashboardIcon />,
       path: "",
+    },
+    {
+      key: "vehicleBooking",
+      label: "Vehicle Booking",
+      icon: <VehicleIcon />,
+      path: "/vehicle-booking",
     },
     {
       key: "profile",

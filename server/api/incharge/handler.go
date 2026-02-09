@@ -137,7 +137,7 @@ func GetInchargeAssignments(c *gin.Context) {
 				    WHEN att.status = 'absent' THEN 'absent'
 				    ELSE 'not_marked'
 				END as driver_status,
-				a.vehicle_id, COALESCE(b.bus_name, v.vehicle_number) as vehicle_name, v.vehicle_number, v.vehicle_type,
+				a.vehicle_id, COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name, v.vehicle_number, v.vehicle_type,
 				a.shift_id, s.name as shift_name, 
 				TIME_FORMAT(s.start_time, '%H:%i') as start_time,
 				TIME_FORMAT(s.end_time, '%H:%i') as end_time,
@@ -170,7 +170,7 @@ func GetInchargeAssignments(c *gin.Context) {
 				    WHEN att.status = 'absent' THEN 'absent'
 				    ELSE 'not_marked'
 				END as driver_status,
-				a.vehicle_id, COALESCE(b.bus_name, v.vehicle_number) as vehicle_name, v.vehicle_number, v.vehicle_type,
+				a.vehicle_id, COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name, v.vehicle_number, v.vehicle_type,
 				a.shift_id, s.name as shift_name, 
 				TIME_FORMAT(s.start_time, '%H:%i') as start_time,
 				TIME_FORMAT(s.end_time, '%H:%i') as end_time,

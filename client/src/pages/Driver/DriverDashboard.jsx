@@ -4,6 +4,7 @@ import {Sidebar} from "../../components/layout";
 import DashboardHeader from "../../components/DashboardHeader";
 import DriverHome from "./views/DriverHome";
 import DriverAssignments from "./views/DriverAssignments";
+import DriverVehicleRequests from "./views/DriverVehicleRequests";
 import DriverKmLog from "./views/DriverKmLog";
 import DriverApplyLeave from "./views/DriverApplyLeave";
 import DriverProfile from "./views/DriverProfile";
@@ -31,6 +32,10 @@ export default function DriverDashboard() {
           <Routes>
             <Route path="" element={<DriverHome />} />
             <Route path="assignments" element={<DriverAssignments />} />
+            <Route
+              path="vehicle-requests"
+              element={<DriverVehicleRequests />}
+            />
             <Route path="km-log" element={<DriverKmLog />} />
             <Route path="apply-leave" element={<DriverApplyLeave />} />
             <Route path="notifications" element={<Notifications />} />

@@ -24,6 +24,7 @@ export const adminRoutes = {
         { path: "leave-approvals", element: "leave" },
         { path: "leave-analytics", element: "leaveHistory" },
         { path: "attendance-records", element: "attendanceHistory" },
+        { path: "vehicle-requests", element: "vehicleRequests" },
     ],
 };
 
@@ -34,7 +35,7 @@ export const driverRoutes = {
     routes: [
         { path: "", element: "dashboard" },
         { path: "assignments", element: "assignments" },
-        { path: "car-bookings", element: "carBookings" },
+        { path: "vehicle-requests", element: "vehicleRequests" },
         { path: "km-log", element: "km-log" },
         { path: "apply-leave", element: "leave" },
         { path: "leave-history", element: "leaveHistory" },
@@ -75,8 +76,7 @@ export const facultyRoutes = {
     allowedRoles: ["FACULTY"],
     routes: [
         { path: "", element: "dashboard" },
-        { path: "book-car", element: "bookCar" },
-        { path: "my-bookings", element: "myBookings" },
+        { path: "vehicle-booking", element: "vehicleBooking" },
         { path: "profile", element: "profile" },
     ],
 };
@@ -109,8 +109,8 @@ export const getActivePageFromPath = (pathname, basePath) => {
         "my-bus": "myBus",
         "track-bus": "trackBus",
         "bus-pass": "busPass",
-        "book-car": "bookCar",
-        "my-bookings": "myBookings",
+        "vehicle-booking": "vehicleBooking",
+        "vehicle-bookings": "vehicleBookings",
     };
 
     return pathToKeyMap[path] || "dashboard";

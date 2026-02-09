@@ -78,7 +78,7 @@ func GetClusters(c *gin.Context) {
 	rows, err := config.DB.Query(`
 		SELECT c.id, c.name, COALESCE(c.description, '') as description, 
 			   (SELECT COUNT(DISTINCT dcm.driver_id) FROM driver_cluster_members dcm 
-			    WHERE dcm.cluster_id = c.id AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to) as driver_count,
+			    WHERE dcm.cluster_id = c.id) as driver_count,
 			   DATE_FORMAT(c.valid_from, '%d-%m-%Y'), 
 			   DATE_FORMAT(c.valid_to, '%d-%m-%Y')
 		FROM driver_clusters c
