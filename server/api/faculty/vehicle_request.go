@@ -49,7 +49,7 @@ func CreateVehicleRequest(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
-	
+
 	log.Printf("Received Vehicle Request: %+v", req)
 
 	// Accept legacy payload key as an alias
@@ -164,12 +164,15 @@ func CreateVehicleRequest(c *gin.Context) {
 	guestName := strings.TrimSpace(req.GuestName)
 	address := strings.TrimSpace(req.Address)
 	taskID := strings.TrimSpace(req.TaskID)
+	vertical := strings.TrimSpace(req.Vertical)
+	outcomeExpected := strings.TrimSpace(req.OutcomeExpected)
+	outcomeAuditable := strings.TrimSpace(req.OutcomeAuditable)
 
 	// Insert using only the columns that exist in the current DB schema.
 	// This supports both legacy tables (PurposeOfVisit, Indenter*) and newer tables (Purpose, ContactName/Phone, RequestUnder, etc.).
 	colsToCheck := []string{
 		"faculty_id",
-		"BookingType", "TripType", "TripMode", "RequestUnder",
+		"BookingType", "TripType", "TripMode", "RequestUnder", "Vertical", "OralApproval",
 		"OnwardFromPlace", "OnwardToPlace", "OnwardFromDateTime", "OnwardTodateTime",
 		"ReturnFromPlace", "ReturnToPlace", "ReturnFromDateTime", "ReturnTodateTime",
 		"CountPerson",
@@ -177,7 +180,7 @@ func CreateVehicleRequest(c *gin.Context) {
 		"Guestname", "Address", "MobileNumber",
 		"ContactName", "ContactPhone",
 		"IndenterName", "IndenterDesignation", "IndenterDepartment", "IndenterMobileNo",
-		"TaskID",
+		"TaskID", "OutcomeExpected", "OutcomeAuditable",
 		"status",
 	}
 	colExists, colErr := config.HasColumns("vehiclerequests", colsToCheck...)
@@ -212,6 +215,8 @@ func CreateVehicleRequest(c *gin.Context) {
 	add("TripType", req.TripType)
 	add("TripMode", req.TripMode)
 	add("RequestUnder", strings.TrimSpace(req.RequestUnder))
+	add("Vertical", vertical)
+	add("OralApproval", req.OralApproval)
 	add("OnwardFromPlace", req.OnwardFromPlace)
 	add("OnwardToPlace", req.OnwardToPlace)
 	add("OnwardFromDateTime", req.OnwardFromDateTime)
@@ -233,6 +238,8 @@ func CreateVehicleRequest(c *gin.Context) {
 	add("Guestname", guestName)
 	add("Address", address)
 	add("TaskID", taskID)
+	add("OutcomeExpected", outcomeExpected)
+	add("OutcomeAuditable", outcomeAuditable)
 
 	// Legacy indenter fields (often strict-mode NOT NULL in older schemas)
 	add("IndenterName", strings.TrimSpace(indenterName))
@@ -403,4 +410,59 @@ func CancelVehicleRequest(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Request cancelled successfully"})
+}
+
+// GET /api/faculty/vehicle-request/:id/otp - Faculty gets their OTP for a request
+func GetVehicleRequestOTP(c *gin.Context) {
+	userID, err := utils.GetUserIDFromToken(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	var facultyID int
+	err = config.DB.QueryRow(`SELECT id FROM faculty WHERE user_id = ?`, userID).Scan(&facultyID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Faculty profile not found"})
+		return
+	}
+
+	requestID := c.Param("id")
+
+	var status string
+	var startOTP, endOTP sql.NullString
+	err = config.DB.QueryRow(`
+		SELECT status, start_otp, end_otp
+		FROM vehiclerequests
+		WHERE id = ? AND faculty_id = ?
+	`, requestID, facultyID).Scan(&status, &startOTP, &endOTP)
+
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Request not found"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+
+	result := gin.H{
+		"status": status,
+	}
+
+	// Show start OTP when status is assigned (driver needs it to start trip)
+	if status == "assigned" && startOTP.Valid {
+		result["start_otp"] = startOTP.String
+		result["otp_type"] = "start"
+		result["message"] = "Share this OTP with the driver to start the trip"
+	}
+
+	// Show end OTP when status is trip_started (driver needs it to end trip)
+	if status == "trip_started" && endOTP.Valid {
+		result["end_otp"] = endOTP.String
+		result["otp_type"] = "end"
+		result["message"] = "Share this OTP with the driver to end the trip"
+	}
+
+	c.JSON(http.StatusOK, result)
 }

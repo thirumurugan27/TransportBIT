@@ -12,8 +12,12 @@ import {
   Eye,
   X,
   Users,
+  Key,
+  Play,
+  Square,
 } from "lucide-react";
 import Loading from "../../../components/ui/Loading";
+import {useToast} from "../../../context/ToastContext";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
@@ -28,6 +32,11 @@ const STATUS_CONFIG = {
     icon: Truck,
     label: "Assigned",
   },
+  trip_started: {
+    color: "bg-blue-100 text-blue-700 border-blue-200",
+    icon: Play,
+    label: "In Progress",
+  },
   completed: {
     color: "bg-green/10 text-green border-green/20",
     icon: CheckCircle,
@@ -36,10 +45,13 @@ const STATUS_CONFIG = {
 };
 
 export default function DriverVehicleRequests() {
+  const {showToast} = useToast();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [filterStatus, setFilterStatus] = useState("assigned");
+  const [otpInput, setOtpInput] = useState("");
+  const [otpSubmitting, setOtpSubmitting] = useState(false);
 
   useEffect(() => {
     fetchRequests();
@@ -65,6 +77,64 @@ export default function DriverVehicleRequests() {
   const filteredRequests = filterStatus
     ? requests.filter((r) => r.status === filterStatus)
     : requests;
+
+  const handleVerifyStartOTP = async (requestId) => {
+    if (!otpInput || otpInput.length !== 6) {
+      showToast("Please enter a valid 6-digit OTP", "warning");
+      return;
+    }
+    setOtpSubmitting(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/driver/vehicle-request/verify-start-otp`, {
+        method: "POST",
+        credentials: "include",
+        headers: {"Content-Type": "application/json", ...getAuthHeaders()},
+        body: JSON.stringify({request_id: requestId, otp: otpInput}),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast("Trip started successfully!", "success");
+        setOtpInput("");
+        setSelectedRequest(null);
+        fetchRequests();
+      } else {
+        showToast(data.error || "Invalid OTP", "error");
+      }
+    } catch (e) {
+      showToast("Network error", "error");
+    } finally {
+      setOtpSubmitting(false);
+    }
+  };
+
+  const handleVerifyEndOTP = async (requestId) => {
+    if (!otpInput || otpInput.length !== 6) {
+      showToast("Please enter a valid 6-digit OTP", "warning");
+      return;
+    }
+    setOtpSubmitting(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/driver/vehicle-request/verify-end-otp`, {
+        method: "POST",
+        credentials: "include",
+        headers: {"Content-Type": "application/json", ...getAuthHeaders()},
+        body: JSON.stringify({request_id: requestId, otp: otpInput}),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast("Trip completed successfully!", "success");
+        setOtpInput("");
+        setSelectedRequest(null);
+        fetchRequests();
+      } else {
+        showToast(data.error || "Invalid OTP", "error");
+      }
+    } catch (e) {
+      showToast("Network error", "error");
+    } finally {
+      setOtpSubmitting(false);
+    }
+  };
 
   const upcomingRequests = requests.filter((r) => {
     if (r.status !== "assigned") return false;
@@ -389,6 +459,67 @@ export default function DriverVehicleRequests() {
                   );
                 })}
               </div>
+
+              {/* OTP Verification Section */}
+              {selectedRequest.status === "assigned" && (
+                <div className="bg-primary/5 border border-primary/20 rounded-md p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Key size={18} className="text-primary" />
+                    <p className="text-sm font-semibold text-primary">Enter Start OTP</p>
+                  </div>
+                  <p className="text-xs text-secondarytext mb-3">
+                    Ask the requester for the Start OTP to begin the trip.
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      maxLength={6}
+                      value={otpInput}
+                      onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="Enter 6-digit OTP"
+                      className="flex-1 px-3 py-2.5 border border-gray-200 rounded-md text-sm text-primarytext text-center tracking-[0.5em] font-mono font-bold focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                    />
+                    <button
+                      onClick={() => handleVerifyStartOTP(selectedRequest.id)}
+                      disabled={otpSubmitting || otpInput.length !== 6}
+                      className="px-5 py-2.5 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors text-sm font-medium disabled:opacity-50 flex items-center gap-1.5"
+                    >
+                      <Play size={14} />
+                      {otpSubmitting ? "Verifying..." : "Start Trip"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {selectedRequest.status === "trip_started" && (
+                <div className="bg-green/5 border border-green/20 rounded-md p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Key size={18} className="text-green" />
+                    <p className="text-sm font-semibold text-green">Enter End OTP</p>
+                  </div>
+                  <p className="text-xs text-secondarytext mb-3">
+                    Ask the requester for the End OTP to complete the trip.
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      maxLength={6}
+                      value={otpInput}
+                      onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="Enter 6-digit OTP"
+                      className="flex-1 px-3 py-2.5 border border-gray-200 rounded-md text-sm text-primarytext text-center tracking-[0.5em] font-mono font-bold focus:ring-2 focus:ring-green/20 focus:border-green outline-none"
+                    />
+                    <button
+                      onClick={() => handleVerifyEndOTP(selectedRequest.id)}
+                      disabled={otpSubmitting || otpInput.length !== 6}
+                      className="px-5 py-2.5 bg-green text-white rounded-md hover:bg-green/90 transition-colors text-sm font-medium disabled:opacity-50 flex items-center gap-1.5"
+                    >
+                      <Square size={14} />
+                      {otpSubmitting ? "Verifying..." : "End Trip"}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

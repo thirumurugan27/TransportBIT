@@ -619,14 +619,16 @@ type UpdateFacultyRequest struct {
 // VehicleRequest - Faculty vehicle booking request
 // VehicleRequest - Faculty vehicle booking request (using vehiclerequests table)
 type VehicleRequest struct {
-	ID        int    `json:"id"`
-	FacultyID int    `json:"faculty_id"`
+	ID        int `json:"id"`
+	FacultyID int `json:"faculty_id"`
 
 	// Booking Details
 	BookingType  string `json:"booking_type"`
 	TripType     string `json:"trip_type"`
 	TripMode     string `json:"trip_mode"`
 	RequestUnder string `json:"request_under"`
+	Vertical     string `json:"vertical"`
+	OralApproval bool   `json:"oral_approval"`
 	Purpose      string `json:"purpose"`
 	CountPerson  int    `json:"count_person"`
 
@@ -646,6 +648,11 @@ type VehicleRequest struct {
 	ContactName  string `json:"contact_name"`
 	ContactPhone string `json:"contact_phone"`
 
+	// Task and Outcome fields
+	TaskID           string `json:"task_id"`
+	OutcomeExpected  string `json:"outcome_expected"`
+	OutcomeAuditable string `json:"outcome_auditable"`
+
 	// Assignment
 	VehicleID *int `json:"vehicle_id"`
 	DriverID  *int `json:"driver_id"`
@@ -657,6 +664,14 @@ type VehicleRequest struct {
 	ApprovedAt   *string `json:"approved_at"`
 	AssignedAt   *string `json:"assigned_at"`
 	CreatedAt    string  `json:"created_at"`
+
+	// OTP fields for trip verification
+	StartOTP            string  `json:"start_otp,omitempty"`
+	EndOTP              string  `json:"end_otp,omitempty"`
+	StartOTPGeneratedAt *string `json:"start_otp_generated_at,omitempty"`
+	EndOTPGeneratedAt   *string `json:"end_otp_generated_at,omitempty"`
+	TripStartedAt       *string `json:"trip_started_at,omitempty"`
+	TripEndedAt         *string `json:"trip_ended_at,omitempty"`
 
 	// Joined fields
 	FacultyName       string `json:"faculty_name"`
@@ -676,10 +691,12 @@ type CreateVehicleRequestInput struct {
 	TripType     string `json:"trip_type"`
 	TripMode     string `json:"trip_mode"`
 	RequestUnder string `json:"request_under"`
+	Vertical     string `json:"vertical"`
+	OralApproval bool   `json:"oral_approval"`
 	Purpose      string `json:"purpose"`
 	// Legacy/DB-aligned aliases (optional)
 	PurposeOfVisit string `json:"purpose_of_visit"`
-	CountPerson  int    `json:"count_person"`
+	CountPerson    int    `json:"count_person"`
 
 	// Onward Trip
 	OnwardFromPlace    string `json:"onward_from_place"`
@@ -698,10 +715,12 @@ type CreateVehicleRequestInput struct {
 	ContactPhone string `json:"contact_phone"`
 
 	// Legacy/DB-aligned optional fields
-	MobileNumber string `json:"mobile_number"`
-	GuestName    string `json:"guest_name"`
-	Address      string `json:"address"`
-	TaskID       string `json:"task_id"`
+	MobileNumber     string `json:"mobile_number"`
+	GuestName        string `json:"guest_name"`
+	Address          string `json:"address"`
+	TaskID           string `json:"task_id"`
+	OutcomeExpected  string `json:"outcome_expected"`
+	OutcomeAuditable string `json:"outcome_auditable"`
 }
 
 // AssignVehicleRequestInput - Input for assigning vehicle and driver to a request
@@ -710,5 +729,3 @@ type AssignVehicleRequestInput struct {
 	VehicleID int `json:"vehicle_id"`
 	DriverID  int `json:"driver_id"`
 }
-
-

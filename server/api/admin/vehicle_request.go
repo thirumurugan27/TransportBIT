@@ -4,9 +4,11 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"transport-server/config"
 	"transport-server/models"
@@ -14,11 +16,41 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// generateOTP generates a random 6-digit OTP
+func generateOTP() string {
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	return fmt.Sprintf("%06d", r.Intn(1000000))
+}
+
+// EnsureVehicleRequestOTPColumns ensures OTP columns exist in vehiclerequests table
+func EnsureVehicleRequestOTPColumns() {
+	cols := []struct {
+		name string
+		ddl  string
+	}{
+		{"start_otp", "ALTER TABLE vehiclerequests ADD COLUMN start_otp VARCHAR(6) DEFAULT NULL"},
+		{"end_otp", "ALTER TABLE vehiclerequests ADD COLUMN end_otp VARCHAR(6) DEFAULT NULL"},
+		{"start_otp_generated_at", "ALTER TABLE vehiclerequests ADD COLUMN start_otp_generated_at TIMESTAMP NULL"},
+		{"end_otp_generated_at", "ALTER TABLE vehiclerequests ADD COLUMN end_otp_generated_at TIMESTAMP NULL"},
+		{"trip_started_at", "ALTER TABLE vehiclerequests ADD COLUMN trip_started_at TIMESTAMP NULL"},
+		{"trip_ended_at", "ALTER TABLE vehiclerequests ADD COLUMN trip_ended_at TIMESTAMP NULL"},
+	}
+	for _, col := range cols {
+		exists, _ := config.HasColumns("vehiclerequests", col.name)
+		if !exists[col.name] {
+			config.DB.Exec(col.ddl)
+		}
+	}
+	// Update ENUM to include trip_started
+	config.DB.Exec(`ALTER TABLE vehiclerequests MODIFY COLUMN status ENUM('pending','approved','rejected','assigned','trip_started','completed','cancelled') DEFAULT 'pending'`)
+	log.Println("Vehicle request OTP columns ensured")
+}
+
 // GET /api/admin/vehicle-requests
 func GetAllVehicleRequests(c *gin.Context) {
 	statusFilter := c.Query("status")
 
-	colExists, _ := config.HasColumns("vehiclerequests", "Purpose", "PurposeOfVisit", "RequestUnder")
+	colExists, _ := config.HasColumns("vehiclerequests", "Purpose", "PurposeOfVisit", "RequestUnder", "Vertical", "OralApproval", "TaskID", "OutcomeAuditable")
 	purposeExpr := "'' as Purpose"
 	if colExists["Purpose"] && colExists["PurposeOfVisit"] {
 		purposeExpr = "COALESCE(vr.Purpose, vr.PurposeOfVisit, '') as Purpose"
@@ -31,6 +63,22 @@ func GetAllVehicleRequests(c *gin.Context) {
 	if colExists["RequestUnder"] {
 		requestUnderExpr = "COALESCE(vr.RequestUnder, '') as RequestUnder"
 	}
+	verticalExpr := "'' as Vertical"
+	if colExists["Vertical"] {
+		verticalExpr = "COALESCE(vr.Vertical, '') as Vertical"
+	}
+	oralApprovalExpr := "0 as OralApproval"
+	if colExists["OralApproval"] {
+		oralApprovalExpr = "COALESCE(vr.OralApproval, 0) as OralApproval"
+	}
+	taskIDExpr := "'' as TaskID"
+	if colExists["TaskID"] {
+		taskIDExpr = "COALESCE(vr.TaskID, '') as TaskID"
+	}
+	outcomeAuditableExpr := "'' as OutcomeAuditable"
+	if colExists["OutcomeAuditable"] {
+		outcomeAuditableExpr = "COALESCE(vr.OutcomeAuditable, '') as OutcomeAuditable"
+	}
 
 	query := fmt.Sprintf(`
 		SELECT 
@@ -38,6 +86,8 @@ func GetAllVehicleRequests(c *gin.Context) {
 			COALESCE(vr.BookingType, 'faculty') as BookingType,
 			COALESCE(vr.TripType, 'one_way') as TripType,
 			COALESCE(vr.TripMode, 'official') as TripMode,
+			%s,
+			%s,
 			%s,
 			%s,
 			COALESCE(vr.CountPerson, 1) as CountPerson,
@@ -51,6 +101,8 @@ func GetAllVehicleRequests(c *gin.Context) {
 			COALESCE(DATE_FORMAT(vr.ReturnTodateTime, '%%Y-%%m-%%d %%H:%%i'), '') as ReturnTodateTime,
 			COALESCE(vr.ContactName, '') as ContactName,
 			COALESCE(vr.ContactPhone, '') as ContactPhone,
+			%s,
+			%s,
 			vr.status,
 			COALESCE(vr.admin_remarks, '') as admin_remarks,
 			u.full_name as faculty_name,
@@ -69,7 +121,7 @@ func GetAllVehicleRequests(c *gin.Context) {
 		LEFT JOIN vehicles v ON vr.vehicle_id = v.id
 		LEFT JOIN drivers d ON vr.driver_id = d.id
 		LEFT JOIN users ud ON d.user_id = ud.id
-	`, requestUnderExpr, purposeExpr)
+	`, requestUnderExpr, purposeExpr, verticalExpr, oralApprovalExpr, taskIDExpr, outcomeAuditableExpr)
 
 	var args []interface{}
 	if statusFilter != "" {
@@ -91,10 +143,11 @@ func GetAllVehicleRequests(c *gin.Context) {
 		var r models.VehicleRequest
 		err := rows.Scan(
 			&r.ID, &r.FacultyID,
-			&r.BookingType, &r.TripType, &r.TripMode, &r.RequestUnder, &r.Purpose, &r.CountPerson,
+			&r.BookingType, &r.TripType, &r.TripMode, &r.RequestUnder, &r.Purpose, &r.Vertical, &r.OralApproval, &r.CountPerson,
 			&r.OnwardFromPlace, &r.OnwardToPlace, &r.OnwardFromDateTime, &r.OnwardToDateTime,
 			&r.ReturnFromPlace, &r.ReturnToPlace, &r.ReturnFromDateTime, &r.ReturnToDateTime,
 			&r.ContactName, &r.ContactPhone,
+			&r.TaskID, &r.OutcomeAuditable,
 			&r.Status, &r.AdminRemarks,
 			&r.FacultyName, &r.FacultyEmail, &r.FacultyPhone, &r.FacultyDepartment,
 			&r.VehicleNumber, &r.VehicleType, &r.VehicleName,
@@ -122,7 +175,7 @@ func GetVehicleRequestDetails(c *gin.Context) {
 
 	var r models.VehicleRequest
 
-	colExists, _ := config.HasColumns("vehiclerequests", "Purpose", "PurposeOfVisit", "RequestUnder")
+	colExists, _ := config.HasColumns("vehiclerequests", "Purpose", "PurposeOfVisit", "RequestUnder", "Vertical", "OralApproval", "TaskID", "OutcomeAuditable")
 	purposeExpr := "'' as Purpose"
 	if colExists["Purpose"] && colExists["PurposeOfVisit"] {
 		purposeExpr = "COALESCE(vr.Purpose, vr.PurposeOfVisit, '') as Purpose"
@@ -135,6 +188,22 @@ func GetVehicleRequestDetails(c *gin.Context) {
 	if colExists["RequestUnder"] {
 		requestUnderExpr = "COALESCE(vr.RequestUnder, '') as RequestUnder"
 	}
+	verticalExpr := "'' as Vertical"
+	if colExists["Vertical"] {
+		verticalExpr = "COALESCE(vr.Vertical, '') as Vertical"
+	}
+	oralApprovalExpr := "0 as OralApproval"
+	if colExists["OralApproval"] {
+		oralApprovalExpr = "COALESCE(vr.OralApproval, 0) as OralApproval"
+	}
+	taskIDExpr := "'' as TaskID"
+	if colExists["TaskID"] {
+		taskIDExpr = "COALESCE(vr.TaskID, '') as TaskID"
+	}
+	outcomeAuditableExpr := "'' as OutcomeAuditable"
+	if colExists["OutcomeAuditable"] {
+		outcomeAuditableExpr = "COALESCE(vr.OutcomeAuditable, '') as OutcomeAuditable"
+	}
 
 	query := fmt.Sprintf(`
 		SELECT 
@@ -142,6 +211,8 @@ func GetVehicleRequestDetails(c *gin.Context) {
 			COALESCE(vr.BookingType, 'faculty') as BookingType,
 			COALESCE(vr.TripType, 'one_way') as TripType,
 			COALESCE(vr.TripMode, 'official') as TripMode,
+			%s,
+			%s,
 			%s,
 			%s,
 			COALESCE(vr.CountPerson, 1) as CountPerson,
@@ -155,6 +226,8 @@ func GetVehicleRequestDetails(c *gin.Context) {
 			COALESCE(DATE_FORMAT(vr.ReturnTodateTime, '%%Y-%%m-%%d %%H:%%i'), '') as ReturnTodateTime,
 			COALESCE(vr.ContactName, '') as ContactName,
 			COALESCE(vr.ContactPhone, '') as ContactPhone,
+			%s,
+			%s,
 			vr.status,
 			COALESCE(vr.admin_remarks, '') as admin_remarks,
 			u.full_name as faculty_name,
@@ -174,14 +247,15 @@ func GetVehicleRequestDetails(c *gin.Context) {
 		LEFT JOIN drivers d ON vr.driver_id = d.id
 		LEFT JOIN users ud ON d.user_id = ud.id
 		WHERE vr.id = ?
-	`, requestUnderExpr, purposeExpr)
+	`, requestUnderExpr, purposeExpr, verticalExpr, oralApprovalExpr, taskIDExpr, outcomeAuditableExpr)
 
 	err = config.DB.QueryRow(query, id).Scan(
 		&r.ID, &r.FacultyID,
-		&r.BookingType, &r.TripType, &r.TripMode, &r.RequestUnder, &r.Purpose, &r.CountPerson,
+		&r.BookingType, &r.TripType, &r.TripMode, &r.RequestUnder, &r.Purpose, &r.Vertical, &r.OralApproval, &r.CountPerson,
 		&r.OnwardFromPlace, &r.OnwardToPlace, &r.OnwardFromDateTime, &r.OnwardToDateTime,
 		&r.ReturnFromPlace, &r.ReturnToPlace, &r.ReturnFromDateTime, &r.ReturnToDateTime,
 		&r.ContactName, &r.ContactPhone,
+		&r.TaskID, &r.OutcomeAuditable,
 		&r.Status, &r.AdminRemarks,
 		&r.FacultyName, &r.FacultyEmail, &r.FacultyPhone, &r.FacultyDepartment,
 		&r.VehicleNumber, &r.VehicleType, &r.VehicleName,
@@ -278,8 +352,11 @@ func ApproveVehicleRequest(c *gin.Context) {
 			}
 		}
 
-		setParts := []string{"status = 'assigned'", "admin_remarks = ?", "vehicle_id = ?", "driver_id = ?"}
-		args := []interface{}{req.AdminRemarks, req.VehicleID, req.DriverID}
+		// Generate start OTP
+		startOTP := generateOTP()
+
+		setParts := []string{"status = 'assigned'", "admin_remarks = ?", "vehicle_id = ?", "driver_id = ?", "start_otp = ?", "start_otp_generated_at = NOW()"}
+		args := []interface{}{req.AdminRemarks, req.VehicleID, req.DriverID, startOTP}
 		if colExists["approved_by"] {
 			setParts = append(setParts, "approved_by = ?")
 			args = append(args, approvedBy)
@@ -300,7 +377,12 @@ func ApproveVehicleRequest(c *gin.Context) {
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Request approved and vehicle assigned successfully"})
+		// Notify admin about assignment
+		var facultyName string
+		config.DB.QueryRow(`SELECT u.full_name FROM faculty f JOIN users u ON f.user_id = u.id WHERE f.id = (SELECT faculty_id FROM vehiclerequests WHERE id = ?)`, req.RequestID).Scan(&facultyName)
+		CreateAdminNotification("vehicle_assigned", "Vehicle Assigned", fmt.Sprintf("Vehicle assigned to request #%d by %s. Start OTP sent to requester.", req.RequestID, facultyName))
+
+		c.JSON(http.StatusOK, gin.H{"message": "Request approved and vehicle assigned successfully", "start_otp": startOTP})
 		return
 	}
 
@@ -380,6 +462,43 @@ func RejectVehicleRequest(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Request rejected"})
 }
 
+// POST /api/admin/vehicle-request/cancel
+func CancelVehicleRequestByAdmin(c *gin.Context) {
+	var req struct {
+		RequestID    int    `json:"request_id"`
+		AdminRemarks string `json:"admin_remarks"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	var status string
+	err := config.DB.QueryRow(`SELECT status FROM vehiclerequests WHERE id = ?`, req.RequestID).Scan(&status)
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Request not found"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+	// Admin can cancel pending, approved, or assigned requests
+	if status != "pending" && status != "approved" && status != "assigned" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "This request cannot be cancelled (status: " + status + ")"})
+		return
+	}
+
+	_, err = config.DB.Exec(`UPDATE vehiclerequests SET status = 'cancelled', admin_remarks = ? WHERE id = ?`, req.AdminRemarks, req.RequestID)
+	if err != nil {
+		log.Printf("Error cancelling request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to cancel request"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Request cancelled"})
+}
+
 // POST /api/admin/vehicle-request/assign
 func AssignVehicleToRequest(c *gin.Context) {
 	var req models.AssignVehicleRequestInput
@@ -394,7 +513,8 @@ func AssignVehicleToRequest(c *gin.Context) {
 	}
 
 	var status string
-	err := config.DB.QueryRow(`SELECT status FROM vehiclerequests WHERE id = ?`, req.RequestID).Scan(&status)
+	var onwardDateTime, returnDateTime sql.NullString
+	err := config.DB.QueryRow(`SELECT status, OnwardFromDateTime, ReturnFromDateTime FROM vehiclerequests WHERE id = ?`, req.RequestID).Scan(&status, &onwardDateTime, &returnDateTime)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Request not found"})
 		return
@@ -404,21 +524,58 @@ func AssignVehicleToRequest(c *gin.Context) {
 		return
 	}
 
+	// Check for conflicts before assigning
+	if onwardDateTime.Valid {
+		hasDriverConflict, err := checkDriverConflict(req.DriverID, onwardDateTime.String)
+		if err != nil {
+			log.Printf("Error checking driver conflict: %v", err)
+		}
+		if hasDriverConflict {
+			c.JSON(http.StatusConflict, gin.H{
+				"error":   "driver_conflict",
+				"message": "Driver already has an assignment on this date/time",
+			})
+			return
+		}
+
+		hasVehicleConflict, err := checkVehicleConflict(req.VehicleID, onwardDateTime.String)
+		if err != nil {
+			log.Printf("Error checking vehicle conflict: %v", err)
+		}
+		if hasVehicleConflict {
+			c.JSON(http.StatusConflict, gin.H{
+				"error":   "vehicle_conflict",
+				"message": "Vehicle already has an assignment on this date/time",
+			})
+			return
+		}
+	}
+
+	// Generate start OTP
+	startOTP := generateOTP()
+
 	_, err = config.DB.Exec(`
 		UPDATE vehiclerequests 
-		SET vehicle_id = ?, driver_id = ?, status = 'assigned', assigned_at = NOW()
+		SET vehicle_id = ?, driver_id = ?, status = 'assigned', assigned_at = NOW(),
+			start_otp = ?, start_otp_generated_at = NOW()
 		WHERE id = ?
-	`, req.VehicleID, req.DriverID, req.RequestID)
+	`, req.VehicleID, req.DriverID, startOTP, req.RequestID)
 	if err != nil {
 		log.Printf("Error assigning vehicle: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to assign vehicle"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Vehicle and driver assigned successfully"})
+	// Notify admin about assignment
+	var facultyName string
+	config.DB.QueryRow(`SELECT u.full_name FROM faculty f JOIN users u ON f.user_id = u.id WHERE f.id = (SELECT faculty_id FROM vehiclerequests WHERE id = ?)`, req.RequestID).Scan(&facultyName)
+	CreateAdminNotification("vehicle_assigned", "Vehicle Assigned", fmt.Sprintf("Vehicle assigned to request #%d by %s. Start OTP sent to requester.", req.RequestID, facultyName))
+
+	c.JSON(http.StatusOK, gin.H{"message": "Vehicle and driver assigned successfully", "start_otp": startOTP})
 }
 
 // POST /api/admin/vehicle-request/complete
+// Admin can still manually complete a request (e.g., in case of OTP issues)
 func CompleteVehicleRequest(c *gin.Context) {
 	var req struct {
 		RequestID int `json:"request_id"`
@@ -434,16 +591,18 @@ func CompleteVehicleRequest(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Request not found"})
 		return
 	}
-	if status != "assigned" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Only assigned requests can be marked as completed"})
+	if status != "assigned" && status != "trip_started" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Only assigned or in-progress requests can be marked as completed"})
 		return
 	}
 
-	_, err = config.DB.Exec(`UPDATE vehiclerequests SET status = 'completed' WHERE id = ?`, req.RequestID)
+	_, err = config.DB.Exec(`UPDATE vehiclerequests SET status = 'completed', trip_ended_at = NOW() WHERE id = ?`, req.RequestID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to complete request"})
 		return
 	}
+
+	CreateAdminNotification("trip_completed", "Trip Completed", fmt.Sprintf("Vehicle request #%d has been manually marked as completed by admin.", req.RequestID))
 
 	c.JSON(http.StatusOK, gin.H{"message": "Request marked as completed"})
 }

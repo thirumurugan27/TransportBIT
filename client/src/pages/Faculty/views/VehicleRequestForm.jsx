@@ -7,13 +7,13 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
 const emptyTrip = {
   trip_order: 1,
+  task_id: "",
   departure_date: "",
   departure_time: "",
   departure_location: "",
   arrival_date: "",
   arrival_time: "",
   arrival_location: "",
-  num_passengers: 1,
   passenger_contacts: "",
   outcome_auditable: "",
 };
@@ -26,9 +26,54 @@ export default function VehicleRequestForm() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const TRIP_TYPES = [
+    {value: "guest_pickup", label: "Guest Pick up"},
+    {value: "guest_drop", label: "Guest Drop"},
+    {value: "faculty_staff_visit", label: "Faculty/Staff Visit"},
+  ];
+
+  const REQUEST_UNDER_OPTIONS = [
+    {value: "academic_department", label: "Academic Department"},
+    {value: "students_training", label: "Students Training"},
+    {value: "supporting_department", label: "Supporting Department"},
+  ];
+
+  const VERTICAL_OPTIONS = {
+    academic_department: [
+      "AGRI", "AIDS", "AIML", "BIOTECH", "BME", "CHEMISTRY", "CIVIL", "CSBS", "CSD", "CSE",
+      "CT", "ECE", "EEE", "EIE", "FASHION", "FOOD", "ISE", "IT", "MATHS", "MECH",
+      "MTRS", "PHYSICS", "SMS", "TEXTILE", "QRWA"
+    ],
+    students_training: [
+      "CE KOVAI SELVAN VISIT", "GURUGULAM", "P-SKILL", "RESEARCH PARK", "SKILL-BIT",
+      "SKILL-SCHOOL STUDENTS", "SPECIAL LAB/PIC"
+    ],
+    supporting_department: [
+      "ACCOUNTS OFFICE", "Administrative Purpose", "ALUMNI ASSOCIATION", "AUDIO VIDEO IN-CHARGE",
+      "AUTONOMY AFFAIRS", "BAPS", "BAS", "BAVN", "BOYS HOSTEL", "CAMPUS MAINTENANCE - CIVIL",
+      "CAMPUS MAINTENANCE - CLEANING", "CHILLER PLANT", "CIVIL OFFICE", "CLUBS AND SOCIETIES",
+      "COMMUNITY RADIO", "CONTROLLER OF EXAMINATION", "GIRLS HOSTEL", "HORTICULTURE", "IECC",
+      "IQAC-ADMIN", "IQAC-EVENTS", "IQAC-HR", "IQAC-INFRA", "IQAC-OFFICE ACADEMICS", "IQAC-SFC",
+      "IT OPERATIONS (NMC)", "IT SERVICES (TRC)", "LEARNING CENTRE", "MEDICAL CENTRE", "MESS",
+      "NEW INITIATIVES", "PHYSICAL EDUCATION", "PLUMBING & WATER SUPPLY", "POWER HOUSE", "PRD",
+      "SECURITY SERVICE", "START UP", "STORES", "STP", "TRAINING & PLACEMENT", "TRAINING ACADEMY", "TRANSPORT"
+    ],
+  };
+
+  const getTripTypeLabel = (value) => {
+    const found = TRIP_TYPES.find((t) => t.value === value);
+    return found ? found.label : value?.replace(/_/g, " ") || "-";
+  };
+
+  const getRequestUnderLabel = (value) => {
+    const found = REQUEST_UNDER_OPTIONS.find((r) => r.value === value);
+    return found ? found.label : value || "-";
+  };
+
   const [form, setForm] = useState({
-    trip_type: "",
+    trip_type: "guest_pickup",
     request_under: "",
+    vertical: "",
     oral_approval: false,
     purpose: "",
     total_passengers: 1,
@@ -98,6 +143,10 @@ export default function VehicleRequestForm() {
       showToast("Request Under field is required", "warning");
       return false;
     }
+    if (!form.vertical.trim()) {
+      showToast("Vertical field is required", "warning");
+      return false;
+    }
     return true;
   };
 
@@ -110,10 +159,6 @@ export default function VehicleRequestForm() {
       }
       if (!t.arrival_date || !t.arrival_time || !t.arrival_location) {
         showToast(`Trip ${i + 1}: Arrival details are required`, "warning");
-        return false;
-      }
-      if (t.num_passengers < 1) {
-        showToast(`Trip ${i + 1}: At least 1 passenger required`, "warning");
         return false;
       }
     }
@@ -155,8 +200,12 @@ export default function VehicleRequestForm() {
         trip_type: form.trip_type,
         trip_mode: "official",
         request_under: form.request_under,
+        vertical: form.vertical,
+        oral_approval: form.oral_approval,
         purpose: form.purpose,
         count_person: parseInt(form.total_passengers) || 1,
+        task_id: onwardTrip.task_id || "",
+        outcome_auditable: onwardTrip.outcome_auditable || "",
 
         // Onward journey
         onward_from_place: onwardTrip.departure_location || "",
@@ -308,29 +357,59 @@ export default function VehicleRequestForm() {
               <label className="block text-sm font-medium text-secondarytext mb-1">
                 Trip Type <span className="text-red">*</span>
               </label>
-              <input
-                type="text"
+              <select
                 value={form.trip_type}
                 onChange={(e) => handleFormChange("trip_type", e.target.value)}
-                placeholder="e.g., Faculty/Staff Visit, Guest Pickup and Drop"
                 className="w-full px-3 py-2 border border-gray-200 rounded-md bg-white text-sm text-primarytext focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-              />
+              >
+                {TRIP_TYPES.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-secondarytext mb-1">
                 Request Under <span className="text-red">*</span>
               </label>
-              <input
-                type="text"
+              <select
                 value={form.request_under}
-                onChange={(e) =>
-                  handleFormChange("request_under", e.target.value)
-                }
-                placeholder="e.g., HOD / Dean / Principal"
-                className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm text-primarytext focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-              />
+                onChange={(e) => {
+                  handleFormChange("request_under", e.target.value);
+                  handleFormChange("vertical", "");
+                }}
+                className="w-full px-3 py-2 border border-gray-200 rounded-md bg-white text-sm text-primarytext focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+              >
+                <option value="">Select Request Under</option>
+                {REQUEST_UNDER_OPTIONS.map((r) => (
+                  <option key={r.value} value={r.value}>
+                    {r.label}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
+
+          {form.request_under && (
+            <div>
+              <label className="block text-sm font-medium text-secondarytext mb-1">
+                Vertical <span className="text-red">*</span>
+              </label>
+              <select
+                value={form.vertical}
+                onChange={(e) => handleFormChange("vertical", e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-md bg-white text-sm text-primarytext focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+              >
+                <option value="">Select Vertical</option>
+                {VERTICAL_OPTIONS[form.request_under]?.map((v) => (
+                  <option key={v} value={v}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-secondarytext mb-1">
@@ -547,21 +626,7 @@ export default function VehicleRequestForm() {
               </div>
 
               {/* Passengers & Outcome */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs text-secondarytext mb-1">
-                    No. of Persons Traveling
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={trip.num_passengers}
-                    onChange={(e) =>
-                      handleTripChange(idx, "num_passengers", e.target.value)
-                    }
-                    className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm text-primarytext focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-                  />
-                </div>
+              <div className="grid grid-cols-1 gap-4">
                 <div>
                   <label className="block text-xs text-secondarytext mb-1">
                     Contact Details of Persons
@@ -584,16 +649,31 @@ export default function VehicleRequestForm() {
 
               <div>
                 <label className="block text-xs text-secondarytext mb-1">
-                  Outcome Expected & Auditable
+                  Task ID
                 </label>
-                <textarea
+                <input
+                  type="text"
+                  value={trip.task_id}
+                  onChange={(e) =>
+                    handleTripChange(idx, "task_id", e.target.value)
+                  }
+                  placeholder="Task ID"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm text-primarytext focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-secondarytext mb-1">
+                  Auditable
+                </label>
+                <input
+                  type="text"
                   value={trip.outcome_auditable}
                   onChange={(e) =>
                     handleTripChange(idx, "outcome_auditable", e.target.value)
                   }
-                  rows={2}
-                  placeholder="Expected outcome of this trip..."
-                  className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm text-primarytext focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none"
+                  placeholder="e.g., Skill, Placement/Internship, Awards, Infrastructure"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm text-primarytext focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
                 />
               </div>
             </div>
@@ -651,14 +731,20 @@ export default function VehicleRequestForm() {
               </div>
               <div className="flex justify-between">
                 <span className="text-secondarytext">Trip Type:</span>
-                <span className="text-primarytext font-medium capitalize">
-                  {form.trip_type.replace("_", " ")}
+                <span className="text-primarytext font-medium">
+                  {getTripTypeLabel(form.trip_type)}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-secondarytext">Request Under:</span>
                 <span className="text-primarytext font-medium">
-                  {form.request_under}
+                  {getRequestUnderLabel(form.request_under)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-secondarytext">Vertical:</span>
+                <span className="text-primarytext font-medium">
+                  {form.vertical}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -713,8 +799,9 @@ export default function VehicleRequestForm() {
                 </div>
               </div>
               <div className="mt-2 text-xs text-secondarytext">
-                {trip.num_passengers} passenger(s)
-                {trip.outcome_auditable && ` · ${trip.outcome_auditable}`}
+                {trip.task_id && `Task: ${trip.task_id}`}
+                {trip.task_id && trip.outcome_auditable && " · "}
+                {trip.outcome_auditable && `Auditable: ${trip.outcome_auditable}`}
               </div>
             </div>
           ))}

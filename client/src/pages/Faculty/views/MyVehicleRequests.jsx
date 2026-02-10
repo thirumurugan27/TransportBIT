@@ -11,6 +11,8 @@ import {
   MapPin,
   Calendar,
   User,
+  Key,
+  Play,
 } from "lucide-react";
 import {useToast} from "../../../context/ToastContext";
 import {showConfirm} from "../../../utils/swal";
@@ -39,6 +41,11 @@ const STATUS_CONFIG = {
     icon: Truck,
     label: "Assigned",
   },
+  trip_started: {
+    color: "bg-blue-100 text-blue-700 border-blue-200",
+    icon: Play,
+    label: "Trip Started",
+  },
   completed: {
     color: "bg-gray-100 text-gray-600 border-gray-200",
     icon: CheckCircle,
@@ -51,6 +58,28 @@ const STATUS_CONFIG = {
   },
 };
 
+const TRIP_TYPES = [
+  {value: "guest_pickup", label: "Guest Pick up"},
+  {value: "guest_drop", label: "Guest Drop"},
+  {value: "faculty_staff_visit", label: "Faculty/Staff Visit"},
+];
+
+const REQUEST_UNDER_OPTIONS = [
+  {value: "academic_department", label: "Academic Department"},
+  {value: "students_training", label: "Students Training"},
+  {value: "supporting_department", label: "Supporting Department"},
+];
+
+const getTripTypeLabel = (value) => {
+  const found = TRIP_TYPES.find((t) => t.value === value);
+  return found ? found.label : value?.replace(/_/g, " ") || "-";
+};
+
+const getRequestUnderLabel = (value) => {
+  const found = REQUEST_UNDER_OPTIONS.find((r) => r.value === value);
+  return found ? found.label : value || "-";
+};
+
 export default function MyVehicleRequests() {
   const navigate = useNavigate();
   const {showToast} = useToast();
@@ -58,6 +87,8 @@ export default function MyVehicleRequests() {
   const [loading, setLoading] = useState(true);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [filterStatus, setFilterStatus] = useState("");
+  const [otpData, setOtpData] = useState(null);
+  const [otpLoading, setOtpLoading] = useState(false);
 
   useEffect(() => {
     fetchRequests();
@@ -112,6 +143,36 @@ export default function MyVehicleRequests() {
       }
     } catch (e) {
       showToast("Network error", "error");
+    }
+  };
+
+  const fetchOTP = async (requestId) => {
+    setOtpLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(
+        `${API_BASE}/api/faculty/vehicle-request/${requestId}/otp`,
+        {
+          headers: {Authorization: `Bearer ${token}`},
+          credentials: "include",
+        },
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setOtpData(data);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleSelectRequest = (req) => {
+    setSelectedRequest(req);
+    setOtpData(null);
+    if (req.status === "assigned" || req.status === "trip_started") {
+      fetchOTP(req.id);
     }
   };
 
@@ -190,7 +251,7 @@ export default function MyVehicleRequests() {
               <div
                 key={req.id}
                 className="bg-secondarybg rounded-md shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => setSelectedRequest(req)}
+                onClick={() => handleSelectRequest(req)}
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex-1 min-w-0">
@@ -204,8 +265,8 @@ export default function MyVehicleRequests() {
                         <StatusIcon size={12} />
                         {cfg.label}
                       </span>
-                      <span className="text-xs text-secondarytext capitalize bg-primarybg px-2 py-0.5 rounded-md">
-                        {req.trip_type?.replace("_", " ")}
+                      <span className="text-xs text-secondarytext bg-primarybg px-2 py-0.5 rounded-md">
+                        {getTripTypeLabel(req.trip_type)}
                       </span>
                     </div>
                     <p className="text-sm text-primarytext truncate">
@@ -228,7 +289,7 @@ export default function MyVehicleRequests() {
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    {req.status === "assigned" && (
+                    {(req.status === "assigned" || req.status === "trip_started") && (
                       <div className="text-right text-xs">
                         <p className="text-green font-medium flex items-center gap-1">
                           <Truck size={12} />
@@ -284,14 +345,20 @@ export default function MyVehicleRequests() {
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
                   <span className="text-secondarytext">Trip Type:</span>
-                  <p className="font-medium text-primarytext capitalize">
-                    {selectedRequest.trip_type?.replace("_", " ")}
+                  <p className="font-medium text-primarytext">
+                    {getTripTypeLabel(selectedRequest.trip_type)}
                   </p>
                 </div>
                 <div>
                   <span className="text-secondarytext">Request Under:</span>
                   <p className="font-medium text-primarytext">
-                    {selectedRequest.request_under || "-"}
+                    {getRequestUnderLabel(selectedRequest.request_under)}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-secondarytext">Vertical:</span>
+                  <p className="font-medium text-primarytext">
+                    {selectedRequest.vertical || "-"}
                   </p>
                 </div>
                 <div>
@@ -353,7 +420,7 @@ export default function MyVehicleRequests() {
               ))}
 
               {/* Vehicle Assignment */}
-              {selectedRequest.status === "assigned" && (
+              {(selectedRequest.status === "assigned" || selectedRequest.status === "trip_started" || selectedRequest.status === "completed") && selectedRequest.vehicle_name && (
                 <div className="bg-green/5 border border-green/20 rounded-md p-4">
                   <p className="text-sm font-semibold text-green mb-2">
                     Vehicle Assigned
@@ -376,6 +443,56 @@ export default function MyVehicleRequests() {
                       </p>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* OTP Section */}
+              {otpData && selectedRequest.status === "assigned" && otpData.start_otp && (
+                <div className="bg-primary/5 border-2 border-primary/30 rounded-md p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Key size={18} className="text-primary" />
+                    <p className="text-sm font-semibold text-primary">Start Trip OTP</p>
+                  </div>
+                  <p className="text-xs text-secondarytext mb-3">
+                    Share this OTP with the driver to start the trip
+                  </p>
+                  <div className="bg-white rounded-md p-4 text-center">
+                    <p className="text-3xl font-bold tracking-[0.5em] text-primary font-mono">
+                      {otpData.start_otp}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {otpData && selectedRequest.status === "trip_started" && otpData.end_otp && (
+                <div className="bg-green/5 border-2 border-green/30 rounded-md p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Key size={18} className="text-green" />
+                    <p className="text-sm font-semibold text-green">End Trip OTP</p>
+                  </div>
+                  <p className="text-xs text-secondarytext mb-3">
+                    Share this OTP with the driver to complete the trip
+                  </p>
+                  <div className="bg-white rounded-md p-4 text-center">
+                    <p className="text-3xl font-bold tracking-[0.5em] text-green font-mono">
+                      {otpData.end_otp}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {selectedRequest.status === "trip_started" && (
+                <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                  <p className="text-xs text-blue-700 font-medium flex items-center gap-1.5">
+                    <Play size={12} />
+                    Trip is currently in progress
+                  </p>
+                </div>
+              )}
+
+              {otpLoading && (selectedRequest.status === "assigned" || selectedRequest.status === "trip_started") && (
+                <div className="text-center py-3">
+                  <p className="text-sm text-secondarytext">Loading OTP...</p>
                 </div>
               )}
 

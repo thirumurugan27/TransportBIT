@@ -115,6 +115,8 @@ func RegisterRoutes(r *gin.Engine) {
 	// Driver Vehicle Requests (Faculty Bookings assigned to driver)
 	r.GET("/api/driver/vehicle-requests", driver.GetDriverVehicleRequests)
 	r.GET("/api/driver/vehicle-requests/upcoming", driver.GetDriverUpcomingVehicleRequests)
+	r.POST("/api/driver/vehicle-request/verify-start-otp", driver.VerifyStartOTP)
+	r.POST("/api/driver/vehicle-request/verify-end-otp", driver.VerifyEndOTP)
 
 	// =========================
 	// STUDENT PORTAL
@@ -318,6 +320,7 @@ func RegisterRoutes(r *gin.Engine) {
 	r.POST("/api/faculty/vehicle-request", faculty.CreateVehicleRequest)
 	r.GET("/api/faculty/vehicle-requests", faculty.GetMyVehicleRequests)
 	r.POST("/api/faculty/vehicle-request/cancel", faculty.CancelVehicleRequest)
+	r.GET("/api/faculty/vehicle-request/:id/otp", faculty.GetVehicleRequestOTP)
 
 	// =========================
 	// ADMIN VEHICLE REQUESTS (Faculty Bookings)
@@ -326,6 +329,7 @@ func RegisterRoutes(r *gin.Engine) {
 	r.GET("/api/admin/vehicle-request/:id", admin.GetVehicleRequestDetails)
 	r.POST("/api/admin/vehicle-request/approve", admin.ApproveVehicleRequest)
 	r.POST("/api/admin/vehicle-request/reject", admin.RejectVehicleRequest)
+	r.POST("/api/admin/vehicle-request/cancel", admin.CancelVehicleRequestByAdmin)
 	r.POST("/api/admin/vehicle-request/assign", admin.AssignVehicleToRequest)
 	r.POST("/api/admin/vehicle-request/complete", admin.CompleteVehicleRequest)
 	r.GET("/api/admin/vehicle-requests/pending-count", admin.GetPendingVehicleRequestCount)

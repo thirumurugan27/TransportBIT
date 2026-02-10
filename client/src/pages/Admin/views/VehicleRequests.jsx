@@ -45,6 +45,11 @@ const STATUS_CONFIG = {
     icon: Truck,
     label: "Assigned",
   },
+  trip_started: {
+    color: "bg-blue-100 text-blue-700 border-blue-200",
+    icon: Truck,
+    label: "Trip Started",
+  },
   completed: {
     color: "bg-gray-100 text-gray-600 border-gray-200",
     icon: CheckCircle,
@@ -55,6 +60,17 @@ const STATUS_CONFIG = {
     icon: XCircle,
     label: "Cancelled",
   },
+};
+
+const REQUEST_UNDER_OPTIONS = [
+  {value: "academic_department", label: "Academic Department"},
+  {value: "students_training", label: "Students Training"},
+  {value: "supporting_department", label: "Supporting Department"},
+];
+
+const getRequestUnderLabel = (value) => {
+  const found = REQUEST_UNDER_OPTIONS.find((r) => r.value === value);
+  return found ? found.label : value || "-";
 };
 
 export default function VehicleRequests() {
@@ -269,6 +285,35 @@ export default function VehicleRequests() {
       } else {
         const data = await res.json();
         showToast(data.error || "Failed", "error");
+      }
+    } catch (e) {
+      showToast("Network error", "error");
+    }
+  };
+
+  const handleCancel = async (requestId) => {
+    const confirmed = await showConfirm(
+      "Cancel Request?",
+      "This will cancel the vehicle request. This action cannot be undone.",
+    );
+    if (!confirmed) return;
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/admin/vehicle-request/cancel`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {"Content-Type": "application/json", ...getAuthHeaders()},
+          body: JSON.stringify({request_id: requestId, admin_remarks: "Cancelled by admin"}),
+        },
+      );
+      if (res.ok) {
+        showToast("Request cancelled", "success");
+        setSelectedRequest(null);
+        fetchRequests();
+      } else {
+        const data = await res.json();
+        showToast(data.error || "Failed to cancel", "error");
       }
     } catch (e) {
       showToast("Network error", "error");
@@ -516,14 +561,23 @@ export default function VehicleRequests() {
                   </div>
                   <div>
                     <span className="text-secondarytext">Trip Type:</span>
-                    <p className="font-medium text-primarytext capitalize">
-                      {selectedRequest.trip_type?.replace("_", " ")}
+                    <p className="font-medium text-primarytext">
+                      {selectedRequest.trip_type === "guest_pickup" ? "Guest Pick up" : 
+                       selectedRequest.trip_type === "guest_drop" ? "Guest Drop" : 
+                       selectedRequest.trip_type === "faculty_staff_visit" ? "Faculty/Staff Visit" : 
+                       selectedRequest.trip_type?.replace(/_/g, " ")}
                     </p>
                   </div>
                   <div>
                     <span className="text-secondarytext">Request Under:</span>
                     <p className="font-medium text-primarytext">
-                      {selectedRequest.request_under || "-"}
+                      {getRequestUnderLabel(selectedRequest.request_under)}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-secondarytext">Vertical:</span>
+                    <p className="font-medium text-primarytext">
+                      {selectedRequest.vertical || "-"}
                     </p>
                   </div>
                   <div>
@@ -604,10 +658,10 @@ export default function VehicleRequests() {
                     ))
                   ) : (
                     <div className="border border-gray-100 rounded-md p-3">
-                      <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className={`grid ${selectedRequest.return_from_datetime || selectedRequest.return_from_place ? 'grid-cols-2' : 'grid-cols-1'} gap-2 text-xs`}>
                         <div className="bg-primarybg rounded-md p-2">
                           <p className="text-primary font-medium mb-0.5">
-                            Onward
+                            {selectedRequest.return_from_datetime || selectedRequest.return_from_place ? 'Onward' : 'Trip Details'}
                           </p>
                           <p className="text-primarytext">
                             {selectedRequest.onward_from_datetime || "-"}
@@ -618,19 +672,21 @@ export default function VehicleRequests() {
                               : "-"}
                           </p>
                         </div>
-                        <div className="bg-primarybg rounded-md p-2">
-                          <p className="text-green font-medium mb-0.5">
-                            Return
-                          </p>
-                          <p className="text-primarytext">
-                            {selectedRequest.return_from_datetime || "-"}
-                          </p>
-                          <p className="text-secondarytext">
-                            {selectedRequest.return_from_place
-                              ? `${selectedRequest.return_from_place}${selectedRequest.return_to_place ? ` → ${selectedRequest.return_to_place}` : ""}`
-                              : "-"}
-                          </p>
-                        </div>
+                        {(selectedRequest.return_from_datetime || selectedRequest.return_from_place) && (
+                          <div className="bg-primarybg rounded-md p-2">
+                            <p className="text-green font-medium mb-0.5">
+                              Return
+                            </p>
+                            <p className="text-primarytext">
+                              {selectedRequest.return_from_datetime || "-"}
+                            </p>
+                            <p className="text-secondarytext">
+                              {selectedRequest.return_from_place
+                                ? `${selectedRequest.return_from_place}${selectedRequest.return_to_place ? ` → ${selectedRequest.return_to_place}` : ""}`
+                                : "-"}
+                            </p>
+                          </div>
+                        )}
                       </div>
                       <div className="mt-1.5 text-xs text-secondarytext">
                         {selectedRequest.count_person
@@ -642,7 +698,7 @@ export default function VehicleRequests() {
                 </div>
 
                 {/* Assignment Info */}
-                {selectedRequest.status === "assigned" && (
+                {(selectedRequest.status === "assigned" || selectedRequest.status === "trip_started" || selectedRequest.status === "completed") && selectedRequest.vehicle_name && (
                   <div className="bg-green/5 border border-green/20 rounded-md p-4">
                     <p className="text-sm font-semibold text-green mb-2">
                       Assigned Vehicle & Driver
@@ -662,6 +718,29 @@ export default function VehicleRequests() {
                         </p>
                       </div>
                     </div>
+                    {/* Trip Timeline */}
+                    {(selectedRequest.trip_started_at || selectedRequest.trip_ended_at) && (
+                      <div className="mt-3 pt-3 border-t border-green/20 space-y-1 text-xs text-secondarytext">
+                        {selectedRequest.trip_started_at && (
+                          <p>Trip Started: <span className="font-medium text-primarytext">{selectedRequest.trip_started_at}</span></p>
+                        )}
+                        {selectedRequest.trip_ended_at && (
+                          <p>Trip Ended: <span className="font-medium text-primarytext">{selectedRequest.trip_ended_at}</span></p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* OTP Status Info */}
+                {selectedRequest.status === "assigned" && (
+                  <div className="bg-primary/5 border border-primary/20 rounded-md p-3">
+                    <p className="text-xs text-primary font-medium">Start OTP has been sent to the requester. Waiting for driver to verify.</p>
+                  </div>
+                )}
+                {selectedRequest.status === "trip_started" && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                    <p className="text-xs text-blue-700 font-medium">Trip is in progress. End OTP has been sent to the requester.</p>
                   </div>
                 )}
 
@@ -693,23 +772,47 @@ export default function VehicleRequests() {
                       >
                         Reject
                       </button>
+                      <button
+                        onClick={() => handleCancel(selectedRequest.id)}
+                        className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors text-sm font-medium"
+                      >
+                        Cancel
+                      </button>
                     </>
                   )}
                   {selectedRequest.status === "approved" && (
-                    <button
-                      onClick={() => openAssignModal(selectedRequest)}
-                      className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors text-sm font-medium"
-                    >
-                      Assign Vehicle & Driver
-                    </button>
+                    <>
+                      <button
+                        onClick={() => openAssignModal(selectedRequest)}
+                        className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors text-sm font-medium"
+                      >
+                        Assign Vehicle & Driver
+                      </button>
+                      <button
+                        onClick={() => handleCancel(selectedRequest.id)}
+                        className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors text-sm font-medium"
+                      >
+                        Cancel
+                      </button>
+                    </>
                   )}
-                  {selectedRequest.status === "assigned" && (
-                    <button
-                      onClick={() => handleComplete(selectedRequest.id)}
-                      className="px-4 py-2 bg-green text-white rounded-md hover:bg-green/90 transition-colors text-sm font-medium"
-                    >
-                      Mark Completed
-                    </button>
+                  {(selectedRequest.status === "assigned" || selectedRequest.status === "trip_started") && (
+                    <>
+                      <button
+                        onClick={() => handleComplete(selectedRequest.id)}
+                        className="px-4 py-2 bg-green text-white rounded-md hover:bg-green/90 transition-colors text-sm font-medium"
+                      >
+                        Mark Completed (Override)
+                      </button>
+                      {selectedRequest.status === "assigned" && (
+                        <button
+                          onClick={() => handleCancel(selectedRequest.id)}
+                          className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors text-sm font-medium"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

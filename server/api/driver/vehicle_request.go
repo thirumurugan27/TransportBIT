@@ -1,10 +1,14 @@
 package driver
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
+	"time"
 
+	"transport-server/api/admin"
 	"transport-server/config"
 	"transport-server/models"
 	"transport-server/utils"
@@ -76,7 +80,7 @@ func GetDriverVehicleRequests(c *gin.Context) {
 		JOIN faculty f ON vr.faculty_id = f.id
 		JOIN users u ON f.user_id = u.id
 		LEFT JOIN vehicles v ON vr.vehicle_id = v.id
-		WHERE vr.driver_id = ? AND vr.status IN ('assigned', 'completed')
+		WHERE vr.driver_id = ? AND vr.status IN ('assigned', 'trip_started', 'completed')
 		ORDER BY vr.OnwardFromDateTime DESC
 	`, requestUnderExpr, purposeExpr)
 	rows, err := config.DB.Query(query, driverID)
@@ -209,4 +213,161 @@ func GetDriverUpcomingVehicleRequests(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, requests)
+}
+
+// POST /api/driver/vehicle-request/verify-start-otp - Driver verifies start OTP to begin trip
+func VerifyStartOTP(c *gin.Context) {
+	userID, err := utils.GetUserIDFromToken(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	var driverID int
+	err = config.DB.QueryRow(`SELECT id FROM drivers WHERE user_id = ?`, userID).Scan(&driverID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Driver profile not found"})
+		return
+	}
+
+	var req struct {
+		RequestID int    `json:"request_id"`
+		OTP       string `json:"otp"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	var status, storedOTP string
+	var facultyName string
+	err = config.DB.QueryRow(`
+		SELECT vr.status, COALESCE(vr.start_otp, ''), u.full_name
+		FROM vehiclerequests vr
+		JOIN faculty f ON vr.faculty_id = f.id
+		JOIN users u ON f.user_id = u.id
+		WHERE vr.id = ? AND vr.driver_id = ?
+	`, req.RequestID, driverID).Scan(&status, &storedOTP, &facultyName)
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Request not found or not assigned to you"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+
+	if status != "assigned" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Trip can only be started from assigned status"})
+		return
+	}
+
+	if storedOTP == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No start OTP has been generated for this request"})
+		return
+	}
+
+	if req.OTP != storedOTP {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid OTP. Please check and try again."})
+		return
+	}
+
+	// Generate end OTP for trip completion
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	endOTP := fmt.Sprintf("%06d", rng.Intn(1000000))
+
+	_, err = config.DB.Exec(`
+		UPDATE vehiclerequests 
+		SET status = 'trip_started', trip_started_at = NOW(),
+			end_otp = ?, end_otp_generated_at = NOW()
+		WHERE id = ?
+	`, endOTP, req.RequestID)
+	if err != nil {
+		log.Printf("Error starting trip: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start trip"})
+		return
+	}
+
+	admin.CreateAdminNotification("trip_started", "Trip Started",
+		fmt.Sprintf("Trip for request #%d by %s has started.", req.RequestID, facultyName))
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Trip started successfully. End OTP has been sent to the requester.",
+	})
+}
+
+// POST /api/driver/vehicle-request/verify-end-otp - Driver verifies end OTP to complete trip
+func VerifyEndOTP(c *gin.Context) {
+	userID, err := utils.GetUserIDFromToken(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	var driverID int
+	err = config.DB.QueryRow(`SELECT id FROM drivers WHERE user_id = ?`, userID).Scan(&driverID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Driver profile not found"})
+		return
+	}
+
+	var req struct {
+		RequestID int    `json:"request_id"`
+		OTP       string `json:"otp"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	var status, storedOTP string
+	var facultyName string
+	err = config.DB.QueryRow(`
+		SELECT vr.status, COALESCE(vr.end_otp, ''), u.full_name
+		FROM vehiclerequests vr
+		JOIN faculty f ON vr.faculty_id = f.id
+		JOIN users u ON f.user_id = u.id
+		WHERE vr.id = ? AND vr.driver_id = ?
+	`, req.RequestID, driverID).Scan(&status, &storedOTP, &facultyName)
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Request not found or not assigned to you"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+
+	if status != "trip_started" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Trip can only be ended from trip_started status"})
+		return
+	}
+
+	if storedOTP == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No end OTP has been generated for this request"})
+		return
+	}
+
+	if req.OTP != storedOTP {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid OTP. Please check and try again."})
+		return
+	}
+
+	_, err = config.DB.Exec(`
+		UPDATE vehiclerequests 
+		SET status = 'completed', trip_ended_at = NOW()
+		WHERE id = ?
+	`, req.RequestID)
+	if err != nil {
+		log.Printf("Error ending trip: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to end trip"})
+		return
+	}
+
+	admin.CreateAdminNotification("trip_completed", "Trip Completed",
+		fmt.Sprintf("Trip for request #%d by %s has been completed.", req.RequestID, facultyName))
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Trip completed successfully!",
+	})
 }

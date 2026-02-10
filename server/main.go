@@ -23,7 +23,7 @@ func main() {
 
 	// 2. Initialize Database
 	config.InitDB()
-	
+
 	// Fix database schema issues (ENUM truncation)
 	admin.FixDatabaseSchema()
 
@@ -33,6 +33,7 @@ func main() {
 
 	bus.InitBusStopsTable()
 	student.InitStudentTransportTables()
+	admin.EnsureVehicleRequestOTPColumns()
 
 	// 3. Initialize Gin Router
 	r := gin.Default()

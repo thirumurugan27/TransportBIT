@@ -15,6 +15,8 @@ import {
   FileText,
   ChevronDown,
   Loader2,
+  Key,
+  Play,
 } from "lucide-react";
 import {useToast} from "../../../context/ToastContext";
 import {showConfirm} from "../../../utils/swal";
@@ -28,6 +30,7 @@ const STATUS_TABS = [
   {key: "approved", label: "Approved", icon: CheckCircle},
   {key: "rejected", label: "Rejected", icon: XCircle},
   {key: "assigned", label: "Assigned", icon: Truck},
+  {key: "trip_started", label: "In Progress", icon: Play},
   {key: "completed", label: "Completed", icon: CheckCircle},
   {key: "cancelled", label: "Cancelled", icon: XCircle},
 ];
@@ -53,6 +56,11 @@ const STATUS_CONFIG = {
     badge: "bg-green text-white",
     label: "Assigned",
   },
+  trip_started: {
+    color: "bg-blue-100 text-blue-700 border-blue-200",
+    badge: "bg-blue-600 text-white",
+    label: "Trip Started",
+  },
   completed: {
     color: "bg-gray-100 text-gray-600 border-gray-200",
     badge: "bg-gray-500 text-white",
@@ -66,20 +74,58 @@ const STATUS_CONFIG = {
 };
 
 const TRIP_TYPES = [
-  {value: "one_way", label: "One Way"},
-  {value: "round_trip", label: "Round Trip"},
-  {value: "multi_stop", label: "Multi Stop"},
+  {value: "guest_pickup", label: "Guest Pick up"},
+  {value: "guest_drop", label: "Guest Drop"},
+  {value: "faculty_staff_visit", label: "Faculty/Staff Visit"},
 ];
+
+const REQUEST_UNDER_OPTIONS = [
+  {value: "academic_department", label: "Academic Department"},
+  {value: "students_training", label: "Students Training"},
+  {value: "supporting_department", label: "Supporting Department"},
+];
+
+const VERTICAL_OPTIONS = {
+  academic_department: [
+    "AGRI", "AIDS", "AIML", "BIOTECH", "BME", "CHEMISTRY", "CIVIL", "CSBS", "CSD", "CSE",
+    "CT", "ECE", "EEE", "EIE", "FASHION", "FOOD", "ISE", "IT", "MATHS", "MECH",
+    "MTRS", "PHYSICS", "SMS", "TEXTILE", "QRWA"
+  ],
+  students_training: [
+    "CE KOVAI SELVAN VISIT", "GURUGULAM", "P-SKILL", "RESEARCH PARK", "SKILL-BIT",
+    "SKILL-SCHOOL STUDENTS", "SPECIAL LAB/PIC"
+  ],
+  supporting_department: [
+    "ACCOUNTS OFFICE", "Administrative Purpose", "ALUMNI ASSOCIATION", "AUDIO VIDEO IN-CHARGE",
+    "AUTONOMY AFFAIRS", "BAPS", "BAS", "BAVN", "BOYS HOSTEL", "CAMPUS MAINTENANCE - CIVIL",
+    "CAMPUS MAINTENANCE - CLEANING", "CHILLER PLANT", "CIVIL OFFICE", "CLUBS AND SOCIETIES",
+    "COMMUNITY RADIO", "CONTROLLER OF EXAMINATION", "GIRLS HOSTEL", "HORTICULTURE", "IECC",
+    "IQAC-ADMIN", "IQAC-EVENTS", "IQAC-HR", "IQAC-INFRA", "IQAC-OFFICE ACADEMICS", "IQAC-SFC",
+    "IT OPERATIONS (NMC)", "IT SERVICES (TRC)", "LEARNING CENTRE", "MEDICAL CENTRE", "MESS",
+    "NEW INITIATIVES", "PHYSICAL EDUCATION", "PLUMBING & WATER SUPPLY", "POWER HOUSE", "PRD",
+    "SECURITY SERVICE", "START UP", "STORES", "STP", "TRAINING & PLACEMENT", "TRAINING ACADEMY", "TRANSPORT"
+  ],
+};
+
+const getTripTypeLabel = (value) => {
+  const found = TRIP_TYPES.find((t) => t.value === value);
+  return found ? found.label : value?.replace(/_/g, " ") || "-";
+};
+
+const getRequestUnderLabel = (value) => {
+  const found = REQUEST_UNDER_OPTIONS.find((r) => r.value === value);
+  return found ? found.label : value || "-";
+};
 
 const emptyTrip = {
   trip_order: 1,
+  task_id: "",
   departure_date: "",
   departure_time: "",
   departure_location: "",
   arrival_date: "",
   arrival_time: "",
   arrival_location: "",
-  num_passengers: 1,
   passenger_contacts: "",
   outcome_auditable: "",
 };
@@ -95,14 +141,17 @@ export default function VehicleBooking() {
   // Modal states
   const [showNewRequestModal, setShowNewRequestModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [otpData, setOtpData] = useState(null);
+  const [otpLoading, setOtpLoading] = useState(false);
 
   // Form states
   const [step, setStep] = useState(1);
   const [profile, setProfile] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const initialFormState = {
-    trip_type: "one_way",
+    trip_type: "guest_pickup",
     request_under: "",
+    vertical: "",
     oral_approval: false,
     purpose: "",
     total_passengers: 1,
@@ -220,6 +269,10 @@ export default function VehicleBooking() {
       showToast("Request Under field is required", "warning");
       return false;
     }
+    if (!form.vertical.trim()) {
+      showToast("Vertical field is required", "warning");
+      return false;
+    }
     return true;
   };
 
@@ -232,10 +285,6 @@ export default function VehicleBooking() {
       }
       if (!t.arrival_date || !t.arrival_time || !t.arrival_location) {
         showToast(`Trip ${i + 1}: Arrival details are required`, "warning");
-        return false;
-      }
-      if (t.num_passengers < 1) {
-        showToast(`Trip ${i + 1}: At least 1 passenger required`, "warning");
         return false;
       }
     }
@@ -261,8 +310,12 @@ export default function VehicleBooking() {
         trip_type: form.trip_type,
         trip_mode: "official",
         request_under: form.request_under,
+        vertical: form.vertical,
+        oral_approval: form.oral_approval,
         purpose: form.purpose,
         count_person: parseInt(form.total_passengers) || 1,
+        task_id: onwardTrip.task_id || "",
+        outcome_auditable: onwardTrip.outcome_auditable || "",
 
         // Onward journey
         onward_from_place: onwardTrip.departure_location || "",
@@ -336,6 +389,19 @@ export default function VehicleBooking() {
   const openDetails = (request) => {
     setSelectedRequest(request);
     setShowDetailsModal(true);
+    setOtpData(null);
+    if (request.status === "assigned" || request.status === "trip_started") {
+      setOtpLoading(true);
+      const token = localStorage.getItem("token");
+      fetch(`${API_BASE}/api/faculty/vehicle-request/${request.id}/otp`, {
+        headers: {Authorization: `Bearer ${token}`},
+        credentials: "include",
+      })
+        .then((res) => res.ok ? res.json() : null)
+        .then((data) => setOtpData(data))
+        .catch(console.error)
+        .finally(() => setOtpLoading(false));
+    }
   };
 
   // Filter requests
@@ -462,6 +528,7 @@ export default function VehicleBooking() {
                   <th className="px-6 py-4">Trip Type</th>
                   <th className="px-6 py-4">Departure</th>
                   <th className="px-6 py-4">Request Under</th>
+                  <th className="px-6 py-4">Vertical</th>
                   <th className="px-6 py-4">Status</th>
                 </tr>
               </thead>
@@ -486,8 +553,8 @@ export default function VehicleBooking() {
                         {req.purpose}
                       </td>
                       <td className="px-6 py-4">
-                        <span className="inline-flex px-2.5 py-1 bg-primary/10 text-primary rounded-md text-xs font-medium capitalize">
-                          {req.trip_type?.replace("_", " ")}
+                        <span className="inline-flex px-2.5 py-1 bg-primary/10 text-primary rounded-md text-xs font-medium">
+                          {getTripTypeLabel(req.trip_type)}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-sm text-secondarytext">
@@ -507,7 +574,10 @@ export default function VehicleBooking() {
                         )}
                       </td>
                       <td className="px-6 py-4 text-sm text-secondarytext">
-                        {req.request_under || "-"}
+                        {getRequestUnderLabel(req.request_under)}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-secondarytext">
+                        {req.vertical || "-"}
                       </td>
                       <td className="px-6 py-4">
                         <span
@@ -633,17 +703,45 @@ export default function VehicleBooking() {
                       <label className="block text-xs font-medium text-secondarytext mb-1">
                         Request Under <span className="text-red">*</span>
                       </label>
-                      <input
-                        type="text"
+                      <select
                         value={form.request_under}
-                        onChange={(e) =>
-                          handleFormChange("request_under", e.target.value)
-                        }
-                        placeholder="e.g., HOD / Dean"
-                        className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm text-primarytext focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-                      />
+                        onChange={(e) => {
+                          handleFormChange("request_under", e.target.value);
+                          handleFormChange("vertical", "");
+                        }}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm text-primarytext focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white"
+                      >
+                        <option value="">Select Request Under</option>
+                        {REQUEST_UNDER_OPTIONS.map((r) => (
+                          <option key={r.value} value={r.value}>
+                            {r.label}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
+
+                  {form.request_under && (
+                    <div>
+                      <label className="block text-xs font-medium text-secondarytext mb-1">
+                        Vertical <span className="text-red">*</span>
+                      </label>
+                      <select
+                        value={form.vertical}
+                        onChange={(e) =>
+                          handleFormChange("vertical", e.target.value)
+                        }
+                        className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm text-primarytext focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white"
+                      >
+                        <option value="">Select Vertical</option>
+                        {VERTICAL_OPTIONS[form.request_under]?.map((v) => (
+                          <option key={v} value={v}>
+                            {v}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   <div>
                     <label className="block text-xs font-medium text-secondarytext mb-1">
@@ -840,21 +938,7 @@ export default function VehicleBooking() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3">
-                        <input
-                          type="number"
-                          min="1"
-                          value={trip.num_passengers}
-                          onChange={(e) =>
-                            handleTripChange(
-                              idx,
-                              "num_passengers",
-                              e.target.value,
-                            )
-                          }
-                          placeholder="No. of passengers"
-                          className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-                        />
+                      <div className="grid grid-cols-1 gap-3">
                         <input
                           type="text"
                           value={trip.passenger_contacts}
@@ -866,6 +950,38 @@ export default function VehicleBooking() {
                             )
                           }
                           placeholder="Contact details"
+                          className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-3">
+                        <input
+                          type="text"
+                          value={trip.task_id}
+                          onChange={(e) =>
+                            handleTripChange(
+                              idx,
+                              "task_id",
+                              e.target.value,
+                            )
+                          }
+                          placeholder="Task ID"
+                          className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <input
+                          type="text"
+                          value={trip.outcome_auditable}
+                          onChange={(e) =>
+                            handleTripChange(
+                              idx,
+                              "outcome_auditable",
+                              e.target.value,
+                            )
+                          }
+                          placeholder="e.g., Skill, Placement/Internship, Awards, Infrastructure"
                           className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
                         />
                       </div>
@@ -893,8 +1009,8 @@ export default function VehicleBooking() {
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <div>
                         <span className="text-secondarytext">Trip Type:</span>
-                        <p className="font-medium text-primarytext capitalize">
-                          {form.trip_type.replace("_", " ")}
+                        <p className="font-medium text-primarytext">
+                          {getTripTypeLabel(form.trip_type)}
                         </p>
                       </div>
                       <div>
@@ -902,7 +1018,13 @@ export default function VehicleBooking() {
                           Request Under:
                         </span>
                         <p className="font-medium text-primarytext">
-                          {form.request_under}
+                          {getRequestUnderLabel(form.request_under)}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-secondarytext">Vertical:</span>
+                        <p className="font-medium text-primarytext">
+                          {form.vertical}
                         </p>
                       </div>
                       <div>
@@ -947,6 +1069,22 @@ export default function VehicleBooking() {
                           </p>
                         </div>
                       </div>
+                      {(trip.task_id || trip.outcome_auditable) && (
+                        <div className="mt-2 pt-2 border-t border-gray-200 text-xs">
+                          {trip.task_id && (
+                            <p>
+                              <span className="text-secondarytext">Task ID:</span>{" "}
+                              <span className="text-primarytext">{trip.task_id}</span>
+                            </p>
+                          )}
+                          {trip.outcome_auditable && (
+                            <p>
+                              <span className="text-secondarytext">Auditable:</span>{" "}
+                              <span className="text-primarytext">{trip.outcome_auditable}</span>
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
 
@@ -1047,14 +1185,20 @@ export default function VehicleBooking() {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-secondarytext">Trip Type:</span>
-                  <p className="font-medium text-primarytext capitalize">
-                    {selectedRequest.trip_type?.replace("_", " ")}
+                  <p className="font-medium text-primarytext">
+                    {getTripTypeLabel(selectedRequest.trip_type)}
                   </p>
                 </div>
                 <div>
                   <span className="text-secondarytext">Request Under:</span>
                   <p className="font-medium text-primarytext">
-                    {selectedRequest.request_under || "-"}
+                    {getRequestUnderLabel(selectedRequest.request_under) || "-"}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-secondarytext">Vertical:</span>
+                  <p className="font-medium text-primarytext">
+                    {selectedRequest.vertical || "-"}
                   </p>
                 </div>
                 <div>
@@ -1111,7 +1255,7 @@ export default function VehicleBooking() {
               ))}
 
               {/* Vehicle Assignment */}
-              {selectedRequest.status === "assigned" && (
+              {(selectedRequest.status === "assigned" || selectedRequest.status === "trip_started" || selectedRequest.status === "completed") && selectedRequest.vehicle_name && (
                 <div className="bg-green/5 border border-green/20 rounded-md p-4">
                   <p className="text-sm font-semibold text-green mb-2">
                     Vehicle Assigned
@@ -1131,6 +1275,47 @@ export default function VehicleBooking() {
                       </p>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* OTP Section */}
+              {otpData && selectedRequest.status === "assigned" && otpData.start_otp && (
+                <div className="bg-primary/5 border-2 border-primary/30 rounded-md p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Key size={18} className="text-primary" />
+                    <p className="text-sm font-semibold text-primary">Start Trip OTP</p>
+                  </div>
+                  <p className="text-xs text-secondarytext mb-3">
+                    Share this OTP with the driver to start the trip
+                  </p>
+                  <div className="bg-white rounded-md p-4 text-center">
+                    <p className="text-3xl font-bold tracking-[0.5em] text-primary font-mono">
+                      {otpData.start_otp}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {otpData && selectedRequest.status === "trip_started" && otpData.end_otp && (
+                <div className="bg-green/5 border-2 border-green/30 rounded-md p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Key size={18} className="text-green" />
+                    <p className="text-sm font-semibold text-green">End Trip OTP</p>
+                  </div>
+                  <p className="text-xs text-secondarytext mb-3">
+                    Share this OTP with the driver to complete the trip
+                  </p>
+                  <div className="bg-white rounded-md p-4 text-center">
+                    <p className="text-3xl font-bold tracking-[0.5em] text-green font-mono">
+                      {otpData.end_otp}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {otpLoading && (selectedRequest.status === "assigned" || selectedRequest.status === "trip_started") && (
+                <div className="text-center py-3">
+                  <p className="text-sm text-secondarytext">Loading OTP...</p>
                 </div>
               )}
 
