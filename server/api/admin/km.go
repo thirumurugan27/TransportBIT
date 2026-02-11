@@ -1140,13 +1140,13 @@ func GetDriverKmHistory(c *gin.Context) {
     }
 
     trendRows, err := config.DB.Query(`
-        SELECT DATE_FORMAT(kl.date, '%Y-%m') as month,
+        SELECT DATE_FORMAT(kl.date, '%m-%Y') as month,
                SUM(kl.total_km) as total_km, COUNT(*) as trips
         FROM km_logs kl
         WHERE kl.driver_id = ?
         AND kl.date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
         GROUP BY DATE_FORMAT(kl.date, '%Y-%m')
-        ORDER BY month DESC
+        ORDER BY DATE_FORMAT(kl.date, '%Y-%m') DESC
     `, driverID)
 
     var monthlyTrends []monthlyTrend

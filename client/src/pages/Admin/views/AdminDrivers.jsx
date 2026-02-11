@@ -1,5 +1,5 @@
-import React, {useState, useEffect} from "react";
-import {useSearchParams} from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   User,
   Users,
@@ -20,12 +20,13 @@ import {
   Clock,
   FileText,
 } from "lucide-react";
-import {useToast} from "../../../context/ToastContext";
+import { useToast } from "../../../context/ToastContext";
+import CustomDropdown from "../../../components/ui/CustomDropdown";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
 export default function AdminDrivers() {
-  const {showToast} = useToast();
+  const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -96,13 +97,13 @@ export default function AdminDrivers() {
       label: "Present",
       value: drivers.filter((d) => d.status === "present").length,
       icon: BadgeCheck,
-      color: "bg-green/10 text-green",
+      color: "bg-customgreen/10 text-customgreen",
     },
     {
       label: "Absent",
       value: drivers.filter((d) => d.status === "absent").length,
       icon: AlertTriangle,
-      color: "bg-red/10 text-red",
+      color: "bg-customred/10 text-customred",
     },
     {
       label: "On Leave",
@@ -114,7 +115,7 @@ export default function AdminDrivers() {
       label: "Not Marked",
       value: drivers.filter((d) => d.status === "not_marked").length,
       icon: Clock,
-      color: "bg-gray-100 text-secondarytext",
+      color: "bg-primarybg text-secondarytext",
     },
   ];
 
@@ -221,7 +222,7 @@ export default function AdminDrivers() {
 
       const res = await fetch(url, {
         method: method,
-        headers: {"Content-Type": "application/json"},
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
@@ -266,18 +267,18 @@ export default function AdminDrivers() {
     <div className="space-y-6">
       {/* License Expiry Alert */}
       {(expiredLicenses.length > 0 || expiringLicenses.length > 0) && (
-        <div className="bg-gradient-to-r from-red/10 to-red/5 border-l-4 border-red rounded-md p-5 shadow-sm">
+        <div className="bg-customred/5 border-l-4 border-customred rounded-md p-5 shadow-sm">
           <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-red/20 rounded-md flex items-center justify-center text-red shrink-0">
+            <div className="w-12 h-12 bg-customred/10 rounded-md flex items-center justify-center text-customred shrink-0">
               <AlertTriangle className="w-6 h-6" />
             </div>
             <div className="flex-1">
-              <h4 className="font-bold text-red text-base mb-1">
+              <h4 className="font-bold text-customred text-base mb-1">
                 License Expiry Alert
               </h4>
               <p className="text-sm text-secondarytext">
                 {expiredLicenses.length > 0 && (
-                  <span className="text-red font-semibold">
+                  <span className="text-customred font-semibold">
                     {expiredLicenses.length} expired
                   </span>
                 )}
@@ -300,7 +301,7 @@ export default function AdminDrivers() {
         {stats.map((stat, index) => (
           <div
             key={index}
-            className="bg-secondarybg p-6 rounded-md border border-gray-100 hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
+            className="bg-secondarybg p-6 rounded-md border border-primarybg hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
           >
             <div className="flex items-center justify-between">
               <div>
@@ -320,7 +321,7 @@ export default function AdminDrivers() {
       </div>
 
       {/* Toolbar */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-secondarybg p-5 rounded-md border border-gray-100 shadow-sm">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-secondarybg p-5 rounded-md border border-primarybg shadow-sm">
         <div className="flex items-center gap-3 w-full sm:w-auto">
           <div className="relative flex-1 sm:w-80">
             <Search
@@ -330,57 +331,55 @@ export default function AdminDrivers() {
             <input
               type="text"
               placeholder="Search by name, phone, or license..."
-              className="w-full pl-10 pr-4 py-3 bg-primarybg border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-sm font-medium transition-all"
+              className="w-full pl-10 pr-4 py-3 bg-primarybg border border-primarybg/50 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-sm font-medium transition-all"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <select
+          <CustomDropdown
             value={filterStatus}
-            onChange={(e) => {
-              setFilterStatus(e.target.value);
-              if (e.target.value === "all") {
+            onChange={(val) => {
+              setFilterStatus(val);
+              if (val === "all") {
                 searchParams.delete("status");
               } else {
-                searchParams.set("status", e.target.value);
+                searchParams.set("status", val);
               }
               setSearchParams(searchParams);
             }}
-            className="px-4 py-3 bg-primarybg border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm font-semibold cursor-pointer transition-all"
-          >
-            <option value="all">All Status</option>
-            <option value="present">Present</option>
-            <option value="absent">Absent</option>
-            <option value="on_leave">On Leave</option>
-            <option value="not_marked">Not Marked</option>
-          </select>
+            options={[
+              { value: "all", label: "All Status" },
+              { value: "present", label: "Present" },
+              { value: "absent", label: "Absent" },
+              { value: "on_leave", label: "On Leave" },
+              { value: "not_marked", label: "Not Marked" },
+            ]}
+          />
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center bg-primarybg rounded-md p-1.5 border border-gray-200 shadow-sm">
+          <div className="flex items-center bg-primarybg rounded-md p-1.5 border border-primarybg shadow-sm">
             <button
               onClick={() => setViewMode("table")}
-              className={`p-2.5 rounded-md transition-all duration-200 ${
-                viewMode === "table"
-                  ? "bg-primary text-white shadow-md"
-                  : "text-secondarytext hover:text-primary hover:bg-gray-100"
-              }`}
+              className={`p-2.5 rounded-md transition-all duration-200 ${viewMode === "table"
+                ? "bg-primary text-secondarybg shadow-md"
+                : "text-secondarytext hover:text-primary hover:bg-primarybg"
+                }`}
             >
               <List size={18} strokeWidth={2.5} />
             </button>
             <button
               onClick={() => setViewMode("grid")}
-              className={`p-2.5 rounded-md transition-all duration-200 ${
-                viewMode === "grid"
-                  ? "bg-primary text-white shadow-md"
-                  : "text-secondarytext hover:text-primary hover:bg-gray-100"
-              }`}
+              className={`p-2.5 rounded-md transition-all duration-200 ${viewMode === "grid"
+                ? "bg-primary text-secondarybg shadow-md"
+                : "text-secondarytext hover:text-primary hover:bg-primarybg"
+                }`}
             >
               <Grid size={18} strokeWidth={2.5} />
             </button>
           </div>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="bg-gradient-to-r from-primary to-primarydull hover:from-primarydull hover:to-primary text-white px-6 py-3 rounded-md flex items-center gap-2 shadow-lg shadow-primary/30 transition-all duration-300 text-sm font-bold hover:scale-105"
+            className="bg-primary hover:bg-primarydull text-secondarybg px-6 py-3 rounded-md flex items-center gap-2 shadow-lg shadow-primary/30 transition-all duration-300 text-sm font-bold hover:scale-105"
           >
             <Plus size={18} strokeWidth={2.5} /> Add Driver
           </button>
@@ -404,7 +403,7 @@ export default function AdminDrivers() {
               <div
                 key={driver.id}
                 onClick={() => handleRowClick(driver)}
-                className="bg-secondarybg p-5 rounded-md border border-gray-100 hover:shadow-lg transition-all duration-200 cursor-pointer flex items-center justify-between gap-6"
+                className="bg-secondarybg p-5 rounded-md border border-primarybg hover:shadow-lg transition-all duration-200 cursor-pointer flex items-center justify-between gap-6"
               >
                 {/* Left: Driver Info */}
                 <div className="flex items-center gap-4">
@@ -455,15 +454,14 @@ export default function AdminDrivers() {
                 {/* Right: Status & Driver Name */}
                 <div className="flex items-center gap-4">
                   <span
-                    className={`px-4 py-2 rounded-md text-sm font-semibold ${
-                      driver.status === "present"
-                        ? "bg-green/10 text-green"
-                        : driver.status === "absent"
-                          ? "bg-red/10 text-red"
-                          : driver.status === "on_leave"
-                            ? "bg-pending/10 text-pending"
-                            : "bg-gray-200 text-secondarytext"
-                    }`}
+                    className={`px-4 py-2 rounded-md text-sm font-semibold ${driver.status === "present"
+                      ? "bg-customgreen/10 text-customgreen"
+                      : driver.status === "absent"
+                        ? "bg-customred/10 text-customred"
+                        : driver.status === "on_leave"
+                          ? "bg-pending/10 text-pending"
+                          : "bg-primarybg text-secondarytext"
+                      }`}
                   >
                     {driver.status === "not_marked"
                       ? "Not Marked"
@@ -481,7 +479,7 @@ export default function AdminDrivers() {
         </div>
       ) : (
         /* Table View - Proper Table with Headers */
-        <div className="bg-white rounded-md shadow-sm overflow-hidden">
+        <div className="bg-secondarybg rounded-md shadow-sm overflow-hidden border border-primarybg">
           {loading ? (
             <div className="flex justify-center py-12">
               <div className="w-8 h-8 border-4 border-primarybg border-t-primary rounded-md animate-spin"></div>
@@ -495,7 +493,7 @@ export default function AdminDrivers() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="bg-primarybg border-b border-gray-200">
+                  <tr className="bg-primarybg border-b border-primarybg">
                     <th className="px-6 py-4 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
                       Driver
                     </th>
@@ -516,7 +514,7 @@ export default function AdminDrivers() {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-primarybg/30">
                   {filteredDrivers.map((driver) => (
                     <tr
                       key={driver.id}
@@ -580,15 +578,14 @@ export default function AdminDrivers() {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           <span
-                            className={`px-3 py-1.5 rounded-md text-xs font-semibold ${
-                              driver.status === "present"
-                                ? "bg-green/10 text-green"
-                                : driver.status === "absent"
-                                  ? "bg-red/10 text-red"
-                                  : driver.status === "on_leave"
-                                    ? "bg-pending/10 text-pending"
-                                    : "bg-gray-100 text-secondarytext"
-                            }`}
+                            className={`px-3 py-1.5 rounded-md text-xs font-semibold ${driver.status === "present"
+                              ? "bg-customgreen/10 text-customgreen"
+                              : driver.status === "absent"
+                                ? "bg-customred/10 text-customred"
+                                : driver.status === "on_leave"
+                                  ? "bg-pending/10 text-pending"
+                                  : "bg-primarybg text-secondarytext"
+                              }`}
                           >
                             {driver.status === "not_marked"
                               ? "Not Marked"
@@ -621,10 +618,10 @@ export default function AdminDrivers() {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="p-6 border-b border-gray-100">
+            <div className="p-6 border-b border-primarybg/50">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-md bg-gradient-to-br from-primary to-primarydull flex items-center justify-center text-white shadow-lg">
+                  <div className="w-14 h-14 rounded-md bg-primary flex items-center justify-center text-secondarybg shadow-lg">
                     <User size={28} strokeWidth={2.5} />
                   </div>
                   <div>
@@ -710,7 +707,7 @@ export default function AdminDrivers() {
                         Expiry Date
                       </span>
                       <span
-                        className={`text-sm font-semibold ${isLicenseExpired(selectedDriver.license_expiry) ? "text-red" : "text-primarytext"}`}
+                        className={`text-sm font-semibold ${isLicenseExpired(selectedDriver.license_expiry) ? "text-customred" : "text-primarytext"}`}
                       >
                         {selectedDriver.license_expiry}
                         {isLicenseExpired(selectedDriver.license_expiry) &&
@@ -778,15 +775,14 @@ export default function AdminDrivers() {
                         Current Status
                       </span>
                       <span
-                        className={`px-3 py-1 rounded-md text-xs font-semibold ${
-                          selectedDriver.status === "present"
-                            ? "bg-green/20 text-green"
-                            : selectedDriver.status === "absent"
-                              ? "bg-red/20 text-red"
-                              : selectedDriver.status === "on_leave"
-                                ? "bg-pending/20 text-pending"
-                                : "bg-gray-200 text-secondarytext"
-                        }`}
+                        className={`px-3 py-1 rounded-md text-xs font-semibold ${selectedDriver.status === "present"
+                          ? "bg-customgreen/20 text-customgreen"
+                          : selectedDriver.status === "absent"
+                            ? "bg-customred/20 text-customred"
+                            : selectedDriver.status === "on_leave"
+                              ? "bg-pending/20 text-pending"
+                              : "bg-primarybg text-secondarytext"
+                          }`}
                       >
                         {selectedDriver.status === "not_marked"
                           ? "Not Marked"
@@ -807,7 +803,7 @@ export default function AdminDrivers() {
             </div>
 
             {/* Footer */}
-            <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
+            <div className="p-6 border-t border-primarybg flex justify-end gap-3">
               <button
                 onClick={() => setShowDetailsModal(false)}
                 className="px-5 py-2.5 text-secondarytext hover:text-primarytext hover:bg-primarybg rounded-md transition-colors font-semibold text-sm"
@@ -816,7 +812,7 @@ export default function AdminDrivers() {
               </button>
               <button
                 onClick={handleDeleteFromDetails}
-                className="px-5 py-2.5 bg-red/10 text-red rounded-md hover:bg-red/20 transition-colors font-semibold text-sm flex items-center gap-2"
+                className="px-5 py-2.5 bg-customred/10 text-customred rounded-md hover:bg-customred/20 transition-colors font-semibold text-sm flex items-center gap-2"
               >
                 <Trash2 size={16} />
                 Delete
@@ -836,16 +832,16 @@ export default function AdminDrivers() {
       {/* Create/Edit Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="bg-white rounded-md shadow-2xl w-full max-w-4xl my-8">
+          <div className="bg-secondarybg rounded-md shadow-2xl w-full max-w-4xl my-8">
             {/* Header */}
-            <div className="p-6 border-b border-gray-100">
+            <div className="p-6 border-b border-primarybg/50">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="p-3 rounded-md bg-gradient-to-br from-primary to-primarydull">
+                  <div className="p-3 rounded-md bg-primary">
                     {isEditing ? (
-                      <Edit2 className="text-white" size={24} />
+                      <Edit2 className="text-secondarybg" size={24} />
                     ) : (
-                      <User className="text-white" size={24} />
+                      <User className="text-secondarybg" size={24} />
                     )}
                   </div>
                   <div>
@@ -886,7 +882,7 @@ export default function AdminDrivers() {
                       </label>
                       <input
                         required
-                        className="w-full px-4 py-2.5 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                        className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium"
                         value={driverForm.full_name}
                         onChange={(e) =>
                           setDriverForm({
@@ -903,7 +899,7 @@ export default function AdminDrivers() {
                         </label>
                         <input
                           required
-                          className="w-full px-4 py-2.5 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                          className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium"
                           value={driverForm.phone}
                           onChange={(e) =>
                             setDriverForm({
@@ -919,7 +915,7 @@ export default function AdminDrivers() {
                         </label>
                         <input
                           type="email"
-                          className="w-full px-4 py-2.5 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                          className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium"
                           value={driverForm.email}
                           onChange={(e) =>
                             setDriverForm({
@@ -948,7 +944,7 @@ export default function AdminDrivers() {
                       </label>
                       <input
                         required
-                        className="w-full px-4 py-2.5 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                        className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium"
                         value={driverForm.license_number}
                         onChange={(e) =>
                           setDriverForm({
@@ -963,20 +959,21 @@ export default function AdminDrivers() {
                         <label className="block text-sm font-semibold text-primarytext mb-1">
                           Type *
                         </label>
-                        <select
-                          className="w-full px-4 py-2.5 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                        <CustomDropdown
                           value={driverForm.license_type}
-                          onChange={(e) =>
+                          onChange={(val) =>
                             setDriverForm({
                               ...driverForm,
-                              license_type: e.target.value,
+                              license_type: val,
                             })
                           }
-                        >
-                          <option value="LMV">LMV</option>
-                          <option value="HMV">HMV</option>
-                          <option value="MCWG">MCWG</option>
-                        </select>
+                          options={[
+                            { value: "LMV", label: "LMV" },
+                            { value: "HMV", label: "HMV" },
+                            { value: "MCWG", label: "MCWG" },
+                          ]}
+                          width="w-full"
+                        />
                       </div>
                       <div>
                         <label className="block text-sm font-semibold text-primarytext mb-1">
@@ -985,7 +982,7 @@ export default function AdminDrivers() {
                         <input
                           type="date"
                           required
-                          className="w-full px-4 py-2.5 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                          className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium"
                           value={driverForm.license_expiry}
                           onChange={(e) =>
                             setDriverForm({
@@ -1016,7 +1013,7 @@ export default function AdminDrivers() {
                         <input
                           type="number"
                           required
-                          className="w-full px-4 py-2.5 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                          className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium"
                           value={driverForm.experience_years}
                           onChange={(e) =>
                             setDriverForm({
@@ -1030,20 +1027,21 @@ export default function AdminDrivers() {
                         <label className="block text-sm font-semibold text-primarytext mb-1">
                           Vehicle Type *
                         </label>
-                        <select
-                          className="w-full px-4 py-2.5 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                        <CustomDropdown
                           value={driverForm.allowed_vehicle_type}
-                          onChange={(e) =>
+                          onChange={(val) =>
                             setDriverForm({
                               ...driverForm,
-                              allowed_vehicle_type: e.target.value,
+                              allowed_vehicle_type: val,
                             })
                           }
-                        >
-                          <option value="CAR">Car</option>
-                          <option value="BUS">Bus</option>
-                          <option value="EV">EV</option>
-                        </select>
+                          options={[
+                            { value: "CAR", label: "Car" },
+                            { value: "BUS", label: "Bus" },
+                            { value: "EV", label: "EV" },
+                          ]}
+                          width="w-full"
+                        />
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
@@ -1053,7 +1051,7 @@ export default function AdminDrivers() {
                         </label>
                         <input
                           type="date"
-                          className="w-full px-4 py-2.5 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                          className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium"
                           value={driverForm.date_of_joining}
                           onChange={(e) =>
                             setDriverForm({
@@ -1069,7 +1067,7 @@ export default function AdminDrivers() {
                         </label>
                         <input
                           type="date"
-                          className="w-full px-4 py-2.5 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                          className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium"
                           value={driverForm.date_of_relieving}
                           onChange={(e) =>
                             setDriverForm({
@@ -1081,7 +1079,7 @@ export default function AdminDrivers() {
                       </div>
                     </div>
                     <div>
-                      <label className="flex items-center gap-3 p-3 bg-white border border-primary/20 rounded-md cursor-pointer hover:bg-primary/5 transition-colors">
+                      <label className="flex items-center gap-3 p-3 bg-primary/5 border border-primary/10 rounded-md cursor-pointer hover:bg-primary/10 transition-colors">
                         <input
                           type="checkbox"
                           checked={driverForm.is_incharge}
@@ -1117,9 +1115,8 @@ export default function AdminDrivers() {
                       <input
                         required
                         disabled={isEditing}
-                        className={`w-full px-4 py-2.5 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white ${
-                          isEditing ? "opacity-50 cursor-not-allowed" : ""
-                        }`}
+                        className={`w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium ${isEditing ? "opacity-50 cursor-not-allowed" : ""
+                          }`}
                         value={driverForm.username}
                         onChange={(e) =>
                           setDriverForm({
@@ -1139,7 +1136,7 @@ export default function AdminDrivers() {
                         placeholder={
                           isEditing ? "Leave blank to keep current" : ""
                         }
-                        className="w-full px-4 py-2.5 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                        className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium"
                         value={driverForm.password}
                         onChange={(e) =>
                           setDriverForm({
@@ -1154,7 +1151,7 @@ export default function AdminDrivers() {
               </div>
 
               {/* Footer */}
-              <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+              <div className="flex justify-end gap-3 pt-4 border-t border-primarybg">
                 <button
                   type="button"
                   onClick={closeModal}
@@ -1164,7 +1161,7 @@ export default function AdminDrivers() {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 bg-primary text-white rounded-md hover:bg-primarydull transition-colors font-semibold text-sm flex items-center gap-2"
+                  className="px-5 py-2.5 bg-primary text-secondarybg rounded-md hover:bg-primarydull transition-colors font-semibold text-sm flex items-center gap-2"
                 >
                   {isEditing ? <Edit2 size={16} /> : <Plus size={16} />}
                   {isEditing ? "Update Driver" : "Create Driver"}

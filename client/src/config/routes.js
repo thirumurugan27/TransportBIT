@@ -77,6 +77,7 @@ export const facultyRoutes = {
     routes: [
         { path: "", element: "dashboard" },
         { path: "vehicle-booking", element: "vehicleBooking" },
+        { path: "new-vehicle-request", element: "newVehicleRequest" },
         { path: "profile", element: "profile" },
     ],
 };
@@ -111,6 +112,7 @@ export const getActivePageFromPath = (pathname, basePath) => {
         "bus-pass": "busPass",
         "vehicle-booking": "vehicleBooking",
         "vehicle-bookings": "vehicleBookings",
+        "new-vehicle-request": "newVehicleRequest",
     };
 
     return pathToKeyMap[path] || "dashboard";

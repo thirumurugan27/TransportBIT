@@ -81,8 +81,8 @@ func GetVehicleGroups(c *gin.Context) {
 		SELECT vg.id, vg.name, COALESCE(vg.description, '') as description,
 			   (SELECT COUNT(DISTINCT vgm.vehicle_id) FROM vehicle_group_members vgm 
 			    WHERE vgm.group_id = vg.id) as vehicle_count,
-			   DATE_FORMAT(vg.valid_from, '%Y-%m-%d'),
-			   DATE_FORMAT(vg.valid_to, '%Y-%m-%d'),
+			   DATE_FORMAT(vg.valid_from, '%d-%m-%Y'),
+			   DATE_FORMAT(vg.valid_to, '%d-%m-%Y'),
 			   DATE_FORMAT(vg.created_at, '%d-%m-%Y %H:%i'),
 			   DATE_FORMAT(vg.updated_at, '%d-%m-%Y %H:%i')
 		FROM vehicle_groups vg
@@ -232,8 +232,8 @@ func UpdateVehicleGroup(c *gin.Context) {
 
 	if validFrom == "" || validTo == "" {
 		var existingFrom, existingTo *string
-		// Fetch invalid format for consistency or YYYY-MM-DD for safety
-		err := config.DB.QueryRow(`SELECT DATE_FORMAT(valid_from, '%Y-%m-%d'), DATE_FORMAT(valid_to, '%Y-%m-%d') FROM vehicle_groups WHERE id = ?`, id).Scan(&existingFrom, &existingTo)
+		// Fetch date format for consistency
+		err := config.DB.QueryRow(`SELECT DATE_FORMAT(valid_from, '%d-%m-%Y'), DATE_FORMAT(valid_to, '%d-%m-%Y') FROM vehicle_groups WHERE id = ?`, id).Scan(&existingFrom, &existingTo)
 		if err == nil {
 			if validFrom == "" && existingFrom != nil {
 				validFrom = *existingFrom
@@ -364,8 +364,8 @@ func GetVehicleGroupDetails(c *gin.Context) {
 		SELECT vg.id, vg.name, COALESCE(vg.description, '') as description,
 			   (SELECT COUNT(DISTINCT vgm.vehicle_id) FROM vehicle_group_members vgm 
 			    WHERE vgm.group_id = vg.id) as vehicle_count,
-			   DATE_FORMAT(vg.valid_from, '%Y-%m-%d'),
-			   DATE_FORMAT(vg.valid_to, '%Y-%m-%d'),
+			   DATE_FORMAT(vg.valid_from, '%d-%m-%Y'),
+			   DATE_FORMAT(vg.valid_to, '%d-%m-%Y'),
 			   DATE_FORMAT(vg.created_at, '%d-%m-%Y %H:%i'),
 			   DATE_FORMAT(vg.updated_at, '%d-%m-%Y %H:%i')
 		FROM vehicle_groups vg
@@ -577,7 +577,7 @@ func AssignVehiclesToGroup(c *gin.Context) {
 	// Get group validity dates if not provided
 	if req.ValidFrom == "" || req.ValidTo == "" {
 		config.DB.QueryRow(`
-			SELECT DATE_FORMAT(valid_from, '%Y-%m-%d'), DATE_FORMAT(valid_to, '%Y-%m-%d')
+			SELECT DATE_FORMAT(valid_from, '%d-%m-%Y'), DATE_FORMAT(valid_to, '%d-%m-%Y')
 			FROM vehicle_groups WHERE id = ?
 		`, groupID).Scan(&req.ValidFrom, &req.ValidTo)
 	}

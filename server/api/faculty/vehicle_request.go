@@ -282,7 +282,7 @@ func GetMyVehicleRequests(c *gin.Context) {
 		return
 	}
 
-	colExists, _ := config.HasColumns("vehiclerequests", "Purpose", "PurposeOfVisit", "RequestUnder")
+	colExists, _ := config.HasColumns("vehiclerequests", "Purpose", "PurposeOfVisit", "RequestUnder", "Vertical", "OralApproval", "TaskID", "OutcomeExpected", "OutcomeAuditable")
 	purposeExpr := "'' as Purpose"
 	if colExists["Purpose"] && colExists["PurposeOfVisit"] {
 		purposeExpr = "COALESCE(vr.Purpose, vr.PurposeOfVisit, '') as Purpose"
@@ -295,6 +295,26 @@ func GetMyVehicleRequests(c *gin.Context) {
 	if colExists["RequestUnder"] {
 		requestUnderExpr = "COALESCE(vr.RequestUnder, '') as RequestUnder"
 	}
+	verticalExpr := "'' as Vertical"
+	if colExists["Vertical"] {
+		verticalExpr = "COALESCE(vr.Vertical, '') as Vertical"
+	}
+	oralApprovalExpr := "0 as OralApproval"
+	if colExists["OralApproval"] {
+		oralApprovalExpr = "COALESCE(vr.OralApproval, 0) as OralApproval"
+	}
+	taskIDExpr := "'' as TaskID"
+	if colExists["TaskID"] {
+		taskIDExpr = "COALESCE(vr.TaskID, '') as TaskID"
+	}
+	outcomeExpectedExpr := "'' as OutcomeExpected"
+	if colExists["OutcomeExpected"] {
+		outcomeExpectedExpr = "COALESCE(vr.OutcomeExpected, '') as OutcomeExpected"
+	}
+	outcomeAuditableExpr := "'' as OutcomeAuditable"
+	if colExists["OutcomeAuditable"] {
+		outcomeAuditableExpr = "COALESCE(vr.OutcomeAuditable, '') as OutcomeAuditable"
+	}
 
 	query := fmt.Sprintf(`
 		SELECT 
@@ -304,17 +324,22 @@ func GetMyVehicleRequests(c *gin.Context) {
 			COALESCE(vr.TripMode, 'official') as TripMode,
 			%s,
 			%s,
+			%s,
+			%s,
 			COALESCE(vr.CountPerson, 1) as CountPerson,
 			COALESCE(vr.OnwardFromPlace, '') as OnwardFromPlace,
 			COALESCE(vr.OnwardToPlace, '') as OnwardToPlace,
-			COALESCE(DATE_FORMAT(vr.OnwardFromDateTime, '%%Y-%%m-%%d %%H:%%i'), '') as OnwardFromDateTime,
-			COALESCE(DATE_FORMAT(vr.OnwardTodateTime, '%%Y-%%m-%%d %%H:%%i'), '') as OnwardTodateTime,
+			COALESCE(DATE_FORMAT(vr.OnwardFromDateTime, '%%d-%%m-%%Y %%H:%%i'), '') as OnwardFromDateTime,
+			COALESCE(DATE_FORMAT(vr.OnwardTodateTime, '%%d-%%m-%%Y %%H:%%i'), '') as OnwardTodateTime,
 			COALESCE(vr.ReturnFromPlace, '') as ReturnFromPlace,
 			COALESCE(vr.ReturnToPlace, '') as ReturnToPlace,
-			COALESCE(DATE_FORMAT(vr.ReturnFromDateTime, '%%Y-%%m-%%d %%H:%%i'), '') as ReturnFromDateTime,
-			COALESCE(DATE_FORMAT(vr.ReturnTodateTime, '%%Y-%%m-%%d %%H:%%i'), '') as ReturnTodateTime,
+			COALESCE(DATE_FORMAT(vr.ReturnFromDateTime, '%%d-%%m-%%Y %%H:%%i'), '') as ReturnFromDateTime,
+			COALESCE(DATE_FORMAT(vr.ReturnTodateTime, '%%d-%%m-%%Y %%H:%%i'), '') as ReturnTodateTime,
 			COALESCE(vr.ContactName, '') as ContactName,
 			COALESCE(vr.ContactPhone, '') as ContactPhone,
+			%s,
+			%s,
+			%s,
 			COALESCE(vr.status, 'pending') as status,
 			COALESCE(vr.admin_remarks, '') as admin_remarks,
 			COALESCE(v.vehicle_number, '') as vehicle_number,
@@ -322,14 +347,14 @@ func GetMyVehicleRequests(c *gin.Context) {
 			COALESCE(IFNULL(v.vehicle_name, v.vehicle_number), '') as vehicle_name,
 			COALESCE(ud.full_name, '') as driver_name,
 			COALESCE(ud.phone, '') as driver_phone,
-			DATE_FORMAT(COALESCE(vr.created_at, NOW()), '%%Y-%%m-%%d %%H:%%i') as created_at
+			DATE_FORMAT(COALESCE(vr.created_at, NOW()), '%%d-%%m-%%Y %%H:%%i') as created_at
 		FROM vehiclerequests vr
 		LEFT JOIN vehicles v ON vr.vehicle_id = v.id
 		LEFT JOIN drivers d ON vr.driver_id = d.id
 		LEFT JOIN users ud ON d.user_id = ud.id
 		WHERE vr.faculty_id = ?
 		ORDER BY vr.created_at DESC
-	`, requestUnderExpr, purposeExpr)
+	`, requestUnderExpr, purposeExpr, verticalExpr, oralApprovalExpr, taskIDExpr, outcomeExpectedExpr, outcomeAuditableExpr)
 
 	rows, err := config.DB.Query(query, facultyID)
 	if err != nil {
@@ -344,10 +369,11 @@ func GetMyVehicleRequests(c *gin.Context) {
 		var r models.VehicleRequest
 		err := rows.Scan(
 			&r.ID, &r.FacultyID,
-			&r.BookingType, &r.TripType, &r.TripMode, &r.RequestUnder, &r.Purpose, &r.CountPerson,
+			&r.BookingType, &r.TripType, &r.TripMode, &r.RequestUnder, &r.Purpose, &r.Vertical, &r.OralApproval, &r.CountPerson,
 			&r.OnwardFromPlace, &r.OnwardToPlace, &r.OnwardFromDateTime, &r.OnwardToDateTime,
 			&r.ReturnFromPlace, &r.ReturnToPlace, &r.ReturnFromDateTime, &r.ReturnToDateTime,
 			&r.ContactName, &r.ContactPhone,
+			&r.TaskID, &r.OutcomeExpected, &r.OutcomeAuditable,
 			&r.Status, &r.AdminRemarks,
 			&r.VehicleNumber, &r.VehicleType, &r.VehicleName,
 			&r.DriverName, &r.DriverPhone,

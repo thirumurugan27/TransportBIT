@@ -80,7 +80,7 @@ export default function Drivers() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-md border border-gray-100 shadow-sm">
         <div>
           <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-            <Users className="text-[var(--color-primary)]" />
+            <Users className="text-primary" />
             Driver Management
           </h1>
           <p className="text-sm text-gray-500">
@@ -90,7 +90,7 @@ export default function Drivers() {
 
         <button
           onClick={() => setShowCreateModal(true)}
-          className="px-4 py-2 bg-[var(--color-primary)] hover:bg-[var(--color-primary)]/90 text-white rounded-md transition-colors font-medium flex items-center gap-2 shadow-sm"
+          className="px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-md transition-colors font-medium flex items-center gap-2 shadow-sm"
         >
           <Plus size={18} />
           Create Driver
@@ -111,14 +111,14 @@ export default function Drivers() {
               placeholder="Search drivers..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)]"
+              className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
             />
           </div>
         </div>
 
         {loading ? (
           <div className="p-12 flex flex-col items-center justify-center text-gray-500">
-            <Loader2 className="w-8 h-8 text-[var(--color-primary)] animate-spin mb-3" />
+            <Loader2 className="w-8 h-8 text-primary animate-spin mb-3" />
             <p>Loading drivers...</p>
           </div>
         ) : (

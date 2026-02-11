@@ -1,5 +1,5 @@
-import React, {useState, useRef, useEffect} from "react";
-import {ChevronDown, Check} from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+import { ChevronDown, Check } from "lucide-react";
 
 /**
  * CustomDropdown - A professional dropdown select component
@@ -62,11 +62,10 @@ export default function CustomDropdown({
                 onChange(option.value);
                 setIsOpen(false);
               }}
-              className={`w-full px-3 py-2 text-sm text-left flex items-center justify-between hover:bg-gray-50 transition-colors ${
-                value === option.value
+              className={`w-full px-3 py-2 text-sm text-left flex items-center justify-between hover:bg-gray-50 transition-colors ${value === option.value
                   ? "text-primary font-medium bg-primary/5"
                   : "text-primarytext"
-              }`}
+                }`}
             >
               {option.label}
               {value === option.value && (

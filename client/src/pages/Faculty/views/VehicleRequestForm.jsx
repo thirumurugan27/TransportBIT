@@ -2,8 +2,18 @@ import React, {useState, useEffect} from "react";
 import {useNavigate} from "react-router-dom";
 import {useToast} from "../../../context/ToastContext";
 import Loading from "../../../components/ui/Loading";
+import CustomDropdown from "../../../components/ui/CustomDropdown";
+import SearchableDropdown from "../../../components/ui/SearchableDropdown";
+import {
+  User,
+  MapPin,
+  FileText,
+  CheckCircle,
+  Car,
+  Building2,
+} from "lucide-react";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
+const API_BASE = import.meta.env.VITE_API_BASE ;
 
 const emptyTrip = {
   trip_order: 1,
@@ -40,23 +50,84 @@ export default function VehicleRequestForm() {
 
   const VERTICAL_OPTIONS = {
     academic_department: [
-      "AGRI", "AIDS", "AIML", "BIOTECH", "BME", "CHEMISTRY", "CIVIL", "CSBS", "CSD", "CSE",
-      "CT", "ECE", "EEE", "EIE", "FASHION", "FOOD", "ISE", "IT", "MATHS", "MECH",
-      "MTRS", "PHYSICS", "SMS", "TEXTILE", "QRWA"
+      "AGRI",
+      "AIDS",
+      "AIML",
+      "BIOTECH",
+      "BME",
+      "CHEMISTRY",
+      "CIVIL",
+      "CSBS",
+      "CSD",
+      "CSE",
+      "CT",
+      "ECE",
+      "EEE",
+      "EIE",
+      "FASHION",
+      "FOOD",
+      "ISE",
+      "IT",
+      "MATHS",
+      "MECH",
+      "MTRS",
+      "PHYSICS",
+      "SMS",
+      "TEXTILE",
+      "QRWA",
     ],
     students_training: [
-      "CE KOVAI SELVAN VISIT", "GURUGULAM", "P-SKILL", "RESEARCH PARK", "SKILL-BIT",
-      "SKILL-SCHOOL STUDENTS", "SPECIAL LAB/PIC"
+      "CE KOVAI SELVAN VISIT",
+      "GURUGULAM",
+      "P-SKILL",
+      "RESEARCH PARK",
+      "SKILL-BIT",
+      "SKILL-SCHOOL STUDENTS",
+      "SPECIAL LAB/PIC",
     ],
     supporting_department: [
-      "ACCOUNTS OFFICE", "Administrative Purpose", "ALUMNI ASSOCIATION", "AUDIO VIDEO IN-CHARGE",
-      "AUTONOMY AFFAIRS", "BAPS", "BAS", "BAVN", "BOYS HOSTEL", "CAMPUS MAINTENANCE - CIVIL",
-      "CAMPUS MAINTENANCE - CLEANING", "CHILLER PLANT", "CIVIL OFFICE", "CLUBS AND SOCIETIES",
-      "COMMUNITY RADIO", "CONTROLLER OF EXAMINATION", "GIRLS HOSTEL", "HORTICULTURE", "IECC",
-      "IQAC-ADMIN", "IQAC-EVENTS", "IQAC-HR", "IQAC-INFRA", "IQAC-OFFICE ACADEMICS", "IQAC-SFC",
-      "IT OPERATIONS (NMC)", "IT SERVICES (TRC)", "LEARNING CENTRE", "MEDICAL CENTRE", "MESS",
-      "NEW INITIATIVES", "PHYSICAL EDUCATION", "PLUMBING & WATER SUPPLY", "POWER HOUSE", "PRD",
-      "SECURITY SERVICE", "START UP", "STORES", "STP", "TRAINING & PLACEMENT", "TRAINING ACADEMY", "TRANSPORT"
+      "ACCOUNTS OFFICE",
+      "Administrative Purpose",
+      "ALUMNI ASSOCIATION",
+      "AUDIO VIDEO IN-CHARGE",
+      "AUTONOMY AFFAIRS",
+      "BAPS",
+      "BAS",
+      "BAVN",
+      "BOYS HOSTEL",
+      "CAMPUS MAINTENANCE - CIVIL",
+      "CAMPUS MAINTENANCE - CLEANING",
+      "CHILLER PLANT",
+      "CIVIL OFFICE",
+      "CLUBS AND SOCIETIES",
+      "COMMUNITY RADIO",
+      "CONTROLLER OF EXAMINATION",
+      "GIRLS HOSTEL",
+      "HORTICULTURE",
+      "IECC",
+      "IQAC-ADMIN",
+      "IQAC-EVENTS",
+      "IQAC-HR",
+      "IQAC-INFRA",
+      "IQAC-OFFICE ACADEMICS",
+      "IQAC-SFC",
+      "IT OPERATIONS (NMC)",
+      "IT SERVICES (TRC)",
+      "LEARNING CENTRE",
+      "MEDICAL CENTRE",
+      "MESS",
+      "NEW INITIATIVES",
+      "PHYSICAL EDUCATION",
+      "PLUMBING & WATER SUPPLY",
+      "POWER HOUSE",
+      "PRD",
+      "SECURITY SERVICE",
+      "START UP",
+      "STORES",
+      "STP",
+      "TRAINING & PLACEMENT",
+      "TRAINING ACADEMY",
+      "TRANSPORT",
     ],
   };
 
@@ -249,7 +320,7 @@ export default function VehicleRequestForm() {
       const data = await res.json();
       if (res.ok) {
         showToast("Vehicle request submitted successfully!", "success");
-        navigate("/faculty-dashboard/my-requests");
+        navigate("/faculty-dashboard/vehicle-booking");
       } else {
         showToast(data.error || "Failed to submit request", "error");
       }
@@ -261,45 +332,71 @@ export default function VehicleRequestForm() {
     }
   };
 
+  // Define input and label styles
+  const inputClass =
+    "w-full px-4 py-3 border border-gray-200 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200 text-sm bg-primarybg";
+  const labelClass = "block text-sm font-medium text-gray-700 mb-1.5";
+
   if (loading) return <Loading fullScreen={false} />;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto space-y-6 p-4">
       {/* Header */}
       <div className="bg-secondarybg rounded-md shadow-sm border border-gray-100 p-6">
-        <h1 className="text-2xl font-bold text-primarytext">Vehicle Request</h1>
-        <p className="text-sm text-secondarytext mt-1">
-          Submit a vehicle booking request for official travel
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800">
+              Vehicle Request Form
+            </h1>
+            <p className="text-xs text-gray-500 mt-1">
+              Submit a vehicle booking request for official travel
+            </p>
+          </div>
+          <button
+            onClick={() => navigate("/faculty-dashboard/vehicle-booking")}
+            className="px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-all duration-200"
+          >
+            ← Back
+          </button>
+        </div>
       </div>
 
       {/* Step Indicator */}
-      <div className="bg-secondarybg rounded-md shadow-sm border border-gray-100 p-4">
+      <div className="bg-secondarybg rounded-md shadow-sm border border-gray-100 p-5">
         <div className="flex items-center justify-between">
           {[
-            {num: 1, label: "Trip Info"},
+            {num: 1, label: "Basic Info"},
             {num: 2, label: "Trip Details"},
-            {num: 3, label: "Review & Submit"},
+            {num: 3, label: "Review"},
           ].map((s, i) => (
             <React.Fragment key={s.num}>
               {i > 0 && (
                 <div
-                  className={`flex-1 h-0.5 mx-2 ${step >= s.num ? "bg-primary" : "bg-gray-200"}`}
+                  className={`flex-1 h-0.5 mx-3 transition-colors duration-300 ${step >= s.num ? "bg-primary" : "bg-gray-200"}`}
                 />
               )}
               <button
                 onClick={() => {
                   if (s.num < step) setStep(s.num);
                 }}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                className={`flex items-center gap-2.5 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
                   step === s.num
-                    ? "bg-primary text-white"
+                    ? "bg-linear-to-r from-blue-50 to-indigo-50 text-primary shadow-sm"
                     : step > s.num
-                      ? "bg-primary/10 text-primary"
+                      ? "bg-primary/10 text-primary hover:bg-primary/15"
                       : "bg-gray-100 text-secondarytext"
                 }`}
+                disabled={s.num > step}
               >
-                <span className="w-6 h-6 flex items-center justify-center rounded-full bg-white/20 text-xs font-bold">
+                <span
+                  className={`w-7 h-7 flex items-center justify-center rounded-full text-xs font-bold ${
+                    step === s.num
+                      ? "bg-primary text-white"
+                      : step > s.num
+                        ? "bg-primary text-white"
+                        : "bg-white text-gray-400"
+                  }`}
+                >
                   {s.num}
                 </span>
                 <span className="hidden sm:inline">{s.label}</span>
@@ -311,189 +408,245 @@ export default function VehicleRequestForm() {
 
       {/* Step 1: Trip Info */}
       {step === 1 && (
-        <div className="bg-secondarybg rounded-md shadow-sm border border-gray-100 p-6 space-y-5">
-          <h2 className="text-lg font-semibold text-primarytext border-b border-gray-100 pb-3">
-            Trip Information
-          </h2>
+        <div className="bg-white rounded-md shadow-2xl overflow-hidden animate-scaleIn">
+          {/* Form Content */}
+          <div className="p-6 space-y-6">
+            {/* Important Notes */}
+            <div className="bg-blue-50 p-4 rounded-md border border-blue-100">
+              <h4 className="text-sm font-semibold text-blue-900 mb-2">
+                📋 Important Guidelines
+              </h4>
+              <ul className="text-xs text-blue-800 space-y-1.5">
+                <li>
+                  • Each request must be submitted for guest pick up and drop
+                  separately.
+                </li>
+                <li>
+                  • For faculty external visit, single submission is enough for
+                  round trip.
+                </li>
+                <li>
+                  • For local Sathy transport requests, submitting this form
+                  alone is sufficient; an Apex request is not mandatory.
+                </li>
+              </ul>
+            </div>
 
-          {/* Faculty Info (read-only) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-secondarytext mb-1">
-                Faculty Name
-              </label>
-              <p className="px-3 py-2 bg-primarybg rounded-md text-sm text-primarytext">
-                {profile?.full_name || "-"}
-              </p>
+            {/* Faculty Information Section */}
+            <div className="mb-6">
+              <h3 className="text-sm font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center">
+                  <User size={16} className="text-primary" />
+                </div>
+                Faculty Information
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClass}>Faculty Name</label>
+                  <div className="px-4 py-3 bg-gray-50 rounded-md text-sm text-gray-700 border border-gray-200">
+                    {profile?.full_name || "-"}
+                  </div>
+                </div>
+                <div>
+                  <label className={labelClass}>Department</label>
+                  <div className="px-4 py-3 bg-gray-50 rounded-md text-sm text-gray-700 border border-gray-200">
+                    {profile?.department || "-"}
+                  </div>
+                </div>
+                <div>
+                  <label className={labelClass}>Email</label>
+                  <div className="px-4 py-3 bg-gray-50 rounded-md text-sm text-gray-700 border border-gray-200">
+                    {profile?.email || "-"}
+                  </div>
+                </div>
+                <div>
+                  <label className={labelClass}>Phone</label>
+                  <div className="px-4 py-3 bg-gray-50 rounded-md text-sm text-gray-700 border border-gray-200">
+                    {profile?.phone || "-"}
+                  </div>
+                </div>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-secondarytext mb-1">
-                Department
-              </label>
-              <p className="px-3 py-2 bg-primarybg rounded-md text-sm text-primarytext">
-                {profile?.department || "-"}
-              </p>
+
+            {/* Trip Configuration Section */}
+            <div className="mb-6">
+              <h3 className="text-sm font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <div className="w-6 h-6 rounded-md bg-emerald-100 flex items-center justify-center">
+                  <Car size={16} className="text-emerald-600" />
+                </div>
+                Trip Configuration
+              </h3>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelClass}>
+                      Trip Type <span className="text-red-500">*</span>
+                    </label>
+                    <CustomDropdown
+                      value={form.trip_type}
+                      onChange={(value) => handleFormChange("trip_type", value)}
+                      options={TRIP_TYPES}
+                      placeholder="Select Trip Type"
+                      width="w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>
+                      Request Under <span className="text-red-500">*</span>
+                    </label>
+                    <CustomDropdown
+                      value={form.request_under}
+                      onChange={(value) => {
+                        handleFormChange("request_under", value);
+                        handleFormChange("vertical", "");
+                      }}
+                      options={REQUEST_UNDER_OPTIONS}
+                      placeholder="Select Request Under"
+                      width="w-full"
+                    />
+                  </div>
+                </div>
+
+                {form.request_under && (
+                  <div>
+                    <label className={labelClass}>
+                      Vertical <span className="text-red-500">*</span>
+                    </label>
+                    <SearchableDropdown
+                      value={form.vertical}
+                      onChange={(value) => handleFormChange("vertical", value)}
+                      options={
+                        VERTICAL_OPTIONS[form.request_under]?.map((v) => ({
+                          value: v,
+                          label: v,
+                        })) || []
+                      }
+                      placeholder="Select or search vertical"
+                      searchPlaceholder="Type to search..."
+                      width="w-full"
+                    />
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className={labelClass}>Total Passengers</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={form.total_passengers}
+                      onChange={(e) =>
+                        handleFormChange("total_passengers", e.target.value)
+                      }
+                      className={inputClass}
+                      placeholder="Number"
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-md cursor-pointer hover:bg-gray-100 transition-colors w-full border border-gray-200">
+                      <input
+                        type="checkbox"
+                        checked={form.oral_approval}
+                        onChange={(e) =>
+                          handleFormChange("oral_approval", e.target.checked)
+                        }
+                        className="w-5 h-5 rounded-md border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                      />
+                      <span className="text-sm font-medium text-gray-800">
+                        Oral Approval
+                      </span>
+                    </label>
+                  </div>
+                  <div className="flex items-end">
+                    <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-md cursor-pointer hover:bg-gray-100 transition-colors w-full border border-gray-200">
+                      <input
+                        type="checkbox"
+                        checked={form.mteam_approval}
+                        onChange={(e) =>
+                          handleFormChange("mteam_approval", e.target.checked)
+                        }
+                        className="w-5 h-5 rounded-md border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                      />
+                      <span className="text-sm font-medium text-gray-800">
+                        M-Team Approval
+                      </span>
+                    </label>
+                  </div>
+                </div>
+
+                {form.mteam_approval && (
+                  <div>
+                    <label className={labelClass}>
+                      Approved by M-Team Member
+                    </label>
+                    <input
+                      type="text"
+                      value={form.mteam_approved_by}
+                      onChange={(e) =>
+                        handleFormChange("mteam_approved_by", e.target.value)
+                      }
+                      placeholder="Name of M-Team member"
+                      className={inputClass}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-secondarytext mb-1">
-                Email
-              </label>
-              <p className="px-3 py-2 bg-primarybg rounded-md text-sm text-primarytext">
-                {profile?.email || "-"}
-              </p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-secondarytext mb-1">
-                Phone
-              </label>
-              <p className="px-3 py-2 bg-primarybg rounded-md text-sm text-primarytext">
-                {profile?.phone || "-"}
-              </p>
+
+            {/* Purpose Section */}
+            <div className="mb-6">
+              <h3 className="text-sm font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <div className="w-6 h-6 rounded-md bg-purple-100 flex items-center justify-center">
+                  <FileText size={16} className="text-purple-600" />
+                </div>
+                Purpose Details
+              </h3>
+              <div className="space-y-3">
+                <div className="p-3 bg-amber-50 rounded-md border border-amber-100 text-xs text-amber-900">
+                  <p className="font-semibold mb-1.5">
+                    📝 Please specify the reason accurately for monthly report
+                    documentation:
+                  </p>
+                  <p className="mb-1.5">Examples:</p>
+                  <ul className="list-disc pl-4 space-y-0.5">
+                    <li>
+                      For an industry visit by faculty members organized by
+                      IECC/Placement/Department.
+                    </li>
+                    <li>
+                      For guest pick-up/drop-off for a workshop organized by
+                      IECC, titled "Bridging the Gap: Industry–Institute Synergy
+                      Workshop".
+                    </li>
+                  </ul>
+                </div>
+                <div>
+                  <label className={labelClass}>
+                    Purpose of Trip <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={form.purpose}
+                    onChange={(e) =>
+                      handleFormChange("purpose", e.target.value)
+                    }
+                    rows={3}
+                    placeholder="Describe the purpose of your trip request..."
+                    className="w-full px-4 py-3 border border-gray-200 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200 text-sm bg-primarybg resize-none"
+                  />
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-secondarytext mb-1">
-                Trip Type <span className="text-red">*</span>
-              </label>
-              <select
-                value={form.trip_type}
-                onChange={(e) => handleFormChange("trip_type", e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-md bg-white text-sm text-primarytext focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-              >
-                {TRIP_TYPES.map((type) => (
-                  <option key={type.value} value={type.value}>
-                    {type.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-secondarytext mb-1">
-                Request Under <span className="text-red">*</span>
-              </label>
-              <select
-                value={form.request_under}
-                onChange={(e) => {
-                  handleFormChange("request_under", e.target.value);
-                  handleFormChange("vertical", "");
-                }}
-                className="w-full px-3 py-2 border border-gray-200 rounded-md bg-white text-sm text-primarytext focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-              >
-                <option value="">Select Request Under</option>
-                {REQUEST_UNDER_OPTIONS.map((r) => (
-                  <option key={r.value} value={r.value}>
-                    {r.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {form.request_under && (
-            <div>
-              <label className="block text-sm font-medium text-secondarytext mb-1">
-                Vertical <span className="text-red">*</span>
-              </label>
-              <select
-                value={form.vertical}
-                onChange={(e) => handleFormChange("vertical", e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-md bg-white text-sm text-primarytext focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-              >
-                <option value="">Select Vertical</option>
-                {VERTICAL_OPTIONS[form.request_under]?.map((v) => (
-                  <option key={v} value={v}>
-                    {v}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          <div>
-            <label className="block text-sm font-medium text-secondarytext mb-1">
-              Purpose of Trip <span className="text-red">*</span>
-            </label>
-            <textarea
-              value={form.purpose}
-              onChange={(e) => handleFormChange("purpose", e.target.value)}
-              rows={3}
-              placeholder="Describe the purpose of your trip request..."
-              className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm text-primarytext focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-secondarytext mb-1">
-                Total Passengers
-              </label>
-              <input
-                type="number"
-                min="1"
-                value={form.total_passengers}
-                onChange={(e) =>
-                  handleFormChange("total_passengers", e.target.value)
-                }
-                className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm text-primarytext focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-              />
-            </div>
-            <div className="flex items-end gap-3">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={form.oral_approval}
-                  onChange={(e) =>
-                    handleFormChange("oral_approval", e.target.checked)
-                  }
-                  className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
-                />
-                <span className="text-sm text-primarytext">Oral Approval</span>
-              </label>
-            </div>
-            <div className="flex items-end gap-3">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={form.mteam_approval}
-                  onChange={(e) =>
-                    handleFormChange("mteam_approval", e.target.checked)
-                  }
-                  className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
-                />
-                <span className="text-sm text-primarytext">
-                  M-Team Approval
-                </span>
-              </label>
-            </div>
-          </div>
-
-          {form.mteam_approval && (
-            <div>
-              <label className="block text-sm font-medium text-secondarytext mb-1">
-                Approved by M-Team Member
-              </label>
-              <input
-                type="text"
-                value={form.mteam_approved_by}
-                onChange={(e) =>
-                  handleFormChange("mteam_approved_by", e.target.value)
-                }
-                placeholder="Name of M-Team member"
-                className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm text-primarytext focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-              />
-            </div>
-          )}
-
-          <div className="flex justify-end pt-4 border-t border-gray-100">
+          {/* Footer */}
+          <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex justify-end">
             <button
               onClick={() => {
                 if (validateStep1()) setStep(2);
               }}
-              className="px-6 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors text-sm font-medium"
+              className="px-8 py-3 bg-primary text-white rounded-md hover:opacity-90 transition-all duration-200 font-semibold shadow-lg shadow-primary/25 hover:shadow-xl"
             >
-              Next
+              Next Step →
             </button>
           </div>
         </div>
@@ -501,180 +654,277 @@ export default function VehicleRequestForm() {
 
       {/* Step 2: Trip Legs */}
       {step === 2 && (
-        <div className="space-y-4">
+        <div className="space-y-5">
           {trips.map((trip, idx) => (
             <div
               key={idx}
-              className="bg-secondarybg rounded-md shadow-sm border border-gray-100 p-6 space-y-4"
+              className="bg-white rounded-md shadow-lg overflow-hidden animate-scaleIn border border-gray-100"
             >
-              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-                <h3 className="text-base font-semibold text-primarytext">
-                  Trip Leg {idx + 1}
-                </h3>
+              {/* Trip Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-linear-to-r from-blue-50 to-indigo-50">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-md bg-primary flex items-center justify-center">
+                    <MapPin size={18} className="text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-gray-800">
+                      Trip Leg {idx + 1}
+                    </h3>
+                    <p className="text-xs text-gray-500">
+                      Enter journey details
+                    </p>
+                  </div>
+                </div>
                 {trips.length > 1 && (
                   <button
                     onClick={() => removeTrip(idx)}
-                    className="text-xs text-red hover:text-red/80 font-medium px-3 py-1 rounded-md border border-red/30 hover:bg-red/5 transition-colors"
+                    className="px-3 py-1.5 text-xs text-red-600 font-medium rounded-md border border-red-200 hover:bg-red-50 transition-all duration-200"
                   >
                     Remove
                   </button>
                 )}
               </div>
 
-              {/* Departure */}
-              <div>
-                <p className="text-sm font-medium text-primary mb-2">
-                  Departure
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-xs text-secondarytext mb-1">
-                      Date <span className="text-red">*</span>
-                    </label>
-                    <input
-                      type="date"
-                      value={trip.departure_date}
-                      onChange={(e) =>
-                        handleTripChange(idx, "departure_date", e.target.value)
-                      }
-                      className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm text-primarytext focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-secondarytext mb-1">
-                      Time <span className="text-red">*</span>
-                    </label>
-                    <input
-                      type="time"
-                      value={trip.departure_time}
-                      onChange={(e) =>
-                        handleTripChange(idx, "departure_time", e.target.value)
-                      }
-                      className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm text-primarytext focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-secondarytext mb-1">
-                      Location <span className="text-red">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={trip.departure_location}
-                      onChange={(e) =>
-                        handleTripChange(
-                          idx,
-                          "departure_location",
-                          e.target.value,
-                        )
-                      }
-                      placeholder="Departure location"
-                      className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm text-primarytext focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Arrival */}
-              <div>
-                <p className="text-sm font-medium text-green mb-2">Arrival</p>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-xs text-secondarytext mb-1">
-                      Date <span className="text-red">*</span>
-                    </label>
-                    <input
-                      type="date"
-                      value={trip.arrival_date}
-                      onChange={(e) =>
-                        handleTripChange(idx, "arrival_date", e.target.value)
-                      }
-                      className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm text-primarytext focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-secondarytext mb-1">
-                      Time <span className="text-red">*</span>
-                    </label>
-                    <input
-                      type="time"
-                      value={trip.arrival_time}
-                      onChange={(e) =>
-                        handleTripChange(idx, "arrival_time", e.target.value)
-                      }
-                      className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm text-primarytext focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-secondarytext mb-1">
-                      Location <span className="text-red">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={trip.arrival_location}
-                      onChange={(e) =>
-                        handleTripChange(
-                          idx,
-                          "arrival_location",
-                          e.target.value,
-                        )
-                      }
-                      placeholder="Arrival location"
-                      className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm text-primarytext focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Passengers & Outcome */}
-              <div className="grid grid-cols-1 gap-4">
+              <div className="p-6 space-y-5">
+                {/* Departure */}
                 <div>
-                  <label className="block text-xs text-secondarytext mb-1">
-                    Contact Details of Persons
-                  </label>
-                  <input
-                    type="text"
-                    value={trip.passenger_contacts}
-                    onChange={(e) =>
-                      handleTripChange(
-                        idx,
-                        "passenger_contacts",
-                        e.target.value,
-                      )
-                    }
-                    placeholder="Phone numbers / emails"
-                    className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm text-primarytext focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-                  />
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-2 h-2 rounded-full bg-primary"></div>
+                    <p className="text-sm font-semibold text-primary">
+                      Departure Information
+                    </p>
+                  </div>
+                  <div className="mb-3 p-3 bg-blue-50 rounded-md border border-blue-100 text-xs text-blue-900">
+                    <p className="font-bold mb-1">
+                      🚌 Vehicle Departure Timing
+                    </p>
+                    <p className="mb-1.5">
+                      Vehicles will depart from BIT campus 2 minutes per
+                      kilometer in advance of the scheduled pick-up time.
+                    </p>
+                    <p className="italic">
+                      Example: For a pick-up location 60 km away and scheduled
+                      at 8:00 AM, the vehicle will leave BIT campus by 6:00 AM
+                      (i.e., 120 minutes/2 hours in advance).
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className={labelClass}>
+                        Date <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={trip.departure_date}
+                        onChange={(e) =>
+                          handleTripChange(
+                            idx,
+                            "departure_date",
+                            e.target.value,
+                          )
+                        }
+                        className={inputClass}
+                      />
+                    </div>
+                    <div>
+                      <label className={labelClass}>
+                        Time <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="time"
+                        value={trip.departure_time}
+                        onChange={(e) =>
+                          handleTripChange(
+                            idx,
+                            "departure_time",
+                            e.target.value,
+                          )
+                        }
+                        className={inputClass}
+                      />
+                    </div>
+                    <div>
+                      <label className={labelClass}>
+                        Location <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={trip.departure_location}
+                        onChange={(e) =>
+                          handleTripChange(
+                            idx,
+                            "departure_location",
+                            e.target.value,
+                          )
+                        }
+                        placeholder="Departure location"
+                        className={inputClass}
+                      />
+                    </div>
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-xs text-secondarytext mb-1">
-                  Task ID
-                </label>
-                <input
-                  type="text"
-                  value={trip.task_id}
-                  onChange={(e) =>
-                    handleTripChange(idx, "task_id", e.target.value)
-                  }
-                  placeholder="Task ID"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm text-primarytext focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-                />
-              </div>
+                {/* Arrival */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-2 h-2 rounded-full bg-green"></div>
+                    <p className="text-sm font-semibold text-green">
+                      Arrival Information
+                    </p>
+                  </div>
+                  <div className="mb-3 p-3 bg-green-50 rounded-md border border-green-100 text-xs text-green-900">
+                    <p className="font-bold mb-1">📍 Expected Arrival Time</p>
+                    <p className="mb-1.5">
+                      Once the vehicle is picked up from the location, it will
+                      take a minimum of 2 minutes per kilometer to reach the
+                      destination.
+                    </p>
+                    <p className="italic">
+                      Example: For a distance of 60 km after pick-up, the
+                      vehicle will take at least 120 minutes (2 hours) to reach
+                      the destination.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className={labelClass}>
+                        Date <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={trip.arrival_date}
+                        onChange={(e) =>
+                          handleTripChange(idx, "arrival_date", e.target.value)
+                        }
+                        className={inputClass}
+                      />
+                    </div>
+                    <div>
+                      <label className={labelClass}>
+                        Time <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="time"
+                        value={trip.arrival_time}
+                        onChange={(e) =>
+                          handleTripChange(idx, "arrival_time", e.target.value)
+                        }
+                        className={inputClass}
+                      />
+                    </div>
+                    <div>
+                      <label className={labelClass}>
+                        Location <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={trip.arrival_location}
+                        onChange={(e) =>
+                          handleTripChange(
+                            idx,
+                            "arrival_location",
+                            e.target.value,
+                          )
+                        }
+                        placeholder="Arrival location"
+                        className={inputClass}
+                      />
+                    </div>
+                  </div>
+                </div>
 
-              <div>
-                <label className="block text-xs text-secondarytext mb-1">
-                  Auditable
-                </label>
-                <input
-                  type="text"
-                  value={trip.outcome_auditable}
-                  onChange={(e) =>
-                    handleTripChange(idx, "outcome_auditable", e.target.value)
-                  }
-                  placeholder="e.g., Skill, Placement/Internship, Awards, Infrastructure"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm text-primarytext focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-                />
+                {/* Additional Details */}
+                <div className="space-y-4 pt-4 border-t border-gray-100">
+                  <div>
+                    <label className={labelClass}>
+                      Contact Details of Persons
+                    </label>
+                    <input
+                      type="text"
+                      value={trip.passenger_contacts}
+                      onChange={(e) =>
+                        handleTripChange(
+                          idx,
+                          "passenger_contacts",
+                          e.target.value,
+                        )
+                      }
+                      placeholder="Phone numbers / emails"
+                      className={inputClass}
+                    />
+                  </div>
+
+                  <div>
+                    <div className="mb-2 p-3 bg-amber-50 rounded-md border border-amber-100 text-xs text-amber-900">
+                      <p className="font-bold mb-1">
+                        📋 TASK ID/INVMR: eg: T123456/INVMR1234
+                      </p>
+                      <p className="text-red-600 font-semibold mb-2">
+                        **For Local Sathyamangalam request mention: "Local"
+                      </p>
+                      <ol className="list-decimal pl-4 space-y-1">
+                        <li>
+                          The Apex request, including transport, must be
+                          submitted through the Inventory Apex request form for
+                          proper approval.
+                        </li>
+                        <li>
+                          Even if only a guest pick-up is required, the Apex
+                          request process is mandatory to obtain the Task ID.
+                        </li>
+                        <li>
+                          If the task has not yet been assigned, enter the
+                          Inventory reference number (e.g., INVMR1234)
+                          temporarily.
+                        </li>
+                      </ol>
+                    </div>
+                    <label className={labelClass}>Task ID</label>
+                    <input
+                      type="text"
+                      value={trip.task_id}
+                      onChange={(e) =>
+                        handleTripChange(idx, "task_id", e.target.value)
+                      }
+                      placeholder="Task ID or INVMR reference"
+                      className={inputClass}
+                    />
+                  </div>
+
+                  <div>
+                    <div className="mb-2 p-3 bg-purple-50 rounded-md border border-purple-100 text-xs text-purple-900">
+                      <p className="font-bold mb-1">
+                        📊 Outcome expected & Auditable:
+                      </p>
+                      <div className="grid grid-cols-2 gap-x-4 mt-2">
+                        <ul className="list-disc pl-4 space-y-0.5">
+                          <li>Infrastructure</li>
+                          <li>Regular Maintenance</li>
+                          <li>Skill</li>
+                        </ul>
+                        <ul className="list-disc pl-4 space-y-0.5">
+                          <li>Placement / Internship</li>
+                          <li>Product development</li>
+                          <li>Awards / Achievements</li>
+                        </ul>
+                      </div>
+                    </div>
+                    <label className={labelClass}>Auditable</label>
+                    <input
+                      type="text"
+                      value={trip.outcome_auditable}
+                      onChange={(e) =>
+                        handleTripChange(
+                          idx,
+                          "outcome_auditable",
+                          e.target.value,
+                        )
+                      }
+                      placeholder="e.g., Skill, Placement/Internship, Awards"
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           ))}
@@ -682,26 +932,26 @@ export default function VehicleRequestForm() {
           {form.trip_type === "multi_stop" && (
             <button
               onClick={addTrip}
-              className="w-full py-2.5 border-2 border-dashed border-primary/30 text-primary rounded-md hover:bg-primary/5 transition-colors text-sm font-medium"
+              className="w-full py-3 border-2 border-dashed border-primary/30 text-primary rounded-md hover:bg-primary/5 transition-all duration-200 text-sm font-medium"
             >
               + Add Another Trip Leg
             </button>
           )}
 
-          <div className="flex justify-between pt-2">
+          <div className="flex justify-between pt-3">
             <button
               onClick={() => setStep(1)}
-              className="px-6 py-2 border border-gray-200 text-secondarytext rounded-md hover:bg-gray-50 transition-colors text-sm font-medium"
+              className="px-6 py-3 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-all duration-200 font-medium"
             >
-              Back
+              ← Back
             </button>
             <button
               onClick={() => {
                 if (validateStep2()) setStep(3);
               }}
-              className="px-6 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors text-sm font-medium"
+              className="px-8 py-3 bg-primary text-white rounded-md hover:opacity-90 transition-all duration-200 font-semibold shadow-lg shadow-primary/25 hover:shadow-xl"
             >
-              Next
+              Review & Submit →
             </button>
           </div>
         </div>
@@ -709,63 +959,107 @@ export default function VehicleRequestForm() {
 
       {/* Step 3: Review & Submit */}
       {step === 3 && (
-        <div className="space-y-4">
+        <div className="space-y-5">
           {/* Review Summary */}
-          <div className="bg-secondarybg rounded-md shadow-sm border border-gray-100 p-6 space-y-4">
-            <h2 className="text-lg font-semibold text-primarytext border-b border-gray-100 pb-3">
-              Review Your Request
-            </h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-secondarytext">Faculty:</span>
-                <span className="text-primarytext font-medium">
-                  {profile?.full_name}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-secondarytext">Department:</span>
-                <span className="text-primarytext font-medium">
-                  {profile?.department}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-secondarytext">Trip Type:</span>
-                <span className="text-primarytext font-medium">
-                  {getTripTypeLabel(form.trip_type)}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-secondarytext">Request Under:</span>
-                <span className="text-primarytext font-medium">
-                  {getRequestUnderLabel(form.request_under)}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-secondarytext">Vertical:</span>
-                <span className="text-primarytext font-medium">
-                  {form.vertical}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-secondarytext">Total Passengers:</span>
-                <span className="text-primarytext font-medium">
-                  {form.total_passengers}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-secondarytext">Oral Approval:</span>
-                <span className="text-primarytext font-medium">
-                  {form.oral_approval ? "Yes" : "No"}
-                </span>
+          <div className="bg-white rounded-md shadow-lg border border-gray-100 overflow-hidden animate-scaleIn">
+            <div className="px-6 py-4 border-b border-gray-100 bg-linear-to-r from-blue-50 to-indigo-50">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-md bg-primary flex items-center justify-center">
+                  <FileText size={18} className="text-white" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-gray-800">
+                    Review Your Request
+                  </h2>
+                  <p className="text-xs text-gray-500">
+                    Please verify all information before submitting
+                  </p>
+                </div>
               </div>
             </div>
 
-            <div>
-              <span className="text-sm text-secondarytext">Purpose:</span>
-              <p className="mt-1 text-sm text-primarytext bg-primarybg rounded-md p-3">
-                {form.purpose}
-              </p>
+            <div className="p-6 space-y-5">
+              {/* Faculty & Trip Info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 bg-gray-50 rounded-md border border-gray-200">
+                  <p className="text-xs font-medium text-secondarytext mb-1">
+                    Faculty Name
+                  </p>
+                  <p className="text-sm font-semibold text-primarytext">
+                    {profile?.full_name}
+                  </p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-md border border-gray-200">
+                  <p className="text-xs font-medium text-secondarytext mb-1">
+                    Department
+                  </p>
+                  <p className="text-sm font-semibold text-primarytext">
+                    {profile?.department}
+                  </p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-md border border-gray-200">
+                  <p className="text-xs font-medium text-secondarytext mb-1">
+                    Trip Type
+                  </p>
+                  <p className="text-sm font-semibold text-primarytext">
+                    {getTripTypeLabel(form.trip_type)}
+                  </p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-md border border-gray-200">
+                  <p className="text-xs font-medium text-secondarytext mb-1">
+                    Request Under
+                  </p>
+                  <p className="text-sm font-semibold text-primarytext">
+                    {getRequestUnderLabel(form.request_under)}
+                  </p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-md border border-gray-200">
+                  <p className="text-xs font-medium text-secondarytext mb-1">
+                    Vertical
+                  </p>
+                  <p className="text-sm font-semibold text-primarytext">
+                    {form.vertical}
+                  </p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-md border border-gray-200">
+                  <p className="text-xs font-medium text-secondarytext mb-1">
+                    Total Passengers
+                  </p>
+                  <p className="text-sm font-semibold text-primarytext">
+                    {form.total_passengers}
+                  </p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-md border border-gray-200">
+                  <p className="text-xs font-medium text-secondarytext mb-1">
+                    Oral Approval
+                  </p>
+                  <p className="text-sm font-semibold text-primarytext">
+                    {form.oral_approval ? "Yes" : "No"}
+                  </p>
+                </div>
+                {form.mteam_approval && form.mteam_approved_by && (
+                  <div className="p-4 bg-gray-50 rounded-md border border-gray-200">
+                    <p className="text-xs font-medium text-secondarytext mb-1">
+                      M-Team Approved By
+                    </p>
+                    <p className="text-sm font-semibold text-primarytext">
+                      {form.mteam_approved_by}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Purpose */}
+              <div>
+                <p className="text-sm font-semibold text-gray-800 mb-2">
+                  Purpose of Trip
+                </p>
+                <div className="p-4 bg-primarybg rounded-md border border-gray-200">
+                  <p className="text-sm text-primarytext leading-relaxed">
+                    {form.purpose}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -773,84 +1067,168 @@ export default function VehicleRequestForm() {
           {trips.map((trip, idx) => (
             <div
               key={idx}
-              className="bg-secondarybg rounded-md shadow-sm border border-gray-100 p-5"
+              className="bg-white rounded-md shadow-lg border border-gray-100 overflow-hidden animate-scaleIn"
             >
-              <h3 className="text-sm font-semibold text-primarytext mb-3">
-                Trip Leg {idx + 1}
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                <div className="bg-primarybg rounded-md p-3">
-                  <p className="text-xs text-primary font-medium mb-1">
-                    Departure
-                  </p>
-                  <p className="text-primarytext">
-                    {trip.departure_date} at {trip.departure_time}
-                  </p>
-                  <p className="text-secondarytext">
-                    {trip.departure_location}
-                  </p>
-                </div>
-                <div className="bg-primarybg rounded-md p-3">
-                  <p className="text-xs text-green font-medium mb-1">Arrival</p>
-                  <p className="text-primarytext">
-                    {trip.arrival_date} at {trip.arrival_time}
-                  </p>
-                  <p className="text-secondarytext">{trip.arrival_location}</p>
-                </div>
+              <div className="px-6 py-3 border-b border-gray-100 bg-linear-to-r from-purple-50 to-pink-50">
+                <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                  <MapPin size={16} className="text-primary" />
+                  Trip Leg {idx + 1}
+                </h3>
               </div>
-              <div className="mt-2 text-xs text-secondarytext">
-                {trip.task_id && `Task: ${trip.task_id}`}
-                {trip.task_id && trip.outcome_auditable && " · "}
-                {trip.outcome_auditable && `Auditable: ${trip.outcome_auditable}`}
+              <div className="p-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-4 bg-blue-50 rounded-md border border-blue-200">
+                    <p className="text-xs font-semibold text-primary mb-2 flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-full bg-primary"></div>
+                      Departure
+                    </p>
+                    <p className="text-sm font-medium text-gray-800">
+                      {trip.departure_date} at {trip.departure_time}
+                    </p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {trip.departure_location}
+                    </p>
+                  </div>
+                  <div className="p-4 bg-green-50 rounded-md border border-green-200">
+                    <p className="text-xs font-semibold text-green mb-2 flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-full bg-green"></div>
+                      Arrival
+                    </p>
+                    <p className="text-sm font-medium text-gray-800">
+                      {trip.arrival_date} at {trip.arrival_time}
+                    </p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {trip.arrival_location}
+                    </p>
+                  </div>
+                </div>
+                {(trip.task_id ||
+                  trip.outcome_auditable ||
+                  trip.passenger_contacts) && (
+                  <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                    {trip.task_id && (
+                      <div>
+                        <p className="text-secondarytext font-medium mb-0.5">
+                          Task ID
+                        </p>
+                        <p className="text-primarytext font-semibold">
+                          {trip.task_id}
+                        </p>
+                      </div>
+                    )}
+                    {trip.outcome_auditable && (
+                      <div>
+                        <p className="text-secondarytext font-medium mb-0.5">
+                          Auditable
+                        </p>
+                        <p className="text-primarytext font-semibold">
+                          {trip.outcome_auditable}
+                        </p>
+                      </div>
+                    )}
+                    {trip.passenger_contacts && (
+                      <div>
+                        <p className="text-secondarytext font-medium mb-0.5">
+                          Contacts
+                        </p>
+                        <p className="text-primarytext font-semibold">
+                          {trip.passenger_contacts}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           ))}
 
           {/* Declaration */}
-          <div className="bg-secondarybg rounded-md shadow-sm border border-gray-100 p-6">
-            <h3 className="text-base font-semibold text-primarytext mb-3">
-              Declaration
-            </h3>
-            <div className="bg-primarybg rounded-md p-4 mb-4">
-              <p className="text-sm text-secondarytext leading-relaxed">
-                I hereby declare that I have read and understood the{" "}
-                <span className="text-primary font-medium">
-                  BIT Transport Request Guidelines
-                </span>
-                . I confirm that all the information provided above is accurate
-                and the trip is for official purposes only. I understand that
-                any misuse may result in disciplinary action.
-              </p>
+          <div className="bg-white rounded-md shadow-lg border border-gray-100 overflow-hidden animate-scaleIn">
+            <div className="px-6 py-4 border-b border-gray-100 bg-linear-to-r from-emerald-50 to-teal-50">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-md bg-green flex items-center justify-center">
+                  <CheckCircle size={18} className="text-white" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-gray-800">
+                    Declaration
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    Please read and accept before submitting
+                  </p>
+                </div>
+              </div>
             </div>
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.declaration_accepted}
-                onChange={(e) =>
-                  handleFormChange("declaration_accepted", e.target.checked)
-                }
-                className="w-4 h-4 mt-0.5 rounded border-gray-300 text-primary focus:ring-primary"
-              />
-              <span className="text-sm text-primarytext">
-                I have read the guidelines and accept the declaration above{" "}
-                <span className="text-red">*</span>
-              </span>
-            </label>
+            <div className="p-6">
+              <div className="bg-primarybg rounded-md p-5 mb-4 border border-gray-200">
+                <p className="text-sm text-gray-700 leading-relaxed">
+                  I hereby declare that I have read and understood the{" "}
+                  <span className="text-primary font-semibold">
+                    BIT Transport Request Guidelines
+                  </span>
+                  . I confirm that all the information provided above is
+                  accurate and the trip is for official purposes only. I
+                  understand that any misuse may result in disciplinary action.
+                </p>
+              </div>
+              <label className="flex items-start gap-3 p-4 bg-gray-50 rounded-md cursor-pointer hover:bg-gray-100 transition-colors border border-gray-200">
+                <input
+                  type="checkbox"
+                  checked={form.declaration_accepted}
+                  onChange={(e) =>
+                    handleFormChange("declaration_accepted", e.target.checked)
+                  }
+                  className="w-5 h-5 mt-0.5 rounded-md border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                />
+                <div>
+                  <span className="text-sm font-medium text-gray-800">
+                    I have read the guidelines and accept the declaration above{" "}
+                    <span className="text-red-500">*</span>
+                  </span>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    This is required to submit your request
+                  </p>
+                </div>
+              </label>
+            </div>
           </div>
 
-          <div className="flex justify-between pt-2">
+          {/* Action Buttons */}
+          <div className="flex justify-between pt-3">
             <button
               onClick={() => setStep(2)}
-              className="px-6 py-2 border border-gray-200 text-secondarytext rounded-md hover:bg-gray-50 transition-colors text-sm font-medium"
+              className="px-6 py-3 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-all duration-200 font-medium"
             >
-              Back
+              ← Back
             </button>
             <button
               disabled={submitting || !form.declaration_accepted}
               onClick={handleSubmit}
-              className="px-8 py-2.5 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-10 py-3 bg-primary text-white rounded-md hover:opacity-90 transition-all duration-200 font-semibold shadow-lg shadow-primary/25 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-lg"
             >
-              {submitting ? "Submitting..." : "Submit Request"}
+              {submitting ? (
+                <span className="flex items-center gap-2">
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                      fill="none"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
+                  </svg>
+                  Submitting...
+                </span>
+              ) : (
+                "Submit Request"
+              )}
             </button>
           </div>
         </div>

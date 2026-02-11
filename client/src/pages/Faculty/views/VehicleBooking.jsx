@@ -1,4 +1,5 @@
 import React, {useState, useEffect} from "react";
+import {useNavigate} from "react-router-dom";
 import {
   Clock,
   CheckCircle,
@@ -87,23 +88,84 @@ const REQUEST_UNDER_OPTIONS = [
 
 const VERTICAL_OPTIONS = {
   academic_department: [
-    "AGRI", "AIDS", "AIML", "BIOTECH", "BME", "CHEMISTRY", "CIVIL", "CSBS", "CSD", "CSE",
-    "CT", "ECE", "EEE", "EIE", "FASHION", "FOOD", "ISE", "IT", "MATHS", "MECH",
-    "MTRS", "PHYSICS", "SMS", "TEXTILE", "QRWA"
+    "AGRI",
+    "AIDS",
+    "AIML",
+    "BIOTECH",
+    "BME",
+    "CHEMISTRY",
+    "CIVIL",
+    "CSBS",
+    "CSD",
+    "CSE",
+    "CT",
+    "ECE",
+    "EEE",
+    "EIE",
+    "FASHION",
+    "FOOD",
+    "ISE",
+    "IT",
+    "MATHS",
+    "MECH",
+    "MTRS",
+    "PHYSICS",
+    "SMS",
+    "TEXTILE",
+    "QRWA",
   ],
   students_training: [
-    "CE KOVAI SELVAN VISIT", "GURUGULAM", "P-SKILL", "RESEARCH PARK", "SKILL-BIT",
-    "SKILL-SCHOOL STUDENTS", "SPECIAL LAB/PIC"
+    "CE KOVAI SELVAN VISIT",
+    "GURUGULAM",
+    "P-SKILL",
+    "RESEARCH PARK",
+    "SKILL-BIT",
+    "SKILL-SCHOOL STUDENTS",
+    "SPECIAL LAB/PIC",
   ],
   supporting_department: [
-    "ACCOUNTS OFFICE", "Administrative Purpose", "ALUMNI ASSOCIATION", "AUDIO VIDEO IN-CHARGE",
-    "AUTONOMY AFFAIRS", "BAPS", "BAS", "BAVN", "BOYS HOSTEL", "CAMPUS MAINTENANCE - CIVIL",
-    "CAMPUS MAINTENANCE - CLEANING", "CHILLER PLANT", "CIVIL OFFICE", "CLUBS AND SOCIETIES",
-    "COMMUNITY RADIO", "CONTROLLER OF EXAMINATION", "GIRLS HOSTEL", "HORTICULTURE", "IECC",
-    "IQAC-ADMIN", "IQAC-EVENTS", "IQAC-HR", "IQAC-INFRA", "IQAC-OFFICE ACADEMICS", "IQAC-SFC",
-    "IT OPERATIONS (NMC)", "IT SERVICES (TRC)", "LEARNING CENTRE", "MEDICAL CENTRE", "MESS",
-    "NEW INITIATIVES", "PHYSICAL EDUCATION", "PLUMBING & WATER SUPPLY", "POWER HOUSE", "PRD",
-    "SECURITY SERVICE", "START UP", "STORES", "STP", "TRAINING & PLACEMENT", "TRAINING ACADEMY", "TRANSPORT"
+    "ACCOUNTS OFFICE",
+    "Administrative Purpose",
+    "ALUMNI ASSOCIATION",
+    "AUDIO VIDEO IN-CHARGE",
+    "AUTONOMY AFFAIRS",
+    "BAPS",
+    "BAS",
+    "BAVN",
+    "BOYS HOSTEL",
+    "CAMPUS MAINTENANCE - CIVIL",
+    "CAMPUS MAINTENANCE - CLEANING",
+    "CHILLER PLANT",
+    "CIVIL OFFICE",
+    "CLUBS AND SOCIETIES",
+    "COMMUNITY RADIO",
+    "CONTROLLER OF EXAMINATION",
+    "GIRLS HOSTEL",
+    "HORTICULTURE",
+    "IECC",
+    "IQAC-ADMIN",
+    "IQAC-EVENTS",
+    "IQAC-HR",
+    "IQAC-INFRA",
+    "IQAC-OFFICE ACADEMICS",
+    "IQAC-SFC",
+    "IT OPERATIONS (NMC)",
+    "IT SERVICES (TRC)",
+    "LEARNING CENTRE",
+    "MEDICAL CENTRE",
+    "MESS",
+    "NEW INITIATIVES",
+    "PHYSICAL EDUCATION",
+    "PLUMBING & WATER SUPPLY",
+    "POWER HOUSE",
+    "PRD",
+    "SECURITY SERVICE",
+    "START UP",
+    "STORES",
+    "STP",
+    "TRAINING & PLACEMENT",
+    "TRAINING ACADEMY",
+    "TRANSPORT",
   ],
 };
 
@@ -115,6 +177,32 @@ const getTripTypeLabel = (value) => {
 const getRequestUnderLabel = (value) => {
   const found = REQUEST_UNDER_OPTIONS.find((r) => r.value === value);
   return found ? found.label : value || "-";
+};
+
+const formatTime12Hour = (time24) => {
+  if (!time24) return "N/A";
+  const [hours, minutes] = time24.split(":");
+  const hour = parseInt(hours);
+  const ampm = hour >= 12 ? "PM" : "AM";
+  const hour12 = hour % 12 || 12;
+  return `${hour12}:${minutes} ${ampm}`;
+};
+
+const formatDateTime = (datetime) => {
+  if (!datetime) return "N/A";
+  try {
+    const date = new Date(datetime);
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const year = date.getFullYear();
+    const hours = date.getHours();
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    const ampm = hours >= 12 ? "PM" : "AM";
+    const hour12 = hours % 12 || 12;
+    return `${month}-${day}-${year} ${hour12}:${minutes} ${ampm}`;
+  } catch {
+    return datetime;
+  }
 };
 
 const emptyTrip = {
@@ -132,6 +220,7 @@ const emptyTrip = {
 
 export default function VehicleBooking() {
   const {showToast} = useToast();
+  const navigate = useNavigate();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedRequest, setSelectedRequest] = useState(null);
@@ -139,32 +228,12 @@ export default function VehicleBooking() {
   const [searchQuery, setSearchQuery] = useState("");
 
   // Modal states
-  const [showNewRequestModal, setShowNewRequestModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [otpData, setOtpData] = useState(null);
   const [otpLoading, setOtpLoading] = useState(false);
 
-  // Form states
-  const [step, setStep] = useState(1);
-  const [profile, setProfile] = useState(null);
-  const [submitting, setSubmitting] = useState(false);
-  const initialFormState = {
-    trip_type: "guest_pickup",
-    request_under: "",
-    vertical: "",
-    oral_approval: false,
-    purpose: "",
-    total_passengers: 1,
-    mteam_approval: false,
-    mteam_approved_by: "",
-    declaration_accepted: false,
-  };
-  const [form, setForm] = useState(initialFormState);
-  const [trips, setTrips] = useState([{...emptyTrip}]);
-
   useEffect(() => {
     fetchRequests();
-    fetchProfile();
   }, []);
 
   const fetchRequests = async () => {
@@ -182,21 +251,6 @@ export default function VehicleBooking() {
       console.error(e);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchProfile = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`${API_BASE}/api/faculty/profile`, {
-        headers: {Authorization: `Bearer ${token}`},
-        credentials: "include",
-      });
-      if (res.ok) {
-        setProfile(await res.json());
-      }
-    } catch (e) {
-      console.error(e);
     }
   };
 
@@ -234,156 +288,8 @@ export default function VehicleBooking() {
     }
   };
 
-  // Form handlers
-  const handleFormChange = (field, value) => {
-    setForm((prev) => ({...prev, [field]: value}));
-  };
-
-  const handleTripChange = (index, field, value) => {
-    setTrips((prev) => {
-      const updated = [...prev];
-      updated[index] = {...updated[index], [field]: value};
-      return updated;
-    });
-  };
-
-  const addTrip = () => {
-    setTrips((prev) => [...prev, {...emptyTrip, trip_order: prev.length + 1}]);
-  };
-
-  const removeTrip = (index) => {
-    if (trips.length <= 1) return;
-    setTrips((prev) =>
-      prev
-        .filter((_, i) => i !== index)
-        .map((t, i) => ({...t, trip_order: i + 1})),
-    );
-  };
-
-  const validateStep1 = () => {
-    if (!form.purpose.trim()) {
-      showToast("Purpose of trip is required", "warning");
-      return false;
-    }
-    if (!form.request_under.trim()) {
-      showToast("Request Under field is required", "warning");
-      return false;
-    }
-    if (!form.vertical.trim()) {
-      showToast("Vertical field is required", "warning");
-      return false;
-    }
-    return true;
-  };
-
-  const validateStep2 = () => {
-    for (let i = 0; i < trips.length; i++) {
-      const t = trips[i];
-      if (!t.departure_date || !t.departure_time || !t.departure_location) {
-        showToast(`Trip ${i + 1}: Departure details are required`, "warning");
-        return false;
-      }
-      if (!t.arrival_date || !t.arrival_time || !t.arrival_location) {
-        showToast(`Trip ${i + 1}: Arrival details are required`, "warning");
-        return false;
-      }
-    }
-    return true;
-  };
-
-  const handleSubmit = async () => {
-    if (!form.declaration_accepted) {
-      showToast("You must accept the declaration to submit", "warning");
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const token = localStorage.getItem("token");
-
-      // Transform data to match backend expected format
-      const onwardTrip = trips[0] || {};
-      const returnTrip = trips.length > 1 ? trips[1] : null;
-
-      const requestBody = {
-        booking_type: "faculty",
-        trip_type: form.trip_type,
-        trip_mode: "official",
-        request_under: form.request_under,
-        vertical: form.vertical,
-        oral_approval: form.oral_approval,
-        purpose: form.purpose,
-        count_person: parseInt(form.total_passengers) || 1,
-        task_id: onwardTrip.task_id || "",
-        outcome_auditable: onwardTrip.outcome_auditable || "",
-
-        // Onward journey
-        onward_from_place: onwardTrip.departure_location || "",
-        onward_to_place: onwardTrip.arrival_location || "",
-        onward_from_datetime:
-          onwardTrip.departure_date && onwardTrip.departure_time
-            ? `${onwardTrip.departure_date} ${onwardTrip.departure_time}`
-            : "",
-        onward_to_datetime:
-          onwardTrip.arrival_date && onwardTrip.arrival_time
-            ? `${onwardTrip.arrival_date} ${onwardTrip.arrival_time}`
-            : "",
-
-        // Return journey (for round trip)
-        return_from_place: returnTrip?.departure_location || "",
-        return_to_place: returnTrip?.arrival_location || "",
-        return_from_datetime:
-          returnTrip?.departure_date && returnTrip?.departure_time
-            ? `${returnTrip.departure_date} ${returnTrip.departure_time}`
-            : "",
-        return_to_datetime:
-          returnTrip?.arrival_date && returnTrip?.arrival_time
-            ? `${returnTrip.arrival_date} ${returnTrip.arrival_time}`
-            : "",
-
-        // Contact info
-        contact_name: profile?.full_name || "",
-        contact_phone: profile?.phone || "",
-      };
-
-      const res = await fetch(`${API_BASE}/api/faculty/vehicle-request`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        credentials: "include",
-        body: JSON.stringify(requestBody),
-      });
-
-      const data = await res.json();
-      if (res.ok) {
-        showToast("Vehicle request submitted successfully!", "success");
-        closeNewRequestModal();
-        fetchRequests();
-      } else {
-        showToast(data.error || "Failed to submit request", "error");
-      }
-    } catch (e) {
-      console.error(e);
-      showToast("Network error", "error");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const openNewRequestModal = () => {
-    setForm(initialFormState);
-    setTrips([{...emptyTrip}]);
-    setStep(1);
-    setShowNewRequestModal(true);
-  };
-
-  const closeNewRequestModal = () => {
-    setShowNewRequestModal(false);
-    setForm(initialFormState);
-    setTrips([{...emptyTrip}]);
-    setStep(1);
+    navigate("/faculty-dashboard/new-vehicle-request");
   };
 
   const openDetails = (request) => {
@@ -397,7 +303,7 @@ export default function VehicleBooking() {
         headers: {Authorization: `Bearer ${token}`},
         credentials: "include",
       })
-        .then((res) => res.ok ? res.json() : null)
+        .then((res) => (res.ok ? res.json() : null))
         .then((data) => setOtpData(data))
         .catch(console.error)
         .finally(() => setOtpLoading(false));
@@ -600,8 +506,8 @@ export default function VehicleBooking() {
         </div>
       </div>
 
-      {/* New Request Modal */}
-      {showNewRequestModal && (
+      {/* New Request Modal - Removed: Now uses full page at /new-vehicle-request */}
+      {false && showNewRequestModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/40 backdrop-blur-sm">
           <div className="bg-white w-full max-w-3xl rounded-md shadow-xl overflow-hidden max-h-[90vh] flex flex-col">
             {/* Modal Header */}
@@ -660,6 +566,24 @@ export default function VehicleBooking() {
               {/* Step 1: Trip Info */}
               {step === 1 && (
                 <div className="space-y-5">
+                  {/* Important Instructions */}
+                  <div className="bg-blue-50 p-4 rounded-md border border-blue-100 text-xs text-blue-800 space-y-1.5">
+                    <p className="font-semibold">Important Information:</p>
+                    <p>
+                      1. Each request must be submitted for guest Pick up and
+                      drop separately.
+                    </p>
+                    <p>
+                      2. For faculty external visit single submission is enough
+                      for round trip.
+                    </p>
+                    <p>
+                      3. For local Sathy transport requests, submitting this
+                      form alone is sufficient; an Apex request is not
+                      mandatory.
+                    </p>
+                  </div>
+
                   {/* Faculty Info */}
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -744,6 +668,25 @@ export default function VehicleBooking() {
                   )}
 
                   <div>
+                    <div className="mb-2 p-3 bg-gray-50 rounded border border-gray-200 text-xs text-secondarytext">
+                      <p className="font-semibold mb-1">
+                        Please specify the reason for the trip accurately, as it
+                        will be included in the monthly report for documentation
+                        and audit purposes.
+                      </p>
+                      <p className="mb-1">Examples:</p>
+                      <ul className="list-disc pl-4 space-y-1">
+                        <li>
+                          For an industry visit by faculty members organized by
+                          IECC/Placement/Department.
+                        </li>
+                        <li>
+                          For guest pick-up/drop-off for a workshop organized by
+                          IECC, titled "Bridging the Gap: Industry–Institute
+                          Synergy Workshop".
+                        </li>
+                      </ul>
+                    </div>
                     <label className="block text-xs font-medium text-secondarytext mb-1">
                       Purpose of Trip <span className="text-red">*</span>
                     </label>
@@ -851,6 +794,28 @@ export default function VehicleBooking() {
                         <p className="text-xs font-medium text-primary mb-2">
                           Departure
                         </p>
+                        <div className="mb-2 p-2.5 bg-yellow-50 rounded border border-yellow-100 text-xs text-secondarytext">
+                          <p className="font-bold text-yellow-800 mb-1">
+                            Vehicle Departure Timing
+                          </p>
+                          <p className="mb-1">
+                            Respect to the pick up location
+                          </p>
+                          <p className="mb-1">
+                            Vehicles will depart from BIT campus 2 minutes per
+                            kilometer in advance of the scheduled pick-up time.
+                          </p>
+                          <p className="italic mb-1">
+                            Example: For a pick-up location 60 km away and
+                            scheduled at 8:00 AM, the vehicle will leave BIT
+                            campus by 6:00 AM (i.e., 120 minutes/2 hours in
+                            advance).
+                          </p>
+                          <p className="font-medium">
+                            Please plan accordingly, keeping in mind possible
+                            traffic and other delays.
+                          </p>
+                        </div>
                         <div className="grid grid-cols-3 gap-3">
                           <input
                             type="date"
@@ -897,6 +862,29 @@ export default function VehicleBooking() {
                         <p className="text-xs font-medium text-green mb-2">
                           Arrival
                         </p>
+                        <div className="mb-2 p-2.5 bg-green-50 rounded border border-green-100 text-xs text-secondarytext">
+                          <p className="font-bold text-green-800 mb-1">
+                            Expected arrival time
+                          </p>
+                          <p className="mb-1">
+                            Respect to the expected visit (1st) location:
+                          </p>
+                          <p className="mb-1">
+                            Once the vehicle is picked up from the location, it
+                            will take a minimum of 2 minutes per kilometer to
+                            reach the destination.
+                          </p>
+                          <p className="italic mb-1">
+                            Example: For a distance of 60 km after pick-up, the
+                            vehicle will take at least 120 minutes (2 hours) to
+                            reach the destination.
+                          </p>
+                          <p className="font-medium">
+                            Please plan your schedule accordingly, considering
+                            this minimum travel time along with any possible
+                            traffic or delays.
+                          </p>
+                        </div>
                         <div className="grid grid-cols-3 gap-3">
                           <input
                             type="date"
@@ -954,23 +942,78 @@ export default function VehicleBooking() {
                         />
                       </div>
 
-                      <div className="grid grid-cols-1 gap-3">
-                        <input
-                          type="text"
-                          value={trip.task_id}
-                          onChange={(e) =>
-                            handleTripChange(
-                              idx,
-                              "task_id",
-                              e.target.value,
-                            )
-                          }
-                          placeholder="Task ID"
-                          className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-                        />
+                      <div>
+                        <div className="mb-2 p-2.5 bg-gray-50 rounded border border-gray-200 text-xs text-secondarytext">
+                          <p className="font-bold mb-1">
+                            TASK ID/INVMR: eg: T123456/INVMR1234
+                          </p>
+                          <p className="text-red-600 font-semibold mb-2">
+                            **For Local sathyamangalam request mention: "Local"
+                          </p>
+                          <ol className="list-decimal pl-4 space-y-0.5 text-xs">
+                            <li>
+                              The Apex request, including transport, must be
+                              submitted through the Inventory Apex request form
+                              for proper approval. The Task ID from the same
+                              request, which is essential for assigning the
+                              vehicle, can be obtained from the Apex request
+                              submitted through Inventory team.
+                            </li>
+                            <li>
+                              Even if only a guest pick-up is required, the Apex
+                              request process is mandatory to obtain the Task
+                              ID, Mteam assignment, and subsequent approval.
+                            </li>
+                            <li>
+                              Tasks will be assigned based on the requests
+                              submitted to Inventory. Once IQAC assigns the task
+                              to the request, the end user is then requested to
+                              fill out this form for further processing and
+                              automation.
+                            </li>
+                            <li>
+                              If the task has not yet been assigned, the Apex
+                              requested inventory reference number (e.g.,
+                              INVMR1234), which is generated by default for the
+                              submitted request, should be entered temporarily.
+                              Once the task is assigned, the Task ID will be
+                              auto-fetched and processed.
+                            </li>
+                            <li>
+                              Please check the Inventory sheet for submitting
+                              your request to confirm the status and retrieve
+                              the reference number.
+                            </li>
+                          </ol>
+                        </div>
+                        <div className="grid grid-cols-1 gap-3">
+                          <input
+                            type="text"
+                            value={trip.task_id}
+                            onChange={(e) =>
+                              handleTripChange(idx, "task_id", e.target.value)
+                            }
+                            placeholder="Task ID"
+                            className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                          />
+                        </div>
                       </div>
 
                       <div>
+                        <div className="mb-2 p-2.5 bg-gray-50 rounded border border-gray-200 text-xs text-secondarytext">
+                          <p className="font-bold mb-1">
+                            Outcome expected & Auditable:
+                          </p>
+                          <p className="mb-1">eg:</p>
+                          <ul className="list-disc pl-4 grid grid-cols-2 gap-x-2 gap-y-0.5 text-xs">
+                            <li>Infrastructure</li>
+                            <li>Regular Maintenance</li>
+                            <li>Skill</li>
+                            <li>Placement / Internship</li>
+                            <li>Product development</li>
+                            <li>Awards / Students Achievements</li>
+                          </ul>
+                        </div>
                         <input
                           type="text"
                           value={trip.outcome_auditable}
@@ -1073,14 +1116,22 @@ export default function VehicleBooking() {
                         <div className="mt-2 pt-2 border-t border-gray-200 text-xs">
                           {trip.task_id && (
                             <p>
-                              <span className="text-secondarytext">Task ID:</span>{" "}
-                              <span className="text-primarytext">{trip.task_id}</span>
+                              <span className="text-secondarytext">
+                                Task ID:
+                              </span>{" "}
+                              <span className="text-primarytext">
+                                {trip.task_id}
+                              </span>
                             </p>
                           )}
                           {trip.outcome_auditable && (
                             <p>
-                              <span className="text-secondarytext">Auditable:</span>{" "}
-                              <span className="text-primarytext">{trip.outcome_auditable}</span>
+                              <span className="text-secondarytext">
+                                Auditable:
+                              </span>{" "}
+                              <span className="text-primarytext">
+                                {trip.outcome_auditable}
+                              </span>
                             </p>
                           )}
                         </div>
@@ -1153,196 +1204,440 @@ export default function VehicleBooking() {
 
       {/* Details Modal */}
       {showDetailsModal && selectedRequest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-2xl rounded-md shadow-xl overflow-hidden max-h-[85vh] flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-secondarybg w-full max-w-3xl rounded-md shadow-2xl overflow-hidden max-h-[90vh] flex flex-col border border-gray-100">
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
-              <div className="flex items-center gap-3">
-                <h3 className="text-lg font-bold text-primarytext">Request</h3>
-                {(() => {
-                  const cfg =
-                    STATUS_CONFIG[selectedRequest.status] ||
-                    STATUS_CONFIG.pending;
-                  return (
-                    <span
-                      className={`inline-flex px-2.5 py-1 rounded-md text-xs font-medium ${cfg.badge}`}
-                    >
-                      {cfg.label}
-                    </span>
-                  );
-                })()}
+            <div className="px-6 py-4 bg-primarybg border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-10 h-10 rounded-md flex items-center justify-center text-white shadow-sm"
+                    style={{
+                      backgroundColor: STATUS_CONFIG[
+                        selectedRequest.status
+                      ]?.badge.includes("primary")
+                        ? "#7D53F6"
+                        : STATUS_CONFIG[selectedRequest.status]?.badge.includes(
+                              "green",
+                            )
+                          ? "#008000"
+                          : STATUS_CONFIG[
+                                selectedRequest.status
+                              ]?.badge.includes("pending")
+                            ? "#F0B041"
+                            : STATUS_CONFIG[
+                                  selectedRequest.status
+                                ]?.badge.includes("red")
+                              ? "#FF5555"
+                              : "#9CA3AF",
+                    }}
+                  >
+                    <Truck size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-primarytext">
+                      {getTripTypeLabel(selectedRequest.trip_type)}
+                    </h3>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {(() => {
+                        const cfg =
+                          STATUS_CONFIG[selectedRequest.status] ||
+                          STATUS_CONFIG.pending;
+                        return (
+                          <span
+                            className={`inline-flex px-2 py-0.5 rounded-md text-xs font-bold ${cfg.badge}`}
+                          >
+                            {cfg.label}
+                          </span>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowDetailsModal(false)}
+                  className="text-secondarytext hover:text-primarytext hover:bg-gray-200 transition-colors p-1.5 rounded-md"
+                >
+                  <X size={20} />
+                </button>
               </div>
-              <button
-                onClick={() => setShowDetailsModal(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors p-1"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              {selectedRequest.purpose && (
+                <p className="text-sm text-secondarytext mt-3 italic">
+                  "{selectedRequest.purpose}"
+                </p>
+              )}
             </div>
 
             {/* Body */}
             <div className="p-6 overflow-y-auto flex-1 space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-secondarytext">Trip Type:</span>
-                  <p className="font-medium text-primarytext">
-                    {getTripTypeLabel(selectedRequest.trip_type)}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-secondarytext">Request Under:</span>
-                  <p className="font-medium text-primarytext">
-                    {getRequestUnderLabel(selectedRequest.request_under) || "-"}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-secondarytext">Vertical:</span>
-                  <p className="font-medium text-primarytext">
-                    {selectedRequest.vertical || "-"}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-secondarytext">Total Passengers:</span>
-                  <p className="font-medium text-primarytext">
-                    {selectedRequest.total_passengers}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-secondarytext">Submitted:</span>
-                  <p className="font-medium text-primarytext">
-                    {selectedRequest.created_at}
-                  </p>
+              {/* Trip Information Grid */}
+              <div className="bg-primarybg rounded-md border border-gray-200 p-4">
+                <h4 className="text-xs font-bold text-secondarytext uppercase tracking-wide mb-3">
+                  Trip Information
+                </h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-secondarybg rounded-md p-3">
+                    <p className="text-xs text-secondarytext mb-1">
+                      Request Under
+                    </p>
+                    <p className="text-sm font-semibold text-primarytext">
+                      {getRequestUnderLabel(selectedRequest.request_under) ||
+                        "-"}
+                    </p>
+                  </div>
+                  <div className="bg-secondarybg rounded-md p-3">
+                    <p className="text-xs text-secondarytext mb-1">Vertical</p>
+                    <p className="text-sm font-semibold text-primarytext">
+                      {selectedRequest.vertical || "-"}
+                    </p>
+                  </div>
+                  <div className="bg-secondarybg rounded-md p-3">
+                    <p className="text-xs text-secondarytext mb-1">
+                      Passengers
+                    </p>
+                    <p className="text-sm font-semibold text-primarytext">
+                      {selectedRequest.count_person ||
+                        selectedRequest.total_passengers ||
+                        1}{" "}
+                      Person(s)
+                    </p>
+                  </div>
+                  <div className="bg-secondarybg rounded-md p-3">
+                    <p className="text-xs text-secondarytext mb-1">Submitted</p>
+                    <p className="text-sm font-semibold text-primarytext">
+                      {selectedRequest.created_at}
+                    </p>
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <span className="text-sm text-secondarytext">Purpose:</span>
-                <p className="mt-1 text-sm text-primarytext bg-primarybg rounded-md p-3">
-                  {selectedRequest.purpose}
-                </p>
-              </div>
+              {/* Trip Journey Details */}
+              {selectedRequest.onward_from_place && (
+                <div className="bg-primarybg rounded-md border border-gray-200 p-4">
+                  <h4 className="text-xs font-bold text-secondarytext uppercase tracking-wide mb-3 flex items-center gap-2">
+                    <MapPin size={14} className="text-primary" />
+                    Onward Journey
+                  </h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-secondarybg rounded-md p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-2 h-2 rounded-full bg-primary"></div>
+                        <span className="text-xs font-semibold text-primary uppercase">
+                          From
+                        </span>
+                      </div>
+                      <p className="text-sm font-medium text-primarytext mb-1">
+                        {selectedRequest.onward_from_place}
+                      </p>
+                      {selectedRequest.onward_from_datetime && (
+                        <p className="text-xs text-secondarytext">
+                          {selectedRequest.onward_from_datetime}
+                        </p>
+                      )}
+                      {selectedRequest.trip_started_at && (
+                        <div className="mt-2 pt-2 border-t border-gray-200">
+                          <p className="text-xs text-green font-semibold flex items-center gap-1">
+                            <CheckCircle size={11} /> Started:{" "}
+                            {selectedRequest.trip_started_at}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    <div className="bg-secondarybg rounded-md p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-2 h-2 rounded-full bg-green"></div>
+                        <span className="text-xs font-semibold text-green uppercase">
+                          To
+                        </span>
+                      </div>
+                      <p className="text-sm font-medium text-primarytext mb-1">
+                        {selectedRequest.onward_to_place}
+                      </p>
+                      {selectedRequest.onward_to_datetime && (
+                        <p className="text-xs text-secondarytext">
+                          {selectedRequest.onward_to_datetime}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
-              {/* Trip Details */}
+              {/* Return Trip */}
+              {selectedRequest.return_from_place && (
+                <div className="bg-primarybg rounded-md border border-gray-200 p-4">
+                  <h4 className="text-xs font-bold text-secondarytext uppercase tracking-wide mb-3 flex items-center gap-2">
+                    <MapPin size={14} className="text-green" />
+                    Return Journey
+                  </h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-secondarybg rounded-md p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-2 h-2 rounded-full bg-primary"></div>
+                        <span className="text-xs font-semibold text-primary uppercase">
+                          From
+                        </span>
+                      </div>
+                      <p className="text-sm font-medium text-primarytext mb-1">
+                        {selectedRequest.return_from_place}
+                      </p>
+                      {selectedRequest.return_from_datetime && (
+                        <p className="text-xs text-secondarytext">
+                          {selectedRequest.return_from_datetime}
+                        </p>
+                      )}
+                    </div>
+                    <div className="bg-secondarybg rounded-md p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-2 h-2 rounded-full bg-green"></div>
+                        <span className="text-xs font-semibold text-green uppercase">
+                          To
+                        </span>
+                      </div>
+                      <p className="text-sm font-medium text-primarytext mb-1">
+                        {selectedRequest.return_to_place}
+                      </p>
+                      {selectedRequest.return_to_datetime && (
+                        <p className="text-xs text-secondarytext">
+                          {selectedRequest.return_to_datetime}
+                        </p>
+                      )}
+                      {selectedRequest.trip_ended_at && (
+                        <div className="mt-2 pt-2 border-t border-gray-200">
+                          <p className="text-xs text-green font-semibold flex items-center gap-1">
+                            <CheckCircle size={11} /> Ended:{" "}
+                            {selectedRequest.trip_ended_at}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Legacy trips format (if present) */}
               {selectedRequest.trips?.map((trip, idx) => (
                 <div
                   key={idx}
-                  className="border border-gray-100 rounded-md p-4"
+                  className="bg-primarybg rounded-md border border-gray-200 p-4"
                 >
-                  <p className="text-sm font-semibold text-primarytext mb-2">
+                  <h4 className="text-xs font-bold text-secondarytext uppercase tracking-wide mb-3">
                     Trip Leg {trip.trip_order}
-                  </p>
-                  <div className="grid grid-cols-2 gap-3 text-xs">
-                    <div className="bg-primarybg rounded-md p-3">
-                      <p className="text-primary font-medium mb-1">Departure</p>
-                      <p className="text-primarytext">
-                        {trip.departure_date} at {trip.departure_time}
-                      </p>
-                      <p className="text-secondarytext">
+                  </h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-secondarybg rounded-md p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <MapPin size={12} className="text-primary" />
+                        <span className="text-xs font-semibold text-primary">
+                          Departure
+                        </span>
+                      </div>
+                      <p className="text-sm font-medium text-primarytext mb-1">
                         {trip.departure_location}
                       </p>
-                    </div>
-                    <div className="bg-primarybg rounded-md p-3">
-                      <p className="text-green font-medium mb-1">Arrival</p>
-                      <p className="text-primarytext">
-                        {trip.arrival_date} at {trip.arrival_time}
+                      <p className="text-xs text-secondarytext">
+                        {trip.departure_date} at{" "}
+                        {formatTime12Hour(trip.departure_time)}
                       </p>
-                      <p className="text-secondarytext">
+                    </div>
+                    <div className="bg-secondarybg rounded-md p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <MapPin size={12} className="text-green" />
+                        <span className="text-xs font-semibold text-green">
+                          Arrival
+                        </span>
+                      </div>
+                      <p className="text-sm font-medium text-primarytext mb-1">
                         {trip.arrival_location}
+                      </p>
+                      <p className="text-xs text-secondarytext">
+                        {trip.arrival_date} at{" "}
+                        {formatTime12Hour(trip.arrival_time)}
                       </p>
                     </div>
                   </div>
                 </div>
               ))}
+              {/* Passenger Details */}
+              <div className="bg-primarybg rounded-md border border-gray-200 p-4">
+                <h4 className="text-xs font-bold text-secondarytext uppercase tracking-wide mb-3">
+                  Passenger Details
+                </h4>
+                <div className="space-y-3">
+                  {/* Requester */}
+                  <div className="bg-secondarybg rounded-md p-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-md bg-primary/10 text-primary flex items-center justify-center">
+                        <User size={14} />
+                      </div>
+                      <div>
+                        <p className="text-xs text-secondarytext">Requester</p>
+                        <p className="text-sm font-semibold text-primarytext">
+                          {selectedRequest.faculty_name || "N/A"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Guest / Contact */}
+                  {(selectedRequest.contact_name ||
+                    selectedRequest.contact_phone) && (
+                    <div className="bg-secondarybg rounded-md p-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-md bg-green/10 text-green flex items-center justify-center">
+                          <User size={14} />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-xs text-secondarytext">
+                            Guest / Contact
+                          </p>
+                          <p className="text-sm font-semibold text-primarytext">
+                            {selectedRequest.contact_name || "N/A"}
+                          </p>
+                          {selectedRequest.contact_phone && (
+                            <p className="text-xs text-secondarytext mt-1">
+                              📱 {selectedRequest.contact_phone}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
 
               {/* Vehicle Assignment */}
-              {(selectedRequest.status === "assigned" || selectedRequest.status === "trip_started" || selectedRequest.status === "completed") && selectedRequest.vehicle_name && (
-                <div className="bg-green/5 border border-green/20 rounded-md p-4">
-                  <p className="text-sm font-semibold text-green mb-2">
-                    Vehicle Assigned
-                  </p>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <span className="text-secondarytext">Vehicle:</span>
-                      <p className="font-medium text-primarytext">
-                        {selectedRequest.vehicle_name ||
-                          selectedRequest.vehicle_number}
-                      </p>
+              {(selectedRequest.status === "assigned" ||
+                selectedRequest.status === "trip_started" ||
+                selectedRequest.status === "completed") &&
+                selectedRequest.vehicle_name && (
+                  <div className="bg-green/10 border border-green/30 rounded-md p-4">
+                    <h4 className="text-xs font-bold text-green uppercase tracking-wide mb-3">
+                      Vehicle Assigned
+                    </h4>
+                    <div className="bg-secondarybg rounded-md p-3 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Truck size={16} className="text-green" />
+                        <div>
+                          <p className="text-xs text-secondarytext">Vehicle</p>
+                          <p className="text-sm font-semibold text-primarytext">
+                            {selectedRequest.vehicle_name ||
+                              selectedRequest.vehicle_number}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+                        <User size={16} className="text-green" />
+                        <div>
+                          <p className="text-xs text-secondarytext">Driver</p>
+                          <p className="text-sm font-semibold text-primarytext">
+                            {selectedRequest.driver_name}
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-secondarytext">Driver:</span>
-                      <p className="font-medium text-primarytext">
-                        {selectedRequest.driver_name}
-                      </p>
+                  </div>
+                )}
+
+              {/* OTP Section - Start Trip */}
+              {otpData &&
+                selectedRequest.status === "assigned" &&
+                otpData.start_otp && (
+                  <div className="bg-secondarybg rounded-md border border-gray-200 overflow-hidden">
+                    <div className="bg-primary px-5 py-3">
+                      <div className="flex items-center gap-2">
+                        <Play size={18} className="text-white" />
+                        <div>
+                          <h4 className="text-sm font-bold text-white">
+                            Start Trip OTP
+                          </h4>
+                          <p className="text-xs text-white/90 mt-0.5">
+                            Provide this OTP to the driver to start the trip.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-5">
+                      <div className="bg-primarybg rounded-md p-4 text-center border border-gray-200">
+                        <p className="text-3xl font-bold tracking-[0.3em] text-primary font-mono">
+                          {otpData.start_otp}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* OTP Section */}
-              {otpData && selectedRequest.status === "assigned" && otpData.start_otp && (
-                <div className="bg-primary/5 border-2 border-primary/30 rounded-md p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Key size={18} className="text-primary" />
-                    <p className="text-sm font-semibold text-primary">Start Trip OTP</p>
+              {/* OTP Section - End Trip */}
+              {otpData &&
+                selectedRequest.status === "trip_started" &&
+                otpData.end_otp && (
+                  <div className="bg-secondarybg rounded-md border border-gray-200 overflow-hidden">
+                    <div className="bg-green px-5 py-3">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle size={18} className="text-white" />
+                        <div>
+                          <h4 className="text-sm font-bold text-white">
+                            End Trip OTP
+                          </h4>
+                          <p className="text-xs text-white/90 mt-0.5">
+                            Provide this OTP to the driver to complete the trip.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-5">
+                      <div className="bg-primarybg rounded-md p-4 text-center border border-gray-200">
+                        <p className="text-3xl font-bold tracking-[0.3em] text-green font-mono">
+                          {otpData.end_otp}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-xs text-secondarytext mb-3">
-                    Share this OTP with the driver to start the trip
-                  </p>
-                  <div className="bg-white rounded-md p-4 text-center">
-                    <p className="text-3xl font-bold tracking-[0.5em] text-primary font-mono">
-                      {otpData.start_otp}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {otpData && selectedRequest.status === "trip_started" && otpData.end_otp && (
-                <div className="bg-green/5 border-2 border-green/30 rounded-md p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Key size={18} className="text-green" />
-                    <p className="text-sm font-semibold text-green">End Trip OTP</p>
-                  </div>
-                  <p className="text-xs text-secondarytext mb-3">
-                    Share this OTP with the driver to complete the trip
-                  </p>
-                  <div className="bg-white rounded-md p-4 text-center">
-                    <p className="text-3xl font-bold tracking-[0.5em] text-green font-mono">
-                      {otpData.end_otp}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {otpLoading && (selectedRequest.status === "assigned" || selectedRequest.status === "trip_started") && (
-                <div className="text-center py-3">
-                  <p className="text-sm text-secondarytext">Loading OTP...</p>
-                </div>
-              )}
+                )}
 
               {/* Admin Remarks */}
               {selectedRequest.admin_remarks && (
-                <div className="bg-primarybg rounded-md p-3">
-                  <span className="text-xs text-secondarytext">
-                    Admin Remarks:
-                  </span>
-                  <p className="text-sm text-primarytext mt-1">
+                <div className="bg-pending/10 border border-pending/30 rounded-md p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertCircle size={16} className="text-pending" />
+                    <h4 className="text-xs font-bold text-pending uppercase tracking-wide">
+                      Admin Remarks
+                    </h4>
+                  </div>
+                  <p className="text-sm text-primarytext">
                     {selectedRequest.admin_remarks}
                   </p>
                 </div>
               )}
+
+              {/* OTP Loading */}
+              {otpLoading &&
+                (selectedRequest.status === "assigned" ||
+                  selectedRequest.status === "trip_started") && (
+                  <div className="bg-primarybg rounded-md border border-gray-200 p-4 text-center">
+                    <Loader2 className="w-6 h-6 animate-spin text-primary mx-auto mb-2" />
+                    <p className="text-sm text-secondarytext">Loading OTP...</p>
+                  </div>
+                )}
             </div>
 
             {/* Footer */}
-            {selectedRequest.status === "pending" && (
-              <div className="flex justify-end px-6 py-4 border-t border-gray-100 bg-gray-50 shrink-0">
+            <div className="flex justify-end px-6 py-4 border-t border-gray-100 bg-primarybg shrink-0 gap-3">
+              {selectedRequest.status === "pending" && (
                 <button
                   onClick={() => handleCancel(selectedRequest.id)}
-                  className="px-5 py-2 bg-red text-white rounded-md hover:bg-red/90 transition-colors text-sm font-medium"
+                  className="px-5 py-2.5 bg-red text-white rounded-md hover:bg-red/90 transition-colors text-sm font-semibold"
                 >
                   Cancel Request
                 </button>
-              </div>
-            )}
+              )}
+              <button
+                onClick={() => setShowDetailsModal(false)}
+                className="px-5 py-2.5 bg-gray-200 text-primarytext rounded-md hover:bg-gray-300 transition-colors text-sm font-semibold"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

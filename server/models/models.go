@@ -617,6 +617,16 @@ type UpdateFacultyRequest struct {
 ========================= */
 
 // VehicleRequest - Faculty vehicle booking request
+// Trip - Individual journey segment
+type Trip struct {
+	DepartureLocation string `json:"departure_location"`
+	ArrivalLocation   string `json:"arrival_location"`
+	DepartureDate     string `json:"departure_date"`
+	DepartureTime     string `json:"departure_time"`
+	ArrivalDate       string `json:"arrival_date"`
+	ArrivalTime       string `json:"arrival_time"`
+}
+
 // VehicleRequest - Faculty vehicle booking request (using vehiclerequests table)
 type VehicleRequest struct {
 	ID        int `json:"id"`
@@ -644,9 +654,15 @@ type VehicleRequest struct {
 	ReturnFromDateTime string `json:"return_from_datetime"`
 	ReturnToDateTime   string `json:"return_to_datetime"`
 
+	// trips slice for structured journey view
+	Trips []Trip `json:"trips"`
+
 	// Contact Info
 	ContactName  string `json:"contact_name"`
 	ContactPhone string `json:"contact_phone"`
+	MobileNumber string `json:"mobile_number"`
+	GuestName    string `json:"guest_name"`
+	Address      string `json:"address"`
 
 	// Task and Outcome fields
 	TaskID           string `json:"task_id"`

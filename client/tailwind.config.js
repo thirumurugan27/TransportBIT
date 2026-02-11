@@ -5,15 +5,16 @@ export default {
         "./src/**/*.{js,ts,jsx,tsx}",
     ],
     theme: {
-        extend: {
-            colors: {
+        extend:{
+            colors: 
+            {
                 primarybg: '#EEF1F9',
                 secondarybg: '#FFFFFF',
                 primary: '#7D53F6',
                 primarydull: '#9F74F7',
-                customgreen: '#008000',
+                green: '#008000',
                 pending: '#F0B041',
-                customred: '#FF5555',
+                red: '#FF5555',
                 primarytext: '#000000',
                 secondarytext: '#5F6388',
                 scroll: '#D1D1D1',

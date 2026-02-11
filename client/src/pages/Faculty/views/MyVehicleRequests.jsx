@@ -289,7 +289,8 @@ export default function MyVehicleRequests() {
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    {(req.status === "assigned" || req.status === "trip_started") && (
+                    {(req.status === "assigned" ||
+                      req.status === "trip_started") && (
                       <div className="text-right text-xs">
                         <p className="text-green font-medium flex items-center gap-1">
                           <Truck size={12} />
@@ -344,9 +345,21 @@ export default function MyVehicleRequests() {
               {/* Trip Info */}
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
+                  <span className="text-secondarytext">Booking Type:</span>
+                  <p className="font-medium text-primarytext capitalize">
+                    {selectedRequest.booking_type || "Faculty"}
+                  </p>
+                </div>
+                <div>
                   <span className="text-secondarytext">Trip Type:</span>
                   <p className="font-medium text-primarytext">
                     {getTripTypeLabel(selectedRequest.trip_type)}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-secondarytext">Trip Mode:</span>
+                  <p className="font-medium text-primarytext capitalize">
+                    {selectedRequest.trip_mode || "Official"}
                   </p>
                 </div>
                 <div>
@@ -364,7 +377,21 @@ export default function MyVehicleRequests() {
                 <div>
                   <span className="text-secondarytext">Total Passengers:</span>
                   <p className="font-medium text-primarytext">
-                    {selectedRequest.total_passengers}
+                    {selectedRequest.count_person ||
+                      selectedRequest.total_passengers ||
+                      1}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-secondarytext">Contact Name:</span>
+                  <p className="font-medium text-primarytext">
+                    {selectedRequest.contact_name || "-"}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-secondarytext">Contact Phone:</span>
+                  <p className="font-medium text-primarytext">
+                    {selectedRequest.contact_phone || "-"}
                   </p>
                 </div>
                 <div>
@@ -381,6 +408,84 @@ export default function MyVehicleRequests() {
                   {selectedRequest.purpose}
                 </p>
               </div>
+
+              {/* Admin Remarks (if any) */}
+              {selectedRequest.admin_remarks && (
+                <div>
+                  <span className="text-sm text-secondarytext">
+                    Admin Remarks:
+                  </span>
+                  <p className="mt-1 text-sm text-primarytext bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                    {selectedRequest.admin_remarks}
+                  </p>
+                </div>
+              )}
+
+              {/* Trip Details */}
+              {selectedRequest.onward_from_place && (
+                <div className="border border-gray-100 rounded-md p-4">
+                  <p className="text-sm font-semibold text-primarytext mb-3">
+                    Onward Journey
+                  </p>
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div className="bg-primarybg rounded-md p-2.5">
+                      <p className="text-primary font-medium mb-1">From</p>
+                      <p className="text-secondarytext mb-1">
+                        {selectedRequest.onward_from_place}
+                      </p>
+                      {selectedRequest.onward_from_datetime && (
+                        <p className="text-primarytext font-medium">
+                          {selectedRequest.onward_from_datetime}
+                        </p>
+                      )}
+                    </div>
+                    <div className="bg-primarybg rounded-md p-2.5">
+                      <p className="text-green font-medium mb-1">To</p>
+                      <p className="text-secondarytext mb-1">
+                        {selectedRequest.onward_to_place}
+                      </p>
+                      {selectedRequest.onward_to_datetime && (
+                        <p className="text-primarytext font-medium">
+                          {selectedRequest.onward_to_datetime}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Return Trip */}
+              {selectedRequest.return_from_place && (
+                <div className="border border-gray-100 rounded-md p-4">
+                  <p className="text-sm font-semibold text-primarytext mb-3">
+                    Return Journey
+                  </p>
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div className="bg-primarybg rounded-md p-2.5">
+                      <p className="text-primary font-medium mb-1">From</p>
+                      <p className="text-secondarytext mb-1">
+                        {selectedRequest.return_from_place}
+                      </p>
+                      {selectedRequest.return_from_datetime && (
+                        <p className="text-primarytext font-medium">
+                          {selectedRequest.return_from_datetime}
+                        </p>
+                      )}
+                    </div>
+                    <div className="bg-primarybg rounded-md p-2.5">
+                      <p className="text-green font-medium mb-1">To</p>
+                      <p className="text-secondarytext mb-1">
+                        {selectedRequest.return_to_place}
+                      </p>
+                      {selectedRequest.return_to_datetime && (
+                        <p className="text-primarytext font-medium">
+                          {selectedRequest.return_to_datetime}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Trip Legs */}
               {selectedRequest.trips?.map((trip, idx) => (
@@ -420,66 +525,77 @@ export default function MyVehicleRequests() {
               ))}
 
               {/* Vehicle Assignment */}
-              {(selectedRequest.status === "assigned" || selectedRequest.status === "trip_started" || selectedRequest.status === "completed") && selectedRequest.vehicle_name && (
-                <div className="bg-green/5 border border-green/20 rounded-md p-4">
-                  <p className="text-sm font-semibold text-green mb-2">
-                    Vehicle Assigned
-                  </p>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <span className="text-secondarytext">Vehicle:</span>
-                      <p className="font-medium text-primarytext">
-                        {selectedRequest.vehicle_name ||
-                          selectedRequest.vehicle_number}
-                      </p>
-                      <p className="text-xs text-secondarytext">
-                        {selectedRequest.vehicle_type}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-secondarytext">Driver:</span>
-                      <p className="font-medium text-primarytext">
-                        {selectedRequest.driver_name}
-                      </p>
+              {(selectedRequest.status === "assigned" ||
+                selectedRequest.status === "trip_started" ||
+                selectedRequest.status === "completed") &&
+                selectedRequest.vehicle_name && (
+                  <div className="bg-green/5 border border-green/20 rounded-md p-4">
+                    <p className="text-sm font-semibold text-green mb-2">
+                      Vehicle Assigned
+                    </p>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <span className="text-secondarytext">Vehicle:</span>
+                        <p className="font-medium text-primarytext">
+                          {selectedRequest.vehicle_name ||
+                            selectedRequest.vehicle_number}
+                        </p>
+                        <p className="text-xs text-secondarytext">
+                          {selectedRequest.vehicle_type}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-secondarytext">Driver:</span>
+                        <p className="font-medium text-primarytext">
+                          {selectedRequest.driver_name}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
               {/* OTP Section */}
-              {otpData && selectedRequest.status === "assigned" && otpData.start_otp && (
-                <div className="bg-primary/5 border-2 border-primary/30 rounded-md p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Key size={18} className="text-primary" />
-                    <p className="text-sm font-semibold text-primary">Start Trip OTP</p>
-                  </div>
-                  <p className="text-xs text-secondarytext mb-3">
-                    Share this OTP with the driver to start the trip
-                  </p>
-                  <div className="bg-white rounded-md p-4 text-center">
-                    <p className="text-3xl font-bold tracking-[0.5em] text-primary font-mono">
-                      {otpData.start_otp}
+              {otpData &&
+                selectedRequest.status === "assigned" &&
+                otpData.start_otp && (
+                  <div className="bg-primary/5 border-2 border-primary/30 rounded-md p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Key size={18} className="text-primary" />
+                      <p className="text-sm font-semibold text-primary">
+                        Start Trip OTP
+                      </p>
+                    </div>
+                    <p className="text-xs text-secondarytext mb-3">
+                      Share this OTP with the driver to start the trip
                     </p>
+                    <div className="bg-white rounded-md p-4 text-center">
+                      <p className="text-3xl font-bold tracking-[0.5em] text-primary font-mono">
+                        {otpData.start_otp}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {otpData && selectedRequest.status === "trip_started" && otpData.end_otp && (
-                <div className="bg-green/5 border-2 border-green/30 rounded-md p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Key size={18} className="text-green" />
-                    <p className="text-sm font-semibold text-green">End Trip OTP</p>
-                  </div>
-                  <p className="text-xs text-secondarytext mb-3">
-                    Share this OTP with the driver to complete the trip
-                  </p>
-                  <div className="bg-white rounded-md p-4 text-center">
-                    <p className="text-3xl font-bold tracking-[0.5em] text-green font-mono">
-                      {otpData.end_otp}
+              {otpData &&
+                selectedRequest.status === "trip_started" &&
+                otpData.end_otp && (
+                  <div className="bg-green/5 border-2 border-green/30 rounded-md p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Key size={18} className="text-green" />
+                      <p className="text-sm font-semibold text-green">
+                        End Trip OTP
+                      </p>
+                    </div>
+                    <p className="text-xs text-secondarytext mb-3">
+                      Share this OTP with the driver to complete the trip
                     </p>
+                    <div className="bg-white rounded-md p-4 text-center">
+                      <p className="text-3xl font-bold tracking-[0.5em] text-green font-mono">
+                        {otpData.end_otp}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
               {selectedRequest.status === "trip_started" && (
                 <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
@@ -490,11 +606,13 @@ export default function MyVehicleRequests() {
                 </div>
               )}
 
-              {otpLoading && (selectedRequest.status === "assigned" || selectedRequest.status === "trip_started") && (
-                <div className="text-center py-3">
-                  <p className="text-sm text-secondarytext">Loading OTP...</p>
-                </div>
-              )}
+              {otpLoading &&
+                (selectedRequest.status === "assigned" ||
+                  selectedRequest.status === "trip_started") && (
+                  <div className="text-center py-3">
+                    <p className="text-sm text-secondarytext">Loading OTP...</p>
+                  </div>
+                )}
 
               {/* Admin Remarks */}
               {selectedRequest.admin_remarks && (

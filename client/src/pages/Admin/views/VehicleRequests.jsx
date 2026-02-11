@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from "react";
+import React, { useState, useEffect } from "react";
 import {
   Clock,
   CheckCircle,
@@ -11,17 +11,20 @@ import {
   User,
   FileText,
   Search,
+  Info,
+  Navigation,
 } from "lucide-react";
-import {useToast} from "../../../context/ToastContext";
-import {showConfirm} from "../../../utils/swal";
+import { useToast } from "../../../context/ToastContext";
+import { showConfirm } from "../../../utils/swal";
 import Loading from "../../../components/ui/Loading";
 import CustomSearch from "../../../components/ui/CustomSearch";
+import CustomDropdown from "../../../components/ui/CustomDropdown";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem("token");
-  return token ? {Authorization: `Bearer ${token}`} : {};
+  return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
 const STATUS_CONFIG = {
@@ -29,43 +32,50 @@ const STATUS_CONFIG = {
     color: "bg-pending/10 text-pending border-pending/20",
     icon: Clock,
     label: "Pending",
+    themeColor: "amber",
   },
   approved: {
     color: "bg-primary/10 text-primary border-primary/20",
     icon: CheckCircle,
     label: "Approved",
+    themeColor: "purple",
   },
   rejected: {
     color: "bg-red/10 text-red border-red/20",
     icon: XCircle,
     label: "Rejected",
+    themeColor: "red",
   },
   assigned: {
     color: "bg-green/10 text-green border-green/20",
     icon: Truck,
     label: "Assigned",
+    themeColor: "green",
   },
   trip_started: {
-    color: "bg-blue-100 text-blue-700 border-blue-200",
+    color: "bg-primary/10 text-primary border-primary/20",
     icon: Truck,
     label: "Trip Started",
+    themeColor: "blue",
   },
   completed: {
-    color: "bg-gray-100 text-gray-600 border-gray-200",
+    color: "bg-green/10 text-green border-green/20",
     icon: CheckCircle,
     label: "Completed",
+    themeColor: "green",
   },
   cancelled: {
-    color: "bg-gray-100 text-gray-400 border-gray-200",
+    color: "bg-primarybg text-secondarytext border-primarybg",
     icon: XCircle,
     label: "Cancelled",
+    themeColor: "gray",
   },
 };
 
 const REQUEST_UNDER_OPTIONS = [
-  {value: "academic_department", label: "Academic Department"},
-  {value: "students_training", label: "Students Training"},
-  {value: "supporting_department", label: "Supporting Department"},
+  { value: "academic_department", label: "Academic Department" },
+  { value: "students_training", label: "Students Training" },
+  { value: "supporting_department", label: "Supporting Department" },
 ];
 
 const getRequestUnderLabel = (value) => {
@@ -74,7 +84,7 @@ const getRequestUnderLabel = (value) => {
 };
 
 export default function VehicleRequests() {
-  const {showToast} = useToast();
+  const { showToast } = useToast();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -89,7 +99,7 @@ export default function VehicleRequests() {
   const [assignRequest, setAssignRequest] = useState(null);
   const [vehicles, setVehicles] = useState([]);
   const [drivers, setDrivers] = useState([]);
-  const [assignForm, setAssignForm] = useState({vehicle_id: 0, driver_id: 0});
+  const [assignForm, setAssignForm] = useState({ vehicle_id: 0, driver_id: 0 });
   const [assigning, setAssigning] = useState(false);
 
   // Approve/Reject modal
@@ -97,7 +107,7 @@ export default function VehicleRequests() {
   const [actionRemarks, setActionRemarks] = useState("");
   const [actionSubmitting, setActionSubmitting] = useState(false);
   const [approveWithAssign, setApproveWithAssign] = useState(false);
-  const [approveForm, setApproveForm] = useState({vehicle_id: 0, driver_id: 0});
+  const [approveForm, setApproveForm] = useState({ vehicle_id: 0, driver_id: 0 });
 
   useEffect(() => {
     fetchRequests();
@@ -187,7 +197,7 @@ export default function VehicleRequests() {
       const res = await fetch(`${API_BASE}${endpoint}`, {
         method: "POST",
         credentials: "include",
-        headers: {"Content-Type": "application/json", ...getAuthHeaders()},
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify(body),
       });
 
@@ -203,7 +213,7 @@ export default function VehicleRequests() {
         setActionModal(null);
         setActionRemarks("");
         setApproveWithAssign(false);
-        setApproveForm({vehicle_id: 0, driver_id: 0});
+        setApproveForm({ vehicle_id: 0, driver_id: 0 });
         setSelectedRequest(null);
         fetchRequests();
       } else if (res.status === 409) {
@@ -222,7 +232,7 @@ export default function VehicleRequests() {
 
   const openAssignModal = (req) => {
     setAssignRequest(req);
-    setAssignForm({vehicle_id: 0, driver_id: 0});
+    setAssignForm({ vehicle_id: 0, driver_id: 0 });
     setShowAssignModal(true);
     fetchVehiclesAndDrivers();
   };
@@ -237,7 +247,7 @@ export default function VehicleRequests() {
       const res = await fetch(`${API_BASE}/api/admin/vehicle-request/assign`, {
         method: "POST",
         credentials: "include",
-        headers: {"Content-Type": "application/json", ...getAuthHeaders()},
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
           request_id: assignRequest.id,
           vehicle_id: assignForm.vehicle_id,
@@ -274,8 +284,8 @@ export default function VehicleRequests() {
         {
           method: "POST",
           credentials: "include",
-          headers: {"Content-Type": "application/json", ...getAuthHeaders()},
-          body: JSON.stringify({request_id: requestId}),
+          headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+          body: JSON.stringify({ request_id: requestId }),
         },
       );
       if (res.ok) {
@@ -298,15 +308,15 @@ export default function VehicleRequests() {
     );
     if (!confirmed) return;
     try {
-      const res = await fetch(
-        `${API_BASE}/api/admin/vehicle-request/cancel`,
-        {
-          method: "POST",
-          credentials: "include",
-          headers: {"Content-Type": "application/json", ...getAuthHeaders()},
-          body: JSON.stringify({request_id: requestId, admin_remarks: "Cancelled by admin"}),
-        },
-      );
+      const res = await fetch(`${API_BASE}/api/admin/vehicle-request/cancel`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({
+          request_id: requestId,
+          admin_remarks: "Cancelled by admin",
+        }),
+      });
       if (res.ok) {
         showToast("Request cancelled", "success");
         setSelectedRequest(null);
@@ -344,7 +354,7 @@ export default function VehicleRequests() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-secondarybg rounded-md shadow-sm border border-gray-100 p-6">
+      <div className="bg-secondarybg rounded-md shadow-sm border border-primarybg p-6">
         <h3 className="text-2xl font-bold text-primarytext flex items-center gap-2">
           <FileText size={24} className="text-primary" />
           Vehicle Requests
@@ -355,24 +365,26 @@ export default function VehicleRequests() {
       </div>
 
       {/* Status Tabs */}
-      <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         {Object.entries(STATUS_CONFIG).map(([key, cfg]) => {
           const StatusIcon = cfg.icon;
+          const isActive = filterStatus === key;
           return (
             <button
               key={key}
-              onClick={() => setFilterStatus(filterStatus === key ? "" : key)}
-              className={`p-3 rounded-md border text-left transition-all bg-secondarybg ${
-                filterStatus === key
-                  ? "ring-2 ring-primary border-primary"
-                  : "border-gray-100 hover:border-gray-200"
-              }`}
+              onClick={() => setFilterStatus(isActive ? "" : key)}
+              className={`p-4 rounded-md border text-left transition-all ${isActive
+                ? "bg-secondarybg ring-2 ring-primary border-primary shadow-md"
+                : "bg-secondarybg border-primarybg hover:border-primary/30"
+                }`}
             >
-              <div className="flex items-center gap-1.5 mb-1">
-                <StatusIcon size={13} className={cfg.color.split(" ")[1]} />
-                <span className="text-xs text-secondarytext">{cfg.label}</span>
+              <div className="flex items-center gap-2 mb-2">
+                <div className={`p-1.5 rounded-md ${cfg.color}`}>
+                  <StatusIcon size={14} />
+                </div>
+                <span className="text-[10px] font-bold text-secondarytext uppercase tracking-wider">{cfg.label}</span>
               </div>
-              <p className="text-lg font-bold text-primarytext">
+              <p className="text-2xl font-black text-primarytext">
                 {statusCounts[key] || 0}
               </p>
             </button>
@@ -381,7 +393,7 @@ export default function VehicleRequests() {
       </div>
 
       {/* Search */}
-      <div className="bg-secondarybg rounded-md border border-gray-100 shadow-sm p-4">
+      <div className="bg-secondarybg rounded-md border border-primarybg shadow-sm p-4">
         <CustomSearch
           value={searchQuery}
           onChange={setSearchQuery}
@@ -392,43 +404,39 @@ export default function VehicleRequests() {
 
       {/* Table */}
       {filtered.length === 0 ? (
-        <div className="bg-secondarybg rounded-md border border-gray-100 p-12 text-center">
-          <FileText size={40} className="mx-auto text-secondarytext mb-3" />
-          <p className="text-secondarytext">No vehicle requests found</p>
+        <div className="bg-secondarybg rounded-md border border-primarybg p-12 text-center">
+          <FileText size={40} className="mx-auto text-secondarytext/30 mb-3" />
+          <p className="text-secondarytext font-medium">No vehicle requests found</p>
         </div>
       ) : (
-        <div className="bg-secondarybg rounded-md border border-gray-100 shadow-sm overflow-hidden">
+        <div className="bg-secondarybg rounded-md border border-primarybg shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-primarybg border-b border-gray-200">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-secondarytext uppercase">
-                    S.No
+                <tr className="bg-primarybg/50 border-b border-primarybg">
+                  <th className="px-6 py-4 text-left text-[10px] font-bold text-secondarytext uppercase tracking-widest whitespace-nowrap">
+                    REQ ID
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-secondarytext uppercase">
-                    Faculty
+                  <th className="px-6 py-4 text-left text-[10px] font-bold text-secondarytext uppercase tracking-widest whitespace-nowrap">
+                    Faculty Details
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-secondarytext uppercase">
+                  <th className="px-6 py-4 text-left text-[10px] font-bold text-secondarytext uppercase tracking-widest whitespace-nowrap">
                     Purpose
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-secondarytext uppercase">
-                    Date
+                  <th className="px-6 py-4 text-left text-[10px] font-bold text-secondarytext uppercase tracking-widest whitespace-nowrap">
+                    Journey Details
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-secondarytext uppercase">
-                    Route
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-secondarytext uppercase">
+                  <th className="px-6 py-4 text-left text-[10px] font-bold text-secondarytext uppercase tracking-widest whitespace-nowrap">
                     Status
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-secondarytext uppercase">
-                    Vehicle
+                  <th className="px-6 py-4 text-left text-[10px] font-bold text-secondarytext uppercase tracking-widest whitespace-nowrap">
+                    Assignment
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-primarybg">
                 {filtered.map((req, idx) => {
-                  const cfg =
-                    STATUS_CONFIG[req.status] || STATUS_CONFIG.pending;
+                  const cfg = STATUS_CONFIG[req.status] || STATUS_CONFIG.pending;
                   const StatusIcon = cfg.icon;
                   const departureDateTime = req.onward_from_datetime;
                   const departurePlace = req.onward_from_place;
@@ -438,52 +446,59 @@ export default function VehicleRequests() {
                     <tr
                       key={req.id}
                       onClick={() => fetchRequestDetail(req.id)}
-                      className="hover:bg-primarybg/50 transition-colors cursor-pointer"
+                      className="hover:bg-primarybg/30 transition-colors cursor-pointer group"
                     >
-                      <td className="px-4 py-3 font-medium text-primarytext">
-                        {idx + 1}
+                      <td className="px-6 py-4">
+                        <span className="font-mono text-xs font-bold text-primary">#{req.id}</span>
                       </td>
-                      <td className="px-4 py-3">
-                        <p className="font-medium text-primarytext">
+                      <td className="px-6 py-4">
+                        <p className="font-bold text-primarytext leading-tight">
                           {req.faculty_name}
                         </p>
-                        <p className="text-xs text-secondarytext">
+                        <p className="text-[11px] text-secondarytext mt-0.5">
                           {req.faculty_department}
                         </p>
                       </td>
-                      <td className="px-4 py-3">
-                        <p className="text-primarytext truncate max-w-[200px]">
+                      <td className="px-6 py-4">
+                        <p className="text-secondarytext text-xs line-clamp-1 max-w-[200px]">
                           {req.purpose}
                         </p>
                       </td>
-                      <td className="px-4 py-3 text-secondarytext whitespace-nowrap">
-                        {departureDateTime || "-"}
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col gap-1">
+                          <p className="text-xs font-bold text-primarytext">
+                            {departurePlace} {arrivalPlace && `→ ${arrivalPlace}`}
+                          </p>
+                          <p className="text-[10px] text-secondarytext font-mono">
+                            {departureDateTime || "-"}
+                          </p>
+                        </div>
                       </td>
-                      <td className="px-4 py-3 text-secondarytext text-xs">
-                        {departurePlace
-                          ? `${departurePlace}${arrivalPlace ? ` → ${arrivalPlace}` : ""}`
-                          : "-"}
-                      </td>
-                      <td className="px-4 py-3">
+                      <td className="px-6 py-4">
                         <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium border ${cfg.color}`}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${cfg.color}`}
                         >
-                          <StatusIcon size={11} />
+                          <StatusIcon size={12} strokeWidth={2.5} />
                           {cfg.label}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-xs">
+                      <td className="px-6 py-4">
                         {req.vehicle_name ? (
-                          <div>
-                            <p className="text-primarytext font-medium">
-                              {req.vehicle_name}
-                            </p>
-                            <p className="text-secondarytext">
-                              {req.driver_name}
-                            </p>
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded bg-primary/10 flex items-center justify-center text-primary">
+                              <Truck size={14} />
+                            </div>
+                            <div>
+                              <p className="text-[11px] font-bold text-primarytext">
+                                {req.vehicle_number}
+                              </p>
+                              <p className="text-[10px] text-secondarytext">
+                                {req.driver_name}
+                              </p>
+                            </div>
                           </div>
                         ) : (
-                          <span className="text-secondarytext">—</span>
+                          <span className="text-[10px] font-bold text-secondarytext uppercase tracking-widest opacity-40 italic">Not Assigned</span>
                         )}
                       </td>
                     </tr>
@@ -497,18 +512,37 @@ export default function VehicleRequests() {
 
       {/* ========== DETAIL MODAL ========== */}
       {selectedRequest && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-secondarybg rounded-md shadow-xl w-full max-w-2xl max-h-[85vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-5 border-b border-gray-100 sticky top-0 bg-secondarybg z-10">
-              <h3 className="text-lg font-bold text-primarytext">
-                Request Details
-              </h3>
-              <button
-                onClick={() => setSelectedRequest(null)}
-                className="p-1.5 rounded-md hover:bg-primarybg transition-colors"
-              >
-                <X size={18} className="text-secondarytext" />
-              </button>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-secondarybg rounded-md shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-scaleIn">
+            {/* Header */}
+            <div className="p-6 border-b border-primarybg/50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className={`w-14 h-14 rounded-md flex items-center justify-center text-secondarybg shadow-lg ${STATUS_CONFIG[selectedRequest.status]?.themeColor === 'green' ? 'bg-green' : STATUS_CONFIG[selectedRequest.status]?.themeColor === 'red' ? 'bg-red' : STATUS_CONFIG[selectedRequest.status]?.themeColor === 'amber' ? 'bg-pending' : 'bg-primary'}`}>
+                    {React.createElement(STATUS_CONFIG[selectedRequest.status]?.icon || Truck, { size: 28, strokeWidth: 2.5 })}
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-primarytext">
+                      Request Details
+                      <span className="ml-2 text-sm text-secondarytext font-mono">#{selectedRequest.id}</span>
+                    </h2>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${STATUS_CONFIG[selectedRequest.status]?.color}`}>
+                        {STATUS_CONFIG[selectedRequest.status]?.label}
+                      </span>
+                      <p className="text-sm text-secondarytext font-medium">
+                        {selectedRequest.faculty_name} · {selectedRequest.faculty_department}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedRequest(null)}
+                  className="text-secondarytext hover:text-primarytext rounded-md p-2 hover:bg-primarybg transition-all"
+                >
+                  <X size={24} />
+                </button>
+              </div>
             </div>
 
             {loadingDetail ? (
@@ -516,304 +550,223 @@ export default function VehicleRequests() {
                 <Loading fullScreen={false} size="small" />
               </div>
             ) : (
-              <div className="p-5 space-y-4">
-                {/* Status */}
-                {(() => {
-                  const cfg =
-                    STATUS_CONFIG[selectedRequest.status] ||
-                    STATUS_CONFIG.pending;
-                  const StatusIcon = cfg.icon;
-                  return (
-                    <span
-                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-sm font-medium border ${cfg.color}`}
-                    >
-                      <StatusIcon size={14} />
-                      {cfg.label}
-                    </span>
-                  );
-                })()}
-
-                {/* Faculty Info */}
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <span className="text-secondarytext">Faculty:</span>
-                    <p className="font-medium text-primarytext">
-                      {selectedRequest.faculty_name}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-secondarytext">Department:</span>
-                    <p className="font-medium text-primarytext">
-                      {selectedRequest.faculty_department}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-secondarytext">Email:</span>
-                    <p className="font-medium text-primarytext">
-                      {selectedRequest.faculty_email}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-secondarytext">Phone:</span>
-                    <p className="font-medium text-primarytext">
-                      {selectedRequest.faculty_phone}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-secondarytext">Trip Type:</span>
-                    <p className="font-medium text-primarytext">
-                      {selectedRequest.trip_type === "guest_pickup" ? "Guest Pick up" : 
-                       selectedRequest.trip_type === "guest_drop" ? "Guest Drop" : 
-                       selectedRequest.trip_type === "faculty_staff_visit" ? "Faculty/Staff Visit" : 
-                       selectedRequest.trip_type?.replace(/_/g, " ")}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-secondarytext">Request Under:</span>
-                    <p className="font-medium text-primarytext">
-                      {getRequestUnderLabel(selectedRequest.request_under)}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-secondarytext">Vertical:</span>
-                    <p className="font-medium text-primarytext">
-                      {selectedRequest.vertical || "-"}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-secondarytext">
-                      Total Passengers:
-                    </span>
-                    <p className="font-medium text-primarytext">
-                      {selectedRequest.count_person ??
-                        selectedRequest.total_passengers ??
-                        "-"}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-secondarytext">Oral Approval:</span>
-                    <p className="font-medium text-primarytext">
-                      {typeof selectedRequest.oral_approval === "boolean"
-                        ? selectedRequest.oral_approval
-                          ? "Yes"
-                          : "No"
-                        : "-"}
-                    </p>
-                  </div>
-                </div>
-
-                <div>
-                  <span className="text-sm text-secondarytext">Purpose:</span>
-                  <p className="mt-1 text-sm text-primarytext bg-primarybg rounded-md p-3">
-                    {selectedRequest.purpose}
-                  </p>
-                </div>
-
-                {/* Trip Legs */}
-                <div>
-                  <p className="text-sm font-semibold text-primarytext mb-2">
-                    Trip Legs
-                  </p>
-                  {selectedRequest.trips?.length ? (
-                    selectedRequest.trips.map((trip, idx) => (
-                      <div
-                        key={idx}
-                        className="border border-gray-100 rounded-md p-3 mb-2"
-                      >
-                        <p className="text-xs font-semibold text-secondarytext mb-2">
-                          Leg {trip.trip_order}
-                        </p>
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                          <div className="bg-primarybg rounded-md p-2">
-                            <p className="text-primary font-medium mb-0.5">
-                              Departure
-                            </p>
-                            <p className="text-primarytext">
-                              {trip.departure_date} · {trip.departure_time}
-                            </p>
-                            <p className="text-secondarytext">
-                              {trip.departure_location}
-                            </p>
-                          </div>
-                          <div className="bg-primarybg rounded-md p-2">
-                            <p className="text-green font-medium mb-0.5">
-                              Arrival
-                            </p>
-                            <p className="text-primarytext">
-                              {trip.arrival_date} · {trip.arrival_time}
-                            </p>
-                            <p className="text-secondarytext">
-                              {trip.arrival_location}
-                            </p>
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {/* Trip Timeline & Location Section */}
+                <div className="bg-primarybg rounded-md p-4">
+                  <h4 className="text-xs font-bold text-secondarytext uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <Navigation size={14} /> Journey Details
+                  </h4>
+                  <div className="grid grid-cols-1 gap-4">
+                    {selectedRequest.trips?.length ? (
+                      selectedRequest.trips.map((trip, idx) => (
+                        <div key={idx} className="bg-secondarybg p-4 rounded-md border border-primarybg/50 relative">
+                          <div className="absolute top-3 right-3 px-2 py-0.5 bg-primary/5 text-primary text-[10px] font-bold rounded uppercase">Leg {trip.trip_order}</div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                              <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider">Departure</p>
+                              <p className="text-sm font-bold text-primarytext">{trip.departure_location}</p>
+                              <p className="text-[11px] text-secondarytext font-mono">{trip.departure_date} {trip.departure_time && `· ${trip.departure_time}`}</p>
+                            </div>
+                            <div className="space-y-1">
+                              <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider">Arrival</p>
+                              <p className="text-sm font-bold text-primarytext">{trip.arrival_location}</p>
+                              <p className="text-[11px] text-secondarytext font-mono">{trip.arrival_date} {trip.arrival_time && `· ${trip.arrival_time}`}</p>
+                            </div>
                           </div>
                         </div>
-                        <div className="mt-1.5 text-xs text-secondarytext">
-                          {trip.num_passengers} passenger(s)
-                          {trip.passenger_contacts &&
-                            ` · ${trip.passenger_contacts}`}
-                          {trip.outcome_auditable &&
-                            ` · ${trip.outcome_auditable}`}
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="border border-gray-100 rounded-md p-3">
-                      <div className={`grid ${selectedRequest.return_from_datetime || selectedRequest.return_from_place ? 'grid-cols-2' : 'grid-cols-1'} gap-2 text-xs`}>
-                        <div className="bg-primarybg rounded-md p-2">
-                          <p className="text-primary font-medium mb-0.5">
-                            {selectedRequest.return_from_datetime || selectedRequest.return_from_place ? 'Onward' : 'Trip Details'}
-                          </p>
-                          <p className="text-primarytext">
-                            {selectedRequest.onward_from_datetime || "-"}
-                          </p>
-                          <p className="text-secondarytext">
-                            {selectedRequest.onward_from_place
-                              ? `${selectedRequest.onward_from_place}${selectedRequest.onward_to_place ? ` → ${selectedRequest.onward_to_place}` : ""}`
-                              : "-"}
-                          </p>
-                        </div>
-                        {(selectedRequest.return_from_datetime || selectedRequest.return_from_place) && (
-                          <div className="bg-primarybg rounded-md p-2">
-                            <p className="text-green font-medium mb-0.5">
-                              Return
-                            </p>
-                            <p className="text-primarytext">
-                              {selectedRequest.return_from_datetime || "-"}
-                            </p>
-                            <p className="text-secondarytext">
-                              {selectedRequest.return_from_place
-                                ? `${selectedRequest.return_from_place}${selectedRequest.return_to_place ? ` → ${selectedRequest.return_to_place}` : ""}`
-                                : "-"}
-                            </p>
+                      ))
+                    ) : (
+                      <div className="bg-secondarybg p-4 rounded-md border border-primarybg/50">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider">From</p>
+                            <p className="text-sm font-bold text-primarytext">{selectedRequest.onward_from_place}</p>
+                            <p className="text-[11px] text-secondarytext font-mono">{selectedRequest.onward_from_datetime}</p>
                           </div>
-                        )}
-                      </div>
-                      <div className="mt-1.5 text-xs text-secondarytext">
-                        {selectedRequest.count_person
-                          ? `${selectedRequest.count_person} passenger(s)`
-                          : ""}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Assignment Info */}
-                {(selectedRequest.status === "assigned" || selectedRequest.status === "trip_started" || selectedRequest.status === "completed") && selectedRequest.vehicle_name && (
-                  <div className="bg-green/5 border border-green/20 rounded-md p-4">
-                    <p className="text-sm font-semibold text-green mb-2">
-                      Assigned Vehicle & Driver
-                    </p>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <span className="text-secondarytext">Vehicle:</span>
-                        <p className="font-medium text-primarytext">
-                          {selectedRequest.vehicle_name ||
-                            selectedRequest.vehicle_number}
-                        </p>
-                      </div>
-                      <div>
-                        <span className="text-secondarytext">Driver:</span>
-                        <p className="font-medium text-primarytext">
-                          {selectedRequest.driver_name}
-                        </p>
-                      </div>
-                    </div>
-                    {/* Trip Timeline */}
-                    {(selectedRequest.trip_started_at || selectedRequest.trip_ended_at) && (
-                      <div className="mt-3 pt-3 border-t border-green/20 space-y-1 text-xs text-secondarytext">
-                        {selectedRequest.trip_started_at && (
-                          <p>Trip Started: <span className="font-medium text-primarytext">{selectedRequest.trip_started_at}</span></p>
-                        )}
-                        {selectedRequest.trip_ended_at && (
-                          <p>Trip Ended: <span className="font-medium text-primarytext">{selectedRequest.trip_ended_at}</span></p>
-                        )}
+                          <div className="space-y-1">
+                            <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider">To</p>
+                            <p className="text-sm font-bold text-primarytext">{selectedRequest.onward_to_place}</p>
+                            <p className="text-[11px] text-secondarytext font-mono">{selectedRequest.onward_to_datetime}</p>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
-                )}
+                </div>
 
-                {/* OTP Status Info */}
-                {selectedRequest.status === "assigned" && (
-                  <div className="bg-primary/5 border border-primary/20 rounded-md p-3">
-                    <p className="text-xs text-primary font-medium">Start OTP has been sent to the requester. Waiting for driver to verify.</p>
+                {/* Faculty & Booking Details Section */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-primarybg rounded-md p-4">
+                    <h4 className="text-xs font-bold text-secondarytext uppercase tracking-widest mb-3 flex items-center gap-2">
+                      <User size={14} /> Faculty Information
+                    </h4>
+                    <div className="bg-secondarybg border border-primarybg/50 rounded-md p-4 space-y-3">
+                      <div>
+                        <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider">Name & Dept</p>
+                        <p className="text-sm font-bold text-primarytext">{selectedRequest.faculty_name}</p>
+                        <p className="text-xs font-medium text-secondarytext">{selectedRequest.faculty_department}</p>
+                      </div>
+                      <div className="flex gap-4 pt-2 border-t border-primarybg">
+                        <div className="flex-1">
+                          <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider">Email</p>
+                          <p className="text-xs font-bold text-primarytext">{selectedRequest.faculty_email}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider">Phone</p>
+                          <p className="text-xs font-bold text-primary">{selectedRequest.faculty_phone}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-primarybg rounded-md p-4">
+                    <h4 className="text-xs font-bold text-secondarytext uppercase tracking-widest mb-3 flex items-center gap-2">
+                      <Info size={14} /> Booking Metadata
+                    </h4>
+                    <div className="bg-secondarybg border border-primarybg/50 rounded-md p-4 space-y-2">
+                      <div className="flex justify-between items-center py-1 group/md">
+                        <span className="text-xs font-medium text-secondarytext">Trip Type</span>
+                        <span className="text-xs font-bold text-primarytext uppercase tracking-tighter">{selectedRequest.trip_type?.replace(/_/g, " ")}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-1 group/md border-t border-primarybg/50">
+                        <span className="text-xs font-medium text-secondarytext">Trip Mode</span>
+                        <span className="text-xs font-bold text-primarytext uppercase tracking-tighter">{selectedRequest.trip_mode || "Official"}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-1 group/md border-t border-primarybg/50">
+                        <span className="text-xs font-medium text-secondarytext">Passengers</span>
+                        <span className="px-2 py-0.5 bg-primary/5 text-primary text-[10px] font-black rounded-full">{selectedRequest.count_person || 1} Persons</span>
+                      </div>
+                      <div className="flex justify-between items-center py-1 group/md border-t border-primarybg/50">
+                        <span className="text-xs font-medium text-secondarytext">Vertical</span>
+                        <span className="text-xs font-bold text-primarytext">{selectedRequest.vertical || "-"}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Purpose & Admin Remarks Section */}
+                <div className="bg-primarybg rounded-md p-4">
+                  <h4 className="text-xs font-bold text-secondarytext uppercase tracking-widest mb-3 flex items-center gap-2">
+                    <FileText size={14} /> Purpose & Remarks
+                  </h4>
+                  <div className="space-y-4">
+                    <div className="bg-secondarybg border border-primarybg/50 rounded-md p-4">
+                      <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider mb-2">Detailed Purpose</p>
+                      <p className="text-sm font-medium text-primarytext leading-relaxed bg-primarybg/20 p-3 rounded italic">"{selectedRequest.purpose}"</p>
+                    </div>
+                    {selectedRequest.admin_remarks && (
+                      <div className="bg-amber-50 border border-amber-200 rounded-md p-4">
+                        <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider mb-2">Admin Remarks</p>
+                        <p className="text-sm text-amber-800 font-medium italic">{selectedRequest.admin_remarks}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Assignment & OTP Info Section */}
+                {(selectedRequest.vehicle_name || selectedRequest.status === "assigned" || selectedRequest.status === "trip_started") && (
+                  <div className="bg-primarybg rounded-md p-4 border border-dashed border-primary">
+                    <h4 className="text-xs font-bold text-primary uppercase tracking-widest mb-3 flex items-center gap-2">
+                      <Truck size={14} /> Assignment & Status Tracking
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {selectedRequest.vehicle_name && (
+                        <div className="bg-secondarybg p-3 rounded-md border border-primarybg flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-md bg-primary text-secondarybg flex items-center justify-center shadow-md">
+                            <Truck size={20} />
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-primarytext leading-none">{selectedRequest.vehicle_name}</p>
+                            <p className="text-[10px] font-bold text-primary uppercase tracking-widest">{selectedRequest.driver_name}</p>
+                          </div>
+                        </div>
+                      )}
+                      <div className="bg-secondarybg p-3 rounded-md border border-primarybg space-y-2">
+                        {selectedRequest.start_otp && (
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="font-bold text-secondarytext uppercase tracking-tighter">Start OTP</span>
+                            <span className="font-mono font-bold text-primary bg-primary/5 px-2 py-0.5 rounded tracking-widest">{selectedRequest.start_otp}</span>
+                          </div>
+                        )}
+                        {selectedRequest.end_otp && (
+                          <div className="flex justify-between items-center text-xs border-t border-primarybg pt-2">
+                            <span className="font-bold text-secondarytext uppercase tracking-tighter">End OTP</span>
+                            <span className="font-mono font-bold text-green bg-green/5 px-2 py-0.5 rounded tracking-widest">{selectedRequest.end_otp}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* OTP Status Info Bars */}
+                    <div className="mt-4 space-y-2">
+                      {selectedRequest.status === "assigned" && (
+                        <div className="px-3 py-2 bg-primary/10 border border-primary/20 rounded text-[11px] text-primary font-bold flex items-center gap-2">
+                          <Clock size={14} /> WAITING FOR DRIVER TO START JOURNEY
+                        </div>
+                      )}
+                      {selectedRequest.status === "trip_started" && (
+                        <div className="px-3 py-2 bg-green/10 border border-green/20 rounded text-[11px] text-green font-bold flex items-center gap-2">
+                          <Play size={14} /> TRIP IS CURRENTLY IN PROGRESS
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
-                {selectedRequest.status === "trip_started" && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-                    <p className="text-xs text-blue-700 font-medium">Trip is in progress. End OTP has been sent to the requester.</p>
-                  </div>
-                )}
 
-                {/* Action Buttons */}
-                <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
+                {/* Footer Modal Actions */}
+                <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t border-primarybg">
                   {selectedRequest.status === "pending" && (
                     <>
                       <button
                         onClick={() => {
-                          setActionModal({
-                            type: "approve",
-                            request: selectedRequest,
-                          });
+                          setActionModal({ type: "approve", request: selectedRequest });
                           setActionRemarks("");
                         }}
-                        className="px-4 py-2 bg-green text-white rounded-md hover:bg-green/90 transition-colors text-sm font-medium"
+                        className="px-6 py-2.5 bg-green text-secondarybg rounded-md font-bold text-sm shadow-lg shadow-green/20 hover:opacity-90 transition-all active:scale-[0.98]"
                       >
-                        Approve
+                        Approve Request
                       </button>
                       <button
                         onClick={() => {
-                          setActionModal({
-                            type: "reject",
-                            request: selectedRequest,
-                          });
+                          setActionModal({ type: "reject", request: selectedRequest });
                           setActionRemarks("");
                         }}
-                        className="px-4 py-2 bg-red text-white rounded-md hover:bg-red/90 transition-colors text-sm font-medium"
+                        className="px-6 py-2.5 bg-red text-secondarybg rounded-md font-bold text-sm shadow-lg shadow-red/20 hover:opacity-90 transition-all active:scale-[0.98]"
                       >
                         Reject
-                      </button>
-                      <button
-                        onClick={() => handleCancel(selectedRequest.id)}
-                        className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors text-sm font-medium"
-                      >
-                        Cancel
                       </button>
                     </>
                   )}
                   {selectedRequest.status === "approved" && (
-                    <>
-                      <button
-                        onClick={() => openAssignModal(selectedRequest)}
-                        className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors text-sm font-medium"
-                      >
-                        Assign Vehicle & Driver
-                      </button>
-                      <button
-                        onClick={() => handleCancel(selectedRequest.id)}
-                        className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors text-sm font-medium"
-                      >
-                        Cancel
-                      </button>
-                    </>
+                    <button
+                      onClick={() => openAssignModal(selectedRequest)}
+                      className="px-8 py-2.5 bg-primary text-secondarybg rounded-md font-bold text-sm shadow-lg shadow-primary/20 hover:opacity-90 transition-all active:scale-[0.98]"
+                    >
+                      Assign Vehicle & Driver
+                    </button>
                   )}
                   {(selectedRequest.status === "assigned" || selectedRequest.status === "trip_started") && (
-                    <>
-                      <button
-                        onClick={() => handleComplete(selectedRequest.id)}
-                        className="px-4 py-2 bg-green text-white rounded-md hover:bg-green/90 transition-colors text-sm font-medium"
-                      >
-                        Mark Completed (Override)
-                      </button>
-                      {selectedRequest.status === "assigned" && (
-                        <button
-                          onClick={() => handleCancel(selectedRequest.id)}
-                          className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors text-sm font-medium"
-                        >
-                          Cancel
-                        </button>
-                      )}
-                    </>
+                    <button
+                      onClick={() => handleComplete(selectedRequest.id)}
+                      className="px-6 py-2.5 bg-green text-secondarybg rounded-md font-bold text-sm shadow-lg shadow-green/20 hover:opacity-90 transition-all active:scale-[0.98]"
+                    >
+                      Mark Completed (Admin Override)
+                    </button>
                   )}
+                  {(selectedRequest.status === "pending" || selectedRequest.status === "approved" || selectedRequest.status === "assigned") && (
+                    <button
+                      onClick={() => handleCancel(selectedRequest.id)}
+                      className="px-6 py-2.5 bg-secondarybg border border-primarytext/10 text-primarytext font-bold text-sm rounded-md hover:bg-primarybg transition-all"
+                    >
+                      Cancel Request
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setSelectedRequest(null)}
+                    className="px-6 py-2.5 bg-primarybg text-secondarytext font-bold text-sm rounded-md hover:bg-primarybg transition-all shadow-sm"
+                  >
+                    Close
+                  </button>
                 </div>
               </div>
             )}
@@ -823,44 +776,35 @@ export default function VehicleRequests() {
 
       {/* ========== APPROVE/REJECT MODAL ========== */}
       {actionModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4">
-          <div className="bg-secondarybg rounded-md shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-5 border-b border-gray-100 sticky top-0 bg-secondarybg z-10">
-              <h3 className="text-lg font-bold text-primarytext capitalize">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-60 p-4 animate-fadeIn">
+          <div className="bg-secondarybg rounded-md shadow-2xl w-full max-w-lg overflow-hidden flex flex-col animate-scaleIn">
+            <div className="flex items-center justify-between p-6 border-b border-primarybg/50">
+              <h3 className="text-xl font-bold text-primarytext capitalize">
                 {actionModal.type} Request
               </h3>
               <button
                 onClick={() => {
                   setActionModal(null);
                   setApproveWithAssign(false);
-                  setApproveForm({vehicle_id: 0, driver_id: 0});
+                  setApproveForm({ vehicle_id: 0, driver_id: 0 });
                 }}
-                className="p-1.5 rounded-md hover:bg-primarybg"
+                className="p-2 rounded-md hover:bg-primarybg text-secondarytext hover:text-primarytext transition-all"
               >
-                <X size={18} className="text-secondarytext" />
+                <X size={20} />
               </button>
             </div>
-            <div className="p-5 space-y-4">
-              <div>
-                <p className="text-sm text-secondarytext mb-1">
-                  Faculty: {actionModal.request.faculty_name}
+            <div className="p-6 space-y-5">
+              <div className="bg-primarybg rounded-md p-4">
+                <p className="text-[10px] font-bold text-secondarytext uppercase tracking-widest mb-1">Request Summary</p>
+                <p className="text-sm font-bold text-primarytext">
+                  {actionModal.request.faculty_name} · {actionModal.request.faculty_department}
                 </p>
-                <p className="text-sm text-secondarytext">
-                  Purpose: {actionModal.request.purpose}
-                </p>
-                {actionModal.request.trips?.[0] && (
-                  <p className="text-xs text-secondarytext mt-1">
-                    {actionModal.request.trips[0].departure_date} ·{" "}
-                    {actionModal.request.trips[0].departure_location} →{" "}
-                    {actionModal.request.trips[0].arrival_location}
-                  </p>
-                )}
+                <p className="text-xs text-secondarytext mt-1 italic">"{actionModal.request.purpose}"</p>
               </div>
 
-              {/* Approve with assignment option */}
               {actionModal.type === "approve" && (
-                <div className="border border-gray-200 rounded-md p-3">
-                  <label className="flex items-center gap-2 cursor-pointer">
+                <div className="border border-primarybg rounded-md p-4 bg-primary/5">
+                  <label className="flex items-center gap-3 cursor-pointer group">
                     <input
                       type="checkbox"
                       checked={approveWithAssign}
@@ -870,107 +814,73 @@ export default function VehicleRequests() {
                           fetchVehiclesAndDrivers();
                         }
                       }}
-                      className="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary"
+                      className="w-5 h-5 text-primary rounded border-primarybg focus:ring-primary/20 accent-primary"
                     />
-                    <span className="text-sm font-medium text-primarytext">
+                    <span className="text-sm font-bold text-primarytext group-hover:text-primary transition-colors">
                       Approve and assign vehicle/driver directly
                     </span>
                   </label>
 
                   {approveWithAssign && (
-                    <div className="mt-4 space-y-3">
-                      {/* Vehicle Select */}
-                      <div>
-                        <label className="block text-sm font-medium text-secondarytext mb-1">
-                          Vehicle <span className="text-red">*</span>
-                        </label>
-                        <select
-                          value={approveForm.vehicle_id}
-                          onChange={(e) =>
-                            setApproveForm((p) => ({
-                              ...p,
-                              vehicle_id: parseInt(e.target.value),
-                            }))
-                          }
-                          className="w-full px-3 py-2 border border-gray-200 rounded-md bg-white text-sm text-primarytext focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-                        >
-                          <option value={0}>Select vehicle...</option>
-                          {vehicles.map((v) => (
-                            <option key={v.id} value={v.id}>
-                              {v.vehicle_name || v.vehicle_number} (
-                              {v.vehicle_type} · {v.seating_capacity} seats)
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Driver Select */}
-                      <div>
-                        <label className="block text-sm font-medium text-secondarytext mb-1">
-                          Driver <span className="text-red">*</span>
-                        </label>
-                        <select
-                          value={approveForm.driver_id}
-                          onChange={(e) =>
-                            setApproveForm((p) => ({
-                              ...p,
-                              driver_id: parseInt(e.target.value),
-                            }))
-                          }
-                          className="w-full px-3 py-2 border border-gray-200 rounded-md bg-white text-sm text-primarytext focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-                        >
-                          <option value={0}>Select driver...</option>
-                          {drivers.map((d) => (
-                            <option key={d.id} value={d.id}>
-                              {d.full_name} ({d.license_type})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                    <div className="mt-5 space-y-4 animate-fadeIn">
+                      <CustomDropdown
+                        label="Select Vehicle"
+                        options={vehicles.map(v => ({ value: v.id, label: `${v.vehicle_number} (${v.vehicle_name || v.vehicle_type})` }))}
+                        value={approveForm.vehicle_id}
+                        onChange={(val) => setApproveForm(p => ({ ...p, vehicle_id: val }))}
+                        required
+                      />
+                      <CustomDropdown
+                        label="Select Driver"
+                        options={drivers.map(d => ({ value: d.id, label: d.full_name }))}
+                        value={approveForm.driver_id}
+                        onChange={(val) => setApproveForm(p => ({ ...p, driver_id: val }))}
+                        required
+                      />
                     </div>
                   )}
                 </div>
               )}
 
               <div>
-                <label className="block text-sm font-medium text-secondarytext mb-1">
-                  Remarks (optional)
+                <label className="block text-[11px] font-black text-secondarytext uppercase tracking-widest mb-2">
+                  Admin Remarks (optional)
                 </label>
                 <textarea
                   value={actionRemarks}
                   onChange={(e) => setActionRemarks(e.target.value)}
                   rows={3}
-                  placeholder="Add remarks..."
-                  className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm text-primarytext focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none"
+                  placeholder="Add your comments here..."
+                  className="w-full px-4 py-3 border border-primarybg rounded-md text-sm text-primarytext focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none resize-none bg-primarybg/20 transition-all font-medium"
                 />
               </div>
-              <div className="flex justify-end gap-2">
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-primarybg">
                 <button
                   onClick={() => {
                     setActionModal(null);
                     setApproveWithAssign(false);
-                    setApproveForm({vehicle_id: 0, driver_id: 0});
+                    setApproveForm({ vehicle_id: 0, driver_id: 0 });
                   }}
-                  className="px-4 py-2 border border-gray-200 text-secondarytext rounded-md hover:bg-gray-50 text-sm font-medium"
+                  className="px-6 py-2.5 bg-secondarybg border border-primarybg text-secondarytext rounded-md hover:bg-primarybg font-bold text-sm transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleAction}
                   disabled={actionSubmitting}
-                  className={`px-5 py-2 text-white rounded-md text-sm font-medium disabled:opacity-50 ${
-                    actionModal.type === "approve"
-                      ? "bg-green hover:bg-green/90"
-                      : "bg-red hover:bg-red/90"
-                  }`}
+                  className={`px-8 py-2.5 text-secondarybg rounded-md text-sm font-bold shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 ${actionModal.type === "approve"
+                    ? "bg-green shadow-green/20"
+                    : "bg-red shadow-red/20"
+                    }`}
                 >
                   {actionSubmitting
                     ? "Processing..."
                     : actionModal.type === "approve"
                       ? approveWithAssign
-                        ? "Approve & Assign"
-                        : "Approve"
-                      : "Reject"}
+                        ? "Confirm & Assign"
+                        : "Approve Request"
+                      : "Reject Request"}
                 </button>
               </div>
             </div>
@@ -980,99 +890,58 @@ export default function VehicleRequests() {
 
       {/* ========== ASSIGN VEHICLE MODAL ========== */}
       {showAssignModal && assignRequest && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4">
-          <div className="bg-secondarybg rounded-md shadow-xl w-full max-w-lg">
-            <div className="flex items-center justify-between p-5 border-b border-gray-100">
-              <h3 className="text-lg font-bold text-primarytext">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-60 p-4 animate-fadeIn">
+          <div className="bg-secondarybg rounded-md shadow-2xl w-full max-w-lg overflow-hidden flex flex-col animate-scaleIn">
+            <div className="flex items-center justify-between p-6 border-b border-primarybg/50">
+              <h3 className="text-xl font-bold text-primarytext">
                 Assign Vehicle & Driver
               </h3>
               <button
                 onClick={() => setShowAssignModal(false)}
-                className="p-1.5 rounded-md hover:bg-primarybg"
+                className="p-2 rounded-md hover:bg-primarybg text-secondarytext hover:text-primarytext transition-all"
               >
-                <X size={18} className="text-secondarytext" />
+                <X size={20} />
               </button>
             </div>
-            <div className="p-5 space-y-4">
-              {/* Request summary */}
-              <div className="bg-primarybg rounded-md p-3 text-sm">
-                <p className="font-medium text-primarytext">
-                  Request — {assignRequest.faculty_name}
+            <div className="p-6 space-y-6">
+              <div className="bg-primarybg rounded-md p-4">
+                <p className="text-[10px] font-bold text-secondarytext uppercase tracking-widest mb-1">Request Detail</p>
+                <p className="text-sm font-bold text-primarytext">
+                  {assignRequest.faculty_name} · {assignRequest.faculty_department}
                 </p>
-                <p className="text-secondarytext mt-1">
-                  {assignRequest.purpose}
-                </p>
-                {assignRequest.trips?.[0] && (
-                  <p className="text-xs text-secondarytext mt-1">
-                    {assignRequest.trips[0].departure_date} ·{" "}
-                    {assignRequest.trips[0].departure_location} →{" "}
-                    {assignRequest.trips[0].arrival_location}
-                  </p>
-                )}
+                <p className="text-xs text-secondarytext mt-1 italic">"{assignRequest.purpose}"</p>
               </div>
 
-              {/* Vehicle Select */}
-              <div>
-                <label className="block text-sm font-medium text-secondarytext mb-1">
-                  Vehicle <span className="text-red">*</span>
-                </label>
-                <select
+              <div className="space-y-4">
+                <CustomDropdown
+                  label="Select Vehicle"
+                  options={vehicles.map(v => ({ value: v.id, label: `${v.vehicle_number} (${v.vehicle_name || v.vehicle_type})` }))}
                   value={assignForm.vehicle_id}
-                  onChange={(e) =>
-                    setAssignForm((p) => ({
-                      ...p,
-                      vehicle_id: parseInt(e.target.value),
-                    }))
-                  }
-                  className="w-full px-3 py-2 border border-gray-200 rounded-md bg-white text-sm text-primarytext focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-                >
-                  <option value={0}>Select vehicle...</option>
-                  {vehicles.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.vehicle_name || v.vehicle_number} ({v.vehicle_type} ·{" "}
-                      {v.seating_capacity} seats)
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Driver Select */}
-              <div>
-                <label className="block text-sm font-medium text-secondarytext mb-1">
-                  Driver <span className="text-red">*</span>
-                </label>
-                <select
+                  onChange={(val) => setAssignForm(p => ({ ...p, vehicle_id: val }))}
+                  required
+                />
+                <CustomDropdown
+                  label="Select Driver"
+                  options={drivers.map(d => ({ value: d.id, label: d.full_name }))}
                   value={assignForm.driver_id}
-                  onChange={(e) =>
-                    setAssignForm((p) => ({
-                      ...p,
-                      driver_id: parseInt(e.target.value),
-                    }))
-                  }
-                  className="w-full px-3 py-2 border border-gray-200 rounded-md bg-white text-sm text-primarytext focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-                >
-                  <option value={0}>Select driver...</option>
-                  {drivers.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.full_name} ({d.license_type})
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setAssignForm(p => ({ ...p, driver_id: val }))}
+                  required
+                />
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+              <div className="flex justify-end gap-3 pt-4 border-t border-primarybg">
                 <button
                   onClick={() => setShowAssignModal(false)}
-                  className="px-4 py-2 border border-gray-200 text-secondarytext rounded-md hover:bg-gray-50 text-sm font-medium"
+                  className="px-6 py-2.5 bg-secondarybg border border-primarybg text-secondarytext rounded-md hover:bg-primarybg font-bold text-sm transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleAssign}
                   disabled={assigning}
-                  className="px-5 py-2 bg-primary text-white rounded-md hover:bg-primary/90 text-sm font-medium disabled:opacity-50"
+                  className="px-10 py-2.5 bg-primary text-secondarybg rounded-md hover:bg-primarydull font-bold text-sm shadow-lg shadow-primary/20 transition-all active:scale-[0.98] disabled:opacity-50"
                 >
-                  {assigning ? "Assigning..." : "Assign"}
+                  {assigning ? "Assigning..." : "Assign Now"}
                 </button>
               </div>
             </div>
