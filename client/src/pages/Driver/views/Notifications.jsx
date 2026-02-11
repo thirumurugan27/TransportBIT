@@ -81,7 +81,7 @@ export default function Notifications() {
       case "alert":
         return <AlertCircle className="w-5 h-5 text-red" />;
       case "info":
-        return <Info className="w-5 h-5 text-blue-500" />;
+        return <Info className="w-5 h-5 text-skyblue" />;
       default:
         return <Bell className="w-5 h-5 text-primary" />;
     }
@@ -111,7 +111,7 @@ export default function Notifications() {
       case "alert":
         return "bg-red/10 text-red";
       case "info":
-        return "bg-blue-100 text-blue-600";
+        return "bg-skyblue/10 text-skyblue";
       default:
         return "bg-gray-100 text-gray-600";
     }
@@ -147,17 +147,17 @@ export default function Notifications() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white rounded-md shadow-sm border border-gray-100 p-6">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+      <div className="bg-white rounded-md shadow-sm border border-gray-100 p-3 sm:p-4 lg:p-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:gap-4">
           <div>
-            <h3 className="text-2xl font-bold text-primarytext flex items-center gap-2">
+            <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-primarytext flex items-center gap-2">
               <Bell className="text-primary" /> Notifications
             </h3>
             <p className="text-sm text-secondarytext mt-1">
               View and manage all your notifications
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <div className="flex items-center gap-2 text-sm">
               <span className="px-3 py-1 bg-primary/10 text-primary rounded-md font-medium">
                 {unreadCount} unread
@@ -186,7 +186,7 @@ export default function Notifications() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-md shadow-sm border border-gray-100 p-4 flex flex-wrap gap-4 items-center">
+      <div className="bg-white rounded-md shadow-sm border border-gray-100 p-3 sm:p-4 flex flex-wrap gap-3 sm:gap-4 items-center">
         <div className="flex items-center gap-2 text-sm text-secondarytext font-medium">
           <Filter size={16} /> Filters:
         </div>
@@ -201,7 +201,7 @@ export default function Notifications() {
             placeholder="Search notifications..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 pr-4 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm w-64"
+            className="pl-9 pr-4 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm w-full sm:w-64"
           />
         </div>
 
@@ -255,12 +255,12 @@ export default function Notifications() {
             {filteredNotifications.map((notif) => (
               <div
                 key={notif.id}
-                className={`p-5 hover:bg-gray-50 transition-colors ${!notif.is_read ? "bg-primary/5 border-l-4 border-l-primary" : ""}`}
+                className={`p-3 sm:p-5 hover:bg-gray-50 transition-colors ${!notif.is_read ? "bg-primary/5 border-l-4 border-l-primary" : ""}`}
               >
-                <div className="flex gap-4">
+                <div className="flex gap-2 sm:gap-4">
                   {/* Icon */}
                   <div
-                    className={`w-12 h-12 rounded-md flex items-center justify-center shrink-0 ${!notif.is_read ? "bg-primary/10" : "bg-gray-100"}`}
+                    className={`w-10 h-10 sm:w-12 sm:h-12 rounded-md flex items-center justify-center shrink-0 ${!notif.is_read ? "bg-primary/10" : "bg-gray-100"}`}
                   >
                     {getNotificationIcon(notif.type)}
                   </div>

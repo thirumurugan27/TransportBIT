@@ -42,10 +42,10 @@ func main() {
 	// 4. Configure CORS
 	corsConfig := cors.Config{
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-Tunnel-Skip-Efficiency-Check"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
-		AllowOrigins:     []string{"http://localhost:5173"},
+		AllowOrigins:     []string{"http://localhost:5173", "https://d410t8rp-5173.inc1.devtunnels.ms"},
 	}
 	r.Use(cors.New(corsConfig))
 

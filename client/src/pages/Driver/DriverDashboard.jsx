@@ -14,21 +14,27 @@ import {useAuth} from "../../context/AuthContext";
 
 export default function DriverDashboard() {
   const {user, logout} = useAuth();
+  const [mobileOpen, setMobileOpen] = useState(false);
   const driverName = user?.full_name || user?.username || "Driver";
   const navigate = useNavigate();
 
   return (
     <div className="flex h-screen bg-primarybg">
-      <Sidebar role="DRIVER" />
+      <Sidebar
+        role="DRIVER"
+        mobileOpen={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+      />
 
-      <div className="flex-1 flex flex-col overflow-hidden ml-[220px]">
+      <div className="flex-1 flex flex-col overflow-hidden lg:ml-[220px]">
         <DashboardHeader
           title="Driver Dashboard"
           user={{name: driverName, role: "Driver"}}
           onLogout={logout}
+          onMenuToggle={() => setMobileOpen(true)}
         />
 
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-primarybg p-6">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-primarybg p-3 sm:p-4 lg:p-6">
           <Routes>
             <Route path="" element={<DriverHome />} />
             <Route path="assignments" element={<DriverAssignments />} />

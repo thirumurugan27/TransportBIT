@@ -20,6 +20,7 @@ export const AuthProvider = ({children}) => {
       // Use credentials: 'include' to send cookies
       const res = await fetch(`${API_BASE}/api/me`, {
         headers: {
+          "X-Tunnel-Skip-Efficiency-Check": "true",
           // If you are using a token in header as fallback:
           // 'Authorization': `Bearer ${token}`
           // But since the user wants to avoid local storage, we rely on the HttpOnly cookie set by backend
@@ -52,6 +53,7 @@ export const AuthProvider = ({children}) => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "X-Tunnel-Skip-Efficiency-Check": "true",
         },
         body: JSON.stringify({username, password}),
         credentials: "include", // Important for setting the cookie

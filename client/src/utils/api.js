@@ -16,6 +16,7 @@ export const apiGet = async (endpoint) => {
         credentials: 'include',
         headers: {
             'Content-Type': 'application/json',
+            'X-Tunnel-Skip-Efficiency-Check': 'true',
         },
     });
 };
@@ -32,6 +33,7 @@ export const apiPost = async (endpoint, body) => {
         credentials: 'include',
         headers: {
             'Content-Type': 'application/json',
+            'X-Tunnel-Skip-Efficiency-Check': 'true',
         },
         body: JSON.stringify(body),
     });
@@ -48,6 +50,7 @@ export const apiDelete = async (endpoint) => {
         credentials: 'include',
         headers: {
             'Content-Type': 'application/json',
+            'X-Tunnel-Skip-Efficiency-Check': 'true',
         },
     });
 };

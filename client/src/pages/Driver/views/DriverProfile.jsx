@@ -41,23 +41,21 @@ export default function DriverProfile() {
 
   if (loading) return <Loading fullScreen={false} text="Loading profile..." />;
   if (!profile)
-    return (
-      <div className="p-8 text-center text-red-500">Profile not found.</div>
-    );
+    return <div className="p-8 text-center text-red">Profile not found.</div>;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
       {/* Header Card */}
-      <div className="bg-white rounded-md p-8 shadow-sm border border-gray-100 flex flex-col md:flex-row items-center gap-8">
-        <div className="w-24 h-24 bg-gradient-to-tr from-primary to-primarydull rounded-md flex items-center justify-center text-white text-3xl font-bold border-4 border-white shadow-lg">
+      <div className="bg-white rounded-md p-4 sm:p-6 lg:p-8 shadow-sm border border-gray-100 flex flex-col sm:flex-row items-center gap-4 sm:gap-6 lg:gap-8">
+        <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-tr from-primary to-primarydull rounded-md flex items-center justify-center text-white text-2xl sm:text-3xl font-bold border-4 border-white shadow-lg shrink-0">
           {profile.full_name?.charAt(0)}
         </div>
-        <div className="text-center md:text-left flex-1">
-          <h2 className="text-2xl font-bold text-primarytext">
+        <div className="text-center sm:text-left flex-1">
+          <h2 className="text-xl sm:text-2xl font-bold text-primarytext">
             {profile.full_name}
           </h2>
           <p className="text-secondarytext">{profile.email}</p>
-          <div className="flex flex-wrap gap-2 mt-3 justify-center md:justify-start">
+          <div className="flex flex-wrap gap-2 mt-3 justify-center sm:justify-start">
             <span className="px-3 py-1 bg-primarybg text-primary text-xs font-semibold rounded-md border border-primary/20">
               ID: #{profile.id}
             </span>
@@ -87,9 +85,9 @@ export default function DriverProfile() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
         {/* License Details */}
-        <div className="bg-white rounded-md shadow-sm border border-gray-100 p-6">
+        <div className="bg-white rounded-md shadow-sm border border-gray-100 p-4 sm:p-6">
           <h3 className="text-lg font-bold text-primarytext mb-4 flex items-center gap-2">
             <svg
               className="w-5 h-5 text-primary"
@@ -117,22 +115,22 @@ export default function DriverProfile() {
             </div>
             <div className="flex justify-between">
               <div>
-                <label className="text-xs font-semibold text-gray-400 uppercase">
+                <label className="text-xs font-semibold text-secondarytext uppercase">
                   Type
                 </label>
-                <p className="text-gray-800 font-medium">
+                <p className="text-primarytext font-medium">
                   {profile.license_type}
                 </p>
               </div>
               <div className="text-right">
-                <label className="text-xs font-semibold text-gray-400 uppercase">
+                <label className="text-xs font-semibold text-secondarytext uppercase">
                   Expires On
                 </label>
                 <p
                   className={`font-medium ${
                     isExpired(profile.license_expiry)
-                      ? "text-red-600"
-                      : "text-gray-800"
+                      ? "text-red"
+                      : "text-primarytext"
                   }`}
                 >
                   {profile.license_expiry || "-"}
@@ -142,18 +140,18 @@ export default function DriverProfile() {
 
             <div className="flex justify-between border-t border-gray-100 pt-3">
               <div>
-                <label className="text-xs font-semibold text-gray-400 uppercase">
+                <label className="text-xs font-semibold text-secondarytext uppercase">
                   Date of Joining
                 </label>
-                <p className="text-gray-800 font-medium">
+                <p className="text-primarytext font-medium">
                   {profile.date_of_joining || "-"}
                 </p>
               </div>
               <div className="text-right">
-                <label className="text-xs font-semibold text-gray-400 uppercase">
+                <label className="text-xs font-semibold text-secondarytext uppercase">
                   Date of Relieving
                 </label>
-                <p className="text-gray-800 font-medium">
+                <p className="text-primarytext font-medium">
                   {profile.date_of_relieving || "-"}
                 </p>
               </div>
@@ -162,24 +160,24 @@ export default function DriverProfile() {
         </div>
 
         {/* Contact Details */}
-        <div className="bg-white rounded-md shadow-sm border border-gray-100 p-6">
-          <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+        <div className="bg-white rounded-md shadow-sm border border-gray-100 p-4 sm:p-6">
+          <h3 className="text-lg font-bold text-primarytext mb-4 flex items-center gap-2">
             <span className="text-xl">📞</span> Contact Details
           </h3>
           <div className="space-y-4">
             <div>
-              <label className="text-xs font-semibold text-gray-400 uppercase">
+              <label className="text-xs font-semibold text-secondarytext uppercase">
                 Phone Number
               </label>
-              <p className="text-gray-800 font-medium text-lg">
+              <p className="text-primarytext font-medium text-lg">
                 {profile.phone}
               </p>
             </div>
             <div>
-              <label className="text-xs font-semibold text-gray-400 uppercase">
+              <label className="text-xs font-semibold text-secondarytext uppercase">
                 Email Address
               </label>
-              <p className="text-gray-800 font-medium">{profile.email}</p>
+              <p className="text-primarytext font-medium">{profile.email}</p>
             </div>
           </div>
         </div>

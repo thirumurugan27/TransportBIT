@@ -137,13 +137,13 @@ export default function DriverHome() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-primary rounded-md p-8 text-white shadow-xl relative">
+      <div className="bg-primary rounded-md p-4 sm:p-6 lg:p-8 text-white shadow-xl relative">
         <div className="flex justify-between items-start">
-          <div>
-            <h2 className="text-3xl font-bold mb-2">
+          <div className="flex-1 min-w-0 pr-2">
+            <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-2 break-words">
               Welcome back, {driverName}!
             </h2>
-            <p className="text-white/80 text-lg">
+            <p className="text-white/80 text-sm sm:text-base lg:text-lg">
               Drive safely and have a great day.
             </p>
           </div>
@@ -246,19 +246,19 @@ export default function DriverHome() {
       {/* Vehicle Document Alert Section */}
       {vehicleAlerts.total > 0 && (
         <div
-          className={`${vehicleAlerts.expired > 0 ? "bg-red/10 border-red/20" : vehicleAlerts.critical > 0 ? "bg-pending/10 border-pending/20" : "bg-yellow-500/10 border-yellow-500/20"} border rounded-md p-5`}
+          className={`${vehicleAlerts.expired > 0 ? "bg-red/10 border-red/20" : vehicleAlerts.critical > 0 ? "bg-pending/10 border-pending/20" : "bg-pending/10 border-pending/20"} border rounded-md p-5`}
         >
           <div className="flex items-start gap-4">
             <div
-              className={`w-12 h-12 ${vehicleAlerts.expired > 0 ? "bg-red/20" : vehicleAlerts.critical > 0 ? "bg-pending/20" : "bg-yellow-500/20"} rounded-md flex items-center justify-center shrink-0`}
+              className={`w-12 h-12 ${vehicleAlerts.expired > 0 ? "bg-red/20" : vehicleAlerts.critical > 0 ? "bg-pending/20" : "bg-pending/20"} rounded-md flex items-center justify-center shrink-0`}
             >
               <Shield
-                className={`w-6 h-6 ${vehicleAlerts.expired > 0 ? "text-red" : vehicleAlerts.critical > 0 ? "text-pending" : "text-yellow-600"}`}
+                className={`w-6 h-6 ${vehicleAlerts.expired > 0 ? "text-red" : vehicleAlerts.critical > 0 ? "text-pending" : "text-pending"}`}
               />
             </div>
             <div className="flex-1">
               <h3
-                className={`font-bold ${vehicleAlerts.expired > 0 ? "text-red" : vehicleAlerts.critical > 0 ? "text-pending" : "text-yellow-600"}`}
+                className={`font-bold ${vehicleAlerts.expired > 0 ? "text-red" : vehicleAlerts.critical > 0 ? "text-pending" : "text-pending"}`}
               >
                 ⚠️ Vehicle Document Alert
               </h3>
@@ -274,7 +274,7 @@ export default function DriverHome() {
                     <span className="mx-2">—</span>
                     {v.insurance_days !== null && v.insurance_days <= 30 && (
                       <span
-                        className={`mr-2 ${v.insurance_days < 0 ? "text-red font-bold" : v.insurance_days <= 7 ? "text-pending font-semibold" : "text-yellow-600"}`}
+                        className={`mr-2 ${v.insurance_days < 0 ? "text-red font-bold" : v.insurance_days <= 7 ? "text-pending font-semibold" : "text-pending"}`}
                       >
                         Insurance:{" "}
                         {v.insurance_days < 0
@@ -284,7 +284,7 @@ export default function DriverHome() {
                     )}
                     {v.fc_days !== null && v.fc_days <= 30 && (
                       <span
-                        className={`mr-2 ${v.fc_days < 0 ? "text-red font-bold" : v.fc_days <= 7 ? "text-pending font-semibold" : "text-yellow-600"}`}
+                        className={`mr-2 ${v.fc_days < 0 ? "text-red font-bold" : v.fc_days <= 7 ? "text-pending font-semibold" : "text-pending"}`}
                       >
                         FC:{" "}
                         {v.fc_days < 0 ? "EXPIRED" : `${v.fc_days} days left`}
@@ -292,7 +292,7 @@ export default function DriverHome() {
                     )}
                     {v.permit_days !== null && v.permit_days <= 30 && (
                       <span
-                        className={`${v.permit_days < 0 ? "text-red font-bold" : v.permit_days <= 7 ? "text-pending font-semibold" : "text-yellow-600"}`}
+                        className={`${v.permit_days < 0 ? "text-red font-bold" : v.permit_days <= 7 ? "text-pending font-semibold" : "text-pending"}`}
                       >
                         Permit:{" "}
                         {v.permit_days < 0
@@ -304,7 +304,7 @@ export default function DriverHome() {
                 ))}
               </div>
               <p
-                className={`text-xs mt-2 ${vehicleAlerts.expired > 0 ? "text-red/70" : vehicleAlerts.critical > 0 ? "text-pending/70" : "text-yellow-600/70"}`}
+                className={`text-xs mt-2 ${vehicleAlerts.expired > 0 ? "text-red/70" : vehicleAlerts.critical > 0 ? "text-pending/70" : "text-pending/70"}`}
               >
                 Please notify admin if documents need renewal.
               </p>
@@ -313,9 +313,9 @@ export default function DriverHome() {
         </div>
       )}
 
-      <div className="bg-white rounded-md shadow-sm border border-gray-100 p-6">
-        <h3 className="text-lg font-semibold text-primarytext mb-4 flex items-center gap-2">
-          <Calendar className="text-primary" size={24} />
+      <div className="bg-white rounded-md shadow-sm border border-gray-100 p-3 sm:p-4 lg:p-6">
+        <h3 className="text-base sm:text-lg font-semibold text-primarytext mb-4 flex items-center gap-2">
+          <Calendar className="text-primary" size={20} />
           Today's Duties
         </h3>
 
@@ -331,7 +331,7 @@ export default function DriverHome() {
                   <div
                     key={assignment.id || index}
                     onClick={() => setSelectedEVAssignment(assignment)}
-                    className="relative p-5 rounded-md transition-all hover:shadow-md group overflow-hidden cursor-pointer bg-gradient-to-br from-white to-green-50 border-green border-2 shadow-green/10"
+                    className="relative p-5 rounded-md transition-all hover:shadow-md group overflow-hidden cursor-pointer bg-white border-green border-2 shadow-green/10"
                   >
                     {/* Accent Side Bar */}
                     <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-green"></div>
@@ -348,13 +348,13 @@ export default function DriverHome() {
                         <Zap size={24} />
                       </div>
 
-                      <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                         {/* Vehicle Group Info */}
                         <div>
                           <p className="text-xs text-secondarytext uppercase tracking-wider font-semibold">
                             Vehicle Group
                           </p>
-                          <p className="font-bold text-primarytext text-lg">
+                          <p className="font-bold text-primarytext text-base sm:text-lg">
                             {assignment.vehicle_group_name}
                           </p>
                           <div className="flex flex-wrap gap-2 mt-1">
@@ -418,7 +418,7 @@ export default function DriverHome() {
                   key={assignment.id || index}
                   className={`relative p-5 rounded-md transition-all hover:shadow-md group overflow-hidden ${
                     isTemp
-                      ? "bg-gradient-to-br from-white to-orange-50 border-pending border-2 shadow-pending/10"
+                      ? "bg-white border-pending border-2 shadow-pending/10"
                       : "bg-white border border-gray-100 hover:border-primarydull"
                   }`}
                 >
@@ -445,13 +445,13 @@ export default function DriverHome() {
                       )}
                     </div>
 
-                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                       {/* Vehicle Info */}
                       <div>
                         <p className="text-xs text-secondarytext uppercase tracking-wider font-semibold">
                           Vehicle
                         </p>
-                        <p className="font-bold text-primarytext text-lg">
+                        <p className="font-bold text-primarytext text-base sm:text-lg">
                           {assignment.vehicle_name || assignment.vehicle_number}
                         </p>
                         <span
@@ -540,10 +540,10 @@ export default function DriverHome() {
 
       {/* EV Assignment Details Modal */}
       {selectedEVAssignment && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-md shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-white rounded-t-2xl sm:rounded-md shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden">
             {/* Header */}
-            <div className="bg-gradient-to-r from-green to-green-600 text-white p-5 flex items-center justify-between">
+            <div className="bg-green text-white p-4 sm:p-5 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-white/20 rounded-md">
                   <Zap size={24} />
@@ -564,9 +564,9 @@ export default function DriverHome() {
             </div>
 
             {/* Content */}
-            <div className="p-5 space-y-5 max-h-[60vh] overflow-y-auto">
+            <div className="p-4 sm:p-5 space-y-5 max-h-[60vh] overflow-y-auto">
               {/* Time Info */}
-              <div className="flex items-center gap-3 p-3 bg-green/5 rounded-md">
+              <div className="flex items-center gap-3 p-3 bg-green/10 rounded-md">
                 <Clock className="text-green" size={20} />
                 <div>
                   <p className="text-xs text-secondarytext">Shift Time</p>
@@ -587,7 +587,7 @@ export default function DriverHome() {
                   {selectedEVAssignment.group_vehicles?.map((vehicle) => (
                     <div
                       key={vehicle.id}
-                      className="p-3 bg-gray-50 rounded-md border border-gray-100"
+                      className="p-3 bg-primarybg rounded-md border border-gray-200"
                     >
                       <p className="font-medium text-primarytext">
                         {vehicle.vehicle_name || vehicle.vehicle_number}
@@ -616,7 +616,7 @@ export default function DriverHome() {
                   {selectedEVAssignment.group_drivers?.map((driver) => (
                     <div
                       key={driver.id}
-                      className="p-3 bg-gray-50 rounded-md border border-gray-100 flex items-center gap-2"
+                      className="p-3 bg-primarybg rounded-md border border-gray-200 flex items-center gap-2"
                     >
                       <div className="w-8 h-8 bg-primary/10 rounded-md flex items-center justify-center text-primary font-bold text-sm">
                         {driver.name?.charAt(0).toUpperCase()}
@@ -636,10 +636,10 @@ export default function DriverHome() {
               </div>
 
               {/* Status */}
-              <div className="flex items-center justify-between p-3 bg-green/5 rounded-md">
+              <div className="flex items-center justify-between p-3 bg-green/10 rounded-md">
                 <span className="text-secondarytext">Status</span>
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-green/10 text-green">
-                  <div className="w-2 h-2 rounded-md bg-green animate-pulse" />
+                  <div className="w-2 h-2 rounded-full bg-green animate-pulse" />
                   {selectedEVAssignment.status}
                 </span>
               </div>

@@ -1,4 +1,4 @@
-import React from "react";
+import React, {useState} from "react";
 import {Routes, Route} from "react-router-dom";
 import {Sidebar} from "../../components/layout";
 import DashboardHeader from "../../components/DashboardHeader";
@@ -12,18 +12,26 @@ export default function FacultyDashboard() {
   const {user, logout} = useAuth();
   const facultyName = user?.full_name || user?.username || "Faculty";
 
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   return (
     <div className="flex h-screen bg-primarybg">
-      <Sidebar role="FACULTY" useLogo={true} />
+      <Sidebar
+        role="FACULTY"
+        useLogo={true}
+        mobileOpen={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+      />
 
-      <div className="flex-1 flex flex-col overflow-hidden ml-[220px]">
+      <div className="flex-1 flex flex-col overflow-hidden lg:ml-[220px]">
         <DashboardHeader
           title="Faculty Portal"
           user={{name: facultyName, role: "Faculty"}}
           onLogout={logout}
+          onMenuToggle={() => setMobileOpen(true)}
         />
 
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-primarybg p-6">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-primarybg p-3 sm:p-4 lg:p-6">
           <Routes>
             <Route path="" element={<FacultyHome />} />
             <Route path="vehicle-booking" element={<VehicleBooking />} />

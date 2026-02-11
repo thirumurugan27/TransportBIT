@@ -60,11 +60,11 @@ export default function DashboardLayout({role}) {
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 ml-[220px] flex flex-col">
+      <div className="flex-1 lg:ml-[220px] flex flex-col">
         {/* Top Bar */}
-        <header className="bg-white/80 backdrop-blur-md border-b border-gray-200 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
-          <div>
-            <h3 className="text-xl font-semibold text-gray-800 capitalize">
+        <header className="bg-white/80 backdrop-blur-md border-b border-gray-200 px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between sticky top-0 z-10">
+          <div className="pl-10 lg:pl-0">
+            <h3 className="text-base sm:text-xl font-semibold text-gray-800 capitalize">
               {getActivePage()
                 .replace(/([A-Z])/g, " $1")
                 .trim()}
@@ -92,7 +92,7 @@ export default function DashboardLayout({role}) {
         </header>
 
         {/* Page Content - Rendered via Outlet */}
-        <main className="flex-1 p-6 overflow-y-auto">
+        <main className="flex-1 p-3 sm:p-4 lg:p-6 overflow-y-auto">
           <Outlet />
         </main>
       </div>

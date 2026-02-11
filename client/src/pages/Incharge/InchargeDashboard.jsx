@@ -19,18 +19,25 @@ export default function InchargeDashboard() {
   const {user, logout} = useAuth();
   const inchargeName = user?.full_name || "Incharge";
 
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   return (
     <div className="flex h-screen bg-primarybg">
-      <Sidebar role="INCHARGE" />
+      <Sidebar
+        role="INCHARGE"
+        mobileOpen={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+      />
 
-      <div className="flex-1 flex flex-col overflow-hidden ml-[220px]">
+      <div className="flex-1 flex flex-col overflow-hidden lg:ml-[220px]">
         <DashboardHeader
           title="Incharge Dashboard"
           user={{name: inchargeName, role: "Incharge"}}
           onLogout={logout}
+          onMenuToggle={() => setMobileOpen(true)}
         />
 
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-primarybg p-6">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-primarybg p-3 sm:p-4 lg:p-6">
           <Routes>
             <Route path="" element={<InchargeHome />} />
             <Route path="mark-attendance" element={<MarkAttendance />} />

@@ -329,12 +329,12 @@ func GetMyVehicleRequests(c *gin.Context) {
 			COALESCE(vr.CountPerson, 1) as CountPerson,
 			COALESCE(vr.OnwardFromPlace, '') as OnwardFromPlace,
 			COALESCE(vr.OnwardToPlace, '') as OnwardToPlace,
-			COALESCE(DATE_FORMAT(vr.OnwardFromDateTime, '%%d-%%m-%%Y %%H:%%i'), '') as OnwardFromDateTime,
-			COALESCE(DATE_FORMAT(vr.OnwardTodateTime, '%%d-%%m-%%Y %%H:%%i'), '') as OnwardTodateTime,
+			COALESCE(DATE_FORMAT(vr.OnwardFromDateTime, '%d-%m-%Y %%H:%%i'), '') as OnwardFromDateTime,
+			COALESCE(DATE_FORMAT(vr.OnwardTodateTime, '%d-%m-%Y %%H:%%i'), '') as OnwardTodateTime,
 			COALESCE(vr.ReturnFromPlace, '') as ReturnFromPlace,
 			COALESCE(vr.ReturnToPlace, '') as ReturnToPlace,
-			COALESCE(DATE_FORMAT(vr.ReturnFromDateTime, '%%d-%%m-%%Y %%H:%%i'), '') as ReturnFromDateTime,
-			COALESCE(DATE_FORMAT(vr.ReturnTodateTime, '%%d-%%m-%%Y %%H:%%i'), '') as ReturnTodateTime,
+			COALESCE(DATE_FORMAT(vr.ReturnFromDateTime, '%d-%m-%Y %%H:%%i'), '') as ReturnFromDateTime,
+			COALESCE(DATE_FORMAT(vr.ReturnTodateTime, '%d-%m-%Y %%H:%%i'), '') as ReturnTodateTime,
 			COALESCE(vr.ContactName, '') as ContactName,
 			COALESCE(vr.ContactPhone, '') as ContactPhone,
 			%s,
@@ -347,7 +347,7 @@ func GetMyVehicleRequests(c *gin.Context) {
 			COALESCE(IFNULL(v.vehicle_name, v.vehicle_number), '') as vehicle_name,
 			COALESCE(ud.full_name, '') as driver_name,
 			COALESCE(ud.phone, '') as driver_phone,
-			DATE_FORMAT(COALESCE(vr.created_at, NOW()), '%%d-%%m-%%Y %%H:%%i') as created_at
+			DATE_FORMAT(COALESCE(vr.created_at, NOW()), '%d-%m-%Y %%H:%%i') as created_at
 		FROM vehiclerequests vr
 		LEFT JOIN vehicles v ON vr.vehicle_id = v.id
 		LEFT JOIN drivers d ON vr.driver_id = d.id

@@ -187,19 +187,19 @@ export default function DriverKmLog() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-            <Truck className="hidden md:block text-primary" size={28} />
+          <h1 className="text-xl sm:text-2xl font-bold text-primarytext flex items-center gap-2">
+            <Truck className="text-primary" size={24} />
             My KM Logs
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-secondarytext mt-1">
             Track your vehicle usage and trip history
           </p>
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="bg-primary text-white px-5 py-2.5 rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-lg shadow-primary/30 font-medium"
+          className="bg-primary text-white px-5 py-2.5 rounded-md hover:bg-primarydull transition-colors flex items-center gap-2 shadow-lg shadow-primary/30 font-medium"
         >
           <Plus size={20} />
           Add Entry
@@ -208,14 +208,14 @@ export default function DriverKmLog() {
 
       {loading ? (
         <div className="flex justify-center p-20">
-          <div className="animate-spin inline-block w-8 h-8 border-4 border-current border-t-transparent text-primary rounded-md"></div>
+          <div className="animate-spin inline-block w-8 h-8 border-4 border-current border-t-transparent text-primary rounded-full"></div>
         </div>
       ) : (
         <>
           {/* Stats Cards (Replicating Admin KmSummary Style) */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
             {/* Total Distance Card */}
-            <div className="bg-white rounded-md p-6 shadow-sm border border-gray-100 relative overflow-hidden group">
+            <div className="bg-white rounded-md p-4 sm:p-6 shadow-sm border border-gray-100 relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                 <Map size={64} className="text-primary" />
               </div>
@@ -241,12 +241,12 @@ export default function DriverKmLog() {
             </div>
 
             {/* Total Trips Card */}
-            <div className="bg-white rounded-md p-6 shadow-sm border border-gray-100 relative overflow-hidden group">
+            <div className="bg-white rounded-md p-4 sm:p-6 shadow-sm border border-gray-100 relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <Route size={64} className="text-green-500" />
+                <Route size={64} className="text-green" />
               </div>
               <div className="flex items-center gap-4 relative z-10">
-                <div className="p-3 bg-green-50 rounded-md text-green-600">
+                <div className="p-3 bg-green/10 rounded-md text-green">
                   <Route size={24} />
                 </div>
                 <div>
@@ -262,12 +262,12 @@ export default function DriverKmLog() {
             </div>
 
             {/* Avg/Trip Card */}
-            <div className="bg-white rounded-md p-6 shadow-sm border border-gray-100 relative overflow-hidden group">
+            <div className="bg-white rounded-md p-4 sm:p-6 shadow-sm border border-gray-100 relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <TrendingUp size={64} className="text-amber-500" />
+                <TrendingUp size={64} className="text-pending" />
               </div>
               <div className="flex items-center gap-4 relative z-10">
-                <div className="p-3 bg-amber-50 rounded-md text-amber-600">
+                <div className="p-3 bg-pending/10 rounded-md text-pending">
                   <TrendingUp size={24} />
                 </div>
                 <div>
@@ -286,38 +286,100 @@ export default function DriverKmLog() {
             </div>
           </div>
 
-          {/* Logs Table */}
+          {/* Logs Section */}
           <div className="bg-white rounded-md shadow-sm border border-gray-100 overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
-              <h3 className="font-bold text-gray-800 flex items-center gap-2">
-                <Calendar size={18} className="text-gray-500" />
+            <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+              <h3 className="font-bold text-primarytext flex items-center gap-2">
+                <Calendar size={18} className="text-secondarytext" />
                 Recent Logs
               </h3>
-              <span className="text-xs text-gray-500 bg-white px-2 py-1 rounded-md border border-gray-200">
+              <span className="text-xs text-secondarytext bg-white px-2 py-1 rounded-md border border-gray-200">
                 Last {logs.length} entries
               </span>
             </div>
 
-            <div className="overflow-x-auto">
+            {/* Mobile Card View */}
+            <div className="md:hidden divide-y divide-gray-100">
+              {logs.length > 0 ? (
+                logs.map((log) => {
+                  const dist =
+                    log.total_km !== undefined
+                      ? parseFloat(log.total_km)
+                      : parseFloat(log.end_km) - parseFloat(log.start_km);
+                  return (
+                    <div key={log.id} className="p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Calendar size={14} className="text-secondarytext" />
+                          <span className="font-semibold text-primarytext text-sm">
+                            {log.date}
+                          </span>
+                        </div>
+                        <span className="font-bold text-primary text-sm">
+                          {dist.toFixed(1)} km
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {log.vehicle_number && (
+                          <span className="text-sm font-medium text-primarytext">
+                            {log.vehicle_number}
+                          </span>
+                        )}
+                        <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-primarybg text-secondarytext">
+                          {log.vehicle_type || "BUS"}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-4 text-xs text-secondarytext">
+                        <span>
+                          Start:{" "}
+                          <span className="font-mono text-primarytext">
+                            {log.start_km}
+                          </span>
+                        </span>
+                        <span>
+                          End:{" "}
+                          <span className="font-mono text-primarytext">
+                            {log.end_km}
+                          </span>
+                        </span>
+                      </div>
+                      {log.remarks && (
+                        <p className="text-xs text-secondarytext">
+                          {log.remarks}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="p-12 text-center text-secondarytext">
+                  <AlertCircle size={32} className="opacity-20 mx-auto mb-2" />
+                  <p>No logs found. Add your first entry!</p>
+                </div>
+              )}
+            </div>
+
+            {/* Desktop Table View */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50/50 border-b border-gray-100">
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
                       Date
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
                       Vehicle
                     </th>
-                    <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-right text-xs font-bold text-secondarytext uppercase tracking-wider">
                       Start KM
                     </th>
-                    <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-right text-xs font-bold text-secondarytext uppercase tracking-wider">
                       End KM
                     </th>
-                    <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-right text-xs font-bold text-secondarytext uppercase tracking-wider">
                       Distance
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
                       Remarks
                     </th>
                   </tr>
@@ -332,38 +394,36 @@ export default function DriverKmLog() {
                       return (
                         <tr
                           key={log.id}
-                          className="hover:bg-blue-50/30 transition-colors group"
+                          className="hover:bg-primarybg transition-colors"
                         >
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="font-semibold text-gray-700">
-                              {log.date}
-                            </div>
+                          <td className="px-6 py-4 whitespace-nowrap font-semibold text-primarytext text-sm">
+                            {log.date}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex flex-col">
                               {log.vehicle_number && (
-                                <span className="text-sm font-medium text-gray-900">
+                                <span className="text-sm font-medium text-primarytext">
                                   {log.vehicle_number}
                                 </span>
                               )}
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-600 w-fit mt-0.5">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-primarybg text-secondarytext w-fit mt-0.5">
                                 {log.vehicle_type || "BUS"}
                               </span>
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right font-mono text-gray-600">
+                          <td className="px-6 py-4 whitespace-nowrap text-right font-mono text-secondarytext text-sm">
                             {log.start_km}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right font-mono text-gray-600">
+                          <td className="px-6 py-4 whitespace-nowrap text-right font-mono text-secondarytext text-sm">
                             {log.end_km}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right">
-                            <span className="font-bold text-primary">
+                            <span className="font-bold text-primary text-sm">
                               {dist.toFixed(1)} km
                             </span>
                           </td>
                           <td className="px-6 py-4">
-                            <p className="text-sm text-gray-500 truncate max-w-[200px]">
+                            <p className="text-sm text-secondarytext truncate max-w-[200px]">
                               {log.remarks || "-"}
                             </p>
                           </td>
@@ -374,7 +434,7 @@ export default function DriverKmLog() {
                     <tr>
                       <td
                         colSpan="6"
-                        className="px-6 py-12 text-center text-gray-400"
+                        className="px-6 py-12 text-center text-secondarytext"
                       >
                         <div className="flex flex-col items-center justify-center gap-2">
                           <AlertCircle size={32} className="opacity-20" />
@@ -392,8 +452,8 @@ export default function DriverKmLog() {
 
       {/* Add Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-md w-full max-w-md shadow-2xl overflow-hidden transform transition-all scale-100">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-t-2xl sm:rounded-md w-full max-w-md shadow-2xl overflow-hidden transform transition-all scale-100">
             <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
               <h3 className="text-lg font-bold text-gray-800">
                 Add Daily KM Log
@@ -406,15 +466,15 @@ export default function DriverKmLog() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-5">
+            <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-5">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                <label className="block text-sm font-semibold text-primarytext mb-1.5">
                   Date
                 </label>
                 <input
                   type="date"
                   required
-                  className="w-full border border-gray-300 px-3 py-2.5 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
+                  className="w-full border border-gray-200 bg-primarybg px-3 py-2.5 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
                   value={form.date}
                   onChange={(e) => setForm({...form, date: e.target.value})}
                 />
@@ -422,7 +482,7 @@ export default function DriverKmLog() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                  <label className="block text-sm font-semibold text-primarytext mb-1.5">
                     Start KM
                   </label>
                   <input
@@ -430,7 +490,7 @@ export default function DriverKmLog() {
                     required
                     step="0.1"
                     min="0"
-                    className="w-full border border-gray-300 px-3 py-2.5 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
+                    className="w-full border border-gray-200 bg-primarybg px-3 py-2.5 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
                     value={form.start_km}
                     onChange={(e) =>
                       setForm({...form, start_km: e.target.value})
@@ -438,7 +498,7 @@ export default function DriverKmLog() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                  <label className="block text-sm font-semibold text-primarytext mb-1.5">
                     End KM
                   </label>
                   <input
@@ -446,7 +506,7 @@ export default function DriverKmLog() {
                     required
                     step="0.1"
                     min="0"
-                    className="w-full border border-gray-300 px-3 py-2.5 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
+                    className="w-full border border-gray-200 bg-primarybg px-3 py-2.5 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
                     value={form.end_km}
                     onChange={(e) => setForm({...form, end_km: e.target.value})}
                   />
@@ -454,12 +514,12 @@ export default function DriverKmLog() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                <label className="block text-sm font-semibold text-primarytext mb-1.5">
                   Vehicle *
                 </label>
                 <select
                   required
-                  className="w-full border border-gray-300 px-3 py-2.5 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none bg-white"
+                  className="w-full border border-gray-200 bg-primarybg px-3 py-2.5 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
                   value={form.vehicle_id}
                   onChange={(e) => {
                     const selectedVehicle = vehicles.find(
@@ -483,18 +543,18 @@ export default function DriverKmLog() {
                   ))}
                 </select>
                 {vehicles.length === 0 && (
-                  <p className="text-xs text-amber-600 mt-1">
+                  <p className="text-xs text-pending mt-1">
                     No vehicles assigned. Contact admin.
                   </p>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                <label className="block text-sm font-semibold text-primarytext mb-1.5">
                   Vehicle Type
                 </label>
                 <select
-                  className="w-full border border-gray-300 px-3 py-2.5 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none bg-white"
+                  className="w-full border border-gray-200 bg-primarybg px-3 py-2.5 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
                   value={form.vehicle_type}
                   onChange={(e) =>
                     setForm({...form, vehicle_type: e.target.value})
@@ -509,12 +569,14 @@ export default function DriverKmLog() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                <label className="block text-sm font-semibold text-primarytext mb-1.5">
                   Remarks{" "}
-                  <span className="text-gray-400 font-normal">(Optional)</span>
+                  <span className="text-secondarytext font-normal">
+                    (Optional)
+                  </span>
                 </label>
                 <textarea
-                  className="w-full border border-gray-300 px-3 py-2.5 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none resize-none"
+                  className="w-full border border-gray-200 bg-primarybg px-3 py-2.5 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none resize-none"
                   rows="3"
                   value={form.remarks}
                   onChange={(e) => setForm({...form, remarks: e.target.value})}
@@ -526,13 +588,13 @@ export default function DriverKmLog() {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="flex-1 px-4 py-2.5 border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-md font-medium transition-colors"
+                  className="flex-1 px-4 py-2.5 bg-red text-white rounded-md font-medium transition-colors hover:opacity-90"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2.5 bg-primary hover:bg-blue-700 text-white rounded-md font-medium transition-colors shadow-lg shadow-primary/25"
+                  className="flex-1 px-4 py-2.5 bg-primary hover:bg-primarydull text-white rounded-md font-medium transition-colors shadow-lg shadow-primary/25"
                 >
                   Save Log
                 </button>

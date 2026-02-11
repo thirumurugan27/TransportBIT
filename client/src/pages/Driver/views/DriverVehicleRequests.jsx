@@ -24,7 +24,13 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem("token");
-  return token ? {Authorization: `Bearer ${token}`} : {};
+  const headers = {
+    "X-Tunnel-Skip-Efficiency-Check": "true",
+  };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
 };
 
 const STATUS_CONFIG = {
@@ -220,17 +226,17 @@ export default function DriverVehicleRequests() {
   if (loading) return <Loading fullScreen={false} />;
 
   return (
-    <div className="space-y-5 p-4">
+    <div className="space-y-4 sm:space-y-5 p-0 sm:p-2 lg:p-4">
       {/* Page Header */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="bg-white rounded-md shadow-sm border border-gray-100 p-3 sm:p-4 lg:p-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
           <div>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+              <div className="w-10 h-10 bg-primary/10 rounded-md flex items-center justify-center">
                 <Truck className="text-primary" size={24} />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-gray-800">
+                <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-800">
                   Vehicle Requests
                 </h2>
                 <p className="text-xs text-gray-500 mt-0.5">
@@ -241,7 +247,7 @@ export default function DriverVehicleRequests() {
           </div>
 
           {upcomingRequests.length > 0 && (
-            <div className="flex items-center gap-2.5 px-4 py-2.5 bg-green/10 text-green rounded-lg border border-green/20">
+            <div className="flex items-center gap-2.5 px-4 py-2.5 bg-green/10 text-green rounded-md border border-green/20">
               <div className="w-2 h-2 rounded-full bg-green animate-pulse"></div>
               <span className="text-sm font-bold">
                 {upcomingRequests.length} Active / Upcoming
@@ -252,11 +258,11 @@ export default function DriverVehicleRequests() {
       </div>
 
       {/* Tabs with Counts */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-1.5">
-        <div className="flex flex-wrap gap-2">
+      <div className="bg-white rounded-md shadow-sm border border-gray-100 p-1 sm:p-1.5">
+        <div className="flex flex-wrap gap-1 sm:gap-2">
           <button
             onClick={() => setFilterStatus("all")}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-all duration-200 ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-md text-xs sm:text-sm font-medium transition-all duration-200 ${
               filterStatus === "all"
                 ? "bg-primary text-white shadow-md"
                 : "text-gray-600 hover:bg-gray-50"
@@ -265,7 +271,7 @@ export default function DriverVehicleRequests() {
             <CalendarDays size={16} />
             All Requests
             <span
-              className={`ml-1 min-w-6 px-2 py-0.5 rounded-full text-xs font-bold ${
+              className={`ml-1 min-w-6 px-2 py-0.5 rounded-md text-xs font-bold ${
                 filterStatus === "all"
                   ? "bg-white/25 text-white"
                   : "bg-gray-100 text-gray-700"
@@ -277,7 +283,7 @@ export default function DriverVehicleRequests() {
 
           <button
             onClick={() => setFilterStatus("assigned")}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-all duration-200 ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-md text-xs sm:text-sm font-medium transition-all duration-200 ${
               filterStatus === "assigned"
                 ? "bg-primary text-white shadow-md"
                 : "text-gray-600 hover:bg-gray-50"
@@ -286,7 +292,7 @@ export default function DriverVehicleRequests() {
             {React.createElement(STATUS_CONFIG.assigned.icon, {size: 16})}
             Assigned
             <span
-              className={`ml-1 min-w-6 px-2 py-0.5 rounded-full text-xs font-bold ${
+              className={`ml-1 min-w-6 px-2 py-0.5 rounded-md text-xs font-bold ${
                 filterStatus === "assigned"
                   ? "bg-white/25 text-white"
                   : "bg-gray-100 text-gray-700"
@@ -298,7 +304,7 @@ export default function DriverVehicleRequests() {
 
           <button
             onClick={() => setFilterStatus("trip_started")}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-all duration-200 ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-md text-xs sm:text-sm font-medium transition-all duration-200 ${
               filterStatus === "trip_started"
                 ? "bg-primary text-white shadow-md"
                 : "text-gray-600 hover:bg-gray-50"
@@ -307,7 +313,7 @@ export default function DriverVehicleRequests() {
             {React.createElement(STATUS_CONFIG.trip_started.icon, {size: 16})}
             On Trip
             <span
-              className={`ml-1 min-w-6 px-2 py-0.5 rounded-full text-xs font-bold ${
+              className={`ml-1 min-w-6 px-2 py-0.5 rounded-md text-xs font-bold ${
                 filterStatus === "trip_started"
                   ? "bg-white/25 text-white"
                   : "bg-gray-100 text-gray-700"
@@ -319,7 +325,7 @@ export default function DriverVehicleRequests() {
 
           <button
             onClick={() => setFilterStatus("completed")}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-all duration-200 ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-md text-xs sm:text-sm font-medium transition-all duration-200 ${
               filterStatus === "completed"
                 ? "bg-primary text-white shadow-md"
                 : "text-gray-600 hover:bg-gray-50"
@@ -328,7 +334,7 @@ export default function DriverVehicleRequests() {
             {React.createElement(STATUS_CONFIG.completed.icon, {size: 16})}
             Completed
             <span
-              className={`ml-1 min-w-6 px-2 py-0.5 rounded-full text-xs font-bold ${
+              className={`ml-1 min-w-6 px-2 py-0.5 rounded-md text-xs font-bold ${
                 filterStatus === "completed"
                   ? "bg-white/25 text-white"
                   : "bg-gray-100 text-gray-700"
@@ -341,9 +347,9 @@ export default function DriverVehicleRequests() {
       </div>
 
       {/* Request Cards Grid */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 lg:gap-5">
         {filteredRequests.length === 0 ? (
-          <div className="col-span-full bg-white rounded-lg shadow-sm border border-gray-100 p-12 text-center">
+          <div className="col-span-full bg-white rounded-md shadow-sm border border-gray-100 p-12 text-center">
             <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
               <CalendarDays size={36} className="text-gray-300" />
             </div>
@@ -376,14 +382,14 @@ export default function DriverVehicleRequests() {
             return (
               <div
                 key={request.id}
-                className="bg-white rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200 overflow-hidden group"
+                className="bg-white rounded-md shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200 overflow-hidden group"
               >
                 {/* Card Header */}
-                <div className="p-5 border-b border-gray-100 bg-gray-50/50">
+                <div className="p-3 sm:p-5 border-b border-gray-100 bg-gray-50/50">
                   <div className="flex justify-between items-start gap-4">
                     <div className="flex gap-3 flex-1 min-w-0">
                       <div
-                        className={`w-11 h-11 rounded-lg flex items-center justify-center shrink-0 border ${config.color}`}
+                        className={`w-11 h-11 rounded-md flex items-center justify-center shrink-0 border ${config.color}`}
                       >
                         {React.createElement(config.icon, {size: 22})}
                       </div>
@@ -393,7 +399,7 @@ export default function DriverVehicleRequests() {
                             {getTripTypeLabel(request.trip_type)}
                           </h3>
                           <span
-                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide border ${config.color}`}
+                            className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide border ${config.color}`}
                           >
                             {config.label}
                           </span>
@@ -413,7 +419,7 @@ export default function DriverVehicleRequests() {
 
                     <button
                       onClick={() => setSelectedRequest(request)}
-                      className="p-2 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all duration-200 shrink-0"
+                      className="p-2 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-md transition-all duration-200 shrink-0"
                     >
                       <Eye size={18} />
                     </button>
@@ -421,7 +427,7 @@ export default function DriverVehicleRequests() {
                 </div>
 
                 {/* Card Body - Trip Timeline */}
-                <div className="p-5">
+                <div className="p-3 sm:p-5">
                   <div className="relative pl-4 border-l-2 border-dashed border-gray-200 ml-2 space-y-5">
                     {/* Departure */}
                     <div className="relative">
@@ -471,9 +477,9 @@ export default function DriverVehicleRequests() {
                 </div>
 
                 {/* Card Footer - Vehicle & Passengers */}
-                <div className="px-5 py-4 bg-gray-50/50 border-t border-gray-100 grid grid-cols-2 gap-4">
+                <div className="px-3 sm:px-5 py-3 sm:py-4 bg-gray-50/50 border-t border-gray-100 grid grid-cols-2 gap-2 sm:gap-4">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-lg bg-white shadow-sm flex items-center justify-center text-gray-600 border border-gray-100">
+                    <div className="w-9 h-9 rounded-md bg-white shadow-sm flex items-center justify-center text-gray-600 border border-gray-100">
                       <Truck size={16} />
                     </div>
                     <div className="overflow-hidden flex-1">
@@ -486,7 +492,7 @@ export default function DriverVehicleRequests() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-lg bg-white shadow-sm flex items-center justify-center text-gray-600 border border-gray-100">
+                    <div className="w-9 h-9 rounded-md bg-white shadow-sm flex items-center justify-center text-gray-600 border border-gray-100">
                       <Users size={16} />
                     </div>
                     <div>
@@ -507,18 +513,18 @@ export default function DriverVehicleRequests() {
 
       {/* Details Modal */}
       {selectedRequest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-secondarybg rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-scaleIn border border-gray-100">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-secondarybg rounded-t-2xl sm:rounded-md shadow-2xl w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col animate-scaleIn border border-gray-100">
             {/* Modal Header */}
-            <div className="relative px-6 py-5 bg-gradient-to-br from-primary/5 to-primarybg border-b border-gray-200">
+            <div className="relative px-4 sm:px-6 py-4 sm:py-5 bg-gradient-to-br from-primary/5 to-primarybg border-b border-gray-200">
               <button
                 onClick={handleCloseModal}
-                className="absolute top-4 right-4 w-9 h-9 hover:bg-secondarybg rounded-lg transition-all flex items-center justify-center text-secondarytext hover:text-primarytext shadow-sm"
+                className="absolute top-4 right-4 w-9 h-9 hover:bg-secondarybg rounded-md transition-all flex items-center justify-center text-secondarytext hover:text-primarytext shadow-sm"
               >
                 <X size={18} />
               </button>
               <div className="flex items-start gap-4 pr-10">
-                <div className="w-14 h-14 bg-primary rounded-xl flex items-center justify-center text-white shadow-md shadow-primary/20">
+                <div className="w-14 h-14 bg-primary rounded-md flex items-center justify-center text-white shadow-md shadow-primary/20">
                   {React.createElement(
                     STATUS_CONFIG[selectedRequest.status]?.icon || Truck,
                     {size: 26},
@@ -544,7 +550,7 @@ export default function DriverVehicleRequests() {
             </div>
 
             {/* Modal Content */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            <div className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6 space-y-3 sm:space-y-4">
               {/* Trip Itinerary Section */}
               <div className="bg-primarybg rounded-md border border-gray-200 p-4">
                 <h4 className="text-xs font-bold text-secondarytext uppercase tracking-wide mb-3 flex items-center gap-2">
@@ -712,7 +718,7 @@ export default function DriverVehicleRequests() {
                       : "Complete Trip Verification"}
                   </h4>
 
-                  <div className="bg-white rounded-lg border border-gray-200 p-6">
+                  <div className="bg-white rounded-md border border-gray-200 p-6">
                     {/* Message */}
                     <div className="mb-5">
                       <h5 className="text-lg font-bold text-primarytext text-center mb-2">
@@ -737,7 +743,7 @@ export default function DriverVehicleRequests() {
                             )
                           }
                           placeholder="000000"
-                          className={`w-full bg-primarybg border-2 rounded-lg px-4 py-4 text-center text-2xl font-mono tracking-[0.5em] font-bold text-primarytext placeholder-gray-300 focus:outline-none transition-all ${
+                          className={`w-full bg-primarybg border-2 rounded-md px-4 py-4 text-center text-2xl font-mono tracking-[0.5em] font-bold text-primarytext placeholder-gray-300 focus:outline-none transition-all ${
                             otpInput.length === 6
                               ? selectedRequest.status === "assigned"
                                 ? "border-primary focus:border-primary focus:ring-2 focus:ring-primary/20"
@@ -765,8 +771,8 @@ export default function DriverVehicleRequests() {
                       </div>
 
                       {/* Info */}
-                      <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
-                        <p className="text-xs text-blue-800 text-center flex items-center justify-center gap-1.5">
+                      <div className="bg-primary/10 border border-primary/20 rounded-md p-3">
+                        <p className="text-xs text-primary text-center flex items-center justify-center gap-1.5">
                           <Info size={14} className="shrink-0" />
                           <span>
                             OTP is required to{" "}
@@ -786,7 +792,7 @@ export default function DriverVehicleRequests() {
                             : handleVerifyEndOTP(selectedRequest.id)
                         }
                         disabled={otpSubmitting || otpInput.length !== 6}
-                        className={`w-full py-3.5 rounded-lg font-semibold text-sm disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2 ${
+                        className={`w-full py-3.5 rounded-md font-semibold text-sm disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2 ${
                           otpInput.length === 6
                             ? selectedRequest.status === "assigned"
                               ? "bg-primary hover:bg-primarydull text-white disabled:opacity-50"

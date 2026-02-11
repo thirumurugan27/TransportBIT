@@ -13,18 +13,26 @@ export default function StudentDashboard() {
   const studentName = user?.full_name || user?.username || "Student";
   const navigate = useNavigate();
 
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   return (
     <div className="flex h-screen bg-primarybg">
-      <Sidebar role="STUDENT" useLogo={true} />
+      <Sidebar
+        role="STUDENT"
+        useLogo={true}
+        mobileOpen={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+      />
 
-      <div className="flex-1 flex flex-col overflow-hidden ml-[220px]">
+      <div className="flex-1 flex flex-col overflow-hidden lg:ml-[220px]">
         <DashboardHeader
           title="Student Portal"
           user={{name: studentName, role: "Student"}}
           onLogout={logout}
+          onMenuToggle={() => setMobileOpen(true)}
         />
 
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-primarybg p-6">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-primarybg p-3 sm:p-4 lg:p-6">
           <Routes>
             <Route path="" element={<StudentHome />} />
             <Route path="my-bus" element={<StudentTransport />} />
