@@ -13,8 +13,10 @@ import {
   Search,
   Info,
   Navigation,
+  AlertTriangle,
 } from "lucide-react";
 import { useToast } from "../../../context/ToastContext";
+import Swal from "sweetalert2";
 import { showConfirm } from "../../../utils/swal";
 import Loading from "../../../components/ui/Loading";
 import CustomSearch from "../../../components/ui/CustomSearch";
@@ -108,6 +110,10 @@ export default function VehicleRequests() {
   const [actionSubmitting, setActionSubmitting] = useState(false);
   const [approveWithAssign, setApproveWithAssign] = useState(false);
   const [approveForm, setApproveForm] = useState({ vehicle_id: 0, driver_id: 0 });
+
+  // Conflict modal state
+  const [conflictModal, setConflictModal] = useState(null);
+  const [conflictPendingAction, setConflictPendingAction] = useState(null); // { type: 'approve'|'assign', payload }
 
   useEffect(() => {
     fetchRequests();
@@ -218,7 +224,20 @@ export default function VehicleRequests() {
         fetchRequests();
       } else if (res.status === 409) {
         const data = await res.json();
-        showToast(data.message || "Conflict detected", "error");
+        if (data.error === "driver_conflict" || data.error === "vehicle_conflict") {
+          setConflictPendingAction({
+            type: "approve",
+            payload: body,
+          });
+          setConflictModal({
+            message: data.message || "Driver is already assigned during this time range",
+            conflicts: data.conflicts || [],
+            available_drivers: data.available_drivers || [],
+            conflict_type: data.error,
+          });
+        } else {
+          showToast(data.message || "Conflict detected", "error");
+        }
       } else {
         const data = await res.json();
         showToast(data.error || "Action failed", "error");
@@ -261,7 +280,24 @@ export default function VehicleRequests() {
         setSelectedRequest(null);
         fetchRequests();
       } else if (res.status === 409) {
-        showToast(data.message || "Conflict detected", "error");
+        if (data.error === "driver_conflict" || data.error === "vehicle_conflict") {
+          setConflictPendingAction({
+            type: "assign",
+            payload: {
+              request_id: assignRequest.id,
+              vehicle_id: assignForm.vehicle_id,
+              driver_id: assignForm.driver_id,
+            },
+          });
+          setConflictModal({
+            message: data.message || "Driver is already assigned during this time range",
+            conflicts: data.conflicts || [],
+            available_drivers: data.available_drivers || [],
+            conflict_type: data.error,
+          });
+        } else {
+          showToast(data.message || "Conflict detected", "error");
+        }
       } else {
         showToast(data.error || "Assignment failed", "error");
       }
@@ -302,11 +338,21 @@ export default function VehicleRequests() {
   };
 
   const handleCancel = async (requestId) => {
-    const confirmed = await showConfirm(
-      "Cancel Request?",
-      "This will cancel the vehicle request. This action cannot be undone.",
-    );
-    if (!confirmed) return;
+    const { isConfirmed, value: reason } = await Swal.fire({
+      title: "Cancel Request?",
+      text: "This will cancel the vehicle request and notify the driver & faculty. This action cannot be undone.",
+      icon: "warning",
+      input: "textarea",
+      inputLabel: "Reason for cancellation",
+      inputPlaceholder: "Enter reason...",
+      inputAttributes: { "aria-label": "Reason for cancellation" },
+      showCancelButton: true,
+      confirmButtonColor: "#7D53F6",
+      cancelButtonColor: "#FF5555",
+      confirmButtonText: "Yes, Cancel",
+      cancelButtonText: "No",
+    });
+    if (!isConfirmed) return;
     try {
       const res = await fetch(`${API_BASE}/api/admin/vehicle-request/cancel`, {
         method: "POST",
@@ -314,16 +360,125 @@ export default function VehicleRequests() {
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
           request_id: requestId,
-          admin_remarks: "Cancelled by admin",
+          admin_remarks: reason || "Cancelled by admin",
         }),
       });
       if (res.ok) {
-        showToast("Request cancelled", "success");
+        showToast("Request cancelled and notifications sent", "success");
         setSelectedRequest(null);
         fetchRequests();
       } else {
         const data = await res.json();
         showToast(data.error || "Failed to cancel", "error");
+      }
+    } catch (e) {
+      showToast("Network error", "error");
+    }
+  };
+
+  // Format time to AM/PM
+  const formatTimeAMPM = (timeStr) => {
+    if (!timeStr) return "";
+    const parts = timeStr.split(":");
+    if (parts.length < 2) return timeStr;
+    let h = parseInt(parts[0], 10);
+    const m = parts[1];
+    const ampm = h >= 12 ? "PM" : "AM";
+    h = h % 12 || 12;
+    return `${h}:${m} ${ampm}`;
+  };
+
+  // Force assign after conflict warning
+  const handleForceAssign = async () => {
+    if (!conflictPendingAction) return;
+    const { type, payload } = conflictPendingAction;
+    const endpoint =
+      type === "approve"
+        ? "/api/admin/vehicle-request/approve"
+        : "/api/admin/vehicle-request/assign";
+
+    try {
+      const res = await fetch(`${API_BASE}${endpoint}`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({ ...payload, force_assign: true }),
+      });
+
+      if (res.ok) {
+        showToast(
+          type === "approve"
+            ? "Request approved and vehicle assigned (forced)"
+            : "Vehicle and driver assigned (forced)",
+          "success",
+        );
+        setConflictModal(null);
+        setConflictPendingAction(null);
+        setShowAssignModal(false);
+        setActionModal(null);
+        setActionRemarks("");
+        setApproveWithAssign(false);
+        setApproveForm({ vehicle_id: 0, driver_id: 0 });
+        setSelectedRequest(null);
+        fetchRequests();
+      } else {
+        const data = await res.json();
+        showToast(data.error || "Failed to force assign", "error");
+      }
+    } catch (e) {
+      showToast("Network error", "error");
+    }
+  };
+
+  // Select alternate driver from conflict modal
+  const handleSelectAlternateDriver = async (newDriverId) => {
+    if (!conflictPendingAction) return;
+    const { type, payload } = conflictPendingAction;
+    const endpoint =
+      type === "approve"
+        ? "/api/admin/vehicle-request/approve"
+        : "/api/admin/vehicle-request/assign";
+
+    try {
+      const res = await fetch(`${API_BASE}${endpoint}`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({ ...payload, driver_id: newDriverId }),
+      });
+
+      if (res.ok) {
+        showToast(
+          type === "approve"
+            ? "Request approved and vehicle assigned with alternate driver"
+            : "Vehicle assigned with alternate driver",
+          "success",
+        );
+        setConflictModal(null);
+        setConflictPendingAction(null);
+        setShowAssignModal(false);
+        setActionModal(null);
+        setActionRemarks("");
+        setApproveWithAssign(false);
+        setApproveForm({ vehicle_id: 0, driver_id: 0 });
+        setSelectedRequest(null);
+        fetchRequests();
+      } else if (res.status === 409) {
+        const data = await res.json();
+        if (data.error === "driver_conflict" || data.error === "vehicle_conflict") {
+          setConflictPendingAction({ type, payload: { ...payload, driver_id: newDriverId } });
+          setConflictModal({
+            message: data.message || "This driver also has conflicts",
+            conflicts: data.conflicts || [],
+            available_drivers: data.available_drivers || [],
+            conflict_type: data.error,
+          });
+        } else {
+          showToast(data.message || "Conflict detected", "error");
+        }
+      } else {
+        const data = await res.json();
+        showToast(data.error || "Failed to assign", "error");
       }
     } catch (e) {
       showToast("Network error", "error");
@@ -944,6 +1099,226 @@ export default function VehicleRequests() {
                   {assigning ? "Assigning..." : "Assign Now"}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========== CONFLICT MODAL ========== */}
+      {conflictModal && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70] p-4"
+          onClick={() => {
+            setConflictModal(null);
+            setConflictPendingAction(null);
+          }}
+        >
+          <div
+            className="bg-secondarybg rounded-md shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-12 h-12 bg-amber-100 rounded-md flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="text-amber-600" size={24} />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-primarytext">
+                  {conflictModal.conflict_type === "vehicle_conflict"
+                    ? "Vehicle Conflict Detected"
+                    : "Driver Conflict Detected"}
+                </h3>
+                <p className="text-sm text-secondarytext mt-1">
+                  {conflictModal.message}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setConflictModal(null);
+                  setConflictPendingAction(null);
+                }}
+                className="text-secondarytext hover:text-primarytext transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Conflict Details */}
+            {conflictModal.conflicts && conflictModal.conflicts.length > 0 && (
+              <div className="mb-6">
+                <h4 className="text-sm font-semibold text-primarytext mb-3">
+                  Conflicting Assignments:
+                </h4>
+                <div className="space-y-2">
+                  {conflictModal.conflicts.map((conflict, idx) => (
+                    <div
+                      key={idx}
+                      className="bg-amber-50 border border-amber-200 rounded-md p-3"
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <Clock size={14} className="text-amber-600" />
+                        <span className="font-medium text-amber-800">
+                          {conflict.shift_name || "Assignment"}
+                        </span>
+                        <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-md">
+                          {conflict.assignment_type === "REGULAR"
+                            ? "Bus/Car Assignment"
+                            : conflict.assignment_type === "EV_CLUSTER"
+                              ? "EV Assignment"
+                              : conflict.assignment_type === "TEMP_REPLACEMENT"
+                                ? "Temp Replacement"
+                                : conflict.assignment_type === "VEHICLE_REQUEST"
+                                  ? "Vehicle Request"
+                                  : conflict.assignment_type || "Assignment"}
+                        </span>
+                      </div>
+                      <div className="text-sm text-amber-700 space-y-1 ml-5">
+                        <p>
+                          <strong>Time:</strong>{" "}
+                          {conflict.assignment_type === "VEHICLE_REQUEST"
+                            ? `${conflict.start_time} → ${conflict.end_time}`
+                            : `${formatTimeAMPM(conflict.start_time)} - ${formatTimeAMPM(conflict.end_time)}`}
+                        </p>
+                        {conflict.vehicle_number && (
+                          <p>
+                            <strong>Vehicle:</strong>{" "}
+                            {conflict.vehicle_number}
+                            {conflict.vehicle_type ? ` (${conflict.vehicle_type})` : ""}
+                          </p>
+                        )}
+                        {conflict.assignment_type !== "VEHICLE_REQUEST" && (
+                          <p>
+                            <strong>Dates:</strong> {conflict.start_date} to{" "}
+                            {conflict.end_date}
+                          </p>
+                        )}
+                        {conflict.faculty_name && (
+                          <p>
+                            <strong>Requested by:</strong> {conflict.faculty_name}
+                          </p>
+                        )}
+                        {conflict.driver_name && (
+                          <p>
+                            <strong>Driver:</strong> {conflict.driver_name}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Options */}
+            <div className="border-t border-gray-200 pt-4">
+              <h4 className="text-sm font-semibold text-primarytext mb-3">
+                What would you like to do?
+              </h4>
+
+              {/* Option 1: Force Assign */}
+              <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-3">
+                <div className="flex items-start gap-3">
+                  <div className="flex-1">
+                    <h5 className="font-medium text-red-800">
+                      Assign Anyway (Override)
+                    </h5>
+                    <p className="text-xs text-red-600 mt-1">
+                      This will assign even though there are conflicting schedules. Use this only if necessary.
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleForceAssign}
+                    className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm font-medium whitespace-nowrap"
+                  >
+                    Force Assign
+                  </button>
+                </div>
+              </div>
+
+              {/* Option 2: Choose Different Driver */}
+              {conflictModal.conflict_type === "driver_conflict" &&
+                conflictModal.available_drivers &&
+                conflictModal.available_drivers.length > 0 && (
+                  <div className="bg-green-50 border border-green-200 rounded-md p-4">
+                    <div className="flex-1">
+                      <h5 className="font-medium text-green-800 flex items-center gap-2">
+                        <CheckCircle size={16} /> Choose a Different Driver
+                      </h5>
+                      <p className="text-xs text-green-600 mt-1 mb-3">
+                        Select an available driver who doesn't have conflicting
+                        assignments:
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto">
+                        {conflictModal.available_drivers.map((d) => {
+                          const isAvailable = d.available;
+                          return (
+                            <button
+                              key={d.id}
+                              onClick={() => handleSelectAlternateDriver(d.id)}
+                              className={`flex items-center gap-2 p-3 border rounded-md transition-all text-left ${
+                                isAvailable
+                                  ? "bg-green-50 border-green-300 hover:bg-green-100 hover:border-green-400"
+                                  : "bg-gray-100 border-gray-300 hover:bg-gray-200 opacity-75"
+                              }`}
+                              title={
+                                isAvailable
+                                  ? "Available - No conflicts"
+                                  : "Has conflicting assignments"
+                              }
+                            >
+                              <div
+                                className={`w-2 h-2 rounded-md flex-shrink-0 ${
+                                  isAvailable ? "bg-green-500" : "bg-gray-400"
+                                }`}
+                              />
+                              <User
+                                size={16}
+                                className={
+                                  isAvailable
+                                    ? "text-green-600"
+                                    : "text-gray-500"
+                                }
+                              />
+                              <span
+                                className={`text-sm font-medium truncate flex-1 ${
+                                  isAvailable
+                                    ? "text-green-800"
+                                    : "text-gray-600"
+                                }`}
+                              >
+                                {d.full_name}
+                              </span>
+                              {isAvailable ? (
+                                <CheckCircle
+                                  size={14}
+                                  className="text-green-600 flex-shrink-0"
+                                />
+                              ) : (
+                                <AlertTriangle
+                                  size={14}
+                                  className="text-gray-500 flex-shrink-0"
+                                />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+            </div>
+
+            {/* Cancel Button */}
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={() => {
+                  setConflictModal(null);
+                  setConflictPendingAction(null);
+                }}
+                className="px-4 py-2 text-secondarytext hover:bg-gray-100 rounded-md transition-colors"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>

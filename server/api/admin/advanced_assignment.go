@@ -3,6 +3,7 @@ package admin
 import (
 	"log"
 	"net/http"
+	"time"
 	"transport-server/config"
 
 	"github.com/gin-gonic/gin"
@@ -109,11 +110,16 @@ func GetAssignmentsByCategory(c *gin.Context) {
 	if category == "" {
 		category = "BUS"
 	}
-	
+
+	filterDate := c.Query("date") // YYYY-MM-DD, defaults to today
+	if filterDate == "" {
+		filterDate = time.Now().Format("2006-01-02")
+	}
+
 	// Build the query based on category
 	var whereClause string
 	var args []interface{}
-	
+
 	if category == "OTHER" {
 		// OTHER = vehicles that are not BUS, CAR, or BATTERY_VEHICLE (EV)
 		whereClause = "v.vehicle_type NOT IN ('BUS', 'CAR', 'BATTERY_VEHICLE')"
@@ -121,9 +127,16 @@ func GetAssignmentsByCategory(c *gin.Context) {
 		whereClause = "v.vehicle_type = ?"
 		args = append(args, category)
 	}
-	
+
+	// Add date filter - show assignments where selected date falls within the range
+	whereClause += " AND ? BETWEEN a.start_date AND a.end_date"
+	args = append(args, filterDate)
+
 	query := `
-		SELECT a.id, DATE_FORMAT(a.assigned_date, '%d-%m-%Y') as assigned_date, a.status,
+		SELECT a.id, DATE_FORMAT(a.assigned_date, '%d-%m-%Y') as assigned_date,
+		       DATE_FORMAT(a.start_date, '%d-%m-%Y') as start_date,
+		       DATE_FORMAT(a.end_date, '%d-%m-%Y') as end_date,
+		       a.status,
 		       d.id as driver_id, u.full_name as driver_name, 
 		       CASE 
 		           WHEN a.assigned_date > CURDATE() THEN 'scheduled'
@@ -154,7 +167,7 @@ func GetAssignmentsByCategory(c *gin.Context) {
 		WHERE ` + whereClause + `
 		ORDER BY a.assigned_date DESC, s.start_time
 	`
-	
+
 	rows, err := config.DB.Query(query, args...)
 
 	if err != nil {
@@ -172,6 +185,8 @@ func GetAssignmentsByCategory(c *gin.Context) {
 	type CategoryAssignment struct {
 		ID                     int         `json:"id"`
 		AssignedDate           string      `json:"assigned_date"`
+		StartDate              string      `json:"start_date"`
+		EndDate                string      `json:"end_date"`
 		Status                 string      `json:"status"`
 		DriverID               int         `json:"driver_id"`
 		DriverName             string      `json:"driver_name"`
@@ -194,11 +209,11 @@ func GetAssignmentsByCategory(c *gin.Context) {
 	var assignments []CategoryAssignment
 	for rows.Next() {
 		var a CategoryAssignment
-		rows.Scan(&a.ID, &a.AssignedDate, &a.Status, &a.DriverID, &a.DriverName, &a.DriverStatus,
+		rows.Scan(&a.ID, &a.AssignedDate, &a.StartDate, &a.EndDate, &a.Status, &a.DriverID, &a.DriverName, &a.DriverStatus,
 			&a.VehicleID, &a.VehicleNumber, &a.VehicleType, &a.FuelType, &a.VehicleName,
 			&a.ShiftID, &a.ShiftName, &a.StartTime, &a.EndTime,
 			&a.OriginalDriverID, &a.IsTemporaryReplacement, &a.OriginalDriverName)
-		
+
 		// Fetch shift slots for this shift
 		slotRows, _ := config.DB.Query(`
 			SELECT TIME_FORMAT(start_time, '%H:%i'), TIME_FORMAT(end_time, '%H:%i')
@@ -206,7 +221,7 @@ func GetAssignmentsByCategory(c *gin.Context) {
 			WHERE shift_id = ?
 			ORDER BY slot_order ASC
 		`, a.ShiftID)
-		
+
 		var slots []ShiftSlot
 		for slotRows.Next() {
 			var slot ShiftSlot
@@ -215,7 +230,7 @@ func GetAssignmentsByCategory(c *gin.Context) {
 		}
 		slotRows.Close()
 		a.Slots = slots
-		
+
 		assignments = append(assignments, a)
 	}
 

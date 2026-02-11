@@ -336,7 +336,7 @@ func GetDriverAssignments(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "driver_id required"})
 		return
 	}
-	
+
 	// Convert to int for proper type handling
 	driverIDInt, err := strconv.Atoi(driverID)
 	if err != nil {
@@ -344,9 +344,19 @@ func GetDriverAssignments(c *gin.Context) {
 		return
 	}
 
+	filterDate := c.Query("date") // YYYY-MM-DD, optional
+
 	var assignments []DriverAssignment
 
 	// 1. Get individual assignments (Bus, Car, etc.)
+	var dateFilter string
+	var queryArgs []interface{}
+	queryArgs = append(queryArgs, driverID)
+	if filterDate != "" {
+		dateFilter = "AND ? BETWEEN a.start_date AND a.end_date"
+		queryArgs = append(queryArgs, filterDate)
+	}
+
 	rows, err := config.DB.Query(`
 		SELECT 
 				a.id, v.id as vehicle_id, COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name, v.vehicle_number, v.vehicle_type,
@@ -367,9 +377,9 @@ func GetDriverAssignments(c *gin.Context) {
 		JOIN shifts s ON a.shift_id = s.id
 		LEFT JOIN drivers d_orig ON a.original_driver_id = d_orig.id
 		LEFT JOIN users u_orig ON d_orig.user_id = u_orig.id
-		WHERE a.driver_id = ?
+		WHERE a.driver_id = ? `+dateFilter+`
 		ORDER BY a.start_date DESC
-	`, driverID)
+	`, queryArgs...)
 
 	if err != nil {
 		log.Printf("Get driver assignments error: %v", err)
@@ -399,12 +409,20 @@ func GetDriverAssignments(c *gin.Context) {
 	// 2. Get EV cluster assignments (driver belongs to a cluster assigned to EV vehicle group)
 	// Get unique EV assignments for this driver (not per vehicle)
 	log.Printf("Fetching EV assignments for driver ID: %d", driverIDInt)
-	
+
 	// First, check if driver is in any cluster
 	var clusterCheck int
 	err = config.DB.QueryRow(`SELECT COUNT(*) FROM driver_cluster_members WHERE driver_id = ?`, driverIDInt).Scan(&clusterCheck)
 	log.Printf("Driver %d is in %d cluster memberships", driverIDInt, clusterCheck)
-	
+
+	var evDateFilter string
+	var evArgs []interface{}
+	evArgs = append(evArgs, driverIDInt)
+	if filterDate != "" {
+		evDateFilter = "AND ? BETWEEN ev.start_date AND ev.end_date"
+		evArgs = append(evArgs, filterDate)
+	}
+
 	evRows, err := config.DB.Query(`
 		SELECT 
 			ev.id, 
@@ -423,10 +441,10 @@ func GetDriverAssignments(c *gin.Context) {
 		JOIN driver_clusters dc ON ev.cluster_id = dc.id
 		JOIN driver_cluster_members dcm ON dcm.cluster_id = dc.id
 		LEFT JOIN shifts s ON s.id = ev.shift_id
-		WHERE dcm.driver_id = ?
+		WHERE dcm.driver_id = ? `+evDateFilter+`
 		GROUP BY ev.id
 		ORDER BY ev.start_date DESC
-	`, driverIDInt)
+	`, evArgs...)
 
 	if err != nil {
 		log.Printf("Get EV assignments error: %v", err)
@@ -475,6 +493,14 @@ func GetDriverAssignments(c *gin.Context) {
 	}
 
 	// 3. Get temporary assignments
+	var tempDateFilter string
+	var tempArgs []interface{}
+	tempArgs = append(tempArgs, driverID)
+	if filterDate != "" {
+		tempDateFilter = "AND ? BETWEEN ta.start_date AND ta.end_date"
+		tempArgs = append(tempArgs, filterDate)
+	}
+
 	tempRows, err := config.DB.Query(`
 		SELECT 
 				ta.id, v.id as vehicle_id, COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name, v.vehicle_number, v.vehicle_type,
@@ -492,9 +518,9 @@ func GetDriverAssignments(c *gin.Context) {
 		LEFT JOIN shifts s ON ta.shift_id = s.id
 		LEFT JOIN drivers d_orig ON ta.original_driver_id = d_orig.id
 		LEFT JOIN users u_orig ON d_orig.user_id = u_orig.id
-		WHERE ta.replacement_driver_id = ?
+		WHERE ta.replacement_driver_id = ? `+tempDateFilter+`
 		ORDER BY ta.start_date DESC
-	`, driverID)
+	`, tempArgs...)
 
 	if err != nil {
 		log.Printf("Get temporary assignments error: %v", err)

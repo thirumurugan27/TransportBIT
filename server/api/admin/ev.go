@@ -97,10 +97,10 @@ func GetEVVehicles(c *gin.Context) {
 =========================
 */
 func GetEVAssignments(c *gin.Context) {
-	// We group by unique assignment sets (Cluster + Dates + VehicleGroup)
-	// If vehicle_group_id is NULL, each vehicle is its own row (or grouped by null group?)
-	// Actually, for list view, we want to see "Group A" as one item.
-	// Individual assignments (no group) should be shown individually.
+	filterDate := c.Query("date") // YYYY-MM-DD, defaults to today
+	if filterDate == "" {
+		filterDate = time.Now().Format("2006-01-02")
+	}
 
 	query := `
 		SELECT 
@@ -121,10 +121,11 @@ func GetEVAssignments(c *gin.Context) {
 		LEFT JOIN vehicle_groups vg ON ea.vehicle_group_id = vg.id
 		JOIN driver_clusters c ON ea.cluster_id = c.id
 		LEFT JOIN shifts s ON ea.shift_id = s.id
+		WHERE ? BETWEEN ea.start_date AND ea.end_date
 		ORDER BY ea.start_date DESC, ea.id DESC
 	`
 
-	rows, err := config.DB.Query(query)
+	rows, err := config.DB.Query(query, filterDate)
 	if err != nil {
 		log.Printf("Get EV assignments error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching EV assignments"})
@@ -141,13 +142,13 @@ func GetEVAssignments(c *gin.Context) {
 		var shiftEnd sql.NullString
 
 		err := rows.Scan(
-			&a.ID, 
+			&a.ID,
 			&a.VehicleGroupID,
-			&a.VehicleGroupName, 
-			&a.ClusterID, 
+			&a.VehicleGroupName,
+			&a.ClusterID,
 			&a.ClusterName,
-			&a.StartDate, 
-			&a.EndDate, 
+			&a.StartDate,
+			&a.EndDate,
 			&a.Status,
 			&shiftID,
 			&shiftName,
@@ -191,7 +192,6 @@ func GetEVAssignments(c *gin.Context) {
 		var driverCount int
 		config.DB.QueryRow("SELECT COUNT(DISTINCT dcm.driver_id) FROM driver_cluster_members dcm WHERE dcm.cluster_id = ? AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to", a.ClusterID).Scan(&driverCount)
 		a.DriverCount = driverCount
-
 
 		// We can reuse the drivers field or add a vehicles field.
 		// The frontend expects 'drivers' for the bubbles.
@@ -359,12 +359,12 @@ func CreateEVAssignment(c *gin.Context) {
 		// For each day in range
 		for d := start; !d.After(end); d = d.Add(24 * time.Hour) {
 			checkDate := d.Format("2006-01-02")
-			
+
 			// Query for overlapping assignments for this vehicle on this date
 			// 1. Regular assignments (join shifts)
 			// 2. EV assignments (join cluster -> shift)  <-- Modified to use GROUP CHECK logic if needed, but here checking existing active assignments
 			// 3. Temp assignments (join shift)
-			
+
 			query := `
 				SELECT s.start_time, s.end_time
 				FROM assignments a
@@ -392,46 +392,48 @@ func CreateEVAssignment(c *gin.Context) {
 				AND ? BETWEEN ta.start_date AND ta.end_date
 				AND ta.status = 'active'
 			`
-			
+
 			// Parameters: 1) vehicle_id for assignments, 2) date, 3) vehicle_id for ev_assignments check (via group), 4) date, 5) vehicle_id for temp assignments, 6) date
 			rows, err := config.DB.Query(query, vid, checkDate, vid, checkDate, vid, checkDate)
 			if err != nil {
 				log.Printf("Error checking vehicle conflict: %v", err)
 				continue
 			}
-			
+
 			vehicleConflicted := false
 			for rows.Next() {
 				var st, et sql.NullString
 				rows.Scan(&st, &et)
-				
+
 				// Check overlap with ANY of our ranges
 				for _, r := range ranges {
 					// Helper to check overlap
 					isOverlap := false
-					
+
 					parseToMin := func(t string) int {
-						if len(t) > 5 { t = t[:5] }
+						if len(t) > 5 {
+							t = t[:5]
+						}
 						pt, _ := time.Parse("15:04", t)
 						return pt.Hour()*60 + pt.Minute()
 					}
-					
+
 					var cStart, cEnd string
 					if st.Valid && et.Valid {
 						cStart, cEnd = st.String, et.String
 					} else {
-						continue 
+						continue
 					}
-					
+
 					rStartMin := parseToMin(r.start)
 					rEndMin := parseToMin(r.end)
 					cStartMin := parseToMin(cStart)
 					cEndMin := parseToMin(cEnd)
-					
+
 					if rStartMin < cEndMin && rEndMin > cStartMin {
 						isOverlap = true
 					}
-					
+
 					if isOverlap {
 						vehicleConflicted = true
 						break
@@ -442,13 +444,13 @@ func CreateEVAssignment(c *gin.Context) {
 				}
 			}
 			rows.Close()
-			
+
 			if vehicleConflicted {
 				c.JSON(http.StatusConflict, gin.H{
-					"error": "vehicle_conflict",
-					"message": "One or more vehicles in the group are already assigned during the selected time.",
+					"error":      "vehicle_conflict",
+					"message":    "One or more vehicles in the group are already assigned during the selected time.",
 					"vehicle_id": vid,
-					"date": checkDate,
+					"date":       checkDate,
 				})
 				return
 			}
@@ -519,18 +521,18 @@ func CreateEVAssignment(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error creating EV assignment"})
 		return
 	}
-	
+
 	lastID, _ := res.LastInsertId()
 
 	if req.ForceAssign {
 		c.JSON(http.StatusOK, gin.H{
-			"message":       "EV assignment created successfully (forced)",
-			"id": lastID,
+			"message": "EV assignment created successfully (forced)",
+			"id":      lastID,
 		})
 	} else {
 		c.JSON(http.StatusOK, gin.H{
-			"message":       "EV assignment created successfully",
-			"id": lastID,
+			"message": "EV assignment created successfully",
+			"id":      lastID,
 		})
 	}
 }
@@ -591,7 +593,7 @@ func DeleteEVAssignment(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete EV assignment"})
 		return
 	}
-	
+
 	c.JSON(http.StatusOK, gin.H{"message": "EV assignment deleted"})
 }
 
@@ -741,24 +743,26 @@ func GetEVAssignmentDetails(c *gin.Context) {
 			driverRows.Scan(&di.DriverID, &di.DriverName, &di.Status, &onLeave)
 			di.OnLeave = onLeave == 1
 			di.TotalKM = 0
-			
+
 			// Calculate KM for this driver across all assigned vehicles
 			if len(vehicleIDs) > 0 {
 				params := []interface{}{di.DriverID, response.StartDate, response.EndDate}
 				ph := ""
 				for i, v := range vehicleIDs {
-					if i > 0 { ph += "," }
+					if i > 0 {
+						ph += ","
+					}
 					ph += "?"
 					params = append(params, v)
 				}
-				
+
 				// Reorder params: driver_id, date, date, ...vehicles... (depends on query structure)
 				// Query: WHERE driver_id = ? AND date BETWEEN ? AND ? AND vehicle_id IN (?,?,?)
 				query := `SELECT COALESCE(SUM(total_km), 0) FROM km_logs 
 		            WHERE driver_id = ? 
 		            AND date BETWEEN ? AND ?
 		            AND vehicle_id IN (` + ph + `)`
-				
+
 				config.DB.QueryRow(query, params...).Scan(&di.TotalKM)
 			}
 
@@ -766,11 +770,15 @@ func GetEVAssignmentDetails(c *gin.Context) {
 			init := ""
 			words := splitName(di.DriverName)
 			for _, w := range words {
-				if len(w) > 0 { init += string(w[0]) }
+				if len(w) > 0 {
+					init += string(w[0])
+				}
 			}
-			if len(init) > 2 { init = init[:2] }
+			if len(init) > 2 {
+				init = init[:2]
+			}
 			di.Initials = init
-			
+
 			response.Drivers = append(response.Drivers, di)
 		}
 	}
@@ -780,17 +788,19 @@ func GetEVAssignmentDetails(c *gin.Context) {
 		params := []interface{}{response.StartDate, response.EndDate}
 		ph := ""
 		for i, v := range vehicleIDs {
-			if i > 0 { ph += "," }
+			if i > 0 {
+				ph += ","
+			}
 			ph += "?"
 			params = append(params, v)
 		}
-		
+
 		query := `
 			SELECT COALESCE(SUM(total_km), 0) 
 			FROM km_logs 
 			WHERE date BETWEEN ? AND ?
 			AND vehicle_id IN (` + ph + `)`
-			
+
 		config.DB.QueryRow(query, params...).Scan(&response.TotalKM)
 	}
 
@@ -800,12 +810,14 @@ func GetEVAssignmentDetails(c *gin.Context) {
 		ph := ""
 		params := []interface{}{}
 		for i, v := range vehicleIDs {
-			if i > 0 { ph += "," }
+			if i > 0 {
+				ph += ","
+			}
 			ph += "?"
 			params = append(params, v)
 		}
 		params = append(params, response.StartDate, response.EndDate)
-		
+
 		q := `
 			SELECT kl.id, DATE_FORMAT(kl.date, '%d-%m-%Y') as date, 
 			       u.full_name as driver_name, kl.start_km, kl.end_km, kl.total_km, v.vehicle_number
@@ -818,7 +830,7 @@ func GetEVAssignmentDetails(c *gin.Context) {
 			ORDER BY kl.date DESC, kl.id DESC
 			LIMIT 10
 		`
-		
+
 		logRows, err := config.DB.Query(q, params...)
 		if err == nil {
 			defer logRows.Close()
@@ -862,11 +874,11 @@ func splitName(name string) []string {
 =========================
 */
 type ReassignEVRequest struct {
-	AssignmentID  int    `json:"assignment_id"`
-	NewClusterID  int    `json:"new_cluster_id"`
-	StartDate     string `json:"start_date"`
-	EndDate       string `json:"end_date"`
-	Reason        string `json:"reason"`
+	AssignmentID int    `json:"assignment_id"`
+	NewClusterID int    `json:"new_cluster_id"`
+	StartDate    string `json:"start_date"`
+	EndDate      string `json:"end_date"`
+	Reason       string `json:"reason"`
 }
 
 func ReassignEVAssignment(c *gin.Context) {

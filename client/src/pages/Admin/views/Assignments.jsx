@@ -116,6 +116,7 @@ export default function Assignments() {
   const [filterShift, setFilterShift] = useState(""); // empty means all
   const [filterStatus, setFilterStatus] = useState(""); // empty means all
   const [showFilters, setShowFilters] = useState(false);
+  const [filterDate, setFilterDate] = useState(new Date().toISOString().split("T")[0]); // YYYY-MM-DD, defaults to today
 
   // EV Reassignment Modal States
   const [showEvReassignModal, setShowEvReassignModal] = useState(false);
@@ -237,14 +238,14 @@ export default function Assignments() {
     try {
       const [bus, car, ev, other, s, v, d, c, vg] = await Promise.all([
         fetch(
-          `${API_BASE}/api/admin/assignments/by-category?category=BUS`,
+          `${API_BASE}/api/admin/assignments/by-category?category=BUS&date=${filterDate}`,
         ).then((r) => r.json()),
         fetch(
-          `${API_BASE}/api/admin/assignments/by-category?category=CAR`,
+          `${API_BASE}/api/admin/assignments/by-category?category=CAR&date=${filterDate}`,
         ).then((r) => r.json()),
-        fetch(`${API_BASE}/api/admin/ev-assignments`).then((r) => r.json()),
+        fetch(`${API_BASE}/api/admin/ev-assignments?date=${filterDate}`).then((r) => r.json()),
         fetch(
-          `${API_BASE}/api/admin/assignments/by-category?category=OTHER`,
+          `${API_BASE}/api/admin/assignments/by-category?category=OTHER&date=${filterDate}`,
         ).then((r) => r.json()),
         fetch(`${API_BASE}/api/admin/shifts`).then((r) => r.json()),
         fetch(`${API_BASE}/api/admin/vehicles`).then((r) => r.json()),
@@ -271,7 +272,7 @@ export default function Assignments() {
 
   useEffect(() => {
     fetchAllData();
-  }, []);
+  }, [filterDate]);
 
   // Filter and Sort Logic
   const getFilteredAndSortedAssignments = (assignments) => {
@@ -923,15 +924,15 @@ export default function Assignments() {
             <button
               onClick={() => setShowFilters(!showFilters)}
               className={`w-full lg:w-auto h-[42px] px-6 rounded-md font-semibold transition-all flex items-center justify-center gap-2 whitespace-nowrap ${
-                showFilters || filterShift || filterStatus
+                showFilters || filterShift || filterStatus || filterDate !== new Date().toISOString().split("T")[0]
                   ? "bg-primary text-white hover:bg-primary/90 shadow-sm"
                   : "border border-gray-200 bg-primarybg text-primarytext hover:border-primary hover:text-primary"
               }`}
             >
               <Filter size={16} /> Filters
-              {(filterShift || filterStatus) && (
+              {(filterShift || filterStatus || filterDate !== new Date().toISOString().split("T")[0]) && (
                 <span className="bg-white text-primary rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
-                  {(filterShift ? 1 : 0) + (filterStatus ? 1 : 0)}
+                  {(filterShift ? 1 : 0) + (filterStatus ? 1 : 0) + (filterDate !== new Date().toISOString().split("T")[0] ? 1 : 0)}
                 </span>
               )}
             </button>
@@ -940,7 +941,20 @@ export default function Assignments() {
           {/* Filter Options */}
           {showFilters && (
             <div className="mt-5 pt-5 border-t border-gray-100">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Date Filter */}
+                <div>
+                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-2">
+                    Filter by Date
+                  </label>
+                  <input
+                    type="date"
+                    value={filterDate}
+                    onChange={(e) => setFilterDate(e.target.value)}
+                    className="w-full h-[42px] px-3 border border-gray-200 rounded-md bg-primarybg text-primarytext focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm"
+                  />
+                </div>
+
                 {/* Shift Filter */}
                 <div>
                   <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-2">
@@ -981,12 +995,13 @@ export default function Assignments() {
               </div>
 
               {/* Clear Filters */}
-              {(filterShift || filterStatus) && (
+              {(filterShift || filterStatus || filterDate !== new Date().toISOString().split("T")[0]) && (
                 <div className="mt-4 flex justify-end">
                   <button
                     onClick={() => {
                       setFilterShift("");
                       setFilterStatus("");
+                      setFilterDate(new Date().toISOString().split("T")[0]);
                     }}
                     className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-md transition-colors text-sm font-semibold"
                   >
@@ -1713,7 +1728,7 @@ export default function Assignments() {
               conflictModal.conflicts.length > 0 ? (
               <div className="mb-6">
                 <h4 className="text-sm font-semibold text-primarytext mb-3">
-                  Existing Assignments:
+                  Conflicting Assignments:
                 </h4>
                 <div className="space-y-2">
                   {conflictModal.conflicts.map((conflict, idx) => (
@@ -1727,7 +1742,15 @@ export default function Assignments() {
                           {conflict.shift_name || "Shift"}
                         </span>
                         <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-md">
-                          {conflict.assignment_type || "Assignment"}
+                          {conflict.assignment_type === "REGULAR"
+                            ? "Bus/Car Assignment"
+                            : conflict.assignment_type === "EV_CLUSTER"
+                              ? "EV Assignment"
+                              : conflict.assignment_type === "TEMP_REPLACEMENT"
+                                ? "Temp Replacement"
+                                : conflict.assignment_type === "VEHICLE_REQUEST"
+                                  ? "Vehicle Request"
+                                  : conflict.assignment_type || "Assignment"}
                         </span>
                       </div>
                       <div className="text-sm text-amber-700 space-y-1">
@@ -1744,6 +1767,11 @@ export default function Assignments() {
                           <strong>Dates:</strong> {conflict.start_date} to{" "}
                           {conflict.end_date}
                         </p>
+                        {conflict.faculty_name && (
+                          <p>
+                            <strong>Requested by:</strong> {conflict.faculty_name}
+                          </p>
+                        )}
                       </div>
                     </div>
                   ))}

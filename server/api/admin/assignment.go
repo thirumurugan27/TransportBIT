@@ -2,6 +2,7 @@ package admin
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -279,6 +280,7 @@ func CreateAssignment(c *gin.Context) {
 	if end.Before(start) {
 		end = start
 	}
+	conflictDate := "" // Track which date has the conflict
 	for d := start; !d.After(end); d = d.Add(24 * time.Hour) {
 		checkDate := d.Format("2006-01-02")
 		for _, r := range ranges {
@@ -290,6 +292,7 @@ func CreateAssignment(c *gin.Context) {
 			}
 			if hc {
 				hasConflict = true
+				conflictDate = checkDate
 				break
 			}
 		}
@@ -304,10 +307,14 @@ func CreateAssignment(c *gin.Context) {
 		for i, r := range ranges {
 			checkRanges[i] = struct{ start, end string }{start: r.start, end: r.end}
 		}
-		conflicts, _ := getDriverConflictsDetails(req.DriverID, req.StartDate, checkRanges)
+		conflicts, err := getDriverConflictsDetails(req.DriverID, conflictDate, checkRanges)
+		if err != nil {
+			log.Printf("Error getting conflict details: %v", err)
+		}
+		log.Printf("Conflict detected for driver %d on %s, found %d conflict details", req.DriverID, conflictDate, len(conflicts))
 		c.JSON(http.StatusConflict, gin.H{
 			"error":     "time_conflict",
-			"message":   "Driver is already assigned during this time range",
+			"message":   fmt.Sprintf("Driver is already assigned during this time range (conflict on %s)", conflictDate),
 			"conflicts": conflicts,
 		})
 		return
@@ -487,8 +494,6 @@ func CheckDriverTimeConflict(driverID int, shiftStartTime, shiftEndTime, checkDa
 
 		UNION ALL
 
-		-- EV cluster assignments impacting this driver via cluster membership
-		-- Now using shift_id from ev_assignments as cluster timing is redundant
 		SELECT 
 			s.start_time,
 			s.end_time,
@@ -543,6 +548,47 @@ func CheckDriverTimeConflict(driverID int, shiftStartTime, shiftEndTime, checkDa
 		}
 	}
 
+	// Also check vehicle requests (faculty car/bus bookings)
+	vrRows, err := config.DB.Query(`
+		SELECT vr.OnwardFromDateTime, 
+		       COALESCE(NULLIF(vr.ReturnTodateTime,''), NULLIF(vr.ReturnFromDateTime,''), 
+		                NULLIF(vr.OnwardTodateTime,''), vr.OnwardFromDateTime) as end_dt
+		FROM vehiclerequests vr
+		WHERE vr.driver_id = ?
+		AND vr.status IN ('assigned','trip_started')
+		AND vr.OnwardFromDateTime IS NOT NULL
+		AND TRIM(vr.OnwardFromDateTime) != ''
+		AND CHAR_LENGTH(TRIM(vr.OnwardFromDateTime)) >= 10
+		AND DATE(TRIM(vr.OnwardFromDateTime)) <= ?
+		AND DATE(COALESCE(NULLIF(TRIM(vr.ReturnTodateTime),''), NULLIF(TRIM(vr.ReturnFromDateTime),''), 
+		         NULLIF(TRIM(vr.OnwardTodateTime),''), TRIM(vr.OnwardFromDateTime))) >= ?
+	`, driverID, checkDate, checkDate)
+	if err != nil {
+		log.Printf("Error checking vehicle request time conflict: %v", err)
+	} else {
+		defer vrRows.Close()
+		for vrRows.Next() {
+			var onFrom, endDT string
+			vrRows.Scan(&onFrom, &endDT)
+
+			// Extract time from datetime
+			vrStartTime := "00:00"
+			vrEndTime := "23:59"
+			if len(onFrom) > 11 {
+				vrStartTime = onFrom[11:16]
+			}
+			if len(endDT) > 11 {
+				vrEndTime = endDT[11:16]
+			}
+
+			if timesOverlap(checkStart, checkEnd, vrStartTime, vrEndTime) {
+				log.Printf("Time conflict found for driver %d: VR %s-%s overlaps with %s-%s",
+					driverID, vrStartTime, vrEndTime, checkStart, checkEnd)
+				return true, nil
+			}
+		}
+	}
+
 	return false, nil
 }
 
@@ -580,7 +626,11 @@ func timesOverlap(start1, end1, start2, end2 string) bool {
 // on a specific date, comparing provided time ranges against existing assignment
 // shift times (including multi-slot shifts)
 func getDriverConflictsDetails(driverID int, checkDate string, checkRanges []struct{ start, end string }) ([]map[string]interface{}, error) {
-	// Query assignments for the given driver and date
+	var out []map[string]interface{}
+	seen := make(map[string]bool) // Track already added assignments to avoid duplicates
+
+	// Query assignments for the given driver and date (regular + temp + EV)
+	// Join ALL shift slots (not just slot 1) to check all time ranges
 	rows, err := config.DB.Query(`
 		SELECT a.id, v.vehicle_number, v.vehicle_type, s.name as shift_name,
 		       s.start_time, s.end_time,
@@ -589,34 +639,52 @@ func getDriverConflictsDetails(driverID int, checkDate string, checkRanges []str
 		FROM assignments a
 		JOIN vehicles v ON a.vehicle_id = v.id
 		JOIN shifts s ON a.shift_id = s.id
-		LEFT JOIN shift_slots ss ON s.id = ss.shift_id AND ss.slot_order = 1
+		LEFT JOIN shift_slots ss ON s.id = ss.shift_id
 		WHERE a.driver_id = ?
 		AND ? BETWEEN a.start_date AND a.end_date
 		AND a.status IN ('assigned','active')
 		
 		UNION ALL
 		
-		SELECT ev.id, v.vehicle_number, v.vehicle_type, 'EV Duty' as shift_name,
-		       COALESCE(dc.start_time, '08:00:00') as start_time,
-		       COALESCE(dc.end_time,   '17:00:00') as end_time,
-		       NULL as slot_start,
-		       NULL as slot_end,
+		SELECT ta.id, v.vehicle_number, v.vehicle_type, CONCAT(s.name, ' (Temp)') as shift_name,
+		       s.start_time, s.end_time,
+		       ss.start_time as slot_start, ss.end_time as slot_end,
+		       ta.start_date, ta.end_date, 'TEMP_REPLACEMENT' as assignment_type
+		FROM temporary_assignments ta
+		JOIN vehicles v ON ta.vehicle_id = v.id
+		JOIN shifts s ON ta.shift_id = s.id
+		LEFT JOIN shift_slots ss ON s.id = ss.shift_id
+		WHERE ta.replacement_driver_id = ?
+		AND ? BETWEEN ta.start_date AND ta.end_date
+		
+		UNION ALL
+		
+		SELECT ev.id, COALESCE(vg.name, 'EV Group') as vehicle_number, 'EV' as vehicle_type, CONCAT('EV: ', dc.name) as shift_name,
+		       s.start_time, s.end_time,
+		       ss.start_time as slot_start, ss.end_time as slot_end,
 		       ev.start_date, ev.end_date, 'EV_CLUSTER' as assignment_type
 		FROM ev_assignments ev
-		JOIN vehicles v ON ev.vehicle_id = v.id
+		LEFT JOIN vehicle_groups vg ON ev.vehicle_group_id = vg.id
 		JOIN driver_clusters dc ON ev.cluster_id = dc.id
 		JOIN driver_cluster_members dcm ON dcm.cluster_id = dc.id AND ? BETWEEN dcm.valid_from AND dcm.valid_to
 		JOIN drivers d ON d.id = dcm.driver_id
+		JOIN shifts s ON ev.shift_id = s.id
+		LEFT JOIN shift_slots ss ON s.id = ss.shift_id
 		WHERE d.id = ?
 		AND ? BETWEEN ev.start_date AND ev.end_date
 		AND ev.status IN ('active')
-	`, driverID, checkDate, checkDate, driverID, checkDate)
+	`, driverID, checkDate, driverID, checkDate, checkDate, driverID, checkDate)
 	if err != nil {
+		log.Printf("Error querying conflict details: %v", err)
 		return nil, err
 	}
 	defer rows.Close()
 
-	var out []map[string]interface{}
+	log.Printf("getDriverConflictsDetails: Checking driver %d on date %s with %d time ranges", driverID, checkDate, len(checkRanges))
+	for _, cr := range checkRanges {
+		log.Printf("  - Range: %s to %s", cr.start, cr.end)
+	}
+
 	for rows.Next() {
 		var id int
 		var vehicleNumber, vehicleType, shiftName string
@@ -625,8 +693,13 @@ func getDriverConflictsDetails(driverID int, checkDate string, checkRanges []str
 		var startDate, endDate, assignmentType string
 
 		if err := rows.Scan(&id, &vehicleNumber, &vehicleType, &shiftName, &startTime, &endTime, &slotStart, &slotEnd, &startDate, &endDate, &assignmentType); err != nil {
+			log.Printf("Error scanning row: %v", err)
 			continue
 		}
+
+		log.Printf("Found existing assignment: ID=%d type=%s shift=%s vehicle=%s dates=%s to %s times=%v-%v slot=%v-%v",
+			id, assignmentType, shiftName, vehicleNumber, startDate, endDate,
+			startTime, endTime, slotStart, slotEnd)
 
 		// Determine the effective time range(s) of the existing assignment
 		candidateRanges := []struct{ start, end string }{}
@@ -642,6 +715,7 @@ func getDriverConflictsDetails(driverID int, checkDate string, checkRanges []str
 			for _, er := range candidateRanges {
 				if timesOverlap(cr.start, cr.end, er.start, er.end) {
 					conflicted = true
+					log.Printf("  -> CONFLICT: %s-%s overlaps with %s-%s", cr.start, cr.end, er.start, er.end)
 					break
 				}
 			}
@@ -651,6 +725,13 @@ func getDriverConflictsDetails(driverID int, checkDate string, checkRanges []str
 		}
 
 		if conflicted {
+			// Use a unique key to avoid duplicate entries for same assignment
+			key := fmt.Sprintf("%s_%d", assignmentType, id)
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+
 			item := map[string]interface{}{
 				"assignment_id":   id,
 				"vehicle_number":  vehicleNumber,
@@ -669,6 +750,84 @@ func getDriverConflictsDetails(driverID int, checkDate string, checkRanges []str
 				item["end_time"] = endTime.String
 			}
 			out = append(out, item)
+		}
+	}
+
+	// Also check vehicle requests (faculty car/bus bookings)
+	vrRows, err := config.DB.Query(`
+		SELECT vr.id, COALESCE(v.vehicle_number,'N/A') as vehicle_number, 
+		       COALESCE(v.vehicle_type,'') as vehicle_type,
+		       vr.OnwardFromDateTime, COALESCE(vr.OnwardTodateTime,'') as onward_to,
+		       COALESCE(vr.ReturnFromDateTime,'') as return_from, COALESCE(vr.ReturnTodateTime,'') as return_to,
+		       COALESCE(u.full_name,'') as faculty_name, COALESCE(vr.Purpose,'') as purpose
+		FROM vehiclerequests vr
+		LEFT JOIN vehicles v ON vr.vehicle_id = v.id
+		LEFT JOIN faculty f ON vr.faculty_id = f.id
+		LEFT JOIN users u ON f.user_id = u.id
+		WHERE vr.driver_id = ?
+		AND vr.status IN ('assigned','trip_started')
+		AND vr.OnwardFromDateTime IS NOT NULL
+		AND TRIM(vr.OnwardFromDateTime) != ''
+		AND CHAR_LENGTH(TRIM(vr.OnwardFromDateTime)) >= 10
+		AND DATE(TRIM(vr.OnwardFromDateTime)) <= ?
+		AND DATE(COALESCE(NULLIF(TRIM(vr.ReturnTodateTime),''), NULLIF(TRIM(vr.ReturnFromDateTime),''), 
+		         NULLIF(TRIM(vr.OnwardTodateTime),''), TRIM(vr.OnwardFromDateTime))) >= ?
+	`, driverID, checkDate, checkDate)
+	if err != nil {
+		log.Printf("Error checking vehicle request conflicts: %v", err)
+	} else {
+		defer vrRows.Close()
+		for vrRows.Next() {
+			var vrID int
+			var vehNum, vehType, onFrom, onTo, retFrom, retTo, facName, purpose string
+			vrRows.Scan(&vrID, &vehNum, &vehType, &onFrom, &onTo, &retFrom, &retTo, &facName, &purpose)
+
+			// Extract time from datetime for overlap check
+			vrStartTime := "00:00"
+			vrEndTime := "23:59"
+			if len(onFrom) > 11 {
+				vrStartTime = onFrom[11:16]
+			}
+			endDT := onTo
+			if retTo != "" {
+				endDT = retTo
+			} else if retFrom != "" {
+				endDT = retFrom
+			}
+			if len(endDT) > 11 {
+				vrEndTime = endDT[11:16]
+			}
+
+			// Check if overlaps with any of the check ranges
+			conflicted := false
+			for _, cr := range checkRanges {
+				if timesOverlap(cr.start, cr.end, vrStartTime, vrEndTime) {
+					conflicted = true
+					break
+				}
+			}
+
+			if conflicted {
+				shiftName := fmt.Sprintf("Vehicle Request #%d", vrID)
+				if purpose != "" {
+					shiftName = fmt.Sprintf("VR #%d: %s", vrID, purpose)
+					if len(shiftName) > 40 {
+						shiftName = shiftName[:37] + "..."
+					}
+				}
+				out = append(out, map[string]interface{}{
+					"assignment_id":   vrID,
+					"vehicle_number":  vehNum,
+					"vehicle_type":    vehType,
+					"shift_name":      shiftName,
+					"start_time":      vrStartTime,
+					"end_time":        vrEndTime,
+					"start_date":      onFrom[:10],
+					"end_date":        endDT[:10],
+					"assignment_type": "VEHICLE_REQUEST",
+					"faculty_name":    facName,
+				})
+			}
 		}
 	}
 

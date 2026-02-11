@@ -347,11 +347,16 @@ func GetMyVehicleRequests(c *gin.Context) {
 			COALESCE(IFNULL(v.vehicle_name, v.vehicle_number), '') as vehicle_name,
 			COALESCE(ud.full_name, '') as driver_name,
 			COALESCE(ud.phone, '') as driver_phone,
+			COALESCE(uf.full_name, '') as faculty_name,
+			COALESCE(uf.phone, '') as faculty_phone,
+			COALESCE(f.department, '') as faculty_department,
 			DATE_FORMAT(COALESCE(vr.created_at, NOW()), '%%d-%%m-%%Y %%H:%%i') as created_at
 		FROM vehiclerequests vr
 		LEFT JOIN vehicles v ON vr.vehicle_id = v.id
 		LEFT JOIN drivers d ON vr.driver_id = d.id
 		LEFT JOIN users ud ON d.user_id = ud.id
+		LEFT JOIN faculty f ON vr.faculty_id = f.id
+		LEFT JOIN users uf ON f.user_id = uf.id
 		WHERE vr.faculty_id = ?
 		ORDER BY vr.created_at DESC
 	`, requestUnderExpr, purposeExpr, verticalExpr, oralApprovalExpr, taskIDExpr, outcomeExpectedExpr, outcomeAuditableExpr)
@@ -377,6 +382,7 @@ func GetMyVehicleRequests(c *gin.Context) {
 			&r.Status, &r.AdminRemarks,
 			&r.VehicleNumber, &r.VehicleType, &r.VehicleName,
 			&r.DriverName, &r.DriverPhone,
+			&r.FacultyName, &r.FacultyPhone, &r.FacultyDepartment,
 			&r.CreatedAt,
 		)
 		if err != nil {

@@ -1475,34 +1475,14 @@ export default function VehicleBooking() {
                         <p className="text-sm font-semibold text-primarytext">
                           {selectedRequest.faculty_name || "N/A"}
                         </p>
+                        {selectedRequest.faculty_phone && (
+                          <p className="text-xs text-secondarytext mt-0.5">
+                            📱 {selectedRequest.faculty_phone}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
-
-                  {/* Guest / Contact */}
-                  {(selectedRequest.contact_name ||
-                    selectedRequest.contact_phone) && (
-                    <div className="bg-secondarybg rounded-md p-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-md bg-green/10 text-green flex items-center justify-center">
-                          <User size={14} />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-xs text-secondarytext">
-                            Guest / Contact
-                          </p>
-                          <p className="text-sm font-semibold text-primarytext">
-                            {selectedRequest.contact_name || "N/A"}
-                          </p>
-                          {selectedRequest.contact_phone && (
-                            <p className="text-xs text-secondarytext mt-1">
-                              📱 {selectedRequest.contact_phone}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
 

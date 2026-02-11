@@ -83,6 +83,9 @@ export default function Assignments() {
   const [reassignModal, setReassignModal] = useState(null); // null or assignment object
   const [reassignDriverId, setReassignDriverId] = useState(0);
 
+  // Date Filter
+  const [filterDate, setFilterDate] = useState(new Date().toISOString().split("T")[0]);
+
   // Conflict Modal State
   const [conflictModal, setConflictModal] = useState(null); // { conflicts: [], message: '' }
   const [conflictPendingForm, setConflictPendingForm] = useState(null); // form data waiting for force assign
@@ -119,12 +122,12 @@ export default function Assignments() {
     try {
       const [bus, car, ev, s, v, d, c] = await Promise.all([
         fetch(
-          `${API_BASE}/api/admin/assignments/by-category?category=BUS`,
+          `${API_BASE}/api/admin/assignments/by-category?category=BUS&date=${filterDate}`,
         ).then((r) => r.json()),
         fetch(
-          `${API_BASE}/api/admin/assignments/by-category?category=CAR`,
+          `${API_BASE}/api/admin/assignments/by-category?category=CAR&date=${filterDate}`,
         ).then((r) => r.json()),
-        fetch(`${API_BASE}/api/admin/ev-assignments`).then((r) => r.json()),
+        fetch(`${API_BASE}/api/admin/ev-assignments?date=${filterDate}`).then((r) => r.json()),
         fetch(`${API_BASE}/api/admin/shifts`).then((r) => r.json()),
         fetch(`${API_BASE}/api/admin/vehicles`).then((r) => r.json()),
         fetch(`${API_BASE}/api/admin/drivers`).then((r) => r.json()),
@@ -147,7 +150,7 @@ export default function Assignments() {
 
   useEffect(() => {
     fetchAllData();
-  }, []);
+  }, [filterDate]);
 
   // Fetch available drivers when opening modal
   const fetchAvailableDrivers = async () => {
@@ -651,6 +654,27 @@ export default function Assignments() {
             </button>
           )}
         </div>
+      </div>
+
+      {/* Date Filter */}
+      <div className="bg-secondarybg rounded-md border border-gray-100 shadow-sm p-4 flex items-center gap-4">
+        <label className="text-xs font-bold text-secondarytext uppercase tracking-wider whitespace-nowrap">
+          Assignments for
+        </label>
+        <input
+          type="date"
+          value={filterDate}
+          onChange={(e) => setFilterDate(e.target.value)}
+          className="h-[38px] px-3 border border-gray-200 rounded-md bg-primarybg text-primarytext focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm"
+        />
+        {filterDate !== new Date().toISOString().split("T")[0] && (
+          <button
+            onClick={() => setFilterDate(new Date().toISOString().split("T")[0])}
+            className="px-3 py-1.5 text-xs text-primary border border-primary/30 rounded-md hover:bg-primary/5 font-semibold transition-colors"
+          >
+            Today
+          </button>
+        )}
       </div>
 
       {/* Content */}
@@ -1241,7 +1265,7 @@ export default function Assignments() {
               conflictModal.conflicts.length > 0 ? (
               <div className="mb-6">
                 <h4 className="text-sm font-semibold text-primarytext mb-3">
-                  Existing Assignments:
+                  Conflicting Assignments:
                 </h4>
                 <div className="space-y-2">
                   {conflictModal.conflicts.map((conflict, idx) => (
@@ -1255,7 +1279,15 @@ export default function Assignments() {
                           {conflict.shift_name || "Shift"}
                         </span>
                         <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-md">
-                          {conflict.assignment_type || "Assignment"}
+                          {conflict.assignment_type === "REGULAR"
+                            ? "Bus/Car Assignment"
+                            : conflict.assignment_type === "EV_CLUSTER"
+                              ? "EV Assignment"
+                              : conflict.assignment_type === "TEMP_REPLACEMENT"
+                                ? "Temp Replacement"
+                                : conflict.assignment_type === "VEHICLE_REQUEST"
+                                  ? "Vehicle Request"
+                                  : conflict.assignment_type || "Assignment"}
                         </span>
                       </div>
                       <div className="text-sm text-amber-700 space-y-1">
@@ -1272,6 +1304,11 @@ export default function Assignments() {
                           <strong>Dates:</strong> {conflict.start_date} to{" "}
                           {conflict.end_date}
                         </p>
+                        {conflict.faculty_name && (
+                          <p>
+                            <strong>Requested by:</strong> {conflict.faculty_name}
+                          </p>
+                        )}
                       </div>
                     </div>
                   ))}

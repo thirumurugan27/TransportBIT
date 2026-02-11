@@ -741,7 +741,8 @@ type CreateVehicleRequestInput struct {
 
 // AssignVehicleRequestInput - Input for assigning vehicle and driver to a request
 type AssignVehicleRequestInput struct {
-	RequestID int `json:"request_id"`
-	VehicleID int `json:"vehicle_id"`
-	DriverID  int `json:"driver_id"`
+	RequestID   int  `json:"request_id"`
+	VehicleID   int  `json:"vehicle_id"`
+	DriverID    int  `json:"driver_id"`
+	ForceAssign bool `json:"force_assign"`
 }

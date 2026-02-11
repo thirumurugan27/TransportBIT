@@ -27,6 +27,7 @@ export default function DriverAssignments() {
   const [loading, setLoading] = useState(true);
   const [selectedEVAssignment, setSelectedEVAssignment] = useState(null);
   const [activeTab, setActiveTab] = useState("all");
+  const [filterDate, setFilterDate] = useState(new Date().toISOString().split("T")[0]);
   const {user} = useAuth();
   const driverId = user?.driver_id;
 
@@ -34,12 +35,13 @@ export default function DriverAssignments() {
     if (driverId) {
       fetchAssignments();
     }
-  }, [driverId]);
+  }, [driverId, filterDate]);
 
   const fetchAssignments = async () => {
     setLoading(true);
     try {
-      const res = await apiGet(`/api/driver/assignments?driver_id=${driverId}`);
+      const dateParam = filterDate ? `&date=${filterDate}` : "";
+      const res = await apiGet(`/api/driver/assignments?driver_id=${driverId}${dateParam}`);
       if (res.ok) {
         const data = await res.json();
         setAssignments(data || []);
@@ -194,16 +196,42 @@ export default function DriverAssignments() {
             My Assignments
           </h2>
           <p className="text-xs sm:text-sm text-gray-500 mt-1">
-            View all your vehicle assignments across all dates
+            View your vehicle assignments for a selected date
           </p>
         </div>
-        <button
-          onClick={fetchAssignments}
-          className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-md hover:bg-primary/20 transition-colors"
-        >
-          <RefreshCcw size={16} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            value={filterDate}
+            onChange={(e) => setFilterDate(e.target.value)}
+            className="h-[38px] px-3 border border-gray-200 rounded-md bg-white text-gray-700 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm"
+          />
+          {filterDate !== new Date().toISOString().split("T")[0] && (
+            <button
+              onClick={() => setFilterDate(new Date().toISOString().split("T")[0])}
+              className="px-3 py-2 text-xs text-primary border border-primary/30 rounded-md hover:bg-primary/5 font-semibold transition-colors whitespace-nowrap"
+            >
+              Today
+            </button>
+          )}
+          <button
+            onClick={() => setFilterDate("")}
+            className={`px-3 py-2 text-xs rounded-md font-semibold transition-colors whitespace-nowrap ${
+              filterDate === ""
+                ? "bg-primary text-white"
+                : "text-gray-600 border border-gray-200 hover:bg-gray-50"
+            }`}
+          >
+            All
+          </button>
+          <button
+            onClick={fetchAssignments}
+            className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-md hover:bg-primary/20 transition-colors"
+          >
+            <RefreshCcw size={16} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Filter Tabs */}
