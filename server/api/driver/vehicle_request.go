@@ -39,7 +39,7 @@ func GetDriverVehicleRequests(c *gin.Context) {
 		"RequestUnder",
 		"Vertical",
 		"OralApproval",
-		"Guestname",
+		"TravellerName",
 		"Address",
 		"MobileNumber",
 	)
@@ -63,9 +63,9 @@ func GetDriverVehicleRequests(c *gin.Context) {
 	if colExists["OralApproval"] {
 		oralApprovalExpr = "COALESCE(vr.OralApproval, 0) as OralApproval"
 	}
-	guestNameExpr := "'' as Guestname"
-	if colExists["Guestname"] {
-		guestNameExpr = "COALESCE(vr.Guestname, '') as Guestname"
+	travellerNameExpr := "'' as TravellerName"
+	if colExists["TravellerName"] {
+		travellerNameExpr = "COALESCE(vr.TravellerName, '') as TravellerName"
 	}
 	addressExpr := "'' as Address"
 	if colExists["Address"] {
@@ -90,12 +90,12 @@ func GetDriverVehicleRequests(c *gin.Context) {
 			COALESCE(vr.CountPerson, 1) as CountPerson,
 			COALESCE(vr.OnwardFromPlace, '') as OnwardFromPlace,
 			COALESCE(vr.OnwardToPlace, '') as OnwardToPlace,
-			COALESCE(DATE_FORMAT(vr.OnwardFromDateTime, '%%d-%%m-%%Y %%H:%%i'), '') as OnwardFromDateTime,
-			COALESCE(DATE_FORMAT(vr.OnwardTodateTime, '%%d-%%m-%%Y %%H:%%i'), '') as OnwardTodateTime,
-			COALESCE(vr.ReturnFromPlace, '') as ReturnFromPlace,
-			COALESCE(vr.ReturnToPlace, '') as ReturnToPlace,
-			COALESCE(DATE_FORMAT(vr.ReturnFromDateTime, '%%d-%%m-%%Y %%H:%%i'), '') as ReturnFromDateTime,
-			COALESCE(DATE_FORMAT(vr.ReturnTodateTime, '%%d-%%m-%%Y %%H:%%i'), '') as ReturnTodateTime,
+		COALESCE(DATE_FORMAT(vr.OnwardFromDateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as OnwardFromDateTime,
+		COALESCE(DATE_FORMAT(vr.OnwardTodateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as OnwardTodateTime,
+		COALESCE(vr.ReturnFromPlace, '') as ReturnFromPlace,
+		COALESCE(vr.ReturnToPlace, '') as ReturnToPlace,
+		COALESCE(DATE_FORMAT(vr.ReturnFromDateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as ReturnFromDateTime,
+		COALESCE(DATE_FORMAT(vr.ReturnTodateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as ReturnTodateTime,
 			COALESCE(vr.ContactName, '') as ContactName,
 			COALESCE(vr.ContactPhone, '') as ContactPhone,
 			%s,
@@ -110,16 +110,16 @@ func GetDriverVehicleRequests(c *gin.Context) {
 			COALESCE(v.vehicle_number, '') as vehicle_number,
 			COALESCE(v.vehicle_type, '') as vehicle_type,
 			COALESCE(v.vehicle_name, v.vehicle_number, '') as vehicle_name,
-			DATE_FORMAT(vr.created_at, '%%d-%%m-%%Y %%H:%%i') as created_at,
-			COALESCE(DATE_FORMAT(vr.trip_started_at, '%%Y-%%m-%%dT%%H:%%i:%%sZ'), '') as trip_started_at,
-			COALESCE(DATE_FORMAT(vr.trip_ended_at, '%%Y-%%m-%%dT%%H:%%i:%%sZ'), '') as trip_ended_at
+			DATE_FORMAT(vr.created_at, '%%d-%%m-%%Y %%h:%%i %%p') as created_at,
+			COALESCE(DATE_FORMAT(vr.trip_started_at, '%%d-%%m-%%Y %%h:%%i %%p'), '') as trip_started_at,
+			COALESCE(DATE_FORMAT(vr.trip_ended_at, '%%d-%%m-%%Y %%h:%%i %%p'), '') as trip_ended_at
 		FROM vehiclerequests vr
 		JOIN faculty f ON vr.faculty_id = f.id
 		JOIN users u ON f.user_id = u.id
 		LEFT JOIN vehicles v ON vr.vehicle_id = v.id
 		WHERE vr.driver_id = ? AND vr.status IN ('assigned', 'trip_started', 'completed')
 		ORDER BY vr.OnwardFromDateTime DESC
-	`, requestUnderExpr, purposeExpr, verticalExpr, oralApprovalExpr, mobileNumberExpr, guestNameExpr, addressExpr)
+	`, requestUnderExpr, purposeExpr, verticalExpr, oralApprovalExpr, mobileNumberExpr, travellerNameExpr, addressExpr)
 	rows, err := config.DB.Query(query, driverID)
 	if err != nil {
 		log.Printf("Error fetching driver vehicle requests: %v", err)
@@ -211,7 +211,7 @@ func GetDriverUpcomingVehicleRequests(c *gin.Context) {
 		"RequestUnder",
 		"Vertical",
 		"OralApproval",
-		"Guestname",
+		"TravellerName",
 		"Address",
 		"MobileNumber",
 	)
@@ -235,9 +235,9 @@ func GetDriverUpcomingVehicleRequests(c *gin.Context) {
 	if colExists["OralApproval"] {
 		oralApprovalExpr = "COALESCE(vr.OralApproval, 0) as OralApproval"
 	}
-	guestNameExpr := "'' as Guestname"
-	if colExists["Guestname"] {
-		guestNameExpr = "COALESCE(vr.Guestname, '') as Guestname"
+	travellerNameExpr := "'' as TravellerName"
+	if colExists["TravellerName"] {
+		travellerNameExpr = "COALESCE(vr.TravellerName, '') as TravellerName"
 	}
 	addressExpr := "'' as Address"
 	if colExists["Address"] {
@@ -262,12 +262,12 @@ func GetDriverUpcomingVehicleRequests(c *gin.Context) {
 			COALESCE(vr.CountPerson, 1) as CountPerson,
 			COALESCE(vr.OnwardFromPlace, '') as OnwardFromPlace,
 			COALESCE(vr.OnwardToPlace, '') as OnwardToPlace,
-			COALESCE(DATE_FORMAT(vr.OnwardFromDateTime, '%%d-%%m-%%Y %%H:%%i'), '') as OnwardFromDateTime,
-			COALESCE(DATE_FORMAT(vr.OnwardTodateTime, '%%d-%%m-%%Y %%H:%%i'), '') as OnwardTodateTime,
+			COALESCE(DATE_FORMAT(vr.OnwardFromDateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as OnwardFromDateTime,
+			COALESCE(DATE_FORMAT(vr.OnwardTodateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as OnwardTodateTime,
 			COALESCE(vr.ReturnFromPlace, '') as ReturnFromPlace,
 			COALESCE(vr.ReturnToPlace, '') as ReturnToPlace,
-			COALESCE(DATE_FORMAT(vr.ReturnFromDateTime, '%%d-%%m-%%Y %%H:%%i'), '') as ReturnFromDateTime,
-			COALESCE(DATE_FORMAT(vr.ReturnTodateTime, '%%d-%%m-%%Y %%H:%%i'), '') as ReturnTodateTime,
+			COALESCE(DATE_FORMAT(vr.ReturnFromDateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as ReturnFromDateTime,
+			COALESCE(DATE_FORMAT(vr.ReturnTodateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as ReturnTodateTime,
 			COALESCE(vr.ContactName, '') as ContactName,
 			COALESCE(vr.ContactPhone, '') as ContactPhone,
 			%s,
@@ -282,18 +282,18 @@ func GetDriverUpcomingVehicleRequests(c *gin.Context) {
 			COALESCE(v.vehicle_number, '') as vehicle_number,
 			COALESCE(v.vehicle_type, '') as vehicle_type,
 			COALESCE(v.vehicle_name, v.vehicle_number, '') as vehicle_name,
-			DATE_FORMAT(vr.created_at, '%%d-%%m-%%Y %%H:%%i') as created_at,
-			COALESCE(DATE_FORMAT(vr.trip_started_at, '%%Y-%%m-%%dT%%H:%%i:%%sZ'), '') as trip_started_at,
-			COALESCE(DATE_FORMAT(vr.trip_ended_at, '%%Y-%%m-%%dT%%H:%%i:%%sZ'), '') as trip_ended_at
+			DATE_FORMAT(vr.created_at, '%%d-%%m-%%Y %%h:%%i %%p') as created_at,
+			COALESCE(DATE_FORMAT(vr.trip_started_at, '%%d-%%m-%%Y %%h:%%i %%p'), '') as trip_started_at,
+			COALESCE(DATE_FORMAT(vr.trip_ended_at, '%%d-%%m-%%Y %%h:%%i %%p'), '') as trip_ended_at
 		FROM vehiclerequests vr
 		JOIN faculty f ON vr.faculty_id = f.id
 		JOIN users u ON f.user_id = u.id
 		LEFT JOIN vehicles v ON vr.vehicle_id = v.id
 		WHERE vr.driver_id = ? 
-		AND vr.status = 'assigned'
+		AND vr.status IN ('assigned', 'trip_started')
 		AND DATE(vr.OnwardFromDateTime) >= CURDATE()
 		ORDER BY vr.OnwardFromDateTime ASC
-	`, requestUnderExpr, purposeExpr, verticalExpr, oralApprovalExpr, mobileNumberExpr, guestNameExpr, addressExpr)
+	`, requestUnderExpr, purposeExpr, verticalExpr, oralApprovalExpr, mobileNumberExpr, travellerNameExpr, addressExpr)
 	rows, err := config.DB.Query(query, driverID)
 	if err != nil {
 		log.Printf("Error fetching upcoming vehicle requests: %v", err)
@@ -520,17 +520,17 @@ func VerifyEndOTP(c *gin.Context) {
 	})
 }
 
-// Helper function to split date and time from "DD-MM-YYYY HH:MM"
+// Helper function to split date and time from "DD-MM-YYYY hh:ii AM/PM"
 func splitDateTime(dtStr string) (string, string) {
 	if dtStr == "" {
 		return "", ""
 	}
-	// Expected format: "10-02-2026 15:30"
+	// Expected format: "10-02-2026 07:10 AM"
 	if len(dtStr) >= 10 {
 		date := dtStr[:10]
 		timeStr := ""
-		if len(dtStr) >= 16 {
-			timeStr = dtStr[11:16]
+		if len(dtStr) > 11 {
+			timeStr = dtStr[11:] // Get everything after the date (includes AM/PM)
 		}
 		return date, timeStr
 	}

@@ -151,8 +151,8 @@ func GetAssignmentsByCategory(c *gin.Context) {
 		       v.id as vehicle_id, v.vehicle_number, v.vehicle_type, v.fuel_type,
 		       COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name,
 		       s.id as shift_id, s.name as shift_name, 
-		       TIME_FORMAT(s.start_time, '%H:%i') as start_time, 
-		       TIME_FORMAT(s.end_time, '%H:%i') as end_time,
+		       TIME_FORMAT(s.start_time, '%h:%i %p') as start_time, 
+		       TIME_FORMAT(s.end_time, '%h:%i %p') as end_time,
 		       a.original_driver_id, a.is_temporary_replacement,
 		       CASE WHEN a.original_driver_id IS NOT NULL THEN 
 		           (SELECT u2.full_name FROM drivers d2 JOIN users u2 ON d2.user_id = u2.id WHERE d2.id = a.original_driver_id)
@@ -216,7 +216,7 @@ func GetAssignmentsByCategory(c *gin.Context) {
 
 		// Fetch shift slots for this shift
 		slotRows, _ := config.DB.Query(`
-			SELECT TIME_FORMAT(start_time, '%H:%i'), TIME_FORMAT(end_time, '%H:%i')
+			SELECT TIME_FORMAT(start_time, '%h:%i %p'), TIME_FORMAT(end_time, '%h:%i %p')
 			FROM shift_slots
 			WHERE shift_id = ?
 			ORDER BY slot_order ASC

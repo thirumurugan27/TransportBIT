@@ -154,13 +154,10 @@ func CreateVehicleRequest(c *gin.Context) {
 	if strings.TrimSpace(indenterMobile) == "" {
 		indenterMobile = req.ContactPhone
 	}
-	mobileNumber := req.ContactPhone
-	if strings.TrimSpace(mobileNumber) == "" {
-		mobileNumber = facultyPhone
-	}
-	if strings.TrimSpace(mobileNumber) == "" {
-		mobileNumber = strings.TrimSpace(req.MobileNumber)
-	}
+	
+	// Travelling person's mobile number (from the form's "Travelling Persons Contact Details" section)
+	travellerMobile := strings.TrimSpace(req.MobileNumber)
+	
 	guestName := strings.TrimSpace(req.GuestName)
 	address := strings.TrimSpace(req.Address)
 	taskID := strings.TrimSpace(req.TaskID)
@@ -177,7 +174,7 @@ func CreateVehicleRequest(c *gin.Context) {
 		"ReturnFromPlace", "ReturnToPlace", "ReturnFromDateTime", "ReturnTodateTime",
 		"CountPerson",
 		"Purpose", "PurposeOfVisit",
-		"Guestname", "Address", "MobileNumber",
+		"TravellerName", "Address", "MobileNumber",
 		"ContactName", "ContactPhone",
 		"IndenterName", "IndenterDesignation", "IndenterDepartment", "IndenterMobileNo",
 		"TaskID", "OutcomeExpected", "OutcomeAuditable",
@@ -231,12 +228,15 @@ func CreateVehicleRequest(c *gin.Context) {
 	add("Purpose", req.Purpose)
 	add("PurposeOfVisit", req.Purpose)
 
-	// Contact / legacy-personal fields
+	// Contact / legacy-personal fields (Faculty/Indenter)
 	add("ContactName", req.ContactName)
 	add("ContactPhone", req.ContactPhone)
-	add("MobileNumber", strings.TrimSpace(mobileNumber))
-	add("Guestname", guestName)
+	
+	// Travelling Persons Contact Details
+	add("MobileNumber", travellerMobile)
+	add("TravellerName", guestName)
 	add("Address", address)
+	
 	add("TaskID", taskID)
 	add("OutcomeExpected", outcomeExpected)
 	add("OutcomeAuditable", outcomeAuditable)
@@ -282,7 +282,7 @@ func GetMyVehicleRequests(c *gin.Context) {
 		return
 	}
 
-	colExists, _ := config.HasColumns("vehiclerequests", "Purpose", "PurposeOfVisit", "RequestUnder", "Vertical", "OralApproval", "TaskID", "OutcomeExpected", "OutcomeAuditable")
+	colExists, _ := config.HasColumns("vehiclerequests", "Purpose", "PurposeOfVisit", "RequestUnder", "Vertical", "OralApproval", "TaskID", "OutcomeExpected", "OutcomeAuditable", "TravellerName", "MobileNumber", "Address")
 	purposeExpr := "'' as Purpose"
 	if colExists["Purpose"] && colExists["PurposeOfVisit"] {
 		purposeExpr = "COALESCE(vr.Purpose, vr.PurposeOfVisit, '') as Purpose"
@@ -315,6 +315,18 @@ func GetMyVehicleRequests(c *gin.Context) {
 	if colExists["OutcomeAuditable"] {
 		outcomeAuditableExpr = "COALESCE(vr.OutcomeAuditable, '') as OutcomeAuditable"
 	}
+	travellerNameExpr := "'' as TravellerName"
+	if colExists["TravellerName"] {
+		travellerNameExpr = "COALESCE(vr.TravellerName, '') as TravellerName"
+	}
+	mobileNumberExpr := "'' as MobileNumber"
+	if colExists["MobileNumber"] {
+		mobileNumberExpr = "COALESCE(vr.MobileNumber, '') as MobileNumber"
+	}
+	addressExpr := "'' as Address"
+	if colExists["Address"] {
+		addressExpr = "COALESCE(vr.Address, '') as Address"
+	}
 
 	query := fmt.Sprintf(`
 		SELECT 
@@ -329,14 +341,17 @@ func GetMyVehicleRequests(c *gin.Context) {
 			COALESCE(vr.CountPerson, 1) as CountPerson,
 			COALESCE(vr.OnwardFromPlace, '') as OnwardFromPlace,
 			COALESCE(vr.OnwardToPlace, '') as OnwardToPlace,
-			COALESCE(DATE_FORMAT(vr.OnwardFromDateTime, '%%d-%%m-%%Y %%H:%%i'), '') as OnwardFromDateTime,
-			COALESCE(DATE_FORMAT(vr.OnwardTodateTime, '%%d-%%m-%%Y %%H:%%i'), '') as OnwardTodateTime,
-			COALESCE(vr.ReturnFromPlace, '') as ReturnFromPlace,
-			COALESCE(vr.ReturnToPlace, '') as ReturnToPlace,
-			COALESCE(DATE_FORMAT(vr.ReturnFromDateTime, '%%d-%%m-%%Y %%H:%%i'), '') as ReturnFromDateTime,
-			COALESCE(DATE_FORMAT(vr.ReturnTodateTime, '%%d-%%m-%%Y %%H:%%i'), '') as ReturnTodateTime,
+		COALESCE(DATE_FORMAT(vr.OnwardFromDateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as OnwardFromDateTime,
+		COALESCE(DATE_FORMAT(vr.OnwardTodateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as OnwardTodateTime,
+		COALESCE(vr.ReturnFromPlace, '') as ReturnFromPlace,
+		COALESCE(vr.ReturnToPlace, '') as ReturnToPlace,
+		COALESCE(DATE_FORMAT(vr.ReturnFromDateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as ReturnFromDateTime,
+		COALESCE(DATE_FORMAT(vr.ReturnTodateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as ReturnTodateTime,
 			COALESCE(vr.ContactName, '') as ContactName,
 			COALESCE(vr.ContactPhone, '') as ContactPhone,
+			%s,
+			%s,
+			%s,
 			%s,
 			%s,
 			%s,
@@ -350,7 +365,7 @@ func GetMyVehicleRequests(c *gin.Context) {
 			COALESCE(uf.full_name, '') as faculty_name,
 			COALESCE(uf.phone, '') as faculty_phone,
 			COALESCE(f.department, '') as faculty_department,
-			DATE_FORMAT(COALESCE(vr.created_at, NOW()), '%%d-%%m-%%Y %%H:%%i') as created_at
+		DATE_FORMAT(COALESCE(vr.created_at, NOW()), '%%d-%%m-%%Y %%h:%%i %%p') as created_at
 		FROM vehiclerequests vr
 		LEFT JOIN vehicles v ON vr.vehicle_id = v.id
 		LEFT JOIN drivers d ON vr.driver_id = d.id
@@ -359,7 +374,7 @@ func GetMyVehicleRequests(c *gin.Context) {
 		LEFT JOIN users uf ON f.user_id = uf.id
 		WHERE vr.faculty_id = ?
 		ORDER BY vr.created_at DESC
-	`, requestUnderExpr, purposeExpr, verticalExpr, oralApprovalExpr, taskIDExpr, outcomeExpectedExpr, outcomeAuditableExpr)
+	`, requestUnderExpr, purposeExpr, verticalExpr, oralApprovalExpr, taskIDExpr, outcomeExpectedExpr, outcomeAuditableExpr, travellerNameExpr, mobileNumberExpr, addressExpr)
 
 	rows, err := config.DB.Query(query, facultyID)
 	if err != nil {
@@ -379,6 +394,7 @@ func GetMyVehicleRequests(c *gin.Context) {
 			&r.ReturnFromPlace, &r.ReturnToPlace, &r.ReturnFromDateTime, &r.ReturnToDateTime,
 			&r.ContactName, &r.ContactPhone,
 			&r.TaskID, &r.OutcomeExpected, &r.OutcomeAuditable,
+			&r.GuestName, &r.MobileNumber, &r.Address,
 			&r.Status, &r.AdminRemarks,
 			&r.VehicleNumber, &r.VehicleType, &r.VehicleName,
 			&r.DriverName, &r.DriverPhone,

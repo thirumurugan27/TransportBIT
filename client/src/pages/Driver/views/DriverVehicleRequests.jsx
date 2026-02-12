@@ -59,28 +59,29 @@ const getTripTypeLabel = (value) => {
     .join(" ");
 };
 
-const formatTime12Hour = (time24) => {
-  if (!time24) return "N/A";
-  const [hours, minutes] = time24.split(":");
-  const hour = parseInt(hours);
-  const ampm = hour >= 12 ? "PM" : "AM";
-  const hour12 = hour % 12 || 12;
-  return `${hour12}:${minutes} ${ampm}`;
-};
+// Date/time formatting removed - displaying raw backend values
+// const formatTime12Hour = (time24) => {
+//   if (!time24) return "N/A";
+//   const [hours, minutes] = time24.split(":");
+//   const hour = parseInt(hours);
+//   const ampm = hour >= 12 ? "PM" : "AM";
+//   const hour12 = hour % 12 || 12;
+//   return `${hour12}:${minutes} ${ampm}`;
+// };
 
-const formatDateTime12Hour = (datetime) => {
-  if (!datetime) return "N/A";
-  try {
-    const date = new Date(datetime);
-    const hours = date.getHours();
-    const minutes = date.getMinutes().toString().padStart(2, "0");
-    const ampm = hours >= 12 ? "PM" : "AM";
-    const hour12 = hours % 12 || 12;
-    return `${hour12}:${minutes} ${ampm}`;
-  } catch {
-    return datetime;
-  }
-};
+// const formatDateTime12Hour = (datetime) => {
+//   if (!datetime) return "N/A";
+//   try {
+//     const date = new Date(datetime);
+//     const hours = date.getHours();
+//     const minutes = date.getMinutes().toString().padStart(2, "0");
+//     const ampm = hours >= 12 ? "PM" : "AM";
+//     const hour12 = hours % 12 || 12;
+//     return `${hour12}:${minutes} ${ampm}`;
+//   } catch {
+//     return datetime;
+//   }
+// };
 
 export default function DriverVehicleRequests() {
   const {showToast} = useToast();
@@ -369,8 +370,16 @@ export default function DriverVehicleRequests() {
             const onwardTrip = request.trips?.[0] || {
               departure_location: request.onward_from_place,
               departure_date: request.onward_from_datetime?.split(" ")[0],
-              departure_time: request.onward_from_datetime?.split(" ")[1],
+              departure_time: request.onward_from_datetime
+                ?.split(" ")
+                .slice(1)
+                .join(" "),
               arrival_location: request.onward_to_place,
+              arrival_date: request.onward_to_datetime?.split(" ")[0],
+              arrival_time: request.onward_to_datetime
+                ?.split(" ")
+                .slice(1)
+                .join(" "),
             };
 
             // Check for return trip or last leg
@@ -446,8 +455,7 @@ export default function DriverVehicleRequests() {
                           </span>
                           <span className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded border border-gray-100">
                             <Clock size={12} />
-                            {formatTime12Hour(onwardTrip.departure_time) ||
-                              "Time N/A"}
+                            {onwardTrip.departure_time || "Time N/A"}
                           </span>
                         </div>
                       </div>
@@ -465,11 +473,34 @@ export default function DriverVehicleRequests() {
                             ? returnTrip.departure_location
                             : onwardTrip.arrival_location || "End Point"}
                         </p>
-                        <div className="flex items-center gap-2 text-xs text-gray-500">
-                          <span className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded border border-gray-100">
-                            <MapPin size={12} />
-                            {returnTrip ? "Return Trip" : "One Way"}
-                          </span>
+                        <div className="flex items-center gap-2 flex-wrap text-xs text-gray-500">
+                          {(returnTrip?.departure_date ||
+                            onwardTrip.arrival_date) && (
+                            <span className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded border border-gray-100">
+                              <Calendar size={12} />
+                              {returnTrip
+                                ? returnTrip.departure_date
+                                : onwardTrip.arrival_date}
+                            </span>
+                          )}
+                          {(returnTrip?.departure_time ||
+                            onwardTrip.arrival_time) && (
+                            <span className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded border border-gray-100">
+                              <Clock size={12} />
+                              {returnTrip
+                                ? returnTrip.departure_time
+                                : onwardTrip.arrival_time}
+                            </span>
+                          )}
+                          {!returnTrip?.departure_date &&
+                            !onwardTrip.arrival_date &&
+                            !returnTrip?.departure_time &&
+                            !onwardTrip.arrival_time && (
+                              <span className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded border border-gray-100">
+                                <MapPin size={12} />
+                                {returnTrip ? "Return Trip" : "One Way"}
+                              </span>
+                            )}
                         </div>
                       </div>
                     </div>
@@ -566,8 +597,16 @@ export default function DriverVehicleRequests() {
                         arrival_location: selectedRequest.onward_to_place,
                         departure_date:
                           selectedRequest.onward_from_datetime?.split(" ")[0],
-                        departure_time:
-                          selectedRequest.onward_from_datetime?.split(" ")[1],
+                        departure_time: selectedRequest.onward_from_datetime
+                          ?.split(" ")
+                          .slice(1)
+                          .join(" "),
+                        arrival_date:
+                          selectedRequest.onward_to_datetime?.split(" ")[0],
+                        arrival_time: selectedRequest.onward_to_datetime
+                          ?.split(" ")
+                          .slice(1)
+                          .join(" "),
                       },
                     ]
                 ).map((trip, idx) => (
@@ -592,17 +631,14 @@ export default function DriverVehicleRequests() {
                             <Calendar size={12} /> {trip.departure_date}
                           </span>
                           <span className="flex items-center gap-1 bg-primarybg px-2 py-1 rounded-md">
-                            <Clock size={12} />{" "}
-                            {formatTime12Hour(trip.departure_time)}
+                            <Clock size={12} /> {trip.departure_time || "N/A"}
                           </span>
                         </div>
                         {selectedRequest.trip_started_at && (
                           <div className="mt-2 pt-2 border-t border-gray-200">
                             <p className="text-xs text-green font-semibold flex items-center gap-1">
                               <CheckCircle size={11} /> Started:{" "}
-                              {formatDateTime12Hour(
-                                selectedRequest.trip_started_at,
-                              )}
+                              {selectedRequest.trip_started_at}
                             </p>
                           </div>
                         )}
@@ -627,8 +663,7 @@ export default function DriverVehicleRequests() {
                           )}
                           {trip.arrival_time && (
                             <span className="flex items-center gap-1 bg-primarybg px-2 py-1 rounded-md">
-                              <Clock size={12} />{" "}
-                              {formatTime12Hour(trip.arrival_time)}
+                              <Clock size={12} /> {trip.arrival_time}
                             </span>
                           )}
                         </div>
@@ -636,9 +671,7 @@ export default function DriverVehicleRequests() {
                           <div className="mt-2 pt-2 border-t border-gray-200">
                             <p className="text-xs text-green font-semibold flex items-center gap-1">
                               <CheckCircle size={11} /> Completed:{" "}
-                              {formatDateTime12Hour(
-                                selectedRequest.trip_ended_at,
-                              )}
+                              {selectedRequest.trip_ended_at}
                             </p>
                           </div>
                         )}
@@ -650,54 +683,43 @@ export default function DriverVehicleRequests() {
 
               {/* Passenger Details */}
               <div className="bg-primarybg rounded-md border border-gray-200 p-4">
-                <h4 className="text-xs font-bold text-secondarytext uppercase tracking-wide mb-3">
-                  Passenger Details
+                <h4 className="text-xs font-bold text-teal-700 uppercase tracking-wide mb-3">
+                  Travelling Person Details
                 </h4>
                 <div className="space-y-3">
-                  {/* Requester */}
-                  <div className="bg-secondarybg rounded-md p-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-md bg-primary/10 text-primary flex items-center justify-center">
-                        <User size={14} />
-                      </div>
-                      <div>
-                        <p className="text-xs text-secondarytext">Requester</p>
-                        <p className="text-sm font-semibold text-primarytext">
-                          {selectedRequest.faculty_name}
-                        </p>
-                        <p className="text-xs text-secondarytext">
-                          {selectedRequest.faculty_department}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Guest / Contact */}
-                  <div className="bg-secondarybg rounded-md p-3">
+                  {/* Travelling Person Contact */}
+                  <div className="bg-teal-50 rounded-md p-3 border border-teal-100">
                     <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-md bg-green/10 text-green flex items-center justify-center">
+                      <div className="flex items-start gap-2">
+                        <div className="w-8 h-8 rounded-md bg-teal-500/10 text-teal-600 flex items-center justify-center">
                           <Users size={14} />
                         </div>
                         <div>
-                          <p className="text-xs text-secondarytext">
-                            Guest / Contact
+                          <p className="text-xs font-bold text-teal-700 uppercase tracking-wide">
+                            Travelling Person
                           </p>
-                          <p className="text-sm font-semibold text-primarytext">
-                            {selectedRequest.guest_name ||
-                              selectedRequest.contact_name ||
-                              "N/A"}
+                          <p className="text-sm font-bold text-primarytext mt-1">
+                            {selectedRequest.traveller_name || "N/A"}
                           </p>
-                          <p className="text-xs text-secondarytext">
+                          {selectedRequest.traveller_mobile && (
+                            <p className="text-xs font-semibold text-primary mt-0.5">
+                              {selectedRequest.traveller_mobile}
+                            </p>
+                          )}
+                          {selectedRequest.traveller_address && (
+                            <p className="text-xs text-secondarytext mt-1">
+                              {selectedRequest.traveller_address}
+                            </p>
+                          )}
+                          <p className="text-xs text-secondarytext mt-1">
                             {selectedRequest.count_person} Person(s)
                           </p>
                         </div>
                       </div>
-                      {(selectedRequest.mobile_number ||
-                        selectedRequest.contact_phone) && (
+                      {selectedRequest.traveller_mobile && (
                         <a
-                          href={`tel:${selectedRequest.mobile_number || selectedRequest.contact_phone}`}
-                          className="p-2 bg-green text-white rounded-md hover:opacity-90 transition-colors"
+                          href={`tel:${selectedRequest.traveller_mobile}`}
+                          className="p-2 bg-teal-500 text-white rounded-md hover:opacity-90 transition-colors"
                         >
                           <Phone size={16} />
                         </a>

@@ -13,6 +13,9 @@ import {
   Fuel,
   Shield,
   FileWarning,
+  Truck,
+  MapPin,
+  FileText,
 } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
@@ -33,24 +36,38 @@ export default function AdminHome() {
     critical: 0,
     total: 0,
   });
+  const [pendingRequests, setPendingRequests] = useState([]);
+  const [pendingCount, setPendingCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [statsRes, assignmentsRes, alertsRes] = await Promise.all([
+        const [
+          statsRes,
+          assignmentsRes,
+          alertsRes,
+          pendingCountRes,
+          requestsRes,
+        ] = await Promise.all([
           fetch(`${API_BASE}/api/admin/dashboard/stats`),
           fetch(`${API_BASE}/api/admin/assignments`),
           fetch(`${API_BASE}/api/admin/vehicles/alerts`),
+          fetch(`${API_BASE}/api/admin/vehicle-requests/pending-count`),
+          fetch(`${API_BASE}/api/admin/vehicle-requests?status=pending`),
         ]);
         const statsData = await statsRes.json();
         const assignmentsData = await assignmentsRes.json();
         const alertsData = await alertsRes.json();
+        const pendingCountData = await pendingCountRes.json();
+        const requestsData = await requestsRes.json();
         setStats(statsData);
         setRecentAssignments((assignmentsData || []).slice(0, 4));
         setVehicleAlerts(
           alertsData || {alerts: [], expired: 0, critical: 0, total: 0},
         );
+        setPendingCount(pendingCountData.count || 0);
+        setPendingRequests((requestsData || []).slice(0, 5));
       } catch (err) {
         console.error(err);
       } finally {
@@ -284,6 +301,71 @@ export default function AdminHome() {
           </div>
         </div>
       </div>
+
+      {/* Pending Vehicle Requests Alert */}
+      {pendingCount > 0 && (
+        <div className="bg-primary/10 border border-primary/20 rounded-md p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-primary/20 rounded-md flex items-center justify-center">
+                <FileText className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-bold text-primary">
+                  Pending Vehicle Requests
+                </h3>
+                <p className="text-sm text-primary/80">
+                  {pendingCount} request(s) awaiting approval
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => navigate("/admin-dashboard/vehicle-requests")}
+              className="px-4 py-2 bg-primary text-white rounded-md font-medium hover:bg-primarydull transition-colors text-sm flex items-center gap-1"
+            >
+              View All <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Show preview of pending requests */}
+          {pendingRequests.length > 0 && (
+            <div className="space-y-2 mt-4 border-t border-primary/20 pt-4">
+              {pendingRequests.map((request) => (
+                <div
+                  key={request.id}
+                  className="flex items-center justify-between p-3 bg-white rounded-md border border-gray-100 hover:shadow-sm transition-shadow"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 bg-pending/10 rounded-md flex items-center justify-center">
+                      <Truck className="w-4 h-4 text-pending" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-primarytext text-sm">
+                        {request.faculty_name || "Faculty"}
+                      </p>
+                      <div className="flex items-center gap-2 text-xs text-secondarytext">
+                        <MapPin size={11} />
+                        <span>
+                          {request.onward_from_place} →{" "}
+                          {request.onward_to_place}
+                        </span>
+                        <span className="text-gray-300">•</span>
+                        <Calendar size={11} />
+                        <span>
+                          {request.onward_from_datetime?.split(" ")[0] || "N/A"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <span className="px-2 py-1 bg-pending/10 text-pending text-xs font-semibold rounded-md">
+                    Pending
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Absent Driver Alert Section */}
       {stats.absent_drivers > 0 && (

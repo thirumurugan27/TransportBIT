@@ -15,7 +15,6 @@ import AttendanceRecords from "./views/AttendanceRecords";
 import FCReplacementManagement from "./views/FCReplacementManagement";
 import VehicleRequests from "./views/VehicleRequests";
 import AdminStudentTransport from "./views/AdminStudentTransport";
-import ComingSoon from "./views/ComingSoon";
 
 import {useAuth} from "../../context/AuthContext";
 

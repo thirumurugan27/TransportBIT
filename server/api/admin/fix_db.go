@@ -135,6 +135,10 @@ func FixDatabaseSchema() {
 		"ALTER TABLE vehiclerequests ADD COLUMN approved_at DATETIME NULL",
 		"ALTER TABLE vehiclerequests ADD COLUMN assigned_at DATETIME NULL",
 		"ALTER TABLE vehiclerequests ADD COLUMN faculty_id INT NOT NULL",
+		// Travelling person details columns (TravellerName already exists in schema)
+		"ALTER TABLE vehiclerequests ADD COLUMN TravellerName VARCHAR(255) NULL",
+		"ALTER TABLE vehiclerequests ADD COLUMN MobileNumber VARCHAR(50) NULL",
+		"ALTER TABLE vehiclerequests ADD COLUMN Address TEXT NULL",
 		// Fix legacy/strict columns by making them nullable
 		"ALTER TABLE vehiclerequests MODIFY COLUMN IndenterName VARCHAR(255) NULL",
 		"ALTER TABLE vehiclerequests MODIFY COLUMN DeptName VARCHAR(255) NULL",
@@ -143,8 +147,8 @@ func FixDatabaseSchema() {
 		"ALTER TABLE vehiclerequests MODIFY COLUMN IndenterDesignation VARCHAR(255) NULL",
 		"ALTER TABLE vehiclerequests MODIFY COLUMN IndenterMobileNo VARCHAR(50) NULL",
 		"ALTER TABLE vehiclerequests MODIFY COLUMN MobileNumber VARCHAR(50) NULL",
-		"ALTER TABLE vehiclerequests MODIFY COLUMN Guestname VARCHAR(255) NULL",
-		"ALTER TABLE vehiclerequests MODIFY COLUMN Address VARCHAR(255) NULL",
+		"ALTER TABLE vehiclerequests MODIFY COLUMN TravellerName VARCHAR(255) NULL",
+		"ALTER TABLE vehiclerequests MODIFY COLUMN Address TEXT NULL",
 		"ALTER TABLE vehiclerequests MODIFY COLUMN PurposeOfVisit TEXT NULL",
 		"ALTER TABLE vehiclerequests MODIFY COLUMN TaskID VARCHAR(100) NULL",
 		"ALTER TABLE vehiclerequests MODIFY COLUMN IndenterID VARCHAR(50) NULL",

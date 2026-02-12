@@ -114,9 +114,9 @@ func GetEVAssignments(c *gin.Context) {
 			ea.status,
 			ea.shift_id,
 			COALESCE(s.name, 'Default') as shift_name,
-			TIME_FORMAT(s.start_time, '%H:%i') as start_time,
-			TIME_FORMAT(s.end_time, '%H:%i') as end_time,
-			DATE_FORMAT(ea.created_at, '%d-%m-%Y %H:%i') as created_at
+			TIME_FORMAT(s.start_time, '%h:%i %p') as start_time,
+			TIME_FORMAT(s.end_time, '%h:%i %p') as end_time,
+			DATE_FORMAT(ea.created_at, '%d-%m-%Y %h:%i %p') as created_at
 		FROM ev_assignments ea
 		LEFT JOIN vehicle_groups vg ON ea.vehicle_group_id = vg.id
 		JOIN driver_clusters c ON ea.cluster_id = c.id
@@ -665,9 +665,9 @@ func GetEVAssignmentDetails(c *gin.Context) {
 		       DATE_FORMAT(ea.end_date, '%d-%m-%Y') as end_date,
 		       ea.status,
 		       COALESCE(s.name, 'Default') as shift_name,
-		       TIME_FORMAT(s.start_time, '%H:%i') as shift_start_time,
-		       TIME_FORMAT(s.end_time, '%H:%i') as shift_end_time,
-		       DATE_FORMAT(ea.created_at, '%d-%m-%Y %H:%i') as created_at
+		       TIME_FORMAT(s.start_time, '%h:%i %p') as shift_start_time,
+		       TIME_FORMAT(s.end_time, '%h:%i %p') as shift_end_time,
+		       DATE_FORMAT(ea.created_at, '%d-%m-%Y %h:%i %p') as created_at
 		FROM ev_assignments ea
 		LEFT JOIN vehicle_groups vg ON ea.vehicle_group_id = vg.id
 		JOIN driver_clusters c ON ea.cluster_id = c.id

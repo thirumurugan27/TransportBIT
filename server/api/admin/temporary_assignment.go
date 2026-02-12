@@ -29,8 +29,8 @@ func GetTemporaryAssignments(c *gin.Context) {
 		       u_orig.full_name as original_driver_name,
 		       COALESCE(u_repl.full_name, 'Not Assigned') as replacement_driver_name,
 		       COALESCE(s.name, 'EV Cluster') as shift_name,
-		       COALESCE(TIME_FORMAT(s.start_time, '%H:%i'), '') as start_time,
-		       COALESCE(TIME_FORMAT(s.end_time, '%H:%i'), '') as end_time,
+		       COALESCE(TIME_FORMAT(s.start_time, '%h:%i %p'), '') as start_time,
+		       COALESCE(TIME_FORMAT(s.end_time, '%h:%i %p'), '') as end_time,
 		       v.vehicle_number, v.vehicle_type, COALESCE(v.vehicle_name, '') as vehicle_name
 		FROM temporary_assignments ta
 		JOIN drivers d_orig ON ta.original_driver_id = d_orig.id

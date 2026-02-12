@@ -1435,10 +1435,10 @@ export default function Vehicles() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Vehicle Name / Route Name
+                    Vehicle Name / Vehicle Number
                   </label>
                   <input
-                    placeholder="e.g., Route A Express or Staff Car"
+                    placeholder="e.g., bus-1,car-1 or Staff Car"
                     value={vehicleForm.vehicle_name}
                     onChange={(e) =>
                       setVehicleForm({

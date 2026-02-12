@@ -1,10 +1,11 @@
 /**
  * Date and Time Formatting Utilities
- * Backend returns dates in dd-mm-yyyy format, so minimal formatting needed
+ * Backend now returns dates in dd-mm-yyyy format and times in 12-hour format (hh:mm AM/PM)
+ * These utilities now just pass through the formatted values from backend
  */
 
 /**
- * Return date as-is from backend (dd-mm-yyyy format)
+ * Return date as-is from backend (already in dd-mm-yyyy format)
  * @param {string} dateStr - Date string from backend
  * @returns {string} Date string or "-" if empty
  */
@@ -14,14 +15,20 @@ export const formatDate = (dateStr) => {
 };
 
 /**
- * Format time string to hh:mm AM/PM
- * @param {string} timeStr - Time string (HH:MM:SS or HH:MM)
+ * Return time as-is from backend (already in hh:mm AM/PM format)
+ * If time is in 24-hour format (legacy), convert it to 12-hour format
+ * @param {string} timeStr - Time string (hh:mm AM/PM or HH:MM:SS)
  * @returns {string} Formatted time (hh:mm AM/PM)
  */
 export const formatTime = (timeStr) => {
     if (!timeStr) return "-";
 
-    // Handle time string like "14:30:00" or "14:30"
+    // If already in 12-hour format (contains AM/PM), return as-is
+    if (timeStr.includes('AM') || timeStr.includes('PM') || timeStr.includes('am') || timeStr.includes('pm')) {
+        return timeStr;
+    }
+
+    // Legacy: Handle 24-hour time string like "14:30:00" or "14:30"
     const parts = timeStr.split(":");
     if (parts.length < 2) return timeStr;
 
@@ -37,7 +44,7 @@ export const formatTime = (timeStr) => {
 /**
  * Format date and time together
  * @param {string} dateStr - Date string (dd-mm-yyyy from backend)
- * @param {string} timeStr - Time string
+ * @param {string} timeStr - Time string (hh:mm AM/PM from backend)
  * @returns {string} Formatted date and time
  */
 export const formatDateTime = (dateStr, timeStr) => {

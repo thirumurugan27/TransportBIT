@@ -56,9 +56,6 @@ export default function DriverProfile() {
           </h2>
           <p className="text-secondarytext">{profile.email}</p>
           <div className="flex flex-wrap gap-2 mt-3 justify-center sm:justify-start">
-            <span className="px-3 py-1 bg-primarybg text-primary text-xs font-semibold rounded-md border border-primary/20">
-              ID: #{profile.id}
-            </span>
             <span className="px-3 py-1 bg-primarybg text-secondarytext text-xs font-semibold rounded-md border border-gray-200">
               {profile.experience_years} Years Exp
             </span>

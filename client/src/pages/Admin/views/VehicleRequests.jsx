@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, {useState, useEffect} from "react";
 import {
   Clock,
   CheckCircle,
@@ -14,19 +14,22 @@ import {
   Info,
   Navigation,
   AlertTriangle,
+  Play,
+  Phone,
 } from "lucide-react";
-import { useToast } from "../../../context/ToastContext";
+import {useToast} from "../../../context/ToastContext";
 import Swal from "sweetalert2";
-import { showConfirm } from "../../../utils/swal";
+import {showConfirm} from "../../../utils/swal";
 import Loading from "../../../components/ui/Loading";
 import CustomSearch from "../../../components/ui/CustomSearch";
 import CustomDropdown from "../../../components/ui/CustomDropdown";
+import SearchableSelect from "../../../components/ui/SearchableSelect";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem("token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  return token ? {Authorization: `Bearer ${token}`} : {};
 };
 
 const STATUS_CONFIG = {
@@ -75,9 +78,9 @@ const STATUS_CONFIG = {
 };
 
 const REQUEST_UNDER_OPTIONS = [
-  { value: "academic_department", label: "Academic Department" },
-  { value: "students_training", label: "Students Training" },
-  { value: "supporting_department", label: "Supporting Department" },
+  {value: "academic_department", label: "Academic Department"},
+  {value: "students_training", label: "Students Training"},
+  {value: "supporting_department", label: "Supporting Department"},
 ];
 
 const getRequestUnderLabel = (value) => {
@@ -86,7 +89,7 @@ const getRequestUnderLabel = (value) => {
 };
 
 export default function VehicleRequests() {
-  const { showToast } = useToast();
+  const {showToast} = useToast();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -101,7 +104,7 @@ export default function VehicleRequests() {
   const [assignRequest, setAssignRequest] = useState(null);
   const [vehicles, setVehicles] = useState([]);
   const [drivers, setDrivers] = useState([]);
-  const [assignForm, setAssignForm] = useState({ vehicle_id: 0, driver_id: 0 });
+  const [assignForm, setAssignForm] = useState({vehicle_id: 0, driver_id: 0});
   const [assigning, setAssigning] = useState(false);
 
   // Approve/Reject modal
@@ -109,7 +112,7 @@ export default function VehicleRequests() {
   const [actionRemarks, setActionRemarks] = useState("");
   const [actionSubmitting, setActionSubmitting] = useState(false);
   const [approveWithAssign, setApproveWithAssign] = useState(false);
-  const [approveForm, setApproveForm] = useState({ vehicle_id: 0, driver_id: 0 });
+  const [approveForm, setApproveForm] = useState({vehicle_id: 0, driver_id: 0});
 
   // Conflict modal state
   const [conflictModal, setConflictModal] = useState(null);
@@ -203,7 +206,7 @@ export default function VehicleRequests() {
       const res = await fetch(`${API_BASE}${endpoint}`, {
         method: "POST",
         credentials: "include",
-        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        headers: {"Content-Type": "application/json", ...getAuthHeaders()},
         body: JSON.stringify(body),
       });
 
@@ -219,18 +222,23 @@ export default function VehicleRequests() {
         setActionModal(null);
         setActionRemarks("");
         setApproveWithAssign(false);
-        setApproveForm({ vehicle_id: 0, driver_id: 0 });
+        setApproveForm({vehicle_id: 0, driver_id: 0});
         setSelectedRequest(null);
         fetchRequests();
       } else if (res.status === 409) {
         const data = await res.json();
-        if (data.error === "driver_conflict" || data.error === "vehicle_conflict") {
+        if (
+          data.error === "driver_conflict" ||
+          data.error === "vehicle_conflict"
+        ) {
           setConflictPendingAction({
             type: "approve",
             payload: body,
           });
           setConflictModal({
-            message: data.message || "Driver is already assigned during this time range",
+            message:
+              data.message ||
+              "Driver is already assigned during this time range",
             conflicts: data.conflicts || [],
             available_drivers: data.available_drivers || [],
             conflict_type: data.error,
@@ -251,7 +259,7 @@ export default function VehicleRequests() {
 
   const openAssignModal = (req) => {
     setAssignRequest(req);
-    setAssignForm({ vehicle_id: 0, driver_id: 0 });
+    setAssignForm({vehicle_id: 0, driver_id: 0});
     setShowAssignModal(true);
     fetchVehiclesAndDrivers();
   };
@@ -266,7 +274,7 @@ export default function VehicleRequests() {
       const res = await fetch(`${API_BASE}/api/admin/vehicle-request/assign`, {
         method: "POST",
         credentials: "include",
-        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        headers: {"Content-Type": "application/json", ...getAuthHeaders()},
         body: JSON.stringify({
           request_id: assignRequest.id,
           vehicle_id: assignForm.vehicle_id,
@@ -280,7 +288,10 @@ export default function VehicleRequests() {
         setSelectedRequest(null);
         fetchRequests();
       } else if (res.status === 409) {
-        if (data.error === "driver_conflict" || data.error === "vehicle_conflict") {
+        if (
+          data.error === "driver_conflict" ||
+          data.error === "vehicle_conflict"
+        ) {
           setConflictPendingAction({
             type: "assign",
             payload: {
@@ -290,7 +301,9 @@ export default function VehicleRequests() {
             },
           });
           setConflictModal({
-            message: data.message || "Driver is already assigned during this time range",
+            message:
+              data.message ||
+              "Driver is already assigned during this time range",
             conflicts: data.conflicts || [],
             available_drivers: data.available_drivers || [],
             conflict_type: data.error,
@@ -320,8 +333,8 @@ export default function VehicleRequests() {
         {
           method: "POST",
           credentials: "include",
-          headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-          body: JSON.stringify({ request_id: requestId }),
+          headers: {"Content-Type": "application/json", ...getAuthHeaders()},
+          body: JSON.stringify({request_id: requestId}),
         },
       );
       if (res.ok) {
@@ -338,14 +351,14 @@ export default function VehicleRequests() {
   };
 
   const handleCancel = async (requestId) => {
-    const { isConfirmed, value: reason } = await Swal.fire({
+    const {isConfirmed, value: reason} = await Swal.fire({
       title: "Cancel Request?",
       text: "This will cancel the vehicle request and notify the driver & faculty. This action cannot be undone.",
       icon: "warning",
       input: "textarea",
       inputLabel: "Reason for cancellation",
       inputPlaceholder: "Enter reason...",
-      inputAttributes: { "aria-label": "Reason for cancellation" },
+      inputAttributes: {"aria-label": "Reason for cancellation"},
       showCancelButton: true,
       confirmButtonColor: "#7D53F6",
       cancelButtonColor: "#FF5555",
@@ -357,7 +370,7 @@ export default function VehicleRequests() {
       const res = await fetch(`${API_BASE}/api/admin/vehicle-request/cancel`, {
         method: "POST",
         credentials: "include",
-        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        headers: {"Content-Type": "application/json", ...getAuthHeaders()},
         body: JSON.stringify({
           request_id: requestId,
           admin_remarks: reason || "Cancelled by admin",
@@ -391,7 +404,7 @@ export default function VehicleRequests() {
   // Force assign after conflict warning
   const handleForceAssign = async () => {
     if (!conflictPendingAction) return;
-    const { type, payload } = conflictPendingAction;
+    const {type, payload} = conflictPendingAction;
     const endpoint =
       type === "approve"
         ? "/api/admin/vehicle-request/approve"
@@ -401,8 +414,8 @@ export default function VehicleRequests() {
       const res = await fetch(`${API_BASE}${endpoint}`, {
         method: "POST",
         credentials: "include",
-        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-        body: JSON.stringify({ ...payload, force_assign: true }),
+        headers: {"Content-Type": "application/json", ...getAuthHeaders()},
+        body: JSON.stringify({...payload, force_assign: true}),
       });
 
       if (res.ok) {
@@ -418,7 +431,7 @@ export default function VehicleRequests() {
         setActionModal(null);
         setActionRemarks("");
         setApproveWithAssign(false);
-        setApproveForm({ vehicle_id: 0, driver_id: 0 });
+        setApproveForm({vehicle_id: 0, driver_id: 0});
         setSelectedRequest(null);
         fetchRequests();
       } else {
@@ -433,7 +446,7 @@ export default function VehicleRequests() {
   // Select alternate driver from conflict modal
   const handleSelectAlternateDriver = async (newDriverId) => {
     if (!conflictPendingAction) return;
-    const { type, payload } = conflictPendingAction;
+    const {type, payload} = conflictPendingAction;
     const endpoint =
       type === "approve"
         ? "/api/admin/vehicle-request/approve"
@@ -443,8 +456,8 @@ export default function VehicleRequests() {
       const res = await fetch(`${API_BASE}${endpoint}`, {
         method: "POST",
         credentials: "include",
-        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-        body: JSON.stringify({ ...payload, driver_id: newDriverId }),
+        headers: {"Content-Type": "application/json", ...getAuthHeaders()},
+        body: JSON.stringify({...payload, driver_id: newDriverId}),
       });
 
       if (res.ok) {
@@ -460,13 +473,19 @@ export default function VehicleRequests() {
         setActionModal(null);
         setActionRemarks("");
         setApproveWithAssign(false);
-        setApproveForm({ vehicle_id: 0, driver_id: 0 });
+        setApproveForm({vehicle_id: 0, driver_id: 0});
         setSelectedRequest(null);
         fetchRequests();
       } else if (res.status === 409) {
         const data = await res.json();
-        if (data.error === "driver_conflict" || data.error === "vehicle_conflict") {
-          setConflictPendingAction({ type, payload: { ...payload, driver_id: newDriverId } });
+        if (
+          data.error === "driver_conflict" ||
+          data.error === "vehicle_conflict"
+        ) {
+          setConflictPendingAction({
+            type,
+            payload: {...payload, driver_id: newDriverId},
+          });
           setConflictModal({
             message: data.message || "This driver also has conflicts",
             conflicts: data.conflicts || [],
@@ -508,17 +527,9 @@ export default function VehicleRequests() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-secondarybg rounded-md shadow-sm border border-primarybg p-6">
-        <h3 className="text-2xl font-bold text-primarytext flex items-center gap-2">
-          <FileText size={24} className="text-primary" />
-          Vehicle Requests
-        </h3>
-        <p className="text-sm text-secondarytext mt-1">
-          Manage faculty vehicle booking requests
-        </p>
-      </div>
-
+      <h1 className="text-secondarytext text-xl font-normal">
+        Vehicle Requests
+      </h1>
       {/* Status Tabs */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         {Object.entries(STATUS_CONFIG).map(([key, cfg]) => {
@@ -528,16 +539,19 @@ export default function VehicleRequests() {
             <button
               key={key}
               onClick={() => setFilterStatus(isActive ? "" : key)}
-              className={`p-4 rounded-md border text-left transition-all ${isActive
-                ? "bg-secondarybg ring-2 ring-primary border-primary shadow-md"
-                : "bg-secondarybg border-primarybg hover:border-primary/30"
-                }`}
+              className={`p-4 rounded-md border text-left transition-all ${
+                isActive
+                  ? "bg-secondarybg ring-2 ring-primary border-primary shadow-md"
+                  : "bg-secondarybg border-primarybg hover:border-primary/30"
+              }`}
             >
               <div className="flex items-center gap-2 mb-2">
                 <div className={`p-1.5 rounded-md ${cfg.color}`}>
                   <StatusIcon size={14} />
                 </div>
-                <span className="text-[10px] font-bold text-secondarytext uppercase tracking-wider">{cfg.label}</span>
+                <span className="text-[10px] font-bold text-secondarytext uppercase tracking-wider">
+                  {cfg.label}
+                </span>
               </div>
               <p className="text-2xl font-black text-primarytext">
                 {statusCounts[key] || 0}
@@ -561,7 +575,9 @@ export default function VehicleRequests() {
       {filtered.length === 0 ? (
         <div className="bg-secondarybg rounded-md border border-primarybg p-12 text-center">
           <FileText size={40} className="mx-auto text-secondarytext/30 mb-3" />
-          <p className="text-secondarytext font-medium">No vehicle requests found</p>
+          <p className="text-secondarytext font-medium">
+            No vehicle requests found
+          </p>
         </div>
       ) : (
         <div className="bg-secondarybg rounded-md border border-primarybg shadow-sm overflow-hidden">
@@ -569,9 +585,6 @@ export default function VehicleRequests() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-primarybg/50 border-b border-primarybg">
-                  <th className="px-6 py-4 text-left text-[10px] font-bold text-secondarytext uppercase tracking-widest whitespace-nowrap">
-                    REQ ID
-                  </th>
                   <th className="px-6 py-4 text-left text-[10px] font-bold text-secondarytext uppercase tracking-widest whitespace-nowrap">
                     Faculty Details
                   </th>
@@ -591,7 +604,8 @@ export default function VehicleRequests() {
               </thead>
               <tbody className="divide-y divide-primarybg">
                 {filtered.map((req, idx) => {
-                  const cfg = STATUS_CONFIG[req.status] || STATUS_CONFIG.pending;
+                  const cfg =
+                    STATUS_CONFIG[req.status] || STATUS_CONFIG.pending;
                   const StatusIcon = cfg.icon;
                   const departureDateTime = req.onward_from_datetime;
                   const departurePlace = req.onward_from_place;
@@ -603,9 +617,6 @@ export default function VehicleRequests() {
                       onClick={() => fetchRequestDetail(req.id)}
                       className="hover:bg-primarybg/30 transition-colors cursor-pointer group"
                     >
-                      <td className="px-6 py-4">
-                        <span className="font-mono text-xs font-bold text-primary">#{req.id}</span>
-                      </td>
                       <td className="px-6 py-4">
                         <p className="font-bold text-primarytext leading-tight">
                           {req.faculty_name}
@@ -622,7 +633,8 @@ export default function VehicleRequests() {
                       <td className="px-6 py-4">
                         <div className="flex flex-col gap-1">
                           <p className="text-xs font-bold text-primarytext">
-                            {departurePlace} {arrivalPlace && `→ ${arrivalPlace}`}
+                            {departurePlace}{" "}
+                            {arrivalPlace && `→ ${arrivalPlace}`}
                           </p>
                           <p className="text-[10px] text-secondarytext font-mono">
                             {departureDateTime || "-"}
@@ -653,7 +665,9 @@ export default function VehicleRequests() {
                             </div>
                           </div>
                         ) : (
-                          <span className="text-[10px] font-bold text-secondarytext uppercase tracking-widest opacity-40 italic">Not Assigned</span>
+                          <span className="text-[10px] font-bold text-secondarytext uppercase tracking-widest opacity-40 italic">
+                            Not Assigned
+                          </span>
                         )}
                       </td>
                     </tr>
@@ -673,20 +687,27 @@ export default function VehicleRequests() {
             <div className="p-6 border-b border-primarybg/50">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className={`w-14 h-14 rounded-md flex items-center justify-center text-secondarybg shadow-lg ${STATUS_CONFIG[selectedRequest.status]?.themeColor === 'green' ? 'bg-green' : STATUS_CONFIG[selectedRequest.status]?.themeColor === 'red' ? 'bg-red' : STATUS_CONFIG[selectedRequest.status]?.themeColor === 'amber' ? 'bg-pending' : 'bg-primary'}`}>
-                    {React.createElement(STATUS_CONFIG[selectedRequest.status]?.icon || Truck, { size: 28, strokeWidth: 2.5 })}
+                  <div
+                    className={`w-14 h-14 rounded-md flex items-center justify-center text-secondarybg shadow-lg ${STATUS_CONFIG[selectedRequest.status]?.themeColor === "green" ? "bg-green" : STATUS_CONFIG[selectedRequest.status]?.themeColor === "red" ? "bg-red" : STATUS_CONFIG[selectedRequest.status]?.themeColor === "amber" ? "bg-pending" : "bg-primary"}`}
+                  >
+                    {React.createElement(
+                      STATUS_CONFIG[selectedRequest.status]?.icon || Truck,
+                      {size: 28, strokeWidth: 2.5},
+                    )}
                   </div>
                   <div>
                     <h2 className="text-xl font-bold text-primarytext">
                       Request Details
-                      <span className="ml-2 text-sm text-secondarytext font-mono">#{selectedRequest.id}</span>
                     </h2>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${STATUS_CONFIG[selectedRequest.status]?.color}`}>
+                      <span
+                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${STATUS_CONFIG[selectedRequest.status]?.color}`}
+                      >
                         {STATUS_CONFIG[selectedRequest.status]?.label}
                       </span>
                       <p className="text-sm text-secondarytext font-medium">
-                        {selectedRequest.faculty_name} · {selectedRequest.faculty_department}
+                        {selectedRequest.faculty_name} ·{" "}
+                        {selectedRequest.faculty_department}
                       </p>
                     </div>
                   </div>
@@ -714,18 +735,38 @@ export default function VehicleRequests() {
                   <div className="grid grid-cols-1 gap-4">
                     {selectedRequest.trips?.length ? (
                       selectedRequest.trips.map((trip, idx) => (
-                        <div key={idx} className="bg-secondarybg p-4 rounded-md border border-primarybg/50 relative">
-                          <div className="absolute top-3 right-3 px-2 py-0.5 bg-primary/5 text-primary text-[10px] font-bold rounded uppercase">Leg {trip.trip_order}</div>
+                        <div
+                          key={idx}
+                          className="bg-secondarybg p-4 rounded-md border border-primarybg/50 relative"
+                        >
+                          <div className="absolute top-3 right-3 px-2 py-0.5 bg-primary/5 text-primary text-[10px] font-bold rounded uppercase">
+                            Leg {trip.trip_order}
+                          </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-1">
-                              <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider">Departure</p>
-                              <p className="text-sm font-bold text-primarytext">{trip.departure_location}</p>
-                              <p className="text-[11px] text-secondarytext font-mono">{trip.departure_date} {trip.departure_time && `· ${trip.departure_time}`}</p>
+                              <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider">
+                                Departure
+                              </p>
+                              <p className="text-sm font-bold text-primarytext">
+                                {trip.departure_location}
+                              </p>
+                              <p className="text-[11px] text-secondarytext font-mono">
+                                {trip.departure_date}{" "}
+                                {trip.departure_time &&
+                                  `· ${trip.departure_time}`}
+                              </p>
                             </div>
                             <div className="space-y-1">
-                              <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider">Arrival</p>
-                              <p className="text-sm font-bold text-primarytext">{trip.arrival_location}</p>
-                              <p className="text-[11px] text-secondarytext font-mono">{trip.arrival_date} {trip.arrival_time && `· ${trip.arrival_time}`}</p>
+                              <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider">
+                                Arrival
+                              </p>
+                              <p className="text-sm font-bold text-primarytext">
+                                {trip.arrival_location}
+                              </p>
+                              <p className="text-[11px] text-secondarytext font-mono">
+                                {trip.arrival_date}{" "}
+                                {trip.arrival_time && `· ${trip.arrival_time}`}
+                              </p>
                             </div>
                           </div>
                         </div>
@@ -734,14 +775,26 @@ export default function VehicleRequests() {
                       <div className="bg-secondarybg p-4 rounded-md border border-primarybg/50">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-1">
-                            <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider">From</p>
-                            <p className="text-sm font-bold text-primarytext">{selectedRequest.onward_from_place}</p>
-                            <p className="text-[11px] text-secondarytext font-mono">{selectedRequest.onward_from_datetime}</p>
+                            <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider">
+                              From
+                            </p>
+                            <p className="text-sm font-bold text-primarytext">
+                              {selectedRequest.onward_from_place}
+                            </p>
+                            <p className="text-[11px] text-secondarytext font-mono">
+                              {selectedRequest.onward_from_datetime}
+                            </p>
                           </div>
                           <div className="space-y-1">
-                            <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider">To</p>
-                            <p className="text-sm font-bold text-primarytext">{selectedRequest.onward_to_place}</p>
-                            <p className="text-[11px] text-secondarytext font-mono">{selectedRequest.onward_to_datetime}</p>
+                            <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider">
+                              To
+                            </p>
+                            <p className="text-sm font-bold text-primarytext">
+                              {selectedRequest.onward_to_place}
+                            </p>
+                            <p className="text-[11px] text-secondarytext font-mono">
+                              {selectedRequest.onward_to_datetime}
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -753,22 +806,36 @@ export default function VehicleRequests() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="bg-primarybg rounded-md p-4">
                     <h4 className="text-xs font-bold text-secondarytext uppercase tracking-widest mb-3 flex items-center gap-2">
-                      <User size={14} /> Faculty Information
+                      <User size={14} /> Requester Details
                     </h4>
                     <div className="bg-secondarybg border border-primarybg/50 rounded-md p-4 space-y-3">
                       <div>
-                        <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider">Name & Dept</p>
-                        <p className="text-sm font-bold text-primarytext">{selectedRequest.faculty_name}</p>
-                        <p className="text-xs font-medium text-secondarytext">{selectedRequest.faculty_department}</p>
+                        <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider">
+                          Name & Dept
+                        </p>
+                        <p className="text-sm font-bold text-primarytext">
+                          {selectedRequest.faculty_name}
+                        </p>
+                        <p className="text-xs font-medium text-secondarytext">
+                          {selectedRequest.faculty_department}
+                        </p>
                       </div>
                       <div className="flex gap-4 pt-2 border-t border-primarybg">
                         <div className="flex-1">
-                          <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider">Email</p>
-                          <p className="text-xs font-bold text-primarytext">{selectedRequest.faculty_email}</p>
+                          <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider">
+                            Email
+                          </p>
+                          <p className="text-xs font-bold text-primarytext">
+                            {selectedRequest.faculty_email}
+                          </p>
                         </div>
                         <div>
-                          <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider">Phone</p>
-                          <p className="text-xs font-bold text-primary">{selectedRequest.faculty_phone}</p>
+                          <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider">
+                            Phone
+                          </p>
+                          <p className="text-xs font-bold text-primary">
+                            {selectedRequest.faculty_phone}
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -780,24 +847,83 @@ export default function VehicleRequests() {
                     </h4>
                     <div className="bg-secondarybg border border-primarybg/50 rounded-md p-4 space-y-2">
                       <div className="flex justify-between items-center py-1 group/md">
-                        <span className="text-xs font-medium text-secondarytext">Trip Type</span>
-                        <span className="text-xs font-bold text-primarytext uppercase tracking-tighter">{selectedRequest.trip_type?.replace(/_/g, " ")}</span>
+                        <span className="text-xs font-medium text-secondarytext">
+                          Trip Type
+                        </span>
+                        <span className="text-xs font-bold text-primarytext uppercase tracking-tighter">
+                          {selectedRequest.trip_type?.replace(/_/g, " ")}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center py-1 group/md border-t border-primarybg/50">
-                        <span className="text-xs font-medium text-secondarytext">Trip Mode</span>
-                        <span className="text-xs font-bold text-primarytext uppercase tracking-tighter">{selectedRequest.trip_mode || "Official"}</span>
+                        <span className="text-xs font-medium text-secondarytext">
+                          Trip Mode
+                        </span>
+                        <span className="text-xs font-bold text-primarytext uppercase tracking-tighter">
+                          {selectedRequest.trip_mode || "Official"}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center py-1 group/md border-t border-primarybg/50">
-                        <span className="text-xs font-medium text-secondarytext">Passengers</span>
-                        <span className="px-2 py-0.5 bg-primary/5 text-primary text-[10px] font-black rounded-full">{selectedRequest.count_person || 1} Persons</span>
+                        <span className="text-xs font-medium text-secondarytext">
+                          Passengers
+                        </span>
+                        <span className="px-2 py-0.5 bg-primary/5 text-primary text-[10px] font-black rounded-full">
+                          {selectedRequest.count_person || 1} Persons
+                        </span>
                       </div>
                       <div className="flex justify-between items-center py-1 group/md border-t border-primarybg/50">
-                        <span className="text-xs font-medium text-secondarytext">Vertical</span>
-                        <span className="text-xs font-bold text-primarytext">{selectedRequest.vertical || "-"}</span>
+                        <span className="text-xs font-medium text-secondarytext">
+                          Vertical
+                        </span>
+                        <span className="text-xs font-bold text-primarytext">
+                          {selectedRequest.vertical || "-"}
+                        </span>
                       </div>
                     </div>
                   </div>
                 </div>
+
+                {/* Travelling Persons Contact Details */}
+                {(selectedRequest.traveller_name ||
+                  selectedRequest.traveller_mobile ||
+                  selectedRequest.traveller_address) && (
+                  <div className="bg-teal-50 rounded-md p-4 border border-teal-200">
+                    <h4 className="text-xs font-bold text-teal-700 uppercase tracking-widest mb-3 flex items-center gap-2">
+                      <User size={14} /> Travelling Persons Contact Details
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {selectedRequest.traveller_name && (
+                        <div className="bg-white rounded-md p-3 border border-teal-100">
+                          <p className="text-[10px] font-bold text-teal-600 uppercase tracking-wider mb-1">
+                            Name
+                          </p>
+                          <p className="text-sm font-bold text-primarytext">
+                            {selectedRequest.traveller_name}
+                          </p>
+                        </div>
+                      )}
+                      {selectedRequest.traveller_mobile && (
+                        <div className="bg-white rounded-md p-3 border border-teal-100">
+                          <p className="text-[10px] font-bold text-teal-600 uppercase tracking-wider mb-1">
+                            Mobile Number
+                          </p>
+                          <p className="text-sm font-bold text-primary">
+                            {selectedRequest.traveller_mobile}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    {selectedRequest.traveller_address && (
+                      <div className="bg-white rounded-md p-3 border border-teal-100 mt-4">
+                        <p className="text-[10px] font-bold text-teal-600 uppercase tracking-wider mb-1">
+                          Address
+                        </p>
+                        <p className="text-sm font-medium text-primarytext">
+                          {selectedRequest.traveller_address}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Purpose & Admin Remarks Section */}
                 <div className="bg-primarybg rounded-md p-4">
@@ -806,20 +932,30 @@ export default function VehicleRequests() {
                   </h4>
                   <div className="space-y-4">
                     <div className="bg-secondarybg border border-primarybg/50 rounded-md p-4">
-                      <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider mb-2">Detailed Purpose</p>
-                      <p className="text-sm font-medium text-primarytext leading-relaxed bg-primarybg/20 p-3 rounded italic">"{selectedRequest.purpose}"</p>
+                      <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider mb-2">
+                        Detailed Purpose
+                      </p>
+                      <p className="text-sm font-medium text-primarytext leading-relaxed bg-primarybg/20 p-3 rounded italic">
+                        "{selectedRequest.purpose}"
+                      </p>
                     </div>
                     {selectedRequest.admin_remarks && (
                       <div className="bg-amber-50 border border-amber-200 rounded-md p-4">
-                        <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider mb-2">Admin Remarks</p>
-                        <p className="text-sm text-amber-800 font-medium italic">{selectedRequest.admin_remarks}</p>
+                        <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider mb-2">
+                          Admin Remarks
+                        </p>
+                        <p className="text-sm text-amber-800 font-medium italic">
+                          {selectedRequest.admin_remarks}
+                        </p>
                       </div>
                     )}
                   </div>
                 </div>
 
                 {/* Assignment & OTP Info Section */}
-                {(selectedRequest.vehicle_name || selectedRequest.status === "assigned" || selectedRequest.status === "trip_started") && (
+                {(selectedRequest.vehicle_name ||
+                  selectedRequest.status === "assigned" ||
+                  selectedRequest.status === "trip_started") && (
                   <div className="bg-primarybg rounded-md p-4 border border-dashed border-primary">
                     <h4 className="text-xs font-bold text-primary uppercase tracking-widest mb-3 flex items-center gap-2">
                       <Truck size={14} /> Assignment & Status Tracking
@@ -831,22 +967,43 @@ export default function VehicleRequests() {
                             <Truck size={20} />
                           </div>
                           <div>
-                            <p className="text-sm font-bold text-primarytext leading-none">{selectedRequest.vehicle_name}</p>
-                            <p className="text-[10px] font-bold text-primary uppercase tracking-widest">{selectedRequest.driver_name}</p>
+                            <p className="text-sm font-bold text-primarytext leading-none">
+                              {selectedRequest.vehicle_name}
+                            </p>
+                            <p className="text-[10px] font-bold text-primary uppercase tracking-widest">
+                              {selectedRequest.driver_name}
+                            </p>
+                            {selectedRequest.driver_phone && (
+                              <a
+                                href={`tel:${selectedRequest.driver_phone}`}
+                                className="text-xs text-secondarytext flex items-center gap-1 mt-1 hover:text-primary transition-colors"
+                              >
+                                <Phone size={10} />
+                                {selectedRequest.driver_phone}
+                              </a>
+                            )}
                           </div>
                         </div>
                       )}
                       <div className="bg-secondarybg p-3 rounded-md border border-primarybg space-y-2">
                         {selectedRequest.start_otp && (
                           <div className="flex justify-between items-center text-xs">
-                            <span className="font-bold text-secondarytext uppercase tracking-tighter">Start OTP</span>
-                            <span className="font-mono font-bold text-primary bg-primary/5 px-2 py-0.5 rounded tracking-widest">{selectedRequest.start_otp}</span>
+                            <span className="font-bold text-secondarytext uppercase tracking-tighter">
+                              Start OTP
+                            </span>
+                            <span className="font-mono font-bold text-primary bg-primary/5 px-2 py-0.5 rounded tracking-widest">
+                              {selectedRequest.start_otp}
+                            </span>
                           </div>
                         )}
                         {selectedRequest.end_otp && (
                           <div className="flex justify-between items-center text-xs border-t border-primarybg pt-2">
-                            <span className="font-bold text-secondarytext uppercase tracking-tighter">End OTP</span>
-                            <span className="font-mono font-bold text-green bg-green/5 px-2 py-0.5 rounded tracking-widest">{selectedRequest.end_otp}</span>
+                            <span className="font-bold text-secondarytext uppercase tracking-tighter">
+                              End OTP
+                            </span>
+                            <span className="font-mono font-bold text-green bg-green/5 px-2 py-0.5 rounded tracking-widest">
+                              {selectedRequest.end_otp}
+                            </span>
                           </div>
                         )}
                       </div>
@@ -856,7 +1013,8 @@ export default function VehicleRequests() {
                     <div className="mt-4 space-y-2">
                       {selectedRequest.status === "assigned" && (
                         <div className="px-3 py-2 bg-primary/10 border border-primary/20 rounded text-[11px] text-primary font-bold flex items-center gap-2">
-                          <Clock size={14} /> WAITING FOR DRIVER TO START JOURNEY
+                          <Clock size={14} /> WAITING FOR DRIVER TO START
+                          JOURNEY
                         </div>
                       )}
                       {selectedRequest.status === "trip_started" && (
@@ -874,7 +1032,10 @@ export default function VehicleRequests() {
                     <>
                       <button
                         onClick={() => {
-                          setActionModal({ type: "approve", request: selectedRequest });
+                          setActionModal({
+                            type: "approve",
+                            request: selectedRequest,
+                          });
                           setActionRemarks("");
                         }}
                         className="px-6 py-2.5 bg-green text-secondarybg rounded-md font-bold text-sm shadow-lg shadow-green/20 hover:opacity-90 transition-all active:scale-[0.98]"
@@ -883,7 +1044,10 @@ export default function VehicleRequests() {
                       </button>
                       <button
                         onClick={() => {
-                          setActionModal({ type: "reject", request: selectedRequest });
+                          setActionModal({
+                            type: "reject",
+                            request: selectedRequest,
+                          });
                           setActionRemarks("");
                         }}
                         className="px-6 py-2.5 bg-red text-secondarybg rounded-md font-bold text-sm shadow-lg shadow-red/20 hover:opacity-90 transition-all active:scale-[0.98]"
@@ -900,7 +1064,8 @@ export default function VehicleRequests() {
                       Assign Vehicle & Driver
                     </button>
                   )}
-                  {(selectedRequest.status === "assigned" || selectedRequest.status === "trip_started") && (
+                  {(selectedRequest.status === "assigned" ||
+                    selectedRequest.status === "trip_started") && (
                     <button
                       onClick={() => handleComplete(selectedRequest.id)}
                       className="px-6 py-2.5 bg-green text-secondarybg rounded-md font-bold text-sm shadow-lg shadow-green/20 hover:opacity-90 transition-all active:scale-[0.98]"
@@ -908,12 +1073,14 @@ export default function VehicleRequests() {
                       Mark Completed (Admin Override)
                     </button>
                   )}
-                  {(selectedRequest.status === "pending" || selectedRequest.status === "approved" || selectedRequest.status === "assigned") && (
+                  {(selectedRequest.status === "pending" ||
+                    selectedRequest.status === "approved" ||
+                    selectedRequest.status === "assigned") && (
                     <button
                       onClick={() => handleCancel(selectedRequest.id)}
                       className="px-6 py-2.5 bg-secondarybg border border-primarytext/10 text-primarytext font-bold text-sm rounded-md hover:bg-primarybg transition-all"
                     >
-                      Cancel Request
+                      Cancel the request
                     </button>
                   )}
                   <button
@@ -932,34 +1099,65 @@ export default function VehicleRequests() {
       {/* ========== APPROVE/REJECT MODAL ========== */}
       {actionModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-60 p-4 animate-fadeIn">
-          <div className="bg-secondarybg rounded-md shadow-2xl w-full max-w-lg overflow-hidden flex flex-col animate-scaleIn">
-            <div className="flex items-center justify-between p-6 border-b border-primarybg/50">
-              <h3 className="text-xl font-bold text-primarytext capitalize">
-                {actionModal.type} Request
-              </h3>
+          <div className="bg-secondarybg rounded-md shadow-2xl w-full max-w-md overflow-hidden flex flex-col animate-scaleIn">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-primarybg bg-gradient-to-r from-primary/5 to-transparent">
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-10 h-10 rounded-md flex items-center justify-center ${
+                    actionModal.type === "approve"
+                      ? "bg-green/10 text-green"
+                      : "bg-red/10 text-red"
+                  }`}
+                >
+                  {actionModal.type === "approve" ? (
+                    <CheckCircle size={20} />
+                  ) : (
+                    <XCircle size={20} />
+                  )}
+                </div>
+                <h3 className="text-lg font-bold text-primarytext capitalize">
+                  {actionModal.type} Request
+                </h3>
+              </div>
               <button
                 onClick={() => {
                   setActionModal(null);
                   setApproveWithAssign(false);
-                  setApproveForm({ vehicle_id: 0, driver_id: 0 });
+                  setApproveForm({vehicle_id: 0, driver_id: 0});
                 }}
                 className="p-2 rounded-md hover:bg-primarybg text-secondarytext hover:text-primarytext transition-all"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
+
+            {/* Content */}
             <div className="p-6 space-y-5">
-              <div className="bg-primarybg rounded-md p-4">
-                <p className="text-[10px] font-bold text-secondarytext uppercase tracking-widest mb-1">Request Summary</p>
-                <p className="text-sm font-bold text-primarytext">
-                  {actionModal.request.faculty_name} · {actionModal.request.faculty_department}
-                </p>
-                <p className="text-xs text-secondarytext mt-1 italic">"{actionModal.request.purpose}"</p>
+              {/* Request Summary */}
+              <div className="bg-primarybg/50 rounded-md p-4 border border-primarybg">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-md bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                    <User size={18} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-primarytext">
+                      {actionModal.request.faculty_name}
+                    </p>
+                    <p className="text-xs text-secondarytext">
+                      {actionModal.request.faculty_department}
+                    </p>
+                    <p className="text-xs text-secondarytext mt-2 italic line-clamp-2">
+                      "{actionModal.request.purpose}"
+                    </p>
+                  </div>
+                </div>
               </div>
 
+              {/* Approve with Assign Option */}
               {actionModal.type === "approve" && (
-                <div className="border border-primarybg rounded-md p-4 bg-primary/5">
-                  <label className="flex items-center gap-3 cursor-pointer group">
+                <div className="space-y-4">
+                  <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-md border border-primarybg hover:border-primary/30 hover:bg-primary/5 transition-all">
                     <input
                       type="checkbox"
                       checked={approveWithAssign}
@@ -969,75 +1167,116 @@ export default function VehicleRequests() {
                           fetchVehiclesAndDrivers();
                         }
                       }}
-                      className="w-5 h-5 text-primary rounded border-primarybg focus:ring-primary/20 accent-primary"
+                      className="w-5 h-5 text-primary rounded-md border-gray-300 focus:ring-primary/20 accent-primary"
                     />
-                    <span className="text-sm font-bold text-primarytext group-hover:text-primary transition-colors">
-                      Approve and assign vehicle/driver directly
-                    </span>
+                    <div>
+                      <span className="text-sm font-semibold text-primarytext group-hover:text-primary transition-colors">
+                        Approve and assign vehicle/driver
+                      </span>
+                      <p className="text-xs text-secondarytext mt-0.5">
+                        Select vehicle and driver to assign immediately
+                      </p>
+                    </div>
                   </label>
 
                   {approveWithAssign && (
-                    <div className="mt-5 space-y-4 animate-fadeIn">
-                      <CustomDropdown
-                        label="Select Vehicle"
-                        options={vehicles.map(v => ({ value: v.id, label: `${v.vehicle_number} (${v.vehicle_name || v.vehicle_type})` }))}
-                        value={approveForm.vehicle_id}
-                        onChange={(val) => setApproveForm(p => ({ ...p, vehicle_id: val }))}
-                        required
-                      />
-                      <CustomDropdown
-                        label="Select Driver"
-                        options={drivers.map(d => ({ value: d.id, label: d.full_name }))}
-                        value={approveForm.driver_id}
-                        onChange={(val) => setApproveForm(p => ({ ...p, driver_id: val }))}
-                        required
-                      />
+                    <div className="space-y-4 pl-1 animate-fadeIn">
+                      {/* Vehicle Select */}
+                      <div>
+                        <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-2">
+                          Vehicle <span className="text-red">*</span>
+                        </label>
+                        <SearchableSelect
+                          options={vehicles.map((v) => ({
+                            value: v.id,
+                            label: v.vehicle_name || v.vehicle_number,
+                            subtitle: `${v.vehicle_number} • ${v.vehicle_type}`,
+                          }))}
+                          value={approveForm.vehicle_id}
+                          onChange={(val) =>
+                            setApproveForm((p) => ({...p, vehicle_id: val}))
+                          }
+                          placeholder="Search vehicle..."
+                          emptyMessage="No vehicles available"
+                        />
+                      </div>
+
+                      {/* Driver Select */}
+                      <div>
+                        <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-2">
+                          Driver <span className="text-red">*</span>
+                        </label>
+                        <SearchableSelect
+                          options={drivers.map((d) => ({
+                            value: d.id,
+                            label: d.full_name,
+                            subtitle: d.phone || "No phone",
+                          }))}
+                          value={approveForm.driver_id}
+                          onChange={(val) =>
+                            setApproveForm((p) => ({...p, driver_id: val}))
+                          }
+                          placeholder="Search driver..."
+                          emptyMessage="No drivers available"
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
               )}
 
+              {/* Admin Remarks */}
               <div>
-                <label className="block text-[11px] font-black text-secondarytext uppercase tracking-widest mb-2">
-                  Admin Remarks (optional)
+                <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-2">
+                  Admin Remarks{" "}
+                  <span className="text-secondarytext/60">(Optional)</span>
                 </label>
                 <textarea
                   value={actionRemarks}
                   onChange={(e) => setActionRemarks(e.target.value)}
                   rows={3}
                   placeholder="Add your comments here..."
-                  className="w-full px-4 py-3 border border-primarybg rounded-md text-sm text-primarytext focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none resize-none bg-primarybg/20 transition-all font-medium"
+                  className="w-full px-4 py-3 bg-primarybg/30 border border-primarybg rounded-md text-sm text-primarytext placeholder:text-secondarytext/60 focus:ring-2 focus:ring-primary/10 focus:border-primary outline-none resize-none transition-all"
                 />
               </div>
+            </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-primarybg">
-                <button
-                  onClick={() => {
-                    setActionModal(null);
-                    setApproveWithAssign(false);
-                    setApproveForm({ vehicle_id: 0, driver_id: 0 });
-                  }}
-                  className="px-6 py-2.5 bg-secondarybg border border-primarybg text-secondarytext rounded-md hover:bg-primarybg font-bold text-sm transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleAction}
-                  disabled={actionSubmitting}
-                  className={`px-8 py-2.5 text-secondarybg rounded-md text-sm font-bold shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 ${actionModal.type === "approve"
-                    ? "bg-green shadow-green/20"
-                    : "bg-red shadow-red/20"
-                    }`}
-                >
-                  {actionSubmitting
-                    ? "Processing..."
-                    : actionModal.type === "approve"
-                      ? approveWithAssign
-                        ? "Confirm & Assign"
-                        : "Approve Request"
-                      : "Reject Request"}
-                </button>
-              </div>
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-primarybg bg-primarybg/30">
+              <button
+                onClick={() => {
+                  setActionModal(null);
+                  setApproveWithAssign(false);
+                  setApproveForm({vehicle_id: 0, driver_id: 0});
+                }}
+                className="px-5 py-2.5 bg-secondarybg border border-primarybg text-secondarytext rounded-md hover:bg-primarybg font-semibold text-sm transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAction}
+                disabled={actionSubmitting}
+                className={`px-6 py-2.5 text-white rounded-md text-sm font-bold shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 flex items-center gap-2 ${
+                  actionModal.type === "approve"
+                    ? "bg-green hover:bg-green/90 shadow-green/20"
+                    : "bg-red hover:bg-red/90 shadow-red/20"
+                }`}
+              >
+                {actionSubmitting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    Processing...
+                  </>
+                ) : actionModal.type === "approve" ? (
+                  approveWithAssign ? (
+                    "Confirm & Assign"
+                  ) : (
+                    "Approve Request"
+                  )
+                ) : (
+                  "Reject Request"
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -1046,59 +1285,111 @@ export default function VehicleRequests() {
       {/* ========== ASSIGN VEHICLE MODAL ========== */}
       {showAssignModal && assignRequest && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-60 p-4 animate-fadeIn">
-          <div className="bg-secondarybg rounded-md shadow-2xl w-full max-w-lg overflow-hidden flex flex-col animate-scaleIn">
-            <div className="flex items-center justify-between p-6 border-b border-primarybg/50">
-              <h3 className="text-xl font-bold text-primarytext">
-                Assign Vehicle & Driver
-              </h3>
+          <div className="bg-secondarybg rounded-md shadow-2xl w-full max-w-md overflow-hidden flex flex-col animate-scaleIn">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-primarybg bg-gradient-to-r from-primary/5 to-transparent">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-md bg-primary/10 text-primary flex items-center justify-center">
+                  <Truck size={20} />
+                </div>
+                <h3 className="text-lg font-bold text-primarytext">
+                  Assign Vehicle & Driver
+                </h3>
+              </div>
               <button
                 onClick={() => setShowAssignModal(false)}
                 className="p-2 rounded-md hover:bg-primarybg text-secondarytext hover:text-primarytext transition-all"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
-            <div className="p-6 space-y-6">
-              <div className="bg-primarybg rounded-md p-4">
-                <p className="text-[10px] font-bold text-secondarytext uppercase tracking-widest mb-1">Request Detail</p>
-                <p className="text-sm font-bold text-primarytext">
-                  {assignRequest.faculty_name} · {assignRequest.faculty_department}
-                </p>
-                <p className="text-xs text-secondarytext mt-1 italic">"{assignRequest.purpose}"</p>
+
+            {/* Content */}
+            <div className="p-6 space-y-5">
+              {/* Request Summary */}
+              <div className="bg-primarybg/50 rounded-md p-4 border border-primarybg">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-md bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                    <User size={18} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-primarytext">
+                      {assignRequest.faculty_name}
+                    </p>
+                    <p className="text-xs text-secondarytext">
+                      {assignRequest.faculty_department}
+                    </p>
+                    <p className="text-xs text-secondarytext mt-2 italic line-clamp-2">
+                      "{assignRequest.purpose}"
+                    </p>
+                  </div>
+                </div>
               </div>
 
+              {/* Vehicle & Driver Selection */}
               <div className="space-y-4">
-                <CustomDropdown
-                  label="Select Vehicle"
-                  options={vehicles.map(v => ({ value: v.id, label: `${v.vehicle_number} (${v.vehicle_name || v.vehicle_type})` }))}
-                  value={assignForm.vehicle_id}
-                  onChange={(val) => setAssignForm(p => ({ ...p, vehicle_id: val }))}
-                  required
-                />
-                <CustomDropdown
-                  label="Select Driver"
-                  options={drivers.map(d => ({ value: d.id, label: d.full_name }))}
-                  value={assignForm.driver_id}
-                  onChange={(val) => setAssignForm(p => ({ ...p, driver_id: val }))}
-                  required
-                />
-              </div>
+                <div>
+                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-2">
+                    Vehicle <span className="text-red">*</span>
+                  </label>
+                  <SearchableSelect
+                    options={vehicles.map((v) => ({
+                      value: v.id,
+                      label: v.vehicle_name || v.vehicle_number,
+                      subtitle: `${v.vehicle_number} • ${v.vehicle_type}`,
+                    }))}
+                    value={assignForm.vehicle_id}
+                    onChange={(val) =>
+                      setAssignForm((p) => ({...p, vehicle_id: val}))
+                    }
+                    placeholder="Search vehicle..."
+                    emptyMessage="No vehicles available"
+                  />
+                </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-primarybg">
-                <button
-                  onClick={() => setShowAssignModal(false)}
-                  className="px-6 py-2.5 bg-secondarybg border border-primarybg text-secondarytext rounded-md hover:bg-primarybg font-bold text-sm transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleAssign}
-                  disabled={assigning}
-                  className="px-10 py-2.5 bg-primary text-secondarybg rounded-md hover:bg-primarydull font-bold text-sm shadow-lg shadow-primary/20 transition-all active:scale-[0.98] disabled:opacity-50"
-                >
-                  {assigning ? "Assigning..." : "Assign Now"}
-                </button>
+                <div>
+                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-2">
+                    Driver <span className="text-red">*</span>
+                  </label>
+                  <SearchableSelect
+                    options={drivers.map((d) => ({
+                      value: d.id,
+                      label: d.full_name,
+                      subtitle: d.phone || "No phone",
+                    }))}
+                    value={assignForm.driver_id}
+                    onChange={(val) =>
+                      setAssignForm((p) => ({...p, driver_id: val}))
+                    }
+                    placeholder="Search driver..."
+                    emptyMessage="No drivers available"
+                  />
+                </div>
               </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-primarybg bg-primarybg/30">
+              <button
+                onClick={() => setShowAssignModal(false)}
+                className="px-5 py-2.5 bg-secondarybg border border-primarybg text-secondarytext rounded-md hover:bg-primarybg font-semibold text-sm transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAssign}
+                disabled={assigning}
+                className="px-6 py-2.5 bg-primary text-white rounded-md hover:bg-primarydull font-bold text-sm shadow-lg shadow-primary/20 transition-all active:scale-[0.98] disabled:opacity-50 flex items-center gap-2"
+              >
+                {assigning ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    Assigning...
+                  </>
+                ) : (
+                  "Assign Now"
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -1181,9 +1472,10 @@ export default function VehicleRequests() {
                         </p>
                         {conflict.vehicle_number && (
                           <p>
-                            <strong>Vehicle:</strong>{" "}
-                            {conflict.vehicle_number}
-                            {conflict.vehicle_type ? ` (${conflict.vehicle_type})` : ""}
+                            <strong>Vehicle:</strong> {conflict.vehicle_number}
+                            {conflict.vehicle_type
+                              ? ` (${conflict.vehicle_type})`
+                              : ""}
                           </p>
                         )}
                         {conflict.assignment_type !== "VEHICLE_REQUEST" && (
@@ -1194,7 +1486,8 @@ export default function VehicleRequests() {
                         )}
                         {conflict.faculty_name && (
                           <p>
-                            <strong>Requested by:</strong> {conflict.faculty_name}
+                            <strong>Requested by:</strong>{" "}
+                            {conflict.faculty_name}
                           </p>
                         )}
                         {conflict.driver_name && (
@@ -1223,7 +1516,8 @@ export default function VehicleRequests() {
                       Assign Anyway (Override)
                     </h5>
                     <p className="text-xs text-red-600 mt-1">
-                      This will assign even though there are conflicting schedules. Use this only if necessary.
+                      This will assign even though there are conflicting
+                      schedules. Use this only if necessary.
                     </p>
                   </div>
                   <button

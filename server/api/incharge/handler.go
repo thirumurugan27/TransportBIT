@@ -139,8 +139,8 @@ func GetInchargeAssignments(c *gin.Context) {
 				END as driver_status,
 				a.vehicle_id, COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name, v.vehicle_number, v.vehicle_type,
 				a.shift_id, s.name as shift_name, 
-				TIME_FORMAT(s.start_time, '%H:%i') as start_time,
-				TIME_FORMAT(s.end_time, '%H:%i') as end_time,
+				TIME_FORMAT(s.start_time, '%h:%i %p') as start_time,
+				TIME_FORMAT(s.end_time, '%h:%i %p') as end_time,
 				DATE_FORMAT(a.assigned_date, '%d-%m-%Y') as assigned_date,
 				DATE_FORMAT(a.start_date, '%d-%m-%Y') as start_date,
 				DATE_FORMAT(a.end_date, '%d-%m-%Y') as end_date,
@@ -840,8 +840,8 @@ func GetDriverAssignments(c *gin.Context) {
 			'EV' as vehicle_type,
 			s.id as shift_id,
 			COALESCE(s.name, 'EV Duty') as shift_name,
-			COALESCE(TIME_FORMAT(s.start_time, '%H:%i'), TIME_FORMAT(c.start_time, '%H:%i')) as start_time,
-			COALESCE(TIME_FORMAT(s.end_time, '%H:%i'), TIME_FORMAT(c.end_time, '%H:%i')) as end_time,
+			COALESCE(TIME_FORMAT(s.start_time, '%h:%i %p'), TIME_FORMAT(c.start_time, '%h:%i %p')) as start_time,
+			COALESCE(TIME_FORMAT(s.end_time, '%h:%i %p'), TIME_FORMAT(c.end_time, '%h:%i %p')) as end_time,
 			ev.status as assignment_status,
 			c.name as cluster_name
 		FROM ev_assignments ev

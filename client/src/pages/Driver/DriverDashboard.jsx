@@ -9,7 +9,6 @@ import DriverKmLog from "./views/DriverKmLog";
 import DriverApplyLeave from "./views/DriverApplyLeave";
 import DriverProfile from "./views/DriverProfile";
 import Notifications from "./views/Notifications";
-import ComingSoon from "./views/ComingSoon";
 import {useAuth} from "../../context/AuthContext";
 
 export default function DriverDashboard() {

@@ -164,7 +164,7 @@ func GetMyTransport(c *gin.Context) {
 			st.stop_id, COALESCE(bs.stop_name, '') as stop_name, '' as stop_location,
 			st.total_fee, st.paid_amount, st.balance,
 			st.academic_year, st.status,
-			COALESCE(TIME_FORMAT(bs.arrival_time, '%H:%i'), '') as arrival_time,
+			COALESCE(TIME_FORMAT(bs.arrival_time, '%h:%i %p'), '') as arrival_time,
 			'' as departure_time
 		FROM student_transport st
 		JOIN users u ON st.user_id = u.id
@@ -484,7 +484,7 @@ func GetBusStopsForStudent(c *gin.Context) {
 	rows, err := config.DB.Query(`
 		SELECT 
 			bs.id, bs.stop_name, bs.stop_order, bs.fee, COALESCE(bs.distance_km, 0),
-			COALESCE(TIME_FORMAT(bs.arrival_time, '%H:%i'), '')
+			COALESCE(TIME_FORMAT(bs.arrival_time, '%h:%i %p'), '')
 		FROM bus_stops bs
 		WHERE bs.vehicle_id = ?
 		ORDER BY bs.stop_order ASC
@@ -561,7 +561,7 @@ func GetAvailableStops(c *gin.Context) {
 		SELECT 
 			bs.id, bs.stop_name, bs.stop_order,
 			COALESCE(bs.fee, 0),
-			COALESCE(TIME_FORMAT(bs.arrival_time, '%H:%i'), '')
+			COALESCE(TIME_FORMAT(bs.arrival_time, '%h:%i %p'), '')
 		FROM bus_stops bs
 		WHERE bs.vehicle_id = ? AND bs.id != ?
 		ORDER BY bs.stop_order ASC

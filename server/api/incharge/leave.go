@@ -56,9 +56,9 @@ func GetPendingLeaveRequests(c *gin.Context) {
 	rows, err := config.DB.Query(`
 		SELECT lr.id, lr.driver_id, u.full_name as driver_name, lr.leave_type,
 			   DATE_FORMAT(lr.start_date, '%d-%m-%Y') as start_date,
-			   TIME_FORMAT(lr.start_time, '%H:%i') as start_time,
+			   TIME_FORMAT(lr.start_time, '%h:%i %p') as start_time,
 			   DATE_FORMAT(lr.end_date, '%d-%m-%Y') as end_date,
-			   TIME_FORMAT(lr.end_time, '%H:%i') as end_time,
+			   TIME_FORMAT(lr.end_time, '%h:%i %p') as end_time,
 			   lr.reason, lr.status,
 			   lr.incharge_id, u_inc.full_name as incharge_name, lr.incharge_approved_at, lr.incharge_remarks,
 			   lr.admin_id, u_adm.full_name as admin_name, lr.admin_approved_at, lr.admin_remarks,

@@ -1,4 +1,5 @@
 import React, {useState, useEffect} from "react";
+import {useNavigate} from "react-router-dom";
 import {useAuth} from "../../../context/AuthContext";
 import {apiGet, apiPost, getToday} from "../../../utils/api";
 import {formatTime} from "../../../utils/dateFormat";
@@ -20,10 +21,15 @@ import {
   Car,
   ChevronRight,
   Eye,
+  MapPin,
+  Play,
+  User,
 } from "lucide-react";
 
 export default function DriverHome() {
+  const navigate = useNavigate();
   const [assignments, setAssignments] = useState([]);
+  const [upcomingRequests, setUpcomingRequests] = useState([]);
   const [vehicleAlerts, setVehicleAlerts] = useState({
     alerts: [],
     expired: 0,
@@ -43,8 +49,23 @@ export default function DriverHome() {
       fetchAssignments();
       fetchVehicleAlerts();
       fetchNotifications();
+      fetchUpcomingRequests();
     }
   }, [driverId]);
+
+  const fetchUpcomingRequests = async () => {
+    try {
+      const res = await apiGet(
+        `/api/driver/vehicle-requests/upcoming?driver_id=${driverId}`,
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setUpcomingRequests(data || []);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const fetchNotifications = async () => {
     try {
@@ -537,6 +558,96 @@ export default function DriverHome() {
           </div>
         )}
       </div>
+
+      {/* Upcoming Vehicle Requests Section */}
+      {upcomingRequests.length > 0 && (
+        <div className="bg-white rounded-md shadow-sm border border-gray-100 p-3 sm:p-4 lg:p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base sm:text-lg font-semibold text-primarytext flex items-center gap-2">
+              <Truck className="text-primary" size={20} />
+              Upcoming Vehicle Requests
+            </h3>
+            <button
+              onClick={() => navigate("/driver-dashboard/vehicle-requests")}
+              className="text-primary font-medium text-sm hover:underline flex items-center gap-1"
+            >
+              View All <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {upcomingRequests.slice(0, 3).map((request) => (
+              <div
+                key={request.id}
+                className="relative p-4 rounded-md bg-gray-50 border border-gray-100 hover:shadow-sm transition-all cursor-pointer"
+                onClick={() => navigate("/driver-dashboard/vehicle-requests")}
+              >
+                <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-l-md"></div>
+
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 pl-2">
+                  <div className="flex items-center gap-3 flex-1">
+                    <div className="w-10 h-10 bg-primary/10 rounded-md flex items-center justify-center text-primary shrink-0">
+                      <Truck size={20} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-semibold text-primarytext text-sm">
+                          {request.trips?.[0]?.departure_location ||
+                            request.onward_from_place}{" "}
+                          →{" "}
+                          {request.trips?.[0]?.arrival_location ||
+                            request.onward_to_place}
+                        </p>
+                        <span className="px-2 py-0.5 bg-primary/10 text-primary text-xs font-semibold rounded-md">
+                          {request.trip_type === "round_trip"
+                            ? "Round Trip"
+                            : "One Way"}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-secondarytext mt-1">
+                        <span className="flex items-center gap-1">
+                          <User size={11} />
+                          {request.faculty_name}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Calendar size={11} />
+                          {request.trips?.[0]?.departure_date ||
+                            request.onward_from_datetime?.split(" ")[0]}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock size={11} />
+                          {request.trips?.[0]?.departure_time ||
+                            request.onward_from_datetime
+                              ?.split(" ")
+                              .slice(1)
+                              .join(" ")}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 sm:flex-col sm:items-end">
+                    <span
+                      className={`px-2.5 py-1 text-xs font-bold rounded-md ${
+                        request.status === "trip_started"
+                          ? "bg-orange-100 text-orange-600"
+                          : "bg-primary/10 text-primary"
+                      }`}
+                    >
+                      {request.status === "trip_started"
+                        ? "On Trip"
+                        : "Assigned"}
+                    </span>
+                    <span className="text-xs text-secondarytext">
+                      {request.vehicle_number || request.vehicle_name}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* EV Assignment Details Modal */}
       {selectedEVAssignment && (

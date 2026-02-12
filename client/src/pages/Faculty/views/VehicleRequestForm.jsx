@@ -13,7 +13,27 @@ import {
   Building2,
 } from "lucide-react";
 
-const API_BASE = import.meta.env.VITE_API_BASE ;
+const API_BASE = import.meta.env.VITE_API_BASE;
+
+// Format date from YYYY-MM-DD to DD-MM-YYYY
+const formatDate = (dateStr) => {
+  if (!dateStr) return "";
+  const parts = dateStr.split("-");
+  if (parts.length === 3) {
+    return `${parts[2]}-${parts[1]}-${parts[0]}`;
+  }
+  return dateStr;
+};
+
+// Format time from 24hr (HH:MM) to 12hr (HH:MM AM/PM)
+const formatTime = (timeStr) => {
+  if (!timeStr) return "";
+  const [hours, minutes] = timeStr.split(":");
+  const h = parseInt(hours, 10);
+  const ampm = h >= 12 ? "PM" : "AM";
+  const hour12 = h % 12 || 12;
+  return `${hour12}:${minutes} ${ampm}`;
+};
 
 const emptyTrip = {
   trip_order: 1,
@@ -145,12 +165,13 @@ export default function VehicleRequestForm() {
     trip_type: "guest_pickup",
     request_under: "",
     vertical: "",
-    oral_approval: false,
     purpose: "",
     total_passengers: 1,
-    mteam_approval: false,
-    mteam_approved_by: "",
     declaration_accepted: false,
+    // Travelling Persons Contact Details
+    traveller_name: "",
+    traveller_address: "",
+    traveller_mobile: "",
   });
 
   const [trips, setTrips] = useState([{...emptyTrip}]);
@@ -272,7 +293,6 @@ export default function VehicleRequestForm() {
         trip_mode: "official",
         request_under: form.request_under,
         vertical: form.vertical,
-        oral_approval: form.oral_approval,
         purpose: form.purpose,
         count_person: parseInt(form.total_passengers) || 1,
         task_id: onwardTrip.task_id || "",
@@ -302,9 +322,14 @@ export default function VehicleRequestForm() {
             ? `${returnTrip.arrival_date} ${returnTrip.arrival_time}`
             : "",
 
-        // Contact info
+        // Contact info (Faculty/Indenter)
         contact_name: profile?.full_name || "",
         contact_phone: profile?.phone || "",
+
+        // Travelling Persons Contact Details
+        traveller_name: form.traveller_name || "",
+        traveller_address: form.traveller_address || "",
+        traveller_mobile: form.traveller_mobile || "",
       };
 
       const res = await fetch(`${API_BASE}/api/faculty/vehicle-request`, {
@@ -528,68 +553,71 @@ export default function VehicleRequestForm() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className={labelClass}>Total Passengers</label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={form.total_passengers}
-                      onChange={(e) =>
-                        handleFormChange("total_passengers", e.target.value)
-                      }
-                      className={inputClass}
-                      placeholder="Number"
-                    />
-                  </div>
-                  <div className="flex items-end">
-                    <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-md cursor-pointer hover:bg-gray-100 transition-colors w-full border border-gray-200">
-                      <input
-                        type="checkbox"
-                        checked={form.oral_approval}
-                        onChange={(e) =>
-                          handleFormChange("oral_approval", e.target.checked)
-                        }
-                        className="w-5 h-5 rounded-md border-gray-300 text-primary focus:ring-primary cursor-pointer"
-                      />
-                      <span className="text-sm font-medium text-gray-800">
-                        Oral Approval
-                      </span>
-                    </label>
-                  </div>
-                  <div className="flex items-end">
-                    <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-md cursor-pointer hover:bg-gray-100 transition-colors w-full border border-gray-200">
-                      <input
-                        type="checkbox"
-                        checked={form.mteam_approval}
-                        onChange={(e) =>
-                          handleFormChange("mteam_approval", e.target.checked)
-                        }
-                        className="w-5 h-5 rounded-md border-gray-300 text-primary focus:ring-primary cursor-pointer"
-                      />
-                      <span className="text-sm font-medium text-gray-800">
-                        M-Team Approval
-                      </span>
-                    </label>
-                  </div>
+                <div>
+                  <label className={labelClass}>Total Passengers</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={form.total_passengers}
+                    onChange={(e) =>
+                      handleFormChange("total_passengers", e.target.value)
+                    }
+                    className={inputClass}
+                    placeholder="Number"
+                  />
                 </div>
+              </div>
+            </div>
 
-                {form.mteam_approval && (
-                  <div>
-                    <label className={labelClass}>
-                      Approved by M-Team Member
-                    </label>
-                    <input
-                      type="text"
-                      value={form.mteam_approved_by}
-                      onChange={(e) =>
-                        handleFormChange("mteam_approved_by", e.target.value)
-                      }
-                      placeholder="Name of M-Team member"
-                      className={inputClass}
-                    />
-                  </div>
-                )}
+            {/* Travelling Persons Contact Details */}
+            <div className="mb-6">
+              <h3 className="text-sm font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <div className="w-6 h-6 rounded-md bg-teal-100 flex items-center justify-center">
+                  <User size={16} className="text-teal-600" />
+                </div>
+                Travelling Persons Contact Details
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className={labelClass}>
+                    Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={form.traveller_name}
+                    onChange={(e) =>
+                      handleFormChange("traveller_name", e.target.value)
+                    }
+                    className={inputClass}
+                    placeholder="Guest / Faculty name"
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>
+                    Mobile Number <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="tel"
+                    value={form.traveller_mobile}
+                    onChange={(e) =>
+                      handleFormChange("traveller_mobile", e.target.value)
+                    }
+                    className={inputClass}
+                    placeholder="Mobile number"
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Address</label>
+                  <textarea
+                    type="text"
+                    value={form.traveller_address}
+                    onChange={(e) =>
+                      handleFormChange("traveller_address", e.target.value)
+                    }
+                    className={inputClass}
+                    placeholder="Address (optional)"
+                  />
+                </div>
               </div>
             </div>
 
@@ -836,25 +864,6 @@ export default function VehicleRequestForm() {
                 {/* Additional Details */}
                 <div className="space-y-4 pt-4 border-t border-gray-100">
                   <div>
-                    <label className={labelClass}>
-                      Contact Details of Persons
-                    </label>
-                    <input
-                      type="text"
-                      value={trip.passenger_contacts}
-                      onChange={(e) =>
-                        handleTripChange(
-                          idx,
-                          "passenger_contacts",
-                          e.target.value,
-                        )
-                      }
-                      placeholder="Phone numbers / emails"
-                      className={inputClass}
-                    />
-                  </div>
-
-                  <div>
                     <div className="mb-2 p-3 bg-amber-50 rounded-md border border-amber-100 text-xs text-amber-900">
                       <p className="font-bold mb-1">
                         📋 TASK ID/INVMR: eg: T123456/INVMR1234
@@ -1029,24 +1038,6 @@ export default function VehicleRequestForm() {
                     {form.total_passengers}
                   </p>
                 </div>
-                <div className="p-4 bg-gray-50 rounded-md border border-gray-200">
-                  <p className="text-xs font-medium text-secondarytext mb-1">
-                    Oral Approval
-                  </p>
-                  <p className="text-sm font-semibold text-primarytext">
-                    {form.oral_approval ? "Yes" : "No"}
-                  </p>
-                </div>
-                {form.mteam_approval && form.mteam_approved_by && (
-                  <div className="p-4 bg-gray-50 rounded-md border border-gray-200">
-                    <p className="text-xs font-medium text-secondarytext mb-1">
-                      M-Team Approved By
-                    </p>
-                    <p className="text-sm font-semibold text-primarytext">
-                      {form.mteam_approved_by}
-                    </p>
-                  </div>
-                )}
               </div>
 
               {/* Purpose */}
@@ -1060,6 +1051,50 @@ export default function VehicleRequestForm() {
                   </p>
                 </div>
               </div>
+
+              {/* Travelling Persons Contact Details */}
+              {(form.traveller_name ||
+                form.traveller_mobile ||
+                form.traveller_address) && (
+                <div>
+                  <p className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                    <User size={14} className="text-teal-600" />
+                    Travelling Persons Contact Details
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {form.traveller_name && (
+                      <div className="p-4 bg-teal-50 rounded-md border border-teal-200">
+                        <p className="text-xs font-medium text-secondarytext mb-1">
+                          Name
+                        </p>
+                        <p className="text-sm font-semibold text-primarytext">
+                          {form.traveller_name}
+                        </p>
+                      </div>
+                    )}
+                    {form.traveller_mobile && (
+                      <div className="p-4 bg-teal-50 rounded-md border border-teal-200">
+                        <p className="text-xs font-medium text-secondarytext mb-1">
+                          Mobile Number
+                        </p>
+                        <p className="text-sm font-semibold text-primarytext">
+                          {form.traveller_mobile}
+                        </p>
+                      </div>
+                    )}
+                    {form.traveller_address && (
+                      <div className="p-4 bg-teal-50 rounded-md border border-teal-200">
+                        <p className="text-xs font-medium text-secondarytext mb-1">
+                          Address
+                        </p>
+                        <p className="text-sm font-semibold text-primarytext">
+                          {form.traveller_address}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1083,7 +1118,8 @@ export default function VehicleRequestForm() {
                       Departure
                     </p>
                     <p className="text-sm font-medium text-gray-800">
-                      {trip.departure_date} at {trip.departure_time}
+                      {formatDate(trip.departure_date)} at{" "}
+                      {formatTime(trip.departure_time)}
                     </p>
                     <p className="text-sm text-gray-600 mt-1">
                       {trip.departure_location}
@@ -1095,17 +1131,16 @@ export default function VehicleRequestForm() {
                       Arrival
                     </p>
                     <p className="text-sm font-medium text-gray-800">
-                      {trip.arrival_date} at {trip.arrival_time}
+                      {formatDate(trip.arrival_date)} at{" "}
+                      {formatTime(trip.arrival_time)}
                     </p>
                     <p className="text-sm text-gray-600 mt-1">
                       {trip.arrival_location}
                     </p>
                   </div>
                 </div>
-                {(trip.task_id ||
-                  trip.outcome_auditable ||
-                  trip.passenger_contacts) && (
-                  <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                {(trip.task_id || trip.outcome_auditable) && (
+                  <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                     {trip.task_id && (
                       <div>
                         <p className="text-secondarytext font-medium mb-0.5">
@@ -1123,16 +1158,6 @@ export default function VehicleRequestForm() {
                         </p>
                         <p className="text-primarytext font-semibold">
                           {trip.outcome_auditable}
-                        </p>
-                      </div>
-                    )}
-                    {trip.passenger_contacts && (
-                      <div>
-                        <p className="text-secondarytext font-medium mb-0.5">
-                          Contacts
-                        </p>
-                        <p className="text-primarytext font-semibold">
-                          {trip.passenger_contacts}
                         </p>
                       </div>
                     )}

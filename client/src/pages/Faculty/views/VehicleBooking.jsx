@@ -18,6 +18,7 @@ import {
   Loader2,
   Key,
   Play,
+  Phone,
 } from "lucide-react";
 import {useToast} from "../../../context/ToastContext";
 import {showConfirm} from "../../../utils/swal";
@@ -179,31 +180,32 @@ const getRequestUnderLabel = (value) => {
   return found ? found.label : value || "-";
 };
 
-const formatTime12Hour = (time24) => {
-  if (!time24) return "N/A";
-  const [hours, minutes] = time24.split(":");
-  const hour = parseInt(hours);
-  const ampm = hour >= 12 ? "PM" : "AM";
-  const hour12 = hour % 12 || 12;
-  return `${hour12}:${minutes} ${ampm}`;
-};
+// Date/time formatting removed - displaying raw values
+// const formatTime12Hour = (time24) => {
+//   if (!time24) return "N/A";
+//   const [hours, minutes] = time24.split(":");
+//   const hour = parseInt(hours);
+//   const ampm = hour >= 12 ? "PM" : "AM";
+//   const hour12 = hour % 12 || 12;
+//   return `${hour12}:${minutes} ${ampm}`;
+// };
 
-const formatDateTime = (datetime) => {
-  if (!datetime) return "N/A";
-  try {
-    const date = new Date(datetime);
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    const year = date.getFullYear();
-    const hours = date.getHours();
-    const minutes = String(date.getMinutes()).padStart(2, "0");
-    const ampm = hours >= 12 ? "PM" : "AM";
-    const hour12 = hours % 12 || 12;
-    return `${month}-${day}-${year} ${hour12}:${minutes} ${ampm}`;
-  } catch {
-    return datetime;
-  }
-};
+// const formatDateTime = (datetime) => {
+//   if (!datetime) return "N/A";
+//   try {
+//     const date = new Date(datetime);
+//     const month = String(date.getMonth() + 1).padStart(2, "0");
+//     const day = String(date.getDate()).padStart(2, "0");
+//     const year = date.getFullYear();
+//     const hours = date.getHours();
+//     const minutes = String(date.getMinutes()).padStart(2, "0");
+//     const ampm = hours >= 12 ? "PM" : "AM";
+//     const hour12 = hours % 12 || 12;
+//     return `${month}-${day}-${year} ${hour12}:${minutes} ${ampm}`;
+//   } catch {
+//     return datetime;
+//   }
+// };
 
 const emptyTrip = {
   trip_order: 1,
@@ -289,7 +291,7 @@ export default function VehicleBooking() {
   };
 
   const openNewRequestModal = () => {
-    navigate("/faculty-dashboard/new-vehicle-request");
+    navigate("/faculty-dashboard/new-request");
   };
 
   const openDetails = (request) => {
@@ -1436,8 +1438,7 @@ export default function VehicleBooking() {
                         {trip.departure_location}
                       </p>
                       <p className="text-xs text-secondarytext">
-                        {trip.departure_date} at{" "}
-                        {formatTime12Hour(trip.departure_time)}
+                        {trip.departure_date} at {trip.departure_time || "N/A"}
                       </p>
                     </div>
                     <div className="bg-secondarybg rounded-md p-3">
@@ -1451,40 +1452,61 @@ export default function VehicleBooking() {
                         {trip.arrival_location}
                       </p>
                       <p className="text-xs text-secondarytext">
-                        {trip.arrival_date} at{" "}
-                        {formatTime12Hour(trip.arrival_time)}
+                        {trip.arrival_date} at {trip.arrival_time || "N/A"}
                       </p>
                     </div>
                   </div>
                 </div>
               ))}
-              {/* Passenger Details */}
-              <div className="bg-primarybg rounded-md border border-gray-200 p-4">
-                <h4 className="text-xs font-bold text-secondarytext uppercase tracking-wide mb-3">
-                  Passenger Details
-                </h4>
-                <div className="space-y-3">
-                  {/* Requester */}
-                  <div className="bg-secondarybg rounded-md p-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-md bg-primary/10 text-primary flex items-center justify-center">
-                        <User size={14} />
+              {/* Travelling Person Details */}
+              {(selectedRequest.traveller_name ||
+                selectedRequest.traveller_mobile ||
+                selectedRequest.traveller_address) && (
+                <div className="bg-teal-50 rounded-md border border-teal-200 p-4">
+                  <h4 className="text-xs font-bold text-teal-700 uppercase tracking-wide mb-3">
+                    Travelling Person Details
+                  </h4>
+                  <div className="grid grid-cols-1 gap-3">
+                    {selectedRequest.traveller_name && (
+                      <div className="bg-white rounded-md p-3 border border-teal-100">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-md bg-teal-500/10 text-teal-600 flex items-center justify-center">
+                            <User size={14} />
+                          </div>
+                          <div>
+                            <p className="text-xs text-teal-600 font-medium">
+                              Name
+                            </p>
+                            <p className="text-sm font-semibold text-primarytext">
+                              {selectedRequest.traveller_name}
+                            </p>
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-xs text-secondarytext">Requester</p>
-                        <p className="text-sm font-semibold text-primarytext">
-                          {selectedRequest.faculty_name || "N/A"}
+                    )}
+                    {selectedRequest.traveller_mobile && (
+                      <div className="bg-white rounded-md p-3 border border-teal-100">
+                        <p className="text-xs text-teal-600 font-medium mb-1">
+                          Mobile Number
                         </p>
-                        {selectedRequest.faculty_phone && (
-                          <p className="text-xs text-secondarytext mt-0.5">
-                            📱 {selectedRequest.faculty_phone}
-                          </p>
-                        )}
+                        <p className="text-sm font-semibold text-primary">
+                          {selectedRequest.traveller_mobile}
+                        </p>
                       </div>
-                    </div>
+                    )}
+                    {selectedRequest.traveller_address && (
+                      <div className="bg-white rounded-md p-3 border border-teal-100">
+                        <p className="text-xs text-teal-600 font-medium mb-1">
+                          Address
+                        </p>
+                        <p className="text-sm font-medium text-primarytext">
+                          {selectedRequest.traveller_address}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* Vehicle Assignment */}
               {(selectedRequest.status === "assigned" ||
@@ -1513,6 +1535,15 @@ export default function VehicleBooking() {
                           <p className="text-sm font-semibold text-primarytext">
                             {selectedRequest.driver_name}
                           </p>
+                          {selectedRequest.driver_phone && (
+                            <a
+                              href={`tel:${selectedRequest.driver_phone}`}
+                              className="text-xs text-primary font-medium flex items-center gap-1 mt-1 hover:underline"
+                            >
+                              <Phone size={12} />
+                              {selectedRequest.driver_phone}
+                            </a>
+                          )}
                         </div>
                       </div>
                     </div>

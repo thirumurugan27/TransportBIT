@@ -13,6 +13,7 @@ import {
   User,
   Key,
   Play,
+  Phone,
 } from "lucide-react";
 import {useToast} from "../../../context/ToastContext";
 import {showConfirm} from "../../../utils/swal";
@@ -193,7 +194,7 @@ export default function MyVehicleRequests() {
           </p>
         </div>
         <button
-          onClick={() => navigate("/faculty-dashboard/vehicle-request")}
+          onClick={() => navigate("/faculty-dashboard/new-request")}
           className="px-5 py-2.5 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors text-sm font-medium"
         >
           + New Request
@@ -231,7 +232,7 @@ export default function MyVehicleRequests() {
           <AlertCircle size={40} className="mx-auto text-secondarytext mb-3" />
           <p className="text-secondarytext">No vehicle requests found</p>
           <button
-            onClick={() => navigate("/faculty-dashboard/vehicle-request")}
+            onClick={() => navigate("/faculty-dashboard/new-request")}
             className="mt-4 px-5 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors text-sm font-medium"
           >
             Submit a Request
@@ -300,6 +301,16 @@ export default function MyVehicleRequests() {
                           <User size={12} />
                           {req.driver_name}
                         </p>
+                        {req.driver_phone && (
+                          <a
+                            href={`tel:${req.driver_phone}`}
+                            className="text-primary flex items-center gap-1 hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Phone size={10} />
+                            {req.driver_phone}
+                          </a>
+                        )}
                       </div>
                     )}
                   </div>
@@ -549,6 +560,15 @@ export default function MyVehicleRequests() {
                         <p className="font-medium text-primarytext">
                           {selectedRequest.driver_name}
                         </p>
+                        {selectedRequest.driver_phone && (
+                          <a
+                            href={`tel:${selectedRequest.driver_phone}`}
+                            className="text-xs text-primary font-medium flex items-center gap-1 mt-1 hover:underline"
+                          >
+                            <Phone size={12} />
+                            {selectedRequest.driver_phone}
+                          </a>
+                        )}
                       </div>
                     </div>
                   </div>

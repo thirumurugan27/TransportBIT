@@ -227,7 +227,7 @@ func GetBusStops(c *gin.Context) {
 
 	rows, err := config.DB.Query(`
 		SELECT id, vehicle_id, stop_name, stop_order, fee, distance_km,
-			COALESCE(TIME_FORMAT(arrival_time, '%H:%i'), '') as arrival_time
+			COALESCE(TIME_FORMAT(arrival_time, '%h:%i %p'), '') as arrival_time
 		FROM bus_stops
 		WHERE vehicle_id = ?
 		ORDER BY stop_order ASC

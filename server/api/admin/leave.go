@@ -37,9 +37,9 @@ func GetLeaveHistory(c *gin.Context) {
 	rows, err := config.DB.Query(`
 		SELECT lr.id, lr.driver_id, u.full_name as driver_name, lr.leave_type,
 			   DATE_FORMAT(lr.start_date, '%d-%m-%Y') as start_date,
-			   TIME_FORMAT(lr.start_time, '%H:%i') as start_time,
+			   TIME_FORMAT(lr.start_time, '%h:%i %p') as start_time,
 			   DATE_FORMAT(lr.end_date, '%d-%m-%Y') as end_date,
-			   TIME_FORMAT(lr.end_time, '%H:%i') as end_time,
+			   TIME_FORMAT(lr.end_time, '%h:%i %p') as end_time,
 			   lr.reason, lr.status,
 			   lr.incharge_id, u_inc.full_name as incharge_name, lr.incharge_approved_at, lr.incharge_remarks,
 			   lr.admin_id, u_adm.full_name as admin_name, lr.admin_approved_at, lr.admin_remarks,
@@ -225,8 +225,8 @@ func GetPendingLeaveRequests(c *gin.Context) {
 
 	baseQuery := `
 			SELECT lr.id, lr.driver_id, u.full_name as driver_name, lr.leave_type, 
-				   DATE_FORMAT(lr.start_date, '%d-%m-%Y'), TIME_FORMAT(lr.start_time, '%H:%i'),
-				   DATE_FORMAT(lr.end_date, '%d-%m-%Y'), TIME_FORMAT(lr.end_time, '%H:%i'), lr.reason, lr.status,
+				   DATE_FORMAT(lr.start_date, '%d-%m-%Y'), TIME_FORMAT(lr.start_time, '%h:%i %p'),
+				   DATE_FORMAT(lr.end_date, '%d-%m-%Y'), TIME_FORMAT(lr.end_time, '%h:%i %p'), lr.reason, lr.status,
 				   lr.incharge_id, u_inc.full_name as incharge_name, lr.incharge_approved_at, lr.incharge_remarks,
 				   lr.admin_id, u_adm.full_name as admin_name, lr.admin_approved_at, lr.admin_remarks, lr.created_at
 			FROM leave_requests lr
@@ -595,8 +595,8 @@ func GetLeaveAffectedAssignments(c *gin.Context) {
 			DATE_FORMAT(a.start_date, '%d-%m-%Y') as start_date,
 			DATE_FORMAT(a.end_date, '%d-%m-%Y') as end_date,
 			s.name as shift_name,
-			TIME_FORMAT(s.start_time, '%H:%i') as shift_start_time,
-			TIME_FORMAT(s.end_time, '%H:%i') as shift_end_time,
+			TIME_FORMAT(s.start_time, '%h:%i %p') as shift_start_time,
+			TIME_FORMAT(s.end_time, '%h:%i %p') as shift_end_time,
 			v.vehicle_number, v.vehicle_type,
 			COALESCE(v.vehicle_name, '') as vehicle_name,
 			0 as is_ev_cluster, 0 as cluster_id, '' as cluster_name
@@ -641,8 +641,8 @@ func GetLeaveAffectedAssignments(c *gin.Context) {
 			DATE_FORMAT(ev.start_date, '%d-%m-%Y') as start_date,
 			DATE_FORMAT(ev.end_date, '%d-%m-%Y') as end_date,
 			COALESCE(dc.name, 'EV Assignment') as shift_name,
-			COALESCE(TIME_FORMAT(dc.start_time, '%H:%i'), '') as shift_start_time,
-			COALESCE(TIME_FORMAT(dc.end_time, '%H:%i'), '') as shift_end_time,
+			COALESCE(TIME_FORMAT(dc.start_time, '%h:%i %p'), '') as shift_start_time,
+			COALESCE(TIME_FORMAT(dc.end_time, '%h:%i %p'), '') as shift_end_time,
 			v.vehicle_number, v.vehicle_type,
 			COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name,
 			1 as is_ev_cluster, dc.id as cluster_id, dc.name as cluster_name

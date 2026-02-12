@@ -103,8 +103,8 @@ func GetDriverAssignedVehicles(c *gin.Context) {
 		       NULLIF(COALESCE(v.vehicle_name, ''), '') as vehicle_name,
 		       ta.id as assignment_id, 'TEMPORARY' as assignment_type,
 		       s.name as shift_name,
-		       TIME_FORMAT(s.start_time, '%H:%i') as start_time,
-		       TIME_FORMAT(s.end_time, '%H:%i') as end_time,
+		       TIME_FORMAT(s.start_time, '%h:%i %p') as start_time,
+		       TIME_FORMAT(s.end_time, '%h:%i %p') as end_time,
 		       DATE_FORMAT(ta.start_date, '%d-%m-%Y') as start_date,
 		       DATE_FORMAT(ta.end_date, '%d-%m-%Y') as end_date
 		FROM temporary_assignments ta
@@ -140,8 +140,8 @@ func GetDriverAssignedVehicles(c *gin.Context) {
 		       NULLIF(COALESCE(v.vehicle_name, ''), '') as vehicle_name,
 		       ev.id as assignment_id, 'EV_CLUSTER' as assignment_type,
 		       COALESCE(s.name, 'EV Duty') as shift_name,
-		       COALESCE(TIME_FORMAT(s.start_time, '%H:%i'), TIME_FORMAT(dc.start_time, '%H:%i'), '08:00') as start_time,
-		       COALESCE(TIME_FORMAT(s.end_time, '%H:%i'), TIME_FORMAT(dc.end_time, '%H:%i'), '17:00') as end_time,
+		       COALESCE(TIME_FORMAT(s.start_time, '%h:%i %p'), TIME_FORMAT(dc.start_time, '%h:%i %p'), '08:00 AM') as start_time,
+		       COALESCE(TIME_FORMAT(s.end_time, '%h:%i %p'), TIME_FORMAT(dc.end_time, '%h:%i %p'), '05:00 PM') as end_time,
 		       DATE_FORMAT(ev.start_date, '%d-%m-%Y') as start_date,
 		       DATE_FORMAT(ev.end_date, '%d-%m-%Y') as end_date
 		FROM ev_assignments ev

@@ -660,9 +660,9 @@ type VehicleRequest struct {
 	// Contact Info
 	ContactName  string `json:"contact_name"`
 	ContactPhone string `json:"contact_phone"`
-	MobileNumber string `json:"mobile_number"`
-	GuestName    string `json:"guest_name"`
-	Address      string `json:"address"`
+	MobileNumber string `json:"traveller_mobile"`
+	GuestName    string `json:"traveller_name"`
+	Address      string `json:"traveller_address"`
 
 	// Task and Outcome fields
 	TaskID           string `json:"task_id"`
@@ -731,9 +731,9 @@ type CreateVehicleRequestInput struct {
 	ContactPhone string `json:"contact_phone"`
 
 	// Legacy/DB-aligned optional fields
-	MobileNumber     string `json:"mobile_number"`
-	GuestName        string `json:"guest_name"`
-	Address          string `json:"address"`
+	MobileNumber     string `json:"traveller_mobile"`
+	GuestName        string `json:"traveller_name"`
+	Address          string `json:"traveller_address"`
 	TaskID           string `json:"task_id"`
 	OutcomeExpected  string `json:"outcome_expected"`
 	OutcomeAuditable string `json:"outcome_auditable"`

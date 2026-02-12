@@ -50,7 +50,7 @@ func EnsureVehicleRequestOTPColumns() {
 func GetAllVehicleRequests(c *gin.Context) {
 	statusFilter := c.Query("status")
 
-	colExists, _ := config.HasColumns("vehiclerequests", "Purpose", "PurposeOfVisit", "RequestUnder", "Vertical", "OralApproval", "TaskID", "OutcomeExpected", "OutcomeAuditable", "approved_by", "approved_at", "assigned_at", "start_otp", "end_otp", "start_otp_generated_at", "end_otp_generated_at", "trip_started_at", "trip_ended_at")
+	colExists, _ := config.HasColumns("vehiclerequests", "Purpose", "PurposeOfVisit", "RequestUnder", "Vertical", "OralApproval", "TaskID", "OutcomeExpected", "OutcomeAuditable", "approved_by", "approved_at", "assigned_at", "start_otp", "end_otp", "start_otp_generated_at", "end_otp_generated_at", "trip_started_at", "trip_ended_at", "TravellerName", "MobileNumber", "Address")
 	purposeExpr := "'' as Purpose"
 	if colExists["Purpose"] && colExists["PurposeOfVisit"] {
 		purposeExpr = "COALESCE(vr.Purpose, vr.PurposeOfVisit, '') as Purpose"
@@ -83,17 +83,29 @@ func GetAllVehicleRequests(c *gin.Context) {
 	if colExists["OutcomeAuditable"] {
 		outcomeAuditableExpr = "COALESCE(vr.OutcomeAuditable, '') as OutcomeAuditable"
 	}
+	travellerNameExpr := "'' as TravellerName"
+	if colExists["TravellerName"] {
+		travellerNameExpr = "COALESCE(vr.TravellerName, '') as TravellerName"
+	}
+	mobileNumberExpr := "'' as MobileNumber"
+	if colExists["MobileNumber"] {
+		mobileNumberExpr = "COALESCE(vr.MobileNumber, '') as MobileNumber"
+	}
+	addressExpr := "'' as Address"
+	if colExists["Address"] {
+		addressExpr = "COALESCE(vr.Address, '') as Address"
+	}
 	approvedByExpr := "NULL as approved_by"
 	if colExists["approved_by"] {
 		approvedByExpr = "vr.approved_by as approved_by"
 	}
 	approvedAtExpr := "NULL as approved_at"
 	if colExists["approved_at"] {
-		approvedAtExpr = "DATE_FORMAT(vr.approved_at, '%d-%m-%Y %H:%i') as approved_at"
+		approvedAtExpr = "DATE_FORMAT(vr.approved_at, '%%d-%%m-%%Y %%h:%%i %%p') as approved_at"
 	}
 	assignedAtExpr := "NULL as assigned_at"
 	if colExists["assigned_at"] {
-		assignedAtExpr = "DATE_FORMAT(vr.assigned_at, '%d-%m-%Y %H:%i') as assigned_at"
+		assignedAtExpr = "DATE_FORMAT(vr.assigned_at, '%%d-%%m-%%Y %%h:%%i %%p') as assigned_at"
 	}
 	startOtpExpr := "'' as start_otp"
 	if colExists["start_otp"] {
@@ -105,19 +117,19 @@ func GetAllVehicleRequests(c *gin.Context) {
 	}
 	startOtpGeneratedAtExpr := "NULL as start_otp_generated_at"
 	if colExists["start_otp_generated_at"] {
-		startOtpGeneratedAtExpr = "DATE_FORMAT(vr.start_otp_generated_at, '%d-%m-%Y %H:%i') as start_otp_generated_at"
+		startOtpGeneratedAtExpr = "DATE_FORMAT(vr.start_otp_generated_at, '%%d-%%m-%%Y %%h:%%i %%p') as start_otp_generated_at"
 	}
 	endOtpGeneratedAtExpr := "NULL as end_otp_generated_at"
 	if colExists["end_otp_generated_at"] {
-		endOtpGeneratedAtExpr = "DATE_FORMAT(vr.end_otp_generated_at, '%d-%m-%Y %H:%i') as end_otp_generated_at"
+		endOtpGeneratedAtExpr = "DATE_FORMAT(vr.end_otp_generated_at, '%%d-%%m-%%Y %%h:%%i %%p') as end_otp_generated_at"
 	}
 	tripStartedAtExpr := "NULL as trip_started_at"
 	if colExists["trip_started_at"] {
-		tripStartedAtExpr = "DATE_FORMAT(vr.trip_started_at, '%d-%m-%Y %H:%i') as trip_started_at"
+		tripStartedAtExpr = "DATE_FORMAT(vr.trip_started_at, '%%d-%%m-%%Y %%h:%%i %%p') as trip_started_at"
 	}
 	tripEndedAtExpr := "NULL as trip_ended_at"
 	if colExists["trip_ended_at"] {
-		tripEndedAtExpr = "DATE_FORMAT(vr.trip_ended_at, '%d-%m-%Y %H:%i') as trip_ended_at"
+		tripEndedAtExpr = "DATE_FORMAT(vr.trip_ended_at, '%%d-%%m-%%Y %%h:%%i %%p') as trip_ended_at"
 	}
 
 	query := fmt.Sprintf(`
@@ -133,14 +145,17 @@ func GetAllVehicleRequests(c *gin.Context) {
 			COALESCE(vr.CountPerson, 1) as CountPerson,
 			COALESCE(vr.OnwardFromPlace, '') as OnwardFromPlace,
 			COALESCE(vr.OnwardToPlace, '') as OnwardToPlace,
-			COALESCE(DATE_FORMAT(vr.OnwardFromDateTime, '%%d-%%m-%%Y %%H:%%i'), '') as OnwardFromDateTime,
-			COALESCE(DATE_FORMAT(vr.OnwardTodateTime, '%%d-%%m-%%Y %%H:%%i'), '') as OnwardTodateTime,
+			COALESCE(DATE_FORMAT(vr.OnwardFromDateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as OnwardFromDateTime,
+			COALESCE(DATE_FORMAT(vr.OnwardTodateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as OnwardTodateTime,
 			COALESCE(vr.ReturnFromPlace, '') as ReturnFromPlace,
 			COALESCE(vr.ReturnToPlace, '') as ReturnToPlace,
-			COALESCE(DATE_FORMAT(vr.ReturnFromDateTime, '%%d-%%m-%%Y %%H:%%i'), '') as ReturnFromDateTime,
-			COALESCE(DATE_FORMAT(vr.ReturnTodateTime, '%%d-%%m-%%Y %%H:%%i'), '') as ReturnTodateTime,
+			COALESCE(DATE_FORMAT(vr.ReturnFromDateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as ReturnFromDateTime,
+			COALESCE(DATE_FORMAT(vr.ReturnTodateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as ReturnTodateTime,
 			COALESCE(vr.ContactName, '') as ContactName,
 			COALESCE(vr.ContactPhone, '') as ContactPhone,
+			%s,
+			%s,
+			%s,
 			%s,
 			%s,
 			%s,
@@ -164,14 +179,14 @@ func GetAllVehicleRequests(c *gin.Context) {
 			COALESCE(v.vehicle_name, v.vehicle_number, '') as vehicle_name,
 			COALESCE(ud.full_name, '') as driver_name,
 			COALESCE(ud.phone, '') as driver_phone,
-			DATE_FORMAT(vr.created_at, '%%d-%%m-%%Y %%H:%%i') as created_at
+			DATE_FORMAT(vr.created_at, '%%d-%%m-%%Y %%h:%%i %%p') as created_at
 		FROM vehiclerequests vr
 		JOIN faculty f ON vr.faculty_id = f.id
 		JOIN users u ON f.user_id = u.id
 		LEFT JOIN vehicles v ON vr.vehicle_id = v.id
 		LEFT JOIN drivers d ON vr.driver_id = d.id
 		LEFT JOIN users ud ON d.user_id = ud.id
-	`, requestUnderExpr, purposeExpr, verticalExpr, oralApprovalExpr, taskIDExpr, outcomeExpectedExpr, outcomeAuditableExpr, approvedByExpr, approvedAtExpr, assignedAtExpr, startOtpExpr, endOtpExpr, startOtpGeneratedAtExpr, endOtpGeneratedAtExpr, tripStartedAtExpr, tripEndedAtExpr)
+	`, requestUnderExpr, purposeExpr, verticalExpr, oralApprovalExpr, taskIDExpr, outcomeExpectedExpr, outcomeAuditableExpr, travellerNameExpr, mobileNumberExpr, addressExpr, approvedByExpr, approvedAtExpr, assignedAtExpr, startOtpExpr, endOtpExpr, startOtpGeneratedAtExpr, endOtpGeneratedAtExpr, tripStartedAtExpr, tripEndedAtExpr)
 
 	var args []interface{}
 	if statusFilter != "" {
@@ -198,6 +213,7 @@ func GetAllVehicleRequests(c *gin.Context) {
 			&r.ReturnFromPlace, &r.ReturnToPlace, &r.ReturnFromDateTime, &r.ReturnToDateTime,
 			&r.ContactName, &r.ContactPhone,
 			&r.TaskID, &r.OutcomeExpected, &r.OutcomeAuditable,
+			&r.GuestName, &r.MobileNumber, &r.Address,
 			&r.Status, &r.AdminRemarks,
 			&r.ApprovedBy, &r.ApprovedAt, &r.AssignedAt,
 			&r.StartOTP, &r.EndOTP, &r.StartOTPGeneratedAt, &r.EndOTPGeneratedAt, &r.TripStartedAt, &r.TripEndedAt,
@@ -227,7 +243,7 @@ func GetVehicleRequestDetails(c *gin.Context) {
 
 	var r models.VehicleRequest
 
-	colExists, _ := config.HasColumns("vehiclerequests", "Purpose", "PurposeOfVisit", "RequestUnder", "Vertical", "OralApproval", "TaskID", "OutcomeExpected", "OutcomeAuditable", "approved_by", "approved_at", "assigned_at", "start_otp", "end_otp", "start_otp_generated_at", "end_otp_generated_at", "trip_started_at", "trip_ended_at")
+	colExists, _ := config.HasColumns("vehiclerequests", "Purpose", "PurposeOfVisit", "RequestUnder", "Vertical", "OralApproval", "TaskID", "OutcomeExpected", "OutcomeAuditable", "approved_by", "approved_at", "assigned_at", "start_otp", "end_otp", "start_otp_generated_at", "end_otp_generated_at", "trip_started_at", "trip_ended_at", "TravellerName", "MobileNumber", "Address")
 	purposeExpr := "'' as Purpose"
 	if colExists["Purpose"] && colExists["PurposeOfVisit"] {
 		purposeExpr = "COALESCE(vr.Purpose, vr.PurposeOfVisit, '') as Purpose"
@@ -260,17 +276,29 @@ func GetVehicleRequestDetails(c *gin.Context) {
 	if colExists["OutcomeAuditable"] {
 		outcomeAuditableExpr = "COALESCE(vr.OutcomeAuditable, '') as OutcomeAuditable"
 	}
+	travellerNameExpr := "'' as TravellerName"
+	if colExists["TravellerName"] {
+		travellerNameExpr = "COALESCE(vr.TravellerName, '') as TravellerName"
+	}
+	mobileNumberExpr := "'' as MobileNumber"
+	if colExists["MobileNumber"] {
+		mobileNumberExpr = "COALESCE(vr.MobileNumber, '') as MobileNumber"
+	}
+	addressExpr := "'' as Address"
+	if colExists["Address"] {
+		addressExpr = "COALESCE(vr.Address, '') as Address"
+	}
 	approvedByExpr := "NULL as approved_by"
 	if colExists["approved_by"] {
 		approvedByExpr = "vr.approved_by as approved_by"
 	}
 	approvedAtExpr := "NULL as approved_at"
 	if colExists["approved_at"] {
-		approvedAtExpr = "DATE_FORMAT(vr.approved_at, '%d-%m-%Y %H:%i') as approved_at"
+		approvedAtExpr = "DATE_FORMAT(vr.approved_at, '%%d-%%m-%%Y %%h:%%i %%p') as approved_at"
 	}
 	assignedAtExpr := "NULL as assigned_at"
 	if colExists["assigned_at"] {
-		assignedAtExpr = "DATE_FORMAT(vr.assigned_at, '%d-%m-%Y %H:%i') as assigned_at"
+		assignedAtExpr = "DATE_FORMAT(vr.assigned_at, '%%d-%%m-%%Y %%h:%%i %%p') as assigned_at"
 	}
 	startOtpExpr := "'' as start_otp"
 	if colExists["start_otp"] {
@@ -282,19 +310,19 @@ func GetVehicleRequestDetails(c *gin.Context) {
 	}
 	startOtpGeneratedAtExpr := "NULL as start_otp_generated_at"
 	if colExists["start_otp_generated_at"] {
-		startOtpGeneratedAtExpr = "DATE_FORMAT(vr.start_otp_generated_at, '%d-%m-%Y %H:%i') as start_otp_generated_at"
+		startOtpGeneratedAtExpr = "DATE_FORMAT(vr.start_otp_generated_at, '%%d-%%m-%%Y %%h:%%i %%p') as start_otp_generated_at"
 	}
 	endOtpGeneratedAtExpr := "NULL as end_otp_generated_at"
 	if colExists["end_otp_generated_at"] {
-		endOtpGeneratedAtExpr = "DATE_FORMAT(vr.end_otp_generated_at, '%d-%m-%Y %H:%i') as end_otp_generated_at"
+		endOtpGeneratedAtExpr = "DATE_FORMAT(vr.end_otp_generated_at, '%%d-%%m-%%Y %%h:%%i %%p') as end_otp_generated_at"
 	}
 	tripStartedAtExpr := "NULL as trip_started_at"
 	if colExists["trip_started_at"] {
-		tripStartedAtExpr = "DATE_FORMAT(vr.trip_started_at, '%d-%m-%Y %H:%i') as trip_started_at"
+		tripStartedAtExpr = "DATE_FORMAT(vr.trip_started_at, '%%d-%%m-%%Y %%h:%%i %%p') as trip_started_at"
 	}
 	tripEndedAtExpr := "NULL as trip_ended_at"
 	if colExists["trip_ended_at"] {
-		tripEndedAtExpr = "DATE_FORMAT(vr.trip_ended_at, '%d-%m-%Y %H:%i') as trip_ended_at"
+		tripEndedAtExpr = "DATE_FORMAT(vr.trip_ended_at, '%%d-%%m-%%Y %%h:%%i %%p') as trip_ended_at"
 	}
 
 	query := fmt.Sprintf(`
@@ -310,14 +338,17 @@ func GetVehicleRequestDetails(c *gin.Context) {
 			COALESCE(vr.CountPerson, 1) as CountPerson,
 			COALESCE(vr.OnwardFromPlace, '') as OnwardFromPlace,
 			COALESCE(vr.OnwardToPlace, '') as OnwardToPlace,
-			COALESCE(DATE_FORMAT(vr.OnwardFromDateTime, '%%d-%%m-%%Y %%H:%%i'), '') as OnwardFromDateTime,
-			COALESCE(DATE_FORMAT(vr.OnwardTodateTime, '%%d-%%m-%%Y %%H:%%i'), '') as OnwardTodateTime,
+			COALESCE(DATE_FORMAT(vr.OnwardFromDateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as OnwardFromDateTime,
+			COALESCE(DATE_FORMAT(vr.OnwardTodateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as OnwardTodateTime,
 			COALESCE(vr.ReturnFromPlace, '') as ReturnFromPlace,
 			COALESCE(vr.ReturnToPlace, '') as ReturnToPlace,
-			COALESCE(DATE_FORMAT(vr.ReturnFromDateTime, '%%d-%%m-%%Y %%H:%%i'), '') as ReturnFromDateTime,
-			COALESCE(DATE_FORMAT(vr.ReturnTodateTime, '%%d-%%m-%%Y %%H:%%i'), '') as ReturnTodateTime,
+			COALESCE(DATE_FORMAT(vr.ReturnFromDateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as ReturnFromDateTime,
+			COALESCE(DATE_FORMAT(vr.ReturnTodateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as ReturnTodateTime,
 			COALESCE(vr.ContactName, '') as ContactName,
 			COALESCE(vr.ContactPhone, '') as ContactPhone,
+			%s,
+			%s,
+			%s,
 			%s,
 			%s,
 			%s,
@@ -341,7 +372,7 @@ func GetVehicleRequestDetails(c *gin.Context) {
 			COALESCE(v.vehicle_name, v.vehicle_number, '') as vehicle_name,
 			COALESCE(ud.full_name, '') as driver_name,
 			COALESCE(ud.phone, '') as driver_phone,
-			DATE_FORMAT(vr.created_at, '%%d-%%m-%%Y %%H:%%i') as created_at
+			DATE_FORMAT(vr.created_at, '%%d-%%m-%%Y %%h:%%i %%p') as created_at
 		FROM vehiclerequests vr
 		JOIN faculty f ON vr.faculty_id = f.id
 		JOIN users u ON f.user_id = u.id
@@ -349,7 +380,7 @@ func GetVehicleRequestDetails(c *gin.Context) {
 		LEFT JOIN drivers d ON vr.driver_id = d.id
 		LEFT JOIN users ud ON d.user_id = ud.id
 		WHERE vr.id = ?
-	`, requestUnderExpr, purposeExpr, verticalExpr, oralApprovalExpr, taskIDExpr, outcomeExpectedExpr, outcomeAuditableExpr, approvedByExpr, approvedAtExpr, assignedAtExpr, startOtpExpr, endOtpExpr, startOtpGeneratedAtExpr, endOtpGeneratedAtExpr, tripStartedAtExpr, tripEndedAtExpr)
+	`, requestUnderExpr, purposeExpr, verticalExpr, oralApprovalExpr, taskIDExpr, outcomeExpectedExpr, outcomeAuditableExpr, travellerNameExpr, mobileNumberExpr, addressExpr, approvedByExpr, approvedAtExpr, assignedAtExpr, startOtpExpr, endOtpExpr, startOtpGeneratedAtExpr, endOtpGeneratedAtExpr, tripStartedAtExpr, tripEndedAtExpr)
 
 	err = config.DB.QueryRow(query, id).Scan(
 		&r.ID, &r.FacultyID,
@@ -358,6 +389,7 @@ func GetVehicleRequestDetails(c *gin.Context) {
 		&r.ReturnFromPlace, &r.ReturnToPlace, &r.ReturnFromDateTime, &r.ReturnToDateTime,
 		&r.ContactName, &r.ContactPhone,
 		&r.TaskID, &r.OutcomeExpected, &r.OutcomeAuditable,
+		&r.GuestName, &r.MobileNumber, &r.Address,
 		&r.Status, &r.AdminRemarks,
 		&r.ApprovedBy, &r.ApprovedAt, &r.AssignedAt,
 		&r.StartOTP, &r.EndOTP, &r.StartOTPGeneratedAt, &r.EndOTPGeneratedAt, &r.TripStartedAt, &r.TripEndedAt,
