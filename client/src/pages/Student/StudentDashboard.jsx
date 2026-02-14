@@ -1,5 +1,5 @@
 import React, {useState} from "react";
-import {Routes, Route, useNavigate} from "react-router-dom";
+import {Routes, Route} from "react-router-dom";
 import {Sidebar} from "../../components/layout";
 import DashboardHeader from "../../components/DashboardHeader";
 import StudentHome from "./views/StudentHome";
@@ -11,7 +11,6 @@ import {useAuth} from "../../context/AuthContext";
 export default function StudentDashboard() {
   const {user, logout} = useAuth();
   const studentName = user?.full_name || user?.username || "Student";
-  const navigate = useNavigate();
 
   const [mobileOpen, setMobileOpen] = useState(false);
 

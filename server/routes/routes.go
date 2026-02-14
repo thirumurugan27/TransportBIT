@@ -8,329 +8,339 @@ import (
 	"transport-server/api/faculty"
 	"transport-server/api/incharge"
 	"transport-server/api/student"
+	"transport-server/middleware"
 
 	"github.com/gin-gonic/gin"
 )
 
 func RegisterRoutes(r *gin.Engine) {
-	// =========================
-	// AUTH & ADMIN PROFILE
-	// =========================
-	r.POST("/api/login", auth.UnifiedLogin)             // 🔐 UNIFIED LOGIN for all roles
-	r.GET("/api/me", auth.Me)                           // 🔐 GET CURRENT USER
-	r.GET("/auth/google/login", auth.GoogleLogin)       // 🔐 GOOGLE LOGIN
-	r.GET("/auth/google/callback", auth.GoogleCallback) // 🔐 GOOGLE CALLBACK
-	r.POST("/api/logout", auth.Logout)                  // 🚪 LOGOUT
+	api := r.Group("/api")
 
-	r.POST("/api/admin/setup", auth.SetupAdminPassword)
-	r.GET("/api/admin/profile", admin.GetAdminProfile)
-	r.POST("/api/admin/profile/update", admin.UpdateAdminProfile)
-	r.POST("/api/admin/profile/upload", admin.UploadAdminProfileImage)
-	r.POST("/api/admin/password/change", admin.ChangeAdminPassword)
-	// =========================
-	// DASHBOARD STATS
-	// =========================
-	r.GET("/api/admin/dashboard/stats", admin.GetDashboardStats)
-	// =========================
-	// DRIVER MANAGEMENT
-	// =========================
-	r.GET("/api/admin/drivers", admin.GetDrivers)
-	r.POST("/api/admin/drivers/create", admin.CreateDriver)
-	r.POST("/api/admin/drivers/update", admin.UpdateDriver)
-	r.PUT("/api/admin/drivers/update", admin.UpdateDriver)
-	r.DELETE("/api/admin/drivers/delete", admin.DeleteDriver)
-	// =========================
-	// VEHICLE MANAGEMENT
-	// =========================
-	r.GET("/api/admin/vehicles", admin.GetAllVehicles)
-	r.POST("/api/admin/vehicles/create", admin.CreateVehicle)
-	r.POST("/api/admin/vehicles/update", admin.UpdateVehicle)
-	r.DELETE("/api/admin/vehicles/delete", admin.DeleteVehicle)
-	// =========================
-	// STOP MANAGEMENT
-	// =========================
-	r.GET("/api/admin/stops", admin.GetAllStops)
-	r.POST("/api/admin/stops/create", admin.CreateStop)
-	r.DELETE("/api/admin/stops/delete", admin.DeleteStop)
-	// =========================
-	// SHIFT MANAGEMENT
-	// =========================
-	r.GET("/api/admin/shifts", admin.GetAllShifts)
-	r.POST("/api/admin/shifts/create", admin.CreateShift)
-	r.POST("/api/admin/shifts/update", admin.UpdateShift)
-	r.DELETE("/api/admin/shifts/delete", admin.DeleteShift)
+	// ========================================
+	// PUBLIC ROUTES (no authentication)
+	// ========================================
+	api.POST("/login", auth.UnifiedLogin)
+	api.POST("/logout", auth.Logout)
+	api.POST("/admin/setup", auth.SetupAdminPassword)
 
-	// =========================
-	// ASSIGNMENT MANAGEMENT
-	// =========================
-	r.GET("/api/admin/assignments", admin.GetAllAssignments)
-	r.GET("/api/admin/assignments/:id", admin.GetAssignmentDetails)
-	r.POST("/api/admin/assignments/create", admin.CreateAssignment)
-	r.POST("/api/admin/assignments/update", admin.UpdateAssignment)
-	r.DELETE("/api/admin/assignments/delete", admin.DeleteAssignment)
-	r.POST("/api/admin/assignments/reassign-for-leave", admin.ReassignForLeave)
-	r.GET("/api/admin/assignments/check-driver-conflict", admin.CheckDriverConflictAPI)
-	r.GET("/api/admin/assignments/check-vehicle-conflict", admin.CheckVehicleConflictAPI)
+	// Google OAuth
+	r.GET("/auth/google/login", auth.GoogleLogin)
+	r.GET("/auth/google/callback", auth.GoogleCallback)
 
-	// =========================
-	// DUTY MANAGEMENT
-	// =========================
-	r.GET("/api/admin/duties", admin.GetAllDuties)
-	r.POST("/api/admin/duties/create", admin.CreateDuty)
-	r.POST("/api/admin/duties/approve", admin.ApproveDuty)
+	// ========================================
+	// AUTHENTICATED ROUTES
+	// ========================================
+	authenticated := api.Group("", middleware.AuthMiddleware())
 
-	// =========================
-	// ATTENDANCE MANAGEMENT
-	// =========================
-	r.GET("/api/admin/attendance", admin.GetAttendance)
-	r.POST("/api/admin/attendance/mark", admin.MarkAttendance)
+	// Current user
+	authenticated.GET("/me", auth.Me)
 
-	// =========================
-	// DROPDOWN DATA (for forms) - Shared
-	// =========================
-	r.GET("/api/vehicles", admin.GetAllVehicles)
-	r.GET("/api/stops", admin.GetAllStops)
-	r.GET("/api/shifts", admin.GetAllShifts)
-	r.GET("/api/drivers", admin.GetDrivers)
+	// Shared dropdown data (for forms across roles)
+	authenticated.GET("/vehicles", admin.GetAllVehicles)
+	authenticated.GET("/stops", admin.GetAllStops)
+	authenticated.GET("/shifts", admin.GetAllShifts)
+	authenticated.GET("/drivers", admin.GetDrivers)
 
-	// =========================
-	// DRIVER PORTAL
-	// =========================
-	r.GET("/api/driver/profile", driver.GetDriverProfile)
+	// ========================================
+	// ADMIN ROUTES
+	// ========================================
+	adm := authenticated.Group("/admin", middleware.RoleMiddleware("ADMIN"))
+	registerAdminRoutes(adm)
 
-	r.GET("/api/driver/assignment/today", driver.GetDriverTodayAssignment)
-	r.GET("/api/driver/assignments/today", driver.GetDriverTodayAssignments)
-	r.GET("/api/driver/assignments", driver.GetDriverAssignments)
-	r.GET("/api/driver/km-logs", driver.GetDriverKmLogs)
-	r.POST("/api/driver/km-log/add", driver.AddDriverKmLog)
-	r.GET("/api/driver/vehicle-last-log", driver.GetLastLogForVehicle)
-	r.POST("/api/driver/leave/apply", driver.ApplyLeave)
-	r.GET("/api/driver/leave", driver.GetMyLeaveRequests)
-	r.GET("/api/driver/vehicles/alerts", driver.GetDriverVehicleAlerts)
-	r.GET("/api/driver/notifications", driver.GetDriverNotifications)
-	r.GET("/api/driver/notifications/unread-count", driver.GetUnreadNotificationCount)
-	r.POST("/api/driver/notifications/:id/mark-read", driver.MarkNotificationRead)
-	r.POST("/api/driver/notifications/mark-all-read", driver.MarkAllNotificationsRead)
+	// ========================================
+	// DRIVER ROUTES
+	// ========================================
+	drv := authenticated.Group("/driver", middleware.RoleMiddleware("DRIVER", "INCHARGE"))
+	registerDriverRoutes(drv)
 
-	// Driver Vehicle Requests (Faculty Bookings assigned to driver)
-	r.GET("/api/driver/vehicle-requests", driver.GetDriverVehicleRequests)
-	r.GET("/api/driver/vehicle-requests/upcoming", driver.GetDriverUpcomingVehicleRequests)
-	r.POST("/api/driver/vehicle-request/verify-start-otp", driver.VerifyStartOTP)
-	r.POST("/api/driver/vehicle-request/verify-end-otp", driver.VerifyEndOTP)
+	// ========================================
+	// STUDENT ROUTES
+	// ========================================
+	stu := authenticated.Group("/student", middleware.RoleMiddleware("STUDENT"))
+	registerStudentRoutes(stu)
 
-	// =========================
-	// STUDENT PORTAL
-	// =========================
-	r.GET("/api/student/buses", bus.GetBusFleet)
-	r.GET("/api/student/bus/:id/stops", student.GetBusStopsForStudent)
-	r.GET("/api/student/transport", student.GetMyTransport)
-	r.GET("/api/student/transport/payments", student.GetMyPayments)
-	r.POST("/api/student/stop-change/request", student.RequestStopChange)
-	r.POST("/api/student/stop-change/request/cancel", student.CancelStopChangeRequest)
-	r.GET("/api/student/stop-change/requests", student.GetMyStopChangeRequests)
-	r.GET("/api/student/available-stops", student.GetAvailableStops)
-	r.GET("/api/student/all-buses", student.GetAllBuses)
-	r.POST("/api/student/transport/request", student.RequestTransport)
-	r.GET("/api/student/transport/requests", student.GetMyTransportRequests)
+	// ========================================
+	// INCHARGE ROUTES
+	// ========================================
+	inc := authenticated.Group("/incharge", middleware.RoleMiddleware("INCHARGE"))
+	registerInchargeRoutes(inc)
 
-	// =========================
-	// INCHARGE PORTAL
-	// =========================
-	r.GET("/api/incharge/assignments", incharge.GetInchargeAssignments)
-	r.GET("/api/incharge/cluster-drivers", incharge.GetInchargeClusterDrivers)
-	r.POST("/api/incharge/attendance/mark", incharge.InchargeMarkAttendance)
-	r.GET("/api/incharge/attendance/history", incharge.GetInchargeAttendanceHistory)
-	r.GET("/api/incharge/vehicles/alerts", incharge.GetInchargeVehicleAlerts)
-	r.POST("/api/incharge/fc-replacement/request", incharge.RequestFCReplacement)
-	r.GET("/api/incharge/fc-replacements", incharge.GetInchargeFCReplacements)
-	r.GET("/api/incharge/driver-assignments", incharge.GetDriverAssignments)
-	r.GET("/api/incharge/all-drivers", incharge.GetAllDriversForIncharge)
-	r.POST("/api/incharge/km-log/add", incharge.InchargeAddKmLog)
-	r.POST("/api/incharge/leave/apply", incharge.InchargeApplyLeave)
-	r.GET("/api/incharge/leave/pending", incharge.GetPendingLeaveRequests)
-	r.POST("/api/incharge/leave/approve", incharge.ApproveLeave)
-	r.GET("/api/incharge/driver-km-logs", incharge.GetDriverKmLogs)
-	r.GET("/api/incharge/km-summary", incharge.GetInchargeKmSummary)
-	r.GET("/api/incharge/km-filters", incharge.GetInchargeKmFilters)
+	// ========================================
+	// FACULTY ROUTES
+	// ========================================
+	fac := authenticated.Group("/faculty", middleware.RoleMiddleware("FACULTY"))
+	registerFacultyRoutes(fac)
+}
 
-	// =========================
-	// BUS FLEET MANAGEMENT
-	// =========================
-	r.GET("/api/admin/bus-fleet", bus.GetBusFleet)
-	r.GET("/api/admin/bus/:id/stops", bus.GetBusStops)
-	r.POST("/api/admin/bus-stop/add", bus.AddBusStop)
-	r.POST("/api/admin/bus-stop/update", bus.UpdateBusStop)
-	r.POST("/api/admin/bus-stop/delete", bus.DeleteBusStop)
-	r.POST("/api/admin/bus-route/update", bus.UpdateBusRoute)
+// registerAdminRoutes sets up all admin endpoints under /api/admin
+func registerAdminRoutes(adm *gin.RouterGroup) {
+	// Profile
+	adm.GET("/profile", admin.GetAdminProfile)
+	adm.POST("/profile/update", admin.UpdateAdminProfile)
+	adm.POST("/profile/upload", admin.UploadAdminProfileImage)
+	adm.POST("/password/change", admin.ChangeAdminPassword)
 
-	// =========================
-	// LEAVE MANAGEMENT
-	// =========================
-	r.GET("/api/admin/leave/pending", admin.GetPendingLeaveRequests)
-	r.GET("/api/admin/leave/all", admin.GetAllLeaveRequests)
-	r.POST("/api/admin/leave/approve", admin.ApproveLeave)
-	r.GET("/api/admin/leave/history", admin.GetLeaveHistory)
-	r.GET("/api/admin/leave/stats", admin.GetLeaveStats)
-	r.GET("/api/admin/leave/:id/affected-assignments", admin.GetLeaveAffectedAssignments)
-	r.POST("/api/admin/leave/approve-with-assignments", admin.ApproveLeaveWithAssignments)
+	// Dashboard
+	adm.GET("/dashboard/stats", admin.GetDashboardStats)
 
-	// =========================
-	// CLUSTER MANAGEMENT
-	// =========================
-	r.GET("/api/admin/clusters", admin.GetClusters)
-	r.POST("/api/admin/clusters/create", admin.CreateCluster)
-	r.POST("/api/admin/clusters/create-with-schedule", admin.CreateClusterWithSchedule)
-	r.POST("/api/admin/clusters/update", admin.UpdateCluster)
-	r.GET("/api/admin/clusters/:id/members", admin.GetClusterMembers)
-	r.POST("/api/admin/clusters/:id/add-member", admin.AddClusterMember)
-	r.DELETE("/api/admin/clusters/:id/remove-member", admin.RemoveClusterMember)
-	r.POST("/api/admin/clusters/assign-drivers", admin.AssignDriversToCluster)
-	r.POST("/api/admin/clusters/assign-shift", admin.AssignClusterToShift)
-	r.DELETE("/api/admin/clusters/delete", admin.DeleteCluster)
-	r.GET("/api/admin/drivers/available-for-cluster", admin.GetAvailableDriversForCluster)
-	r.GET("/api/admin/drivers/km-suggestions", admin.GetDriverKmSuggestions)
+	// Driver Management
+	adm.GET("/drivers", admin.GetDrivers)
+	adm.POST("/drivers/create", admin.CreateDriver)
+	adm.PUT("/drivers/update", admin.UpdateDriver)
+	adm.DELETE("/drivers/delete", admin.DeleteDriver)
+	adm.GET("/drivers/available-for-cluster", admin.GetAvailableDriversForCluster)
+	adm.GET("/drivers/km-suggestions", admin.GetDriverKmSuggestions)
+	adm.GET("/available-drivers", admin.GetAvailableDrivers)
+	adm.GET("/driver-assigned-vehicles", admin.GetDriverAssignedVehicles)
+	adm.GET("/driver-km-history", admin.GetDriverKmHistory)
 
-	// =========================
-	// VEHICLE GROUP MANAGEMENT
-	// =========================
-	r.GET("/api/admin/vehicle-groups", admin.GetVehicleGroups)
-	r.POST("/api/admin/vehicle-groups/create", admin.CreateVehicleGroup)
-	r.PUT("/api/admin/vehicle-groups/:id", admin.UpdateVehicleGroup)
-	r.DELETE("/api/admin/vehicle-groups/:id", admin.DeleteVehicleGroup)
-	r.GET("/api/admin/vehicle-groups/:id/details", admin.GetVehicleGroupDetails)
-	r.GET("/api/admin/vehicle-groups/:id/members", admin.GetVehicleGroupMembers)
-	r.POST("/api/admin/vehicle-groups/:id/add-member", admin.AddVehicleGroupMember)
-	r.DELETE("/api/admin/vehicle-groups/:id/remove-member", admin.RemoveVehicleGroupMember)
-	r.POST("/api/admin/vehicle-groups/:id/assign-vehicles", admin.AssignVehiclesToGroup)
-	r.POST("/api/admin/vehicle-groups/:id/remove-vehicle", admin.RemoveVehicleFromGroup)
-	r.GET("/api/admin/vehicles/unassigned-ev", admin.GetUnassignedEVVehicles)
-	r.GET("/api/admin/vehicles/available-for-group", admin.GetAvailableVehiclesForGroup)
+	// Vehicle Management
+	adm.GET("/vehicles", admin.GetAllVehicles)
+	adm.POST("/vehicles/create", admin.CreateVehicle)
+	adm.POST("/vehicles/update", admin.UpdateVehicle)
+	adm.DELETE("/vehicles/delete", admin.DeleteVehicle)
+	adm.GET("/vehicles/alerts", admin.GetVehicleDocumentAlerts)
+	adm.GET("/vehicles/unassigned-ev", admin.GetUnassignedEVVehicles)
+	adm.GET("/vehicles/available-for-group", admin.GetAvailableVehiclesForGroup)
 
-	// =========================
-	// EV VEHICLE ASSIGNMENTS
-	// =========================
-	r.GET("/api/admin/ev-vehicles", admin.GetEVVehicles)
-	r.GET("/api/admin/ev-assignments", admin.GetEVAssignments)
-	r.GET("/api/admin/ev-assignments/:id/details", admin.GetEVAssignmentDetails)
-	r.POST("/api/admin/ev-assignments/create", admin.CreateEVAssignment)
-	r.POST("/api/admin/ev-assignments/reassign", admin.ReassignEVAssignment)
-	r.DELETE("/api/admin/ev-assignments/delete", admin.DeleteEVAssignment)
+	// Stop Management
+	adm.GET("/stops", admin.GetAllStops)
+	adm.POST("/stops/create", admin.CreateStop)
+	adm.DELETE("/stops/delete", admin.DeleteStop)
 
-	// =========================
-	// CATEGORY-BASED ASSIGNMENTS (BUS/CAR)
-	// =========================
-	r.GET("/api/admin/assignments/by-category", admin.GetAssignmentsByCategory)
-	r.GET("/api/admin/available-drivers", admin.GetAvailableDrivers)
-	r.GET("/api/admin/km-summary", admin.GetKMSummary)
-	r.GET("/api/admin/km-vehicle-summary", admin.GetVehicleKmSummary)
-	r.GET("/api/admin/km-filters", admin.GetKmFilterMeta)
-	r.GET("/api/admin/km-logs", admin.GetAdminKmLogs)
-	r.POST("/api/admin/km-log/add", admin.AdminAddKmLog)
-	r.GET("/api/admin/driver-assigned-vehicles", admin.GetDriverAssignedVehicles)
-	r.GET("/api/admin/driver-km-history", admin.GetDriverKmHistory)
+	// Shift Management
+	adm.GET("/shifts", admin.GetAllShifts)
+	adm.POST("/shifts/create", admin.CreateShift)
+	adm.POST("/shifts/update", admin.UpdateShift)
+	adm.DELETE("/shifts/delete", admin.DeleteShift)
 
-	// =========================
-	// TEMPORARY ASSIGNMENTS (Separate Table)
-	// =========================
-	r.GET("/api/admin/temporary-assignments", admin.GetTemporaryAssignments)
-	r.POST("/api/admin/temporary-assignments/create", admin.CreateTemporaryAssignment)
-	r.DELETE("/api/admin/temporary-assignments/:id", admin.CancelTemporaryAssignment)
+	// Assignment Management
+	adm.GET("/assignments", admin.GetAllAssignments)
+	adm.GET("/assignments/:id", admin.GetAssignmentDetails)
+	adm.POST("/assignments/create", admin.CreateAssignment)
+	adm.POST("/assignments/update", admin.UpdateAssignment)
+	adm.DELETE("/assignments/delete", admin.DeleteAssignment)
+	adm.POST("/assignments/reassign-for-leave", admin.ReassignForLeave)
+	adm.GET("/assignments/check-driver-conflict", admin.CheckDriverConflictAPI)
+	adm.GET("/assignments/check-vehicle-conflict", admin.CheckVehicleConflictAPI)
+	adm.GET("/assignments/by-category", admin.GetAssignmentsByCategory)
+	adm.GET("/assignments/absent-alerts", admin.GetAbsentDriverAlerts)
 
-	// =========================
-	// ABSENT DRIVER ALERTS
-	// =========================
-	r.GET("/api/admin/assignments/absent-alerts", admin.GetAbsentDriverAlerts)
+	// Temporary Assignments
+	adm.GET("/temporary-assignments", admin.GetTemporaryAssignments)
+	adm.POST("/temporary-assignments/create", admin.CreateTemporaryAssignment)
+	adm.DELETE("/temporary-assignments/:id", admin.CancelTemporaryAssignment)
 
-	// =========================
-	// FUEL & MILEAGE MANAGEMENT
-	// =========================
-	r.GET("/api/admin/fuel-indents", admin.GetFuelIndents)
-	r.POST("/api/admin/fuel-indents/create", admin.CreateFuelIndent)
-	r.POST("/api/admin/fuel-indents/complete", admin.CompleteFuelIndent)
-	r.GET("/api/admin/odometer-readings", admin.GetOdometerReadings)
-	r.POST("/api/admin/odometer-readings/create", admin.CreateOdometerReading)
+	// Duty Management
+	adm.GET("/duties", admin.GetAllDuties)
+	adm.POST("/duties/create", admin.CreateDuty)
+	adm.POST("/duties/approve", admin.ApproveDuty)
 
-	// =========================
-	// VEHICLE DOCUMENT ALERTS
-	// =========================
-	r.GET("/api/admin/vehicles/alerts", admin.GetVehicleDocumentAlerts)
+	// Attendance
+	adm.GET("/attendance", admin.GetAttendance)
+	adm.POST("/attendance/mark", admin.MarkAttendance)
 
-	// =========================
-	// FC/INSURANCE/PERMIT REPLACEMENT MANAGEMENT
-	// =========================
-	r.GET("/api/admin/fc-replacements", admin.GetFCReplacements)
-	r.POST("/api/admin/fc-replacements/create", admin.CreateFCReplacement)
-	r.POST("/api/admin/fc-replacements/approve", admin.ApproveFCReplacement)
-	r.POST("/api/admin/fc-replacements/reject", admin.RejectFCReplacement)
-	r.POST("/api/admin/fc-replacements/complete", admin.CompleteFCReplacement)
-	r.POST("/api/admin/fc-replacements/update", admin.UpdateFCReplacement)
-	r.POST("/api/admin/fc-replacements/delete", admin.DeleteFCReplacement)
-	r.GET("/api/admin/fc-replacements/available-vehicles", admin.GetAvailableReplacementVehicles)
-	r.GET("/api/admin/fc-replacements/pending-count", admin.GetPendingFCReplacementsCount)
-	r.POST("/api/admin/fc-replacements/check-expired", admin.CheckExpiredFCReplacements)
-	r.GET("/api/admin/fc-replacements/recent-completions", admin.GetRecentFCCompletions)
-	r.GET("/api/admin/fc-replacements/vehicle-drivers", admin.GetVehicleDrivers)
-	r.GET("/api/admin/fc-replacements/cluster-drivers", admin.GetClusterDrivers)
+	// Leave Management
+	adm.GET("/leave/pending", admin.GetPendingLeaveRequests)
+	adm.GET("/leave/all", admin.GetAllLeaveRequests)
+	adm.POST("/leave/approve", admin.ApproveLeave)
+	adm.GET("/leave/history", admin.GetLeaveHistory)
+	adm.GET("/leave/stats", admin.GetLeaveStats)
+	adm.GET("/leave/:id/affected-assignments", admin.GetLeaveAffectedAssignments)
+	adm.POST("/leave/approve-with-assignments", admin.ApproveLeaveWithAssignments)
 
-	// Admin notifications
-	r.GET("/api/admin/notifications", admin.GetAdminNotifications)
-	r.POST("/api/admin/notifications/:id/mark-read", admin.MarkAdminNotificationRead)
-	r.POST("/api/admin/notifications/mark-all-read", admin.MarkAllAdminNotificationsRead)
+	// KM Management
+	adm.GET("/km-summary", admin.GetKMSummary)
+	adm.GET("/km-vehicle-summary", admin.GetVehicleKmSummary)
+	adm.GET("/km-filters", admin.GetKmFilterMeta)
+	adm.GET("/km-logs", admin.GetAdminKmLogs)
+	adm.POST("/km-log/add", admin.AdminAddKmLog)
 
-	// =========================
-	// STUDENT TRANSPORT MANAGEMENT (Admin)
-	// =========================
-	r.GET("/api/admin/students", admin.GetAllStudents)
-	r.POST("/api/admin/students/create", admin.CreateStudent)
-	r.DELETE("/api/admin/students/delete", admin.DeleteStudent)
-	r.GET("/api/admin/student-transport", admin.GetAllStudentTransport)
-	r.POST("/api/admin/student-transport/assign", admin.AssignStudentTransport)
-	r.POST("/api/admin/student-transport/update", admin.UpdateStudentTransport)
-	r.DELETE("/api/admin/student-transport/delete", admin.DeleteStudentTransport)
-	r.GET("/api/admin/transport-payments", admin.GetAllTransportPayments)
-	r.POST("/api/admin/transport-payments/record", admin.RecordTransportPayment)
-	r.GET("/api/admin/stop-change-requests", admin.GetAllStopChangeRequests)
-	r.POST("/api/admin/stop-change-requests/process", admin.ProcessStopChangeRequest)
-	r.GET("/api/admin/stop-change-requests/pending-count", admin.GetPendingStopChangeCount)
+	// Cluster Management
+	adm.GET("/clusters", admin.GetClusters)
+	adm.POST("/clusters/create", admin.CreateCluster)
+	adm.POST("/clusters/create-with-schedule", admin.CreateClusterWithSchedule)
+	adm.POST("/clusters/update", admin.UpdateCluster)
+	adm.GET("/clusters/:id/members", admin.GetClusterMembers)
+	adm.POST("/clusters/:id/add-member", admin.AddClusterMember)
+	adm.DELETE("/clusters/:id/remove-member", admin.RemoveClusterMember)
+	adm.POST("/clusters/assign-drivers", admin.AssignDriversToCluster)
+	adm.POST("/clusters/assign-shift", admin.AssignClusterToShift)
+	adm.DELETE("/clusters/delete", admin.DeleteCluster)
 
-	// Transport Requests (students request bus/stop, admin approves)
-	r.GET("/api/admin/transport-requests", admin.GetAllTransportRequests)
-	r.POST("/api/admin/transport-requests/process", admin.ProcessTransportRequest)
-	r.POST("/api/admin/transport-requests/fix-approved", admin.FixApprovedRequests)
-	r.GET("/api/admin/transport-requests/pending-count", admin.GetPendingTransportRequestCount)
+	// Vehicle Group Management
+	adm.GET("/vehicle-groups", admin.GetVehicleGroups)
+	adm.POST("/vehicle-groups/create", admin.CreateVehicleGroup)
+	adm.PUT("/vehicle-groups/:id", admin.UpdateVehicleGroup)
+	adm.DELETE("/vehicle-groups/:id", admin.DeleteVehicleGroup)
+	adm.GET("/vehicle-groups/:id/details", admin.GetVehicleGroupDetails)
+	adm.GET("/vehicle-groups/:id/members", admin.GetVehicleGroupMembers)
+	adm.POST("/vehicle-groups/:id/add-member", admin.AddVehicleGroupMember)
+	adm.DELETE("/vehicle-groups/:id/remove-member", admin.RemoveVehicleGroupMember)
+	adm.POST("/vehicle-groups/:id/assign-vehicles", admin.AssignVehiclesToGroup)
+	adm.POST("/vehicle-groups/:id/remove-vehicle", admin.RemoveVehicleFromGroup)
 
-	// Students by Bus (view students under each bus)
-	r.GET("/api/admin/buses/with-students", admin.GetBusesWithStudentCounts)
-	r.GET("/api/admin/buses/:id/students", admin.GetStudentsByBus)
+	// EV Vehicle Assignments
+	adm.GET("/ev-vehicles", admin.GetEVVehicles)
+	adm.GET("/ev-assignments", admin.GetEVAssignments)
+	adm.GET("/ev-assignments/:id/details", admin.GetEVAssignmentDetails)
+	adm.POST("/ev-assignments/create", admin.CreateEVAssignment)
+	adm.POST("/ev-assignments/reassign", admin.ReassignEVAssignment)
+	adm.DELETE("/ev-assignments/delete", admin.DeleteEVAssignment)
 
-	// =========================
-	// FACULTY MANAGEMENT (Admin)
-	// // =========================
-	// r.GET("/api/admin/faculty", admin.GetAllFaculty)
-	// r.POST("/api/admin/faculty/create", admin.CreateFaculty)
-	// r.DELETE("/api/admin/faculty/delete", admin.DeleteFaculty)
+	// Bus Fleet Management
+	adm.GET("/bus-fleet", bus.GetBusFleet)
+	adm.GET("/bus/:id/stops", bus.GetBusStops)
+	adm.POST("/bus-stop/add", bus.AddBusStop)
+	adm.POST("/bus-stop/update", bus.UpdateBusStop)
+	adm.POST("/bus-stop/delete", bus.DeleteBusStop)
+	adm.POST("/bus-route/update", bus.UpdateBusRoute)
 
-	// =========================
-	// FACULTY PORTAL
-	// =========================
-	r.GET("/api/faculty/profile", faculty.GetFacultyProfile)
-	r.POST("/api/faculty/profile/update", faculty.UpdateFacultyProfile)
+	// Fuel & Mileage
+	adm.GET("/fuel-indents", admin.GetFuelIndents)
+	adm.POST("/fuel-indents/create", admin.CreateFuelIndent)
+	adm.POST("/fuel-indents/complete", admin.CompleteFuelIndent)
+	adm.GET("/odometer-readings", admin.GetOdometerReadings)
+	adm.POST("/odometer-readings/create", admin.CreateOdometerReading)
 
-	// Faculty Vehicle Booking
-	r.POST("/api/faculty/vehicle-request", faculty.CreateVehicleRequest)
-	r.GET("/api/faculty/vehicle-requests", faculty.GetMyVehicleRequests)
-	r.POST("/api/faculty/vehicle-request/cancel", faculty.CancelVehicleRequest)
-	r.GET("/api/faculty/vehicle-request/:id/otp", faculty.GetVehicleRequestOTP)
+	// FC/Insurance/Permit Replacement
+	adm.GET("/fc-replacements", admin.GetFCReplacements)
+	adm.POST("/fc-replacements/create", admin.CreateFCReplacement)
+	adm.POST("/fc-replacements/approve", admin.ApproveFCReplacement)
+	adm.POST("/fc-replacements/reject", admin.RejectFCReplacement)
+	adm.POST("/fc-replacements/complete", admin.CompleteFCReplacement)
+	adm.POST("/fc-replacements/update", admin.UpdateFCReplacement)
+	adm.POST("/fc-replacements/delete", admin.DeleteFCReplacement)
+	adm.GET("/fc-replacements/available-vehicles", admin.GetAvailableReplacementVehicles)
+	adm.GET("/fc-replacements/pending-count", admin.GetPendingFCReplacementsCount)
+	adm.POST("/fc-replacements/check-expired", admin.CheckExpiredFCReplacements)
+	adm.GET("/fc-replacements/recent-completions", admin.GetRecentFCCompletions)
+	adm.GET("/fc-replacements/vehicle-drivers", admin.GetVehicleDrivers)
+	adm.GET("/fc-replacements/cluster-drivers", admin.GetClusterDrivers)
 
-	// =========================
-	// ADMIN VEHICLE REQUESTS (Faculty Bookings)
-	// =========================
-	r.GET("/api/admin/vehicle-requests", admin.GetAllVehicleRequests)
-	r.GET("/api/admin/vehicle-request/:id", admin.GetVehicleRequestDetails)
-	r.POST("/api/admin/vehicle-request/approve", admin.ApproveVehicleRequest)
-	r.POST("/api/admin/vehicle-request/reject", admin.RejectVehicleRequest)
-	r.POST("/api/admin/vehicle-request/cancel", admin.CancelVehicleRequestByAdmin)
-	r.POST("/api/admin/vehicle-request/assign", admin.AssignVehicleToRequest)
-	r.POST("/api/admin/vehicle-request/complete", admin.CompleteVehicleRequest)
-	r.GET("/api/admin/vehicle-requests/pending-count", admin.GetPendingVehicleRequestCount)
+	// Notifications
+	adm.GET("/notifications", admin.GetAdminNotifications)
+	adm.POST("/notifications/:id/mark-read", admin.MarkAdminNotificationRead)
+	adm.POST("/notifications/mark-all-read", admin.MarkAllAdminNotificationsRead)
+
+	// Student Transport (Admin)
+	adm.GET("/students", admin.GetAllStudents)
+	adm.POST("/students/create", admin.CreateStudent)
+	adm.DELETE("/students/delete", admin.DeleteStudent)
+	adm.GET("/student-transport", admin.GetAllStudentTransport)
+	adm.POST("/student-transport/assign", admin.AssignStudentTransport)
+	adm.POST("/student-transport/update", admin.UpdateStudentTransport)
+	adm.DELETE("/student-transport/delete", admin.DeleteStudentTransport)
+	adm.GET("/transport-payments", admin.GetAllTransportPayments)
+	adm.POST("/transport-payments/record", admin.RecordTransportPayment)
+	adm.GET("/stop-change-requests", admin.GetAllStopChangeRequests)
+	adm.POST("/stop-change-requests/process", admin.ProcessStopChangeRequest)
+	adm.GET("/stop-change-requests/pending-count", admin.GetPendingStopChangeCount)
+
+	// Transport Requests
+	adm.GET("/transport-requests", admin.GetAllTransportRequests)
+	adm.POST("/transport-requests/process", admin.ProcessTransportRequest)
+	adm.POST("/transport-requests/fix-approved", admin.FixApprovedRequests)
+	adm.GET("/transport-requests/pending-count", admin.GetPendingTransportRequestCount)
+
+	// Students by Bus
+	adm.GET("/buses/with-students", admin.GetBusesWithStudentCounts)
+	adm.GET("/buses/:id/students", admin.GetStudentsByBus)
+
+	// Vehicle Requests (Faculty Bookings - Admin side)
+	adm.GET("/vehicle-requests", admin.GetAllVehicleRequests)
+	adm.GET("/vehicle-request/:id", admin.GetVehicleRequestDetails)
+	adm.POST("/vehicle-request/approve", admin.ApproveVehicleRequest)
+	adm.POST("/vehicle-request/reject", admin.RejectVehicleRequest)
+	adm.POST("/vehicle-request/cancel", admin.CancelVehicleRequestByAdmin)
+	adm.POST("/vehicle-request/assign", admin.AssignVehicleToRequest)
+	adm.POST("/vehicle-request/complete", admin.CompleteVehicleRequest)
+	adm.GET("/vehicle-requests/pending-count", admin.GetPendingVehicleRequestCount)
+}
+
+// registerDriverRoutes sets up all driver endpoints under /api/driver
+func registerDriverRoutes(drv *gin.RouterGroup) {
+	drv.GET("/profile", driver.GetDriverProfile)
+	drv.GET("/assignment/today", driver.GetDriverTodayAssignment)
+	drv.GET("/assignments/today", driver.GetDriverTodayAssignments)
+	drv.GET("/assignments", driver.GetDriverAssignments)
+
+	// KM Logs
+	drv.GET("/km-logs", driver.GetDriverKmLogs)
+	drv.POST("/km-log/add", driver.AddDriverKmLog)
+	drv.GET("/vehicle-last-log", driver.GetLastLogForVehicle)
+
+	// Leave
+	drv.POST("/leave/apply", driver.ApplyLeave)
+	drv.GET("/leave", driver.GetMyLeaveRequests)
+
+	// Alerts
+	drv.GET("/vehicles/alerts", driver.GetDriverVehicleAlerts)
+
+	// Notifications
+	drv.GET("/notifications", driver.GetDriverNotifications)
+	drv.GET("/notifications/unread-count", driver.GetUnreadNotificationCount)
+	drv.POST("/notifications/:id/mark-read", driver.MarkNotificationRead)
+	drv.POST("/notifications/mark-all-read", driver.MarkAllNotificationsRead)
+
+	// Vehicle Requests (Faculty Bookings assigned to driver)
+	drv.GET("/vehicle-requests", driver.GetDriverVehicleRequests)
+	drv.GET("/vehicle-requests/upcoming", driver.GetDriverUpcomingVehicleRequests)
+	drv.POST("/vehicle-request/verify-start-otp", driver.VerifyStartOTP)
+	drv.POST("/vehicle-request/verify-end-otp", driver.VerifyEndOTP)
+}
+
+// registerStudentRoutes sets up all student endpoints under /api/student
+func registerStudentRoutes(stu *gin.RouterGroup) {
+	stu.GET("/buses", bus.GetBusFleet)
+	stu.GET("/bus/:id/stops", student.GetBusStopsForStudent)
+	stu.GET("/transport", student.GetMyTransport)
+	stu.GET("/transport/payments", student.GetMyPayments)
+	stu.GET("/transport/requests", student.GetMyTransportRequests)
+	stu.POST("/transport/request", student.RequestTransport)
+	stu.POST("/stop-change/request", student.RequestStopChange)
+	stu.POST("/stop-change/request/cancel", student.CancelStopChangeRequest)
+	stu.GET("/stop-change/requests", student.GetMyStopChangeRequests)
+	stu.GET("/available-stops", student.GetAvailableStops)
+	stu.GET("/all-buses", student.GetAllBuses)
+}
+
+// registerInchargeRoutes sets up all incharge endpoints under /api/incharge
+func registerInchargeRoutes(inc *gin.RouterGroup) {
+	inc.GET("/assignments", incharge.GetInchargeAssignments)
+	inc.GET("/cluster-drivers", incharge.GetInchargeClusterDrivers)
+	inc.POST("/attendance/mark", incharge.InchargeMarkAttendance)
+	inc.GET("/attendance/history", incharge.GetInchargeAttendanceHistory)
+	inc.GET("/vehicles/alerts", incharge.GetInchargeVehicleAlerts)
+
+	// FC Replacement
+	inc.POST("/fc-replacement/request", incharge.RequestFCReplacement)
+	inc.GET("/fc-replacements", incharge.GetInchargeFCReplacements)
+
+	// Driver Management
+	inc.GET("/driver-assignments", incharge.GetDriverAssignments)
+	inc.GET("/all-drivers", incharge.GetAllDriversForIncharge)
+
+	// KM
+	inc.POST("/km-log/add", incharge.InchargeAddKmLog)
+	inc.GET("/driver-km-logs", incharge.GetDriverKmLogs)
+	inc.GET("/km-summary", incharge.GetInchargeKmSummary)
+	inc.GET("/km-filters", incharge.GetInchargeKmFilters)
+
+	// Leave
+	inc.POST("/leave/apply", incharge.InchargeApplyLeave)
+	inc.GET("/leave/pending", incharge.GetPendingLeaveRequests)
+	inc.POST("/leave/approve", incharge.ApproveLeave)
+}
+
+// registerFacultyRoutes sets up all faculty endpoints under /api/faculty
+func registerFacultyRoutes(fac *gin.RouterGroup) {
+	fac.GET("/profile", faculty.GetFacultyProfile)
+	fac.POST("/profile/update", faculty.UpdateFacultyProfile)
+
+	// Vehicle Booking
+	fac.POST("/vehicle-request", faculty.CreateVehicleRequest)
+	fac.GET("/vehicle-requests", faculty.GetMyVehicleRequests)
+	fac.POST("/vehicle-request/cancel", faculty.CancelVehicleRequest)
+	fac.GET("/vehicle-request/:id/otp", faculty.GetVehicleRequestOTP)
 }

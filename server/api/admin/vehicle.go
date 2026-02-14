@@ -129,61 +129,6 @@ func CreateVehicle(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Vehicle created successfully"})
 }
 
-/*
-	=========================
-	  BUS FLEET HANDLER
-	  GET /api/admin/bus-fleet
-
-=========================
-*/
-func GetBusFleet(c *gin.Context) {
-	query := `
-		SELECT v.id, v.vehicle_number, v.vehicle_type, v.fuel_type, v.seating_capacity, v.status,
-		       COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name, 
-		       COALESCE(b.start_point, '') as start_point,
-		       COALESCE(b.end_point, '') as end_point,
-		       (SELECT COUNT(*) FROM bus_stops bs WHERE bs.vehicle_id = v.id) as stops_count
-		FROM vehicles v
-		LEFT JOIN buses b ON v.id = b.vehicle_id
-		WHERE v.vehicle_type = 'BUS'
-		ORDER BY vehicle_name ASC
-	`
-
-	rows, err := config.DB.Query(query)
-	if err != nil {
-		log.Printf("Get bus fleet error: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching bus fleet"})
-		return
-	}
-	defer rows.Close()
-
-	type BusFleetItem struct {
-		ID              int    `json:"id"`
-		VehicleNumber   string `json:"vehicle_number"`
-		VehicleType     string `json:"vehicle_type"`
-		FuelType        string `json:"fuel_type"`
-		SeatingCapacity int    `json:"seating_capacity"`
-		Status          string `json:"status"`
-		VehicleName     string `json:"vehicle_name"`
-		StartPoint      string `json:"start_point"`
-		EndPoint        string `json:"end_point"`
-		StopsCount      int    `json:"stops_count"`
-	}
-
-	var fleet []BusFleetItem
-	for rows.Next() {
-		var item BusFleetItem
-		err := rows.Scan(&item.ID, &item.VehicleNumber, &item.VehicleType, &item.FuelType,
-			&item.SeatingCapacity, &item.Status, &item.VehicleName, &item.StartPoint, &item.EndPoint, &item.StopsCount)
-		if err != nil {
-			continue
-		}
-		fleet = append(fleet, item)
-	}
-
-	c.JSON(http.StatusOK, fleet)
-}
-
 // POST /api/admin/vehicles/update - Update vehicle
 func UpdateVehicle(c *gin.Context) {
 	var v models.Vehicle

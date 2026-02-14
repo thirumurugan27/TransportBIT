@@ -83,7 +83,7 @@ func ApplyLeave(c *gin.Context) {
 	}
 
 	query := `
-		INSERT INTO transport_bit.leave_requests
+		INSERT INTO leave_requests
 		(driver_id, leave_type, start_date, start_time, end_date, end_time, reason, status, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
 	`

@@ -18,7 +18,7 @@ import {
   FileText,
 } from "lucide-react";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
+import {apiGet} from "../../../utils/api";
 
 export default function AdminHome() {
   const navigate = useNavigate();
@@ -50,11 +50,11 @@ export default function AdminHome() {
           pendingCountRes,
           requestsRes,
         ] = await Promise.all([
-          fetch(`${API_BASE}/api/admin/dashboard/stats`),
-          fetch(`${API_BASE}/api/admin/assignments`),
-          fetch(`${API_BASE}/api/admin/vehicles/alerts`),
-          fetch(`${API_BASE}/api/admin/vehicle-requests/pending-count`),
-          fetch(`${API_BASE}/api/admin/vehicle-requests?status=pending`),
+          apiGet("/api/admin/dashboard/stats"),
+          apiGet("/api/admin/assignments"),
+          apiGet("/api/admin/vehicles/alerts"),
+          apiGet("/api/admin/vehicle-requests/pending-count"),
+          apiGet("/api/admin/vehicle-requests?status=pending"),
         ]);
         const statsData = await statsRes.json();
         const assignmentsData = await assignmentsRes.json();

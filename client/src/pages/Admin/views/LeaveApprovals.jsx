@@ -26,7 +26,7 @@ import {
   getStatusColor,
 } from "../../../utils/dateFormat";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
+import {apiGet, apiPost} from "../../../utils/api";
 
 // Helper to convert 24h time to 12h AM/PM format
 const formatTimeAMPM = (time24) => {
@@ -58,7 +58,7 @@ export default function LeaveApprovals() {
   const fetchLeaveRequests = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/admin/leave/all`);
+      const res = await apiGet("/api/admin/leave/all");
       if (res.ok) {
         const data = await res.json();
         setLeaveRequests(Array.isArray(data) ? data : []);
@@ -81,8 +81,8 @@ export default function LeaveApprovals() {
   const fetchAffectedAssignments = async (leaveId) => {
     setLoadingAssignments(true);
     try {
-      const res = await fetch(
-        `${API_BASE}/api/admin/leave/${leaveId}/affected-assignments`,
+      const res = await apiGet(
+        `/api/admin/leave/${leaveId}/affected-assignments`,
       );
       if (res.ok) {
         const data = await res.json();
@@ -132,17 +132,13 @@ export default function LeaveApprovals() {
           end_date: ta.end_date,
         }));
 
-      const res = await fetch(
-        `${API_BASE}/api/admin/leave/approve-with-assignments`,
+      const res = await apiPost(
+        "/api/admin/leave/approve-with-assignments",
         {
-          method: "POST",
-          headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({
-            leave_id: selectedLeave.id,
-            approver_id: 1,
-            remarks: remarks || "",
-            temporary_assignments: tempAssignmentsArray,
-          }),
+          leave_id: selectedLeave.id,
+          approver_id: 1,
+          remarks: remarks || "",
+          temporary_assignments: tempAssignmentsArray,
         },
       );
 
@@ -170,15 +166,11 @@ export default function LeaveApprovals() {
   const approveLeave = async (leaveId, status) => {
     setActionProcessing(leaveId);
     try {
-      const res = await fetch(`${API_BASE}/api/admin/leave/approve`, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-          leave_id: leaveId,
-          approver_id: 1, // Admin ID
-          status: status,
-          remarks: remarks || "",
-        }),
+      const res = await apiPost("/api/admin/leave/approve", {
+        leave_id: leaveId,
+        approver_id: 1, // Admin ID
+        status: status,
+        remarks: remarks || "",
       });
       if (res.ok) {
         const data = await res.json();

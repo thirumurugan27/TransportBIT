@@ -214,6 +214,7 @@ func CreateClusterWithSchedule(c *gin.Context) {
 		ValidFrom   string `json:"valid_from"`
 		ValidTo     string `json:"valid_to"`
 		DriverIDs   []int  `json:"driver_ids"`
+		Force       bool   `json:"force"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -236,13 +237,19 @@ func CreateClusterWithSchedule(c *gin.Context) {
 		return
 	}
 
-	// Check for date conflicts for each driver
+	// Check for conflicts
+	var warnings []string
 	for _, driverID := range req.DriverIDs {
 		hasConflict, conflictMsg := checkDriverClusterConflict(driverID, 0, req.ValidFrom, req.ValidTo)
 		if hasConflict {
-			c.JSON(http.StatusConflict, gin.H{"error": conflictMsg})
-			return
+			warnings = append(warnings, conflictMsg)
 		}
+	}
+
+	// If conflicts exist and not forced, return conflicts for confirmation
+	if len(warnings) > 0 && !req.Force {
+		c.JSON(http.StatusConflict, gin.H{"conflicts": warnings})
+		return
 	}
 
 	// Create the cluster with schedule info
@@ -293,6 +300,7 @@ func UpdateCluster(c *gin.Context) {
 		ValidFrom   string `json:"valid_from"`
 		ValidTo     string `json:"valid_to"`
 		DriverIDs   []int  `json:"driver_ids"`
+		Force       bool   `json:"force"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -338,8 +346,22 @@ func UpdateCluster(c *gin.Context) {
 		return
 	}
 
+	// Check for conflicts before modifying members
+	var warnings []string
+	for _, driverID := range req.DriverIDs {
+		hasConflict, conflictMsg := checkDriverClusterConflict(driverID, req.ID, validFrom, validTo)
+		if hasConflict {
+			warnings = append(warnings, conflictMsg)
+		}
+	}
+
+	// If conflicts exist and not forced, return conflicts for confirmation
+	if len(warnings) > 0 && !req.Force {
+		c.JSON(http.StatusConflict, gin.H{"conflicts": warnings})
+		return
+	}
+
 	// Update driver assignments in driver_cluster_members table (clear first, then assign new ones)
-	// Delete existing memberships for this cluster
 	_, err = config.DB.Exec(`DELETE FROM driver_cluster_members WHERE cluster_id = ?`, req.ID)
 	if err != nil {
 		log.Printf("Error clearing cluster members: %v", err)
@@ -378,6 +400,7 @@ func AddClusterMember(c *gin.Context) {
 		DriverID  int    `json:"driver_id"`
 		ValidFrom string `json:"valid_from"`
 		ValidTo   string `json:"valid_to"`
+		Force     bool   `json:"force"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -392,10 +415,10 @@ func AddClusterMember(c *gin.Context) {
 
 	clusterIDInt, _ := strconv.Atoi(clusterID)
 
-	// Check for date conflicts
+	// Check for conflicts
 	hasConflict, conflictMsg := checkDriverClusterConflict(req.DriverID, clusterIDInt, req.ValidFrom, req.ValidTo)
-	if hasConflict {
-		c.JSON(http.StatusConflict, gin.H{"error": conflictMsg})
+	if hasConflict && !req.Force {
+		c.JSON(http.StatusConflict, gin.H{"conflicts": []string{conflictMsg}})
 		return
 	}
 
@@ -459,7 +482,7 @@ func checkDriverClusterConflict(driverID int, excludeClusterID int, validFrom, v
 		config.DB.QueryRow(`
 			SELECT u.full_name FROM drivers d JOIN users u ON d.user_id = u.id WHERE d.id = ?
 		`, driverID).Scan(&driverName)
-		
+
 		return true, "Driver '" + driverName + "' is already assigned to '" + clusterName + "' from " + existingFrom + " to " + existingTo + ". Dates overlap with your selection."
 	}
 	return false, ""

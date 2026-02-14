@@ -1,7 +1,6 @@
 import React, {useState, useEffect} from "react";
 import {ChevronDown, ChevronRight, MapPin, Clock} from "lucide-react";
-
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
+import {apiGet} from "../../../utils/api";
 
 export default function StudentTrackBus() {
   const [buses, setBuses] = useState([]);
@@ -16,7 +15,7 @@ export default function StudentTrackBus() {
 
   const fetchBuses = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/student/buses`);
+      const res = await apiGet("/api/student/buses");
       if (res.ok) {
         const data = await res.json();
         setBuses(data || []);
@@ -32,7 +31,7 @@ export default function StudentTrackBus() {
     setLoadingStops(true);
     setStops([]);
     try {
-      const res = await fetch(`${API_BASE}/api/student/bus/${busId}/stops`);
+      const res = await apiGet(`/api/student/bus/${busId}/stops`);
       if (res.ok) {
         const data = await res.json();
         setStops(data || []);

@@ -40,6 +40,24 @@ export const apiPost = async (endpoint, body) => {
 };
 
 /**
+ * Make an authenticated PUT request
+ * @param {string} endpoint - API endpoint
+ * @param {object} body - Request body
+ * @returns {Promise<Response>}
+ */
+export const apiPut = async (endpoint, body) => {
+    return fetch(`${API_BASE}${endpoint}`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Tunnel-Skip-Efficiency-Check': 'true',
+        },
+        body: JSON.stringify(body),
+    });
+};
+
+/**
  * Make an authenticated DELETE request
  * @param {string} endpoint - API endpoint
  * @returns {Promise<Response>}

@@ -9,19 +9,21 @@ import (
 
 // AdminNotification represents a notification for admin users
 type AdminNotification struct {
-	ID        int    `json:"id"`
-	Type      string `json:"type"`
-	Title     string `json:"title"`
-	Message   string `json:"message"`
-	IsRead    bool   `json:"is_read"`
-	CreatedAt string `json:"created_at"`
+	ID          int    `json:"id"`
+	Type        string `json:"type"`
+	Title       string `json:"title"`
+	Message     string `json:"message"`
+	ReferenceID *int   `json:"reference_id"`
+	IsRead      bool   `json:"is_read"`
+	CreatedAt   string `json:"created_at"`
 }
 
 // GetAdminNotifications returns all notifications for admin
 func GetAdminNotifications(c *gin.Context) {
 	rows, err := config.DB.Query(`
-		SELECT id, type, title, message, is_read, created_at
-		FROM admin_notifications
+		SELECT id, type, title, message, reference_id, is_read, created_at
+		FROM notifications
+		WHERE recipient_role = 'ADMIN'
 		ORDER BY created_at DESC
 	`)
 	if err != nil {
@@ -33,7 +35,7 @@ func GetAdminNotifications(c *gin.Context) {
 	notifications := []AdminNotification{}
 	for rows.Next() {
 		var n AdminNotification
-		if err := rows.Scan(&n.ID, &n.Type, &n.Title, &n.Message, &n.IsRead, &n.CreatedAt); err != nil {
+		if err := rows.Scan(&n.ID, &n.Type, &n.Title, &n.Message, &n.ReferenceID, &n.IsRead, &n.CreatedAt); err != nil {
 			continue
 		}
 		notifications = append(notifications, n)
@@ -46,7 +48,7 @@ func GetAdminNotifications(c *gin.Context) {
 func MarkAdminNotificationRead(c *gin.Context) {
 	id := c.Param("id")
 
-	_, err := config.DB.Exec(`UPDATE admin_notifications SET is_read = TRUE WHERE id = ?`, id)
+	_, err := config.DB.Exec(`UPDATE notifications SET is_read = TRUE WHERE id = ? AND recipient_role = 'ADMIN'`, id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -57,7 +59,7 @@ func MarkAdminNotificationRead(c *gin.Context) {
 
 // MarkAllAdminNotificationsRead marks all admin notifications as read
 func MarkAllAdminNotificationsRead(c *gin.Context) {
-	_, err := config.DB.Exec(`UPDATE admin_notifications SET is_read = TRUE`)
+	_, err := config.DB.Exec(`UPDATE notifications SET is_read = TRUE WHERE recipient_role = 'ADMIN'`)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -69,8 +71,8 @@ func MarkAllAdminNotificationsRead(c *gin.Context) {
 // CreateAdminNotification creates a new notification for admin
 func CreateAdminNotification(notifType, title, message string) error {
 	_, err := config.DB.Exec(`
-		INSERT INTO admin_notifications (type, title, message, is_read, created_at)
-		VALUES (?, ?, ?, FALSE, NOW())
+		INSERT INTO notifications (recipient_role, recipient_id, type, title, message, is_read)
+		VALUES ('ADMIN', 0, ?, ?, ?, FALSE)
 	`, notifType, title, message)
 	return err
 }

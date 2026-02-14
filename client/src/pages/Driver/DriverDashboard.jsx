@@ -1,5 +1,5 @@
 import React, {useState} from "react";
-import {Routes, Route, useNavigate} from "react-router-dom";
+import {Routes, Route} from "react-router-dom";
 import {Sidebar} from "../../components/layout";
 import DashboardHeader from "../../components/DashboardHeader";
 import DriverHome from "./views/DriverHome";
@@ -15,7 +15,6 @@ export default function DriverDashboard() {
   const {user, logout} = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const driverName = user?.full_name || user?.username || "Driver";
-  const navigate = useNavigate();
 
   return (
     <div className="flex h-screen bg-primarybg">

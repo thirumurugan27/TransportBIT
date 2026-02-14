@@ -7,7 +7,6 @@ import AdminDrivers from "./views/AdminDrivers";
 import AdminVehicles from "./views/Vehicles";
 import AdminBusFleet from "./views/AdminBusFleet";
 import Assignments from "./views/Assignments";
-import TemporaryAssignments from "./views/TemporaryAssignments";
 import LeaveApprovals from "./views/LeaveApprovals";
 import ScheduleManagement from "./views/ScheduleManagement";
 import KmManagement from "./views/KmManagement";
@@ -17,8 +16,7 @@ import VehicleRequests from "./views/VehicleRequests";
 import AdminStudentTransport from "./views/AdminStudentTransport";
 
 import {useAuth} from "../../context/AuthContext";
-
-const API_BASE = import.meta.env.VITE_API_BASE;
+import {apiGet, getToday} from "../../utils/api";
 
 export default function AdminDashboard() {
   const {user, logout} = useAuth();
@@ -30,9 +28,8 @@ export default function AdminDashboard() {
   useEffect(() => {
     const fetchAbsentAlerts = async () => {
       try {
-        const today = new Date().toISOString().split("T")[0];
-        const res = await fetch(
-          `${API_BASE}/api/admin/assignments/absent-alerts?date=${today}`,
+        const res = await apiGet(
+          `/api/admin/assignments/absent-alerts?date=${getToday()}`,
         );
         const data = await res.json();
         setAbsentAlerts(data || []);

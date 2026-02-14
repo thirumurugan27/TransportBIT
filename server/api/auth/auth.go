@@ -107,43 +107,7 @@ func UnifiedLogin(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-// 🔐 ADMIN LOGIN (kept for backward compatibility)
-func AdminLogin(c *gin.Context) {
-	var req models.LoginRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-		return
-	}
-
-	log.Printf("Login attempt: username=%s", req.Username)
-
-	var dbPassword, role string
-	err := config.DB.QueryRow(
-		"SELECT password, role FROM users WHERE username=?",
-		req.Username,
-	).Scan(&dbPassword, &role)
-
-	if err != nil {
-		log.Printf("User not found: %v", err)
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
-		return
-	}
-
-	if dbPassword != req.Password {
-		log.Printf("Password mismatch")
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
-		return
-	}
-
-	log.Printf("Login successful for user: %s, Role: %s", req.Username, role)
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Login successful",
-		"role":    role,
-		"status":  "success",
-	})
-}
-
-// 🔧 SETUP ADMIN PASSWORD
+// SETUP ADMIN PASSWORD
 func SetupAdminPassword(c *gin.Context) {
 	var req models.SetupRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

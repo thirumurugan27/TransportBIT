@@ -171,7 +171,7 @@ export default function ScheduleManagement() {
     setShowModal(true);
   };
 
-  const handleCreateOrUpdateCluster = async () => {
+  const handleCreateOrUpdateCluster = async (force = false) => {
     if (!clusterForm.name) {
       showError("Error", "Name is required");
       return;
@@ -180,7 +180,7 @@ export default function ScheduleManagement() {
     const endpoint = isEditing
       ? "/api/admin/clusters/update"
       : "/api/admin/clusters/create-with-schedule";
-    const payload = isEditing ? {...clusterForm, id: editingId} : clusterForm;
+    const payload = isEditing ? {...clusterForm, id: editingId, force} : {...clusterForm, force};
 
     try {
       const res = await fetch(`${API_BASE}${endpoint}`, {
@@ -206,12 +206,24 @@ export default function ScheduleManagement() {
           valid_to: "",
           driver_ids: [],
         });
+      } else if (res.status === 409) {
+        const data = await res.json();
+        if (data.conflicts && data.conflicts.length > 0) {
+          const confirmed = await showConfirm(
+            "Driver Already Assigned",
+            data.conflicts.join("\n") + "\n\nDo you want to proceed anyway?",
+          );
+          if (confirmed) {
+            await handleCreateOrUpdateCluster(true);
+          }
+        }
       } else {
-        showError("Error", "Failed: " + (await res.text()));
+        const errorData = await res.json().catch(() => null);
+        showError("Error", errorData?.error || "Failed to process group");
       }
     } catch (err) {
-      console.error(err);
-      showError("Error", "Error processing group");
+      console.error("Create/update cluster error:", err);
+      showError("Error", err.message || "Error processing group");
     }
   };
 
@@ -1035,7 +1047,7 @@ export default function ScheduleManagement() {
               <button
                 onClick={
                   modalType === "cluster"
-                    ? handleCreateOrUpdateCluster
+                    ? () => handleCreateOrUpdateCluster()
                     : handleCreateOrUpdateShift
                 }
                 className="px-4 py-2.5 bg-primary text-white rounded-md font-bold hover:bg-primarydull transition-all shadow-md hover:shadow-lg text-sm"

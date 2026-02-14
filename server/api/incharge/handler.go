@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"transport-server/config"
-	"transport-server/models"
+	"transport-server/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -20,73 +20,6 @@ import (
 	  INCHARGE HANDLERS
 	=========================
 */
-
-// InchargeLoginResponse - response after incharge login
-type InchargeLoginResponse struct {
-	InchargeID int    `json:"incharge_id"`
-	UserID     int    `json:"user_id"`
-	FullName   string `json:"full_name"`
-}
-
-/*
-=========================
-
-	POST /api/incharge/login
-
-=========================
-*/
-func InchargeLogin(c *gin.Context) {
-	var req models.LoginRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
-		return
-	}
-
-	log.Printf("Incharge login attempt: username=%s", req.Username)
-
-	// Check user credentials with role = 'INCHARGE'
-	var userID int
-	var dbPassword, fullName string
-	err := config.DB.QueryRow(`
-		SELECT id, password, full_name FROM users 
-		WHERE username = ? AND role = 'INCHARGE'
-	`, req.Username).Scan(&userID, &dbPassword, &fullName)
-
-	if err == sql.ErrNoRows {
-		log.Printf("Incharge not found: %s", req.Username)
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
-		return
-	}
-	if err != nil {
-		log.Printf("Incharge login error: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
-		return
-	}
-
-	// Check password
-	if dbPassword != req.Password {
-		log.Printf("Password mismatch for incharge: %s", req.Username)
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
-		return
-	}
-
-	// Get driver_id for this user (since InchargeID refers to the driver record)
-	var driverID int
-	err = config.DB.QueryRow("SELECT id FROM drivers WHERE user_id = ?", userID).Scan(&driverID)
-	if err != nil {
-		log.Printf("Incharge user %s has no driver record: %v", req.Username, err)
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Incharge driver record not found"})
-		return
-	}
-
-	log.Printf("Incharge login successful: %s (DriverID: %d)", req.Username, driverID)
-
-	c.JSON(http.StatusOK, InchargeLoginResponse{
-		InchargeID: driverID,
-		UserID:     userID,
-		FullName:   fullName,
-	})
-}
 
 // InchargeAssignment - assignment view for incharge (includes driver name)
 type InchargeAssignment struct {
@@ -394,8 +327,8 @@ func InchargeMarkAttendance(c *gin.Context) {
 	notifMessage := fmt.Sprintf("Incharge %s has marked your attendance as %s for %s.",
 		inchargeName, statusText, req.Date)
 	_, _ = config.DB.Exec(`
-		INSERT INTO driver_notifications (driver_id, title, message, type)
-		VALUES (?, ?, ?, 'info')
+		INSERT INTO notifications (recipient_role, recipient_id, title, message, type)
+		VALUES ('DRIVER', ?, ?, ?, 'info')
 	`, driverID, notifTitle, notifMessage)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Attendance marked successfully", "marked_by": inchargeName})
@@ -658,8 +591,8 @@ func RequestFCReplacement(c *gin.Context) {
 
 	// Create notification for admin
 	_, err = config.DB.Exec(`
-		INSERT INTO admin_notifications (type, title, message, reference_id, is_read)
-		VALUES ('fc_replacement_request', 'New FC Replacement Request', ?, ?, 0)
+		INSERT INTO notifications (recipient_role, recipient_id, type, title, message, reference_id, is_read)
+		VALUES ('ADMIN', 0, 'fc_replacement_request', 'New FC Replacement Request', ?, ?, 0)
 	`, fmt.Sprintf("Incharge %s requested FC replacement for vehicle %s (%s to %s). Reason: %s",
 		inchargeName, vehicleNumber, req.StartDate, req.EndDate, req.Reason), requestID)
 
@@ -938,16 +871,16 @@ func GetAllDriversForIncharge(c *gin.Context) {
 */
 func InchargeAddKmLog(c *gin.Context) {
 	var req struct {
-		InchargeID  int     `json:"incharge_id"`
-		DriverID    int     `json:"driver_id"`
-		Date        string  `json:"date"`
-		StartKm     float64 `json:"start_km"`
-		EndKm       float64 `json:"end_km"`
-		TotalKm     float64 `json:"total_km"`
-		Remarks     string  `json:"remarks"`
-		VehicleType string  `json:"vehicle_type"`
-		VehicleID   *int    `json:"vehicle_id"`
-		AssignmentID *int   `json:"assignment_id"`
+		InchargeID   int     `json:"incharge_id"`
+		DriverID     int     `json:"driver_id"`
+		Date         string  `json:"date"`
+		StartKm      float64 `json:"start_km"`
+		EndKm        float64 `json:"end_km"`
+		TotalKm      float64 `json:"total_km"`
+		Remarks      string  `json:"remarks"`
+		VehicleType  string  `json:"vehicle_type"`
+		VehicleID    *int    `json:"vehicle_id"`
+		AssignmentID *int    `json:"assignment_id"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -1035,10 +968,10 @@ func InchargeAddKmLog(c *gin.Context) {
 		INSERT INTO km_logs (
 			driver_id, date, start_km, end_km, total_km, remarks,
 			vehicle_type, vehicle_id, assignment_id,
-			recorded_by_user_id, recorded_by_name
+			recorded_by_user_id
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, req.DriverID, req.Date, req.StartKm, req.EndKm, req.TotalKm, remarks, req.VehicleType, vehicleID, assignmentID, inchargeUserID, inchargeName)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, req.DriverID, req.Date, req.StartKm, req.EndKm, req.TotalKm, remarks, req.VehicleType, vehicleID, assignmentID, inchargeUserID)
 
 	if err != nil {
 		log.Printf("Incharge add km log error: %v", err)
@@ -1053,8 +986,8 @@ func InchargeAddKmLog(c *gin.Context) {
 	notifMessage := fmt.Sprintf("Incharge %s has added a KM log on your behalf for %s. Start KM: %.1f, End KM: %.1f, Total: %.1f KM.",
 		inchargeName, req.Date, req.StartKm, req.EndKm, req.TotalKm)
 	_, _ = config.DB.Exec(`
-		INSERT INTO driver_notifications (driver_id, title, message, type, related_id)
-		VALUES (?, ?, ?, 'info', ?)
+		INSERT INTO notifications (recipient_role, recipient_id, title, message, type, reference_id)
+		VALUES ('DRIVER', ?, ?, ?, 'info', ?)
 	`, req.DriverID, notifTitle, notifMessage, id)
 
 	c.JSON(http.StatusOK, gin.H{
@@ -1144,8 +1077,8 @@ func InchargeApplyLeave(c *gin.Context) {
 	notifMessage := fmt.Sprintf("Incharge %s has submitted a %s leave request on your behalf from %s %s to %s %s. Status: Pending approval.",
 		inchargeName, leaveType, req.StartDate, req.StartTime, req.EndDate, req.EndTime)
 	_, _ = config.DB.Exec(`
-		INSERT INTO driver_notifications (driver_id, title, message, type, related_id)
-		VALUES (?, ?, ?, 'leave', ?)
+		INSERT INTO notifications (recipient_role, recipient_id, title, message, type, reference_id)
+		VALUES ('DRIVER', ?, ?, ?, 'leave', ?)
 	`, req.DriverID, notifTitle, notifMessage, id)
 
 	c.JSON(http.StatusOK, gin.H{
@@ -1266,7 +1199,7 @@ func GetInchargeKmSummary(c *gin.Context) {
 		whereClause = "WHERE 1=1"
 	}
 
-	logArgs := append(copyArgs(args), limit)
+	logArgs := append(utils.CloneArgs(args), limit)
 	rows, err := config.DB.Query(`
 		SELECT 
 			kl.id,
@@ -1280,14 +1213,15 @@ func GetInchargeKmSummary(c *gin.Context) {
 			COALESCE(kl.vehicle_type, 'UNKNOWN') as vehicle_type,
 			COALESCE(v.vehicle_number, 'N/A') as vehicle_number,
 			COALESCE(s.name, 'N/A') as shift,
-			COALESCE(a.route_name, 'N/A') as route_name,
-			kl.recorded_by_name
+			'N/A' as route_name,
+			COALESCE(recorder.full_name, '') as recorded_by_name
 		FROM km_logs kl
 		JOIN drivers d ON kl.driver_id = d.id
 		JOIN users u ON d.user_id = u.id
 		LEFT JOIN vehicles v ON kl.vehicle_id = v.id
 		LEFT JOIN assignments a ON kl.assignment_id = a.id
 		LEFT JOIN shifts s ON a.shift_id = s.id
+		LEFT JOIN users recorder ON kl.recorded_by_user_id = recorder.id
 		`+whereClause+`
 		ORDER BY kl.date DESC, kl.id DESC
 		LIMIT ?
@@ -1301,19 +1235,19 @@ func GetInchargeKmSummary(c *gin.Context) {
 	defer rows.Close()
 
 	type DetailedKmLog struct {
-		ID             int      `json:"id"`
-		DriverID       int      `json:"driver_id"`
-		DriverName     string   `json:"driver_name"`
-		Date           string   `json:"date"`
-		StartKm        float64  `json:"start_km"`
-		EndKm          float64  `json:"end_km"`
-		TotalKm        float64  `json:"total_km"`
-		Remarks        *string  `json:"remarks"`
-		VehicleType    string   `json:"vehicle_type"`
-		VehicleNumber  string   `json:"vehicle_number"`
-		Shift          string   `json:"shift"`
-		RouteName      string   `json:"route_name"`
-		RecordedByName *string  `json:"recorded_by_name"`
+		ID             int     `json:"id"`
+		DriverID       int     `json:"driver_id"`
+		DriverName     string  `json:"driver_name"`
+		Date           string  `json:"date"`
+		StartKm        float64 `json:"start_km"`
+		EndKm          float64 `json:"end_km"`
+		TotalKm        float64 `json:"total_km"`
+		Remarks        *string `json:"remarks"`
+		VehicleType    string  `json:"vehicle_type"`
+		VehicleNumber  string  `json:"vehicle_number"`
+		Shift          string  `json:"shift"`
+		RouteName      string  `json:"route_name"`
+		RecordedByName *string `json:"recorded_by_name"`
 	}
 
 	var logs []DetailedKmLog
@@ -1335,7 +1269,7 @@ func GetInchargeKmSummary(c *gin.Context) {
 	totalRow := config.DB.QueryRow(`
 		SELECT COALESCE(SUM(kl.total_km), 0), COUNT(*)
 		FROM km_logs kl
-		` + whereClause + `
+		`+whereClause+`
 	`, args...)
 	totalRow.Scan(&totalKm, &totalTrips)
 
@@ -1351,7 +1285,7 @@ func GetInchargeKmSummary(c *gin.Context) {
 		FROM km_logs kl
 		JOIN drivers d ON kl.driver_id = d.id
 		JOIN users u ON d.user_id = u.id
-		` + whereClause + `
+		`+whereClause+`
 		GROUP BY kl.driver_id, u.full_name
 		ORDER BY total_km DESC
 		LIMIT 1
@@ -1377,7 +1311,7 @@ func GetInchargeKmSummary(c *gin.Context) {
 		       SUM(kl.total_km) as total_km, COUNT(*) as trips
 		FROM km_logs kl
 		LEFT JOIN vehicles v ON kl.vehicle_id = v.id
-		` + whereClause + ` AND kl.vehicle_id IS NOT NULL
+		`+whereClause+` AND kl.vehicle_id IS NOT NULL
 		GROUP BY kl.vehicle_id, v.vehicle_number, v.vehicle_type
 		ORDER BY total_km DESC
 		LIMIT 1
@@ -1534,10 +1468,4 @@ func buildKmWhereClause(f kmSummaryFilters) (string, []interface{}) {
 	}
 
 	return "WHERE " + strings.Join(filters, " AND "), args
-}
-
-func copyArgs(args []interface{}) []interface{} {
-	dup := make([]interface{}, len(args))
-	copy(dup, args)
-	return dup
 }

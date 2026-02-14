@@ -233,8 +233,8 @@ func ApproveFCReplacement(c *gin.Context) {
 		inchargeMsg := fmt.Sprintf("FC replacement for vehicle %s has been approved. Replacement vehicle: %s. Period: %s to %s",
 			vehicleNumber, replacementNumber, startDate, endDate)
 		config.DB.Exec(`
-			INSERT INTO driver_notifications (driver_id, title, message, type, related_id)
-			VALUES (?, ?, ?, 'info', ?)
+			INSERT INTO notifications (recipient_role, recipient_id, title, message, type, reference_id)
+			VALUES ('DRIVER', ?, ?, ?, 'info', ?)
 		`, inchargeID, "Replacement Request Approved", inchargeMsg, req.RequestID)
 	}
 
@@ -329,8 +329,8 @@ func activateFCReplacement(requestID int, req FCReplacementRequest) {
 	}
 
 	_, err = config.DB.Exec(`
-		INSERT INTO driver_notifications (driver_id, title, message, type, related_id)
-		VALUES (?, ?, ?, 'vehicle_change', ?)
+		INSERT INTO notifications (recipient_role, recipient_id, title, message, type, reference_id)
+		VALUES ('DRIVER', ?, ?, ?, 'vehicle_change', ?)
 	`, req.DriverID, "Vehicle Change Notification", message, requestID)
 
 	if err != nil {
@@ -473,8 +473,8 @@ func CompleteFCReplacement(c *gin.Context) {
 
 	// Notify driver
 	config.DB.Exec(`
-		INSERT INTO driver_notifications (driver_id, title, message, type, related_id)
-		VALUES (?, ?, ?, 'vehicle_change', ?)
+		INSERT INTO notifications (recipient_role, recipient_id, title, message, type, reference_id)
+		VALUES ('DRIVER', ?, ?, ?, 'vehicle_change', ?)
 	`, driverID, "Vehicle Reassignment - Back to Original", driverMessage, req.RequestID)
 
 	// Notify incharge of driver's cluster
@@ -489,8 +489,8 @@ func CompleteFCReplacement(c *gin.Context) {
 	`, driverID, driverID).Scan(&inchargeDriverID)
 	if err == nil && inchargeDriverID > 0 {
 		config.DB.Exec(`
-			INSERT INTO driver_notifications (driver_id, title, message, type, related_id)
-			VALUES (?, ?, ?, 'info', ?)
+			INSERT INTO notifications (recipient_role, recipient_id, title, message, type, reference_id)
+			VALUES ('DRIVER', ?, ?, ?, 'info', ?)
 		`, inchargeDriverID, "Vehicle Back from Maintenance", inchargeAdminMessage, req.RequestID)
 	}
 
@@ -549,8 +549,8 @@ func AutoCompleteExpiredFCReplacements() {
 
 		// Notify driver
 		config.DB.Exec(`
-			INSERT INTO driver_notifications (driver_id, title, message, type, related_id)
-			VALUES (?, ?, ?, 'vehicle_change', ?)
+			INSERT INTO notifications (recipient_role, recipient_id, title, message, type, reference_id)
+			VALUES ('DRIVER', ?, ?, ?, 'vehicle_change', ?)
 		`, driverID, "Vehicle Reassignment - Back to Original", driverMessage, id)
 
 		// Notify incharge of driver's cluster
@@ -565,8 +565,8 @@ func AutoCompleteExpiredFCReplacements() {
 		`, driverID, driverID).Scan(&inchargeDriverID)
 		if err == nil && inchargeDriverID > 0 {
 			config.DB.Exec(`
-				INSERT INTO driver_notifications (driver_id, title, message, type, related_id)
-				VALUES (?, ?, ?, 'info', ?)
+				INSERT INTO notifications (recipient_role, recipient_id, title, message, type, reference_id)
+				VALUES ('DRIVER', ?, ?, ?, 'info', ?)
 			`, inchargeDriverID, "Vehicle Back from Maintenance", inchargeAdminMessage, id)
 		}
 
@@ -823,8 +823,8 @@ func UpdateFCReplacement(c *gin.Context) {
 		message := fmt.Sprintf("Your FC replacement request for vehicle %s has been updated. New dates: %s to %s. Reason: %s",
 			vehicleNumber, req.StartDate, req.EndDate, req.Reason)
 		config.DB.Exec(`
-			INSERT INTO driver_notifications (driver_id, title, message, type, related_id)
-			VALUES (?, ?, ?, 'info', ?)
+			INSERT INTO notifications (recipient_role, recipient_id, title, message, type, reference_id)
+			VALUES ('DRIVER', ?, ?, ?, 'info', ?)
 		`, driverID, "Replacement Request Updated", message, req.RequestID)
 	}
 
@@ -843,8 +843,8 @@ func UpdateFCReplacement(c *gin.Context) {
 		inchargeMsg := fmt.Sprintf("Admin updated FC replacement request for vehicle %s. New dates: %s to %s",
 			vehicleNumber, req.StartDate, req.EndDate)
 		config.DB.Exec(`
-			INSERT INTO driver_notifications (driver_id, title, message, type, related_id)
-			VALUES (?, ?, ?, 'info', ?)
+			INSERT INTO notifications (recipient_role, recipient_id, title, message, type, reference_id)
+			VALUES ('DRIVER', ?, ?, ?, 'info', ?)
 		`, inchargeID, "Replacement Request Updated by Admin", inchargeMsg, req.RequestID)
 	}
 
@@ -895,8 +895,8 @@ func DeleteFCReplacement(c *gin.Context) {
 
 		// Notify driver
 		config.DB.Exec(`
-			INSERT INTO driver_notifications (driver_id, title, message, type)
-			VALUES (?, ?, ?, 'info')
+			INSERT INTO notifications (recipient_role, recipient_id, title, message, type)
+			VALUES ('DRIVER', ?, ?, ?, 'info')
 		`, driverID, "Replacement Request Cancelled",
 			"The FC/Insurance replacement request for vehicle "+vehicleNumber+" has been cancelled by admin.")
 	}
@@ -915,8 +915,8 @@ func DeleteFCReplacement(c *gin.Context) {
 	if inchargeID > 0 {
 		inchargeMsg := fmt.Sprintf("Admin deleted FC replacement request for vehicle %s", vehicleNumber)
 		config.DB.Exec(`
-			INSERT INTO driver_notifications (driver_id, title, message, type)
-			VALUES (?, ?, ?, 'alert')
+			INSERT INTO notifications (recipient_role, recipient_id, title, message, type)
+			VALUES ('DRIVER', ?, ?, ?, 'alert')
 		`, inchargeID, "Replacement Request Deleted by Admin", inchargeMsg)
 	}
 

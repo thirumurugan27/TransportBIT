@@ -23,7 +23,7 @@ import {
 import { useToast } from "../../../context/ToastContext";
 import CustomDropdown from "../../../components/ui/CustomDropdown";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
+import {apiGet, apiPost, apiPut, apiDelete} from "../../../utils/api";
 
 export default function AdminDrivers() {
   const { showToast } = useToast();
@@ -126,7 +126,7 @@ export default function AdminDrivers() {
   const fetchDrivers = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/admin/drivers`);
+      const res = await apiGet("/api/admin/drivers");
       const data = await res.json();
       setDrivers(data || []);
     } catch (err) {
@@ -184,11 +184,8 @@ export default function AdminDrivers() {
       return;
 
     try {
-      const res = await fetch(
-        `${API_BASE}/api/admin/drivers/delete?id=${selectedDriver.id}`,
-        {
-          method: "DELETE",
-        },
+      const res = await apiDelete(
+        `/api/admin/drivers/delete?id=${selectedDriver.id}`,
       );
       if (res.ok) {
         showToast("Driver deleted successfully", "success");
@@ -211,20 +208,16 @@ export default function AdminDrivers() {
         experience_years: parseInt(driverForm.experience_years),
       };
 
-      let url = `${API_BASE}/api/admin/drivers/create`;
-      let method = "POST";
+      let endpoint = "/api/admin/drivers/create";
 
       if (isEditing) {
-        url = `${API_BASE}/api/admin/drivers/update?id=${editId}`;
-        method = "PUT";
+        endpoint = `/api/admin/drivers/update?id=${editId}`;
         if (!payload.password) delete payload.password;
       }
 
-      const res = await fetch(url, {
-        method: method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const res = isEditing
+        ? await apiPut(endpoint, payload)
+        : await apiPost(endpoint, payload);
 
       if (res.ok) {
         showToast(

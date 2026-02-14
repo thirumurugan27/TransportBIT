@@ -182,14 +182,14 @@ func AssignStudentTransport(c *gin.Context) {
 			ORDER BY id DESC LIMIT 1
 		`, req.StopID).Scan(&feeAmount)
 	}
-	
+
 	// Fallback to bus_stops fee if not found in transport_fees
 	if err == sql.ErrNoRows {
 		err = config.DB.QueryRow(`
 			SELECT COALESCE(fee, 0) FROM bus_stops WHERE id = ?
 		`, req.StopID).Scan(&feeAmount)
 	}
-	
+
 	if err != nil && err != sql.ErrNoRows {
 		log.Printf("Error fetching fee: %v", err)
 	}
@@ -293,85 +293,6 @@ func DeleteStudentTransport(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Deleted successfully"})
-}
-
-// =====================
-// TRANSPORT FEES
-// =====================
-
-// GET /api/admin/transport-fees - Get all transport fees
-func GetTransportFees(c *gin.Context) {
-	rows, err := config.DB.Query(`
-		SELECT 
-			tf.id, tf.stop_id, s.stop_name, tf.fee_amount, 
-			tf.academic_year, tf.is_active
-		FROM transport_fees tf
-		JOIN bus_stops s ON tf.stop_id = s.id
-		ORDER BY s.stop_name
-	`)
-	if err != nil {
-		log.Printf("Error fetching fees: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch fees"})
-		return
-	}
-	defer rows.Close()
-
-	var fees []models.TransportFee
-	for rows.Next() {
-		var f models.TransportFee
-		if err := rows.Scan(&f.ID, &f.StopID, &f.StopName, &f.FeeAmount, &f.AcademicYear, &f.IsActive); err != nil {
-			continue
-		}
-		fees = append(fees, f)
-	}
-
-	c.JSON(http.StatusOK, fees)
-}
-
-// POST /api/admin/transport-fees/create - Create transport fee for stop
-func CreateTransportFee(c *gin.Context) {
-	var req models.CreateTransportFeeRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
-		return
-	}
-
-	if req.AcademicYear == "" {
-		req.AcademicYear = "2025-2026"
-	}
-
-	_, err := config.DB.Exec(`
-		INSERT INTO transport_fees (stop_id, fee_amount, academic_year, is_active)
-		VALUES (?, ?, ?, TRUE)
-		ON DUPLICATE KEY UPDATE fee_amount = ?, is_active = TRUE
-	`, req.StopID, req.FeeAmount, req.AcademicYear, req.FeeAmount)
-	if err != nil {
-		log.Printf("Error creating fee: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create fee"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Fee created successfully"})
-}
-
-// POST /api/admin/transport-fees/update - Update transport fee
-func UpdateTransportFee(c *gin.Context) {
-	var req models.UpdateTransportFeeRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
-		return
-	}
-
-	_, err := config.DB.Exec(`
-		UPDATE transport_fees SET fee_amount = ? WHERE id = ?
-	`, req.FeeAmount, req.ID)
-	if err != nil {
-		log.Printf("Error updating fee: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update fee"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Fee updated successfully"})
 }
 
 // =====================

@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import {useToast} from "../../../context/ToastContext";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
+import {apiGet, apiPost} from "../../../utils/api";
 
 export default function FCReplacementManagement() {
   const {showToast} = useToast();
@@ -65,10 +65,10 @@ export default function FCReplacementManagement() {
     try {
       const [requestsRes, driversRes, vehiclesRes, alertsRes] =
         await Promise.all([
-          fetch(`${API_BASE}/api/admin/fc-replacements?status=${filter}`),
-          fetch(`${API_BASE}/api/admin/drivers`),
-          fetch(`${API_BASE}/api/admin/vehicles`),
-          fetch(`${API_BASE}/api/admin/vehicles/alerts`),
+          apiGet(`/api/admin/fc-replacements?status=${filter}`),
+          apiGet("/api/admin/drivers"),
+          apiGet("/api/admin/vehicles"),
+          apiGet("/api/admin/vehicles/alerts"),
         ]);
 
       const requestsData = await requestsRes.json();
@@ -95,8 +95,8 @@ export default function FCReplacementManagement() {
       return;
     }
     try {
-      const res = await fetch(
-        `${API_BASE}/api/admin/fc-replacements/vehicle-drivers?vehicle_id=${vehicleId}`,
+      const res = await apiGet(
+        `/api/admin/fc-replacements/vehicle-drivers?vehicle_id=${vehicleId}`,
       );
       const data = await res.json();
       setVehicleDrivers(data || []);
@@ -117,8 +117,8 @@ export default function FCReplacementManagement() {
   const fetchAvailableVehicles = async (startDate, endDate, excludeId) => {
     if (!startDate || !endDate) return;
     try {
-      const res = await fetch(
-        `${API_BASE}/api/admin/fc-replacements/available-vehicles?start_date=${startDate}&end_date=${endDate}&exclude_vehicle_id=${excludeId}`,
+      const res = await apiGet(
+        `/api/admin/fc-replacements/available-vehicles?start_date=${startDate}&end_date=${endDate}&exclude_vehicle_id=${excludeId}`,
       );
       const data = await res.json();
       setAvailableVehicles(data || []);
@@ -130,19 +130,15 @@ export default function FCReplacementManagement() {
   const handleCreateRequest = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch(`${API_BASE}/api/admin/fc-replacements/create`, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-          ...formData,
-          vehicle_id: parseInt(formData.vehicle_id),
-          driver_id: parseInt(formData.driver_id),
-          replacement_vehicle_id: formData.replacement_vehicle_id
-            ? parseInt(formData.replacement_vehicle_id)
-            : null,
-          requested_by_role: "admin",
-          requested_by_id: 1, // Admin ID
-        }),
+      const res = await apiPost("/api/admin/fc-replacements/create", {
+        ...formData,
+        vehicle_id: parseInt(formData.vehicle_id),
+        driver_id: parseInt(formData.driver_id),
+        replacement_vehicle_id: formData.replacement_vehicle_id
+          ? parseInt(formData.replacement_vehicle_id)
+          : null,
+        requested_by_role: "admin",
+        requested_by_id: 1,
       });
 
       if (res.ok) {
@@ -168,14 +164,10 @@ export default function FCReplacementManagement() {
   const handleApprove = async (replacementVehicleId) => {
     if (!selectedRequest) return;
     try {
-      const res = await fetch(`${API_BASE}/api/admin/fc-replacements/approve`, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-          request_id: selectedRequest.id,
-          replacement_vehicle_id: parseInt(replacementVehicleId),
-          approved_by_id: 1,
-        }),
+      const res = await apiPost("/api/admin/fc-replacements/approve", {
+        request_id: selectedRequest.id,
+        replacement_vehicle_id: parseInt(replacementVehicleId),
+        approved_by_id: 1,
       });
 
       if (res.ok) {
@@ -193,14 +185,10 @@ export default function FCReplacementManagement() {
     if (!reason) return;
 
     try {
-      await fetch(`${API_BASE}/api/admin/fc-replacements/reject`, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-          request_id: requestId,
-          rejected_by: 1,
-          reason: reason,
-        }),
+      await apiPost("/api/admin/fc-replacements/reject", {
+        request_id: requestId,
+        rejected_by: 1,
+        reason: reason,
       });
       fetchData();
     } catch (err) {
@@ -217,10 +205,8 @@ export default function FCReplacementManagement() {
       return;
 
     try {
-      await fetch(`${API_BASE}/api/admin/fc-replacements/complete`, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({request_id: requestId}),
+      await apiPost("/api/admin/fc-replacements/complete", {
+        request_id: requestId,
       });
       fetchData();
     } catch (err) {
@@ -245,16 +231,12 @@ export default function FCReplacementManagement() {
   const handleEditRequest = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch(`${API_BASE}/api/admin/fc-replacements/update`, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-          request_id: parseInt(editFormData.request_id),
-          start_date: editFormData.start_date,
-          end_date: editFormData.end_date,
-          reason: editFormData.reason,
-          notes: editFormData.notes,
-        }),
+      const res = await apiPost("/api/admin/fc-replacements/update", {
+        request_id: parseInt(editFormData.request_id),
+        start_date: editFormData.start_date,
+        end_date: editFormData.end_date,
+        reason: editFormData.reason,
+        notes: editFormData.notes,
       });
 
       if (res.ok) {
@@ -289,10 +271,8 @@ export default function FCReplacementManagement() {
       return;
 
     try {
-      const res = await fetch(`${API_BASE}/api/admin/fc-replacements/delete`, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({request_id: requestId}),
+      const res = await apiPost("/api/admin/fc-replacements/delete", {
+        request_id: requestId,
       });
 
       if (res.ok) {

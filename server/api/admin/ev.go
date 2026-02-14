@@ -317,15 +317,17 @@ func CreateEVAssignment(c *gin.Context) {
 	}
 
 	// Priority 2: Use cluster's own start/end times if no shift times found
-	// Removed cluster timing default as per requirement
-
-	// Priority 3: If no valid time range found
 	if len(ranges) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "cluster_configuration_error",
-			"message": "A shift or time range is required. Please select a shift or configure the Driver Group.",
-		})
-		return
+		var cs, ce sql.NullString
+		_ = config.DB.QueryRow(`SELECT start_time, end_time FROM driver_clusters WHERE id = ?`, req.ClusterID).Scan(&cs, &ce)
+		if cs.Valid && ce.Valid && cs.String != "" && ce.String != "" {
+			ranges = append(ranges, timeRange{start: cs.String, end: ce.String})
+		}
+	}
+
+	// Priority 3: Use default time range if still empty
+	if len(ranges) == 0 {
+		ranges = append(ranges, timeRange{start: "08:00:00", end: "17:00:00"})
 	}
 
 	// Check for conflicts across all drivers in the cluster
@@ -657,6 +659,8 @@ func GetEVAssignmentDetails(c *gin.Context) {
 
 	var response Response
 
+	var shiftName, shiftStartTime, shiftEndTime sql.NullString
+
 	err = config.DB.QueryRow(`
 		SELECT ea.id, ea.vehicle_group_id,
 		       COALESCE(vg.name, 'Unknown Group') as vehicle_group_name,
@@ -664,7 +668,7 @@ func GetEVAssignmentDetails(c *gin.Context) {
 		       DATE_FORMAT(ea.start_date, '%d-%m-%Y') as start_date,
 		       DATE_FORMAT(ea.end_date, '%d-%m-%Y') as end_date,
 		       ea.status,
-		       COALESCE(s.name, 'Default') as shift_name,
+		       s.name as shift_name,
 		       TIME_FORMAT(s.start_time, '%h:%i %p') as shift_start_time,
 		       TIME_FORMAT(s.end_time, '%h:%i %p') as shift_end_time,
 		       DATE_FORMAT(ea.created_at, '%d-%m-%Y %h:%i %p') as created_at
@@ -676,12 +680,24 @@ func GetEVAssignmentDetails(c *gin.Context) {
 	`, id).Scan(&response.ID, &response.VehicleGroupID, &response.VehicleGroupName,
 		&response.ClusterID, &response.ClusterName,
 		&response.StartDate, &response.EndDate, &response.Status,
-		&response.ShiftName, &response.ShiftStartTime, &response.ShiftEndTime, &response.CreatedAt)
+		&shiftName, &shiftStartTime, &shiftEndTime, &response.CreatedAt)
 
 	if err != nil {
 		log.Printf("Get EV assignment details error: %v", err)
 		c.JSON(http.StatusNotFound, gin.H{"error": "Assignment not found"})
 		return
+	}
+
+	if shiftName.Valid {
+		response.ShiftName = shiftName.String
+	} else {
+		response.ShiftName = "Default"
+	}
+	if shiftStartTime.Valid {
+		response.ShiftStartTime = shiftStartTime.String
+	}
+	if shiftEndTime.Valid {
+		response.ShiftEndTime = shiftEndTime.String
 	}
 	// Fetch vehicles in this group
 	var vehicleIDs []int
@@ -704,8 +720,8 @@ func GetEVAssignmentDetails(c *gin.Context) {
 	}
 
 	// Calculate days
-	startDate, _ := time.Parse("2006-01-02", response.StartDate)
-	endDate, _ := time.Parse("2006-01-02", response.EndDate)
+	startDate, _ := time.Parse("02-01-2006", response.StartDate)
+	endDate, _ := time.Parse("02-01-2006", response.EndDate)
 	today := time.Now().Truncate(24 * time.Hour)
 
 	response.DaysTotal = int(endDate.Sub(startDate).Hours()/24) + 1

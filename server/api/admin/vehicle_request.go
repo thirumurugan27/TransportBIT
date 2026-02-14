@@ -12,6 +12,7 @@ import (
 
 	"transport-server/config"
 	"transport-server/models"
+	"transport-server/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -465,7 +466,7 @@ func ApproveVehicleRequest(c *gin.Context) {
 		// Check for conflicts (skip if force_assign)
 		if onwardFrom.Valid && !req.ForceAssign {
 			hasConflict, driverConflicts, err := checkDriverConflict(req.DriverID,
-				onwardFrom.String, nullStr(onwardTo), nullStr(returnFrom), nullStr(returnTo))
+				onwardFrom.String, utils.NullStr(onwardTo), utils.NullStr(returnFrom), utils.NullStr(returnTo))
 			if err != nil {
 				log.Printf("Error checking driver conflict: %v", err)
 			}
@@ -481,7 +482,7 @@ func ApproveVehicleRequest(c *gin.Context) {
 				}
 				// Get available drivers list
 				availableDrivers := getAvailableDriversForRequest(req.DriverID,
-					onwardFrom.String, nullStr(onwardTo), nullStr(returnFrom), nullStr(returnTo))
+					onwardFrom.String, utils.NullStr(onwardTo), utils.NullStr(returnFrom), utils.NullStr(returnTo))
 				c.JSON(http.StatusConflict, gin.H{
 					"error":             "driver_conflict",
 					"message":           fmt.Sprintf("Driver is already assigned during this time range (conflict on %s)", conflictDate),
@@ -492,7 +493,7 @@ func ApproveVehicleRequest(c *gin.Context) {
 			}
 
 			hasVehicleConflict, vehicleConflicts, err := checkVehicleConflict(req.VehicleID,
-				onwardFrom.String, nullStr(onwardTo), nullStr(returnFrom), nullStr(returnTo))
+				onwardFrom.String, utils.NullStr(onwardTo), utils.NullStr(returnFrom), utils.NullStr(returnTo))
 			if err != nil {
 				log.Printf("Error checking vehicle conflict: %v", err)
 			}
@@ -683,8 +684,8 @@ func CancelVehicleRequestByAdmin(c *gin.Context) {
 		driverMsg := fmt.Sprintf("Vehicle request #%d%s has been cancelled by admin. Your assignment to vehicle %s has been removed.%s",
 			req.RequestID, purposeText, vehicleNumber, remarkText)
 		config.DB.Exec(`
-			INSERT INTO driver_notifications (driver_id, title, message, type, related_id)
-			VALUES (?, ?, ?, 'warning', ?)
+			INSERT INTO notifications (recipient_role, recipient_id, title, message, type, reference_id)
+			VALUES ('DRIVER', ?, ?, ?, 'warning', ?)
 		`, driverID.Int64, "Vehicle Request Cancelled", driverMsg, req.RequestID)
 	}
 
@@ -696,8 +697,8 @@ func CancelVehicleRequestByAdmin(c *gin.Context) {
 			facultyMsg := fmt.Sprintf("Your vehicle request #%d%s has been cancelled by admin.%s",
 				req.RequestID, purposeText, remarkText)
 			config.DB.Exec(`
-				INSERT INTO user_notifications (user_id, title, message, type, related_id)
-				VALUES (?, ?, ?, 'warning', ?)
+				INSERT INTO notifications (recipient_role, recipient_id, title, message, type, reference_id)
+				VALUES ('FACULTY', ?, ?, ?, 'warning', ?)
 			`, userID, "Vehicle Request Cancelled", facultyMsg, req.RequestID)
 		}
 	}
@@ -733,7 +734,7 @@ func AssignVehicleToRequest(c *gin.Context) {
 	// Check for conflicts before assigning (skip if force_assign)
 	if onwardFrom.Valid && !req.ForceAssign {
 		hasDriverConflict, driverConflicts, err := checkDriverConflict(req.DriverID,
-			onwardFrom.String, nullStr(onwardTo), nullStr(returnFrom), nullStr(returnTo))
+			onwardFrom.String, utils.NullStr(onwardTo), utils.NullStr(returnFrom), utils.NullStr(returnTo))
 		if err != nil {
 			log.Printf("Error checking driver conflict: %v", err)
 		}
@@ -748,7 +749,7 @@ func AssignVehicleToRequest(c *gin.Context) {
 				log.Printf("  Conflict %d: %+v", i, cf)
 			}
 			availableDrivers := getAvailableDriversForRequest(req.DriverID,
-				onwardFrom.String, nullStr(onwardTo), nullStr(returnFrom), nullStr(returnTo))
+				onwardFrom.String, utils.NullStr(onwardTo), utils.NullStr(returnFrom), utils.NullStr(returnTo))
 			c.JSON(http.StatusConflict, gin.H{
 				"error":             "driver_conflict",
 				"message":           fmt.Sprintf("Driver is already assigned during this time range (conflict on %s)", conflictDate),
@@ -759,7 +760,7 @@ func AssignVehicleToRequest(c *gin.Context) {
 		}
 
 		hasVehicleConflict, vehicleConflicts, err := checkVehicleConflict(req.VehicleID,
-			onwardFrom.String, nullStr(onwardTo), nullStr(returnFrom), nullStr(returnTo))
+			onwardFrom.String, utils.NullStr(onwardTo), utils.NullStr(returnFrom), utils.NullStr(returnTo))
 		if err != nil {
 			log.Printf("Error checking vehicle conflict: %v", err)
 		}
@@ -841,14 +842,6 @@ func GetPendingVehicleRequestCount(c *gin.Context) {
 }
 
 // ========== CONFLICT CHECK HELPERS ==========
-
-// nullStr extracts the string from a sql.NullString, returning "" if null
-func nullStr(ns sql.NullString) string {
-	if ns.Valid {
-		return ns.String
-	}
-	return ""
-}
 
 // checkDriverConflict checks if a driver has ANY conflicting assignment
 // (bus assignments, temporary assignments, EV assignments, or other vehicle requests)
@@ -1312,12 +1305,4 @@ func getAvailableDriversForRequest(excludeDriverID int, onwardFrom, onwardTo, re
 		})
 	}
 	return drivers
-}
-
-// Helper for formatting
-func formatDateTime(dt string) string {
-	if dt == "" {
-		return ""
-	}
-	return fmt.Sprintf("%s", dt)
 }

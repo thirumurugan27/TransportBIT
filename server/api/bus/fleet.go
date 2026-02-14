@@ -65,10 +65,10 @@ type UpdateBusStopRequest struct {
 }
 
 type UpdateBusRouteRequest struct {
-	ID         int    `json:"id"`
-	VehicleID  int    `json:"vehicle_id"`
-	StartPoint string `json:"start_point"`
-	EndPoint   string `json:"end_point"`
+	ID          int    `json:"id"`
+	VehicleID   int    `json:"vehicle_id"`
+	StartPoint  string `json:"start_point"`
+	EndPoint    string `json:"end_point"`
 	VehicleName string `json:"vehicle_name"`
 }
 
@@ -88,7 +88,6 @@ func InitBusStopsTable() {
 			name VARCHAR(100),
 			start_point VARCHAR(100),
 			end_point VARCHAR(100),
-			route_number VARCHAR(50),
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE
 		)

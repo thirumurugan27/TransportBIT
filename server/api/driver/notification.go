@@ -14,14 +14,14 @@ import (
 ========================= */
 
 type Notification struct {
-	ID        int    `json:"id"`
-	DriverID  int    `json:"driver_id"`
-	Title     string `json:"title"`
-	Message   string `json:"message"`
-	Type      string `json:"type"`
-	RelatedID *int   `json:"related_id"`
-	IsRead    bool   `json:"is_read"`
-	CreatedAt string `json:"created_at"`
+	ID          int    `json:"id"`
+	DriverID    int    `json:"driver_id"`
+	Title       string `json:"title"`
+	Message     string `json:"message"`
+	Type        string `json:"type"`
+	ReferenceID *int   `json:"related_id"`
+	IsRead      bool   `json:"is_read"`
+	CreatedAt   string `json:"created_at"`
 }
 
 // GET /api/driver/notifications - Get driver's notifications
@@ -33,10 +33,10 @@ func GetDriverNotifications(c *gin.Context) {
 	}
 
 	rows, err := config.DB.Query(`
-		SELECT id, driver_id, title, message, type, related_id, is_read, 
+		SELECT id, recipient_id, title, message, type, reference_id, is_read, 
 		       DATE_FORMAT(created_at, '%d-%m-%Y %H:%i') as created_at
-		FROM driver_notifications
-		WHERE driver_id = ?
+		FROM notifications
+		WHERE recipient_role = 'DRIVER' AND recipient_id = ?
 		ORDER BY created_at DESC
 		LIMIT 50
 	`, driverID)
@@ -51,7 +51,7 @@ func GetDriverNotifications(c *gin.Context) {
 	var notifications []Notification
 	for rows.Next() {
 		var n Notification
-		rows.Scan(&n.ID, &n.DriverID, &n.Title, &n.Message, &n.Type, &n.RelatedID, &n.IsRead, &n.CreatedAt)
+		rows.Scan(&n.ID, &n.DriverID, &n.Title, &n.Message, &n.Type, &n.ReferenceID, &n.IsRead, &n.CreatedAt)
 		notifications = append(notifications, n)
 	}
 
@@ -68,8 +68,8 @@ func GetUnreadNotificationCount(c *gin.Context) {
 
 	var count int
 	config.DB.QueryRow(`
-		SELECT COUNT(*) FROM driver_notifications 
-		WHERE driver_id = ? AND is_read = FALSE
+		SELECT COUNT(*) FROM notifications 
+		WHERE recipient_role = 'DRIVER' AND recipient_id = ? AND is_read = FALSE
 	`, driverID).Scan(&count)
 
 	c.JSON(http.StatusOK, gin.H{"count": count})
@@ -83,7 +83,7 @@ func MarkNotificationRead(c *gin.Context) {
 		return
 	}
 
-	_, err := config.DB.Exec("UPDATE driver_notifications SET is_read = TRUE WHERE id = ?", notificationID)
+	_, err := config.DB.Exec("UPDATE notifications SET is_read = TRUE WHERE id = ?", notificationID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -100,7 +100,7 @@ func MarkAllNotificationsRead(c *gin.Context) {
 		return
 	}
 
-	_, err := config.DB.Exec("UPDATE driver_notifications SET is_read = TRUE WHERE driver_id = ?", driverID)
+	_, err := config.DB.Exec("UPDATE notifications SET is_read = TRUE WHERE recipient_role = 'DRIVER' AND recipient_id = ?", driverID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

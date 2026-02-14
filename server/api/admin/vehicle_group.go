@@ -4,9 +4,9 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"time"
 
 	"transport-server/config"
+	"transport-server/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -73,7 +73,9 @@ type GroupVehicle struct {
 
 /*
 =========================
-  GET /api/admin/vehicle-groups
+
+	GET /api/admin/vehicle-groups
+
 =========================
 */
 func GetVehicleGroups(c *gin.Context) {
@@ -114,23 +116,11 @@ func GetVehicleGroups(c *gin.Context) {
 	c.JSON(http.StatusOK, groups)
 }
 
-// formatDateForDB ensures date is in YYYY-MM-DD format
-func formatDateForDB(dateStr string) string {
-	if dateStr == "" {
-		return ""
-	}
-	// Try parsing DD-MM-YYYY
-	t, err := time.Parse("02-01-2006", dateStr)
-	if err == nil {
-		return t.Format("2006-01-02")
-	}
-	// Return original if parsing fails (assume valid or let DB error)
-	return dateStr
-}
-
 /*
 =========================
-  POST /api/admin/vehicle-groups/create
+
+	POST /api/admin/vehicle-groups/create
+
 =========================
 */
 func CreateVehicleGroup(c *gin.Context) {
@@ -157,8 +147,8 @@ func CreateVehicleGroup(c *gin.Context) {
 		return
 	}
 
-	validFrom := formatDateForDB(req.ValidFrom)
-	validTo := formatDateForDB(req.ValidTo)
+	validFrom := utils.FormatDateForDB(req.ValidFrom)
+	validTo := utils.FormatDateForDB(req.ValidTo)
 
 	// Check for date conflicts for each vehicle if vehicle IDs provided
 	if len(req.VehicleIDs) > 0 {
@@ -202,7 +192,9 @@ func CreateVehicleGroup(c *gin.Context) {
 
 /*
 =========================
-  PUT /api/admin/vehicle-groups/:id
+
+	PUT /api/admin/vehicle-groups/:id
+
 =========================
 */
 func UpdateVehicleGroup(c *gin.Context) {
@@ -251,8 +243,8 @@ func UpdateVehicleGroup(c *gin.Context) {
 	}
 
 	// Format dates (in case client sent DD-MM-YYYY)
-	validFrom = formatDateForDB(validFrom)
-	validTo = formatDateForDB(validTo)
+	validFrom = utils.FormatDateForDB(validFrom)
+	validTo = utils.FormatDateForDB(validTo)
 
 	// Validate date range
 	if validFrom > validTo {
@@ -294,10 +286,10 @@ func UpdateVehicleGroup(c *gin.Context) {
 		for _, vehicleID := range req.VehicleIDs {
 			// Check conflict locally within transaction? Ideally yes, but reusing checkVehicleGroupConflict
 			// which uses DB connection might be tricky if it doesn't accept TX.
-			// For now, assume optimistic or rely on logic. 
-			// NOTE: checkVehicleGroupConflict READS from DB. It won't see changes in this TX yet, 
+			// For now, assume optimistic or rely on logic.
+			// NOTE: checkVehicleGroupConflict READS from DB. It won't see changes in this TX yet,
 			// but we ruled out THIS group.
-			
+
 			_, err = tx.Exec(`
 				INSERT INTO vehicle_group_members (group_id, vehicle_id, valid_from, valid_to)
 				VALUES (?, ?, ?, ?)
@@ -322,7 +314,9 @@ func UpdateVehicleGroup(c *gin.Context) {
 
 /*
 =========================
-  DELETE /api/admin/vehicle-groups/:id
+
+	DELETE /api/admin/vehicle-groups/:id
+
 =========================
 */
 func DeleteVehicleGroup(c *gin.Context) {
@@ -346,7 +340,9 @@ func DeleteVehicleGroup(c *gin.Context) {
 
 /*
 =========================
-  GET /api/admin/vehicle-groups/:id/details
+
+	GET /api/admin/vehicle-groups/:id/details
+
 =========================
 */
 func GetVehicleGroupDetails(c *gin.Context) {
@@ -388,7 +384,9 @@ func GetVehicleGroupDetails(c *gin.Context) {
 
 /*
 =========================
-  GET /api/admin/vehicle-groups/:id/members
+
+	GET /api/admin/vehicle-groups/:id/members
+
 =========================
 */
 func GetVehicleGroupMembers(c *gin.Context) {
@@ -432,7 +430,9 @@ func GetVehicleGroupMembers(c *gin.Context) {
 
 /*
 =========================
-  POST /api/admin/vehicle-groups/:id/add-member
+
+	POST /api/admin/vehicle-groups/:id/add-member
+
 =========================
 */
 func AddVehicleGroupMember(c *gin.Context) {
@@ -460,8 +460,8 @@ func AddVehicleGroupMember(c *gin.Context) {
 
 	groupID, _ := strconv.Atoi(groupIDParam)
 
-	validFrom := formatDateForDB(req.ValidFrom)
-	validTo := formatDateForDB(req.ValidTo)
+	validFrom := utils.FormatDateForDB(req.ValidFrom)
+	validTo := utils.FormatDateForDB(req.ValidTo)
 
 	// Check for date conflicts
 	hasConflict, conflictMsg := checkVehicleGroupConflict(req.VehicleID, groupID, validFrom, validTo)
@@ -487,7 +487,9 @@ func AddVehicleGroupMember(c *gin.Context) {
 
 /*
 =========================
-  DELETE /api/admin/vehicle-groups/:id/remove-member
+
+	DELETE /api/admin/vehicle-groups/:id/remove-member
+
 =========================
 */
 func RemoveVehicleGroupMember(c *gin.Context) {
@@ -524,7 +526,7 @@ func checkVehicleGroupConflict(vehicleID int, excludeGroupID int, validFrom, val
 		// Get vehicle number
 		var vehicleNumber string
 		config.DB.QueryRow(`SELECT vehicle_number FROM vehicles WHERE id = ?`, vehicleID).Scan(&vehicleNumber)
-		
+
 		return true, "Vehicle '" + vehicleNumber + "' is already assigned to '" + groupName + "' from " + existingFrom + " to " + existingTo + ". Dates overlap with your selection."
 	}
 	return false, ""
@@ -532,8 +534,10 @@ func checkVehicleGroupConflict(vehicleID int, excludeGroupID int, validFrom, val
 
 /*
 =========================
-  POST /api/admin/vehicle-groups/:id/assign-vehicles
-  (Legacy - kept for compatibility)
+
+	POST /api/admin/vehicle-groups/:id/assign-vehicles
+	(Legacy - kept for compatibility)
+
 =========================
 */
 func AssignVehiclesToGroup(c *gin.Context) {
@@ -545,10 +549,10 @@ func AssignVehiclesToGroup(c *gin.Context) {
 	}
 
 	var req struct {
-		VehicleIDs   []int  `json:"vehicle_ids"`
-		ValidFrom    string `json:"valid_from"`
-		ValidTo      string `json:"valid_to"`
-		ClearExisting bool  `json:"clear_existing"`
+		VehicleIDs    []int  `json:"vehicle_ids"`
+		ValidFrom     string `json:"valid_from"`
+		ValidTo       string `json:"valid_to"`
+		ClearExisting bool   `json:"clear_existing"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -587,8 +591,8 @@ func AssignVehiclesToGroup(c *gin.Context) {
 		return
 	}
 
-	validFrom := formatDateForDB(req.ValidFrom)
-	validTo := formatDateForDB(req.ValidTo)
+	validFrom := utils.FormatDateForDB(req.ValidFrom)
+	validTo := utils.FormatDateForDB(req.ValidTo)
 
 	// If clear_existing is true, remove all existing members first
 	if req.ClearExisting {
@@ -602,12 +606,12 @@ func AssignVehiclesToGroup(c *gin.Context) {
 	for _, vehicleID := range req.VehicleIDs {
 		// Pass reformatted dates to conflict check
 		hasConflict, _ := checkVehicleGroupConflict(vehicleID, groupID, validFrom, validTo)
-		
+
 		if !hasConflict || req.ClearExisting {
 			// Delete any existing membership for this vehicle in this group first (if duplicate key)
 			// (Though schema might not have unique constraint on group+vehicle, it's safer)
 			config.DB.Exec(`DELETE FROM vehicle_group_members WHERE group_id = ? AND vehicle_id = ?`, groupID, vehicleID)
-			
+
 			_, err := config.DB.Exec(`
 				INSERT INTO vehicle_group_members (group_id, vehicle_id, valid_from, valid_to)
 				VALUES (?, ?, ?, ?)
@@ -625,8 +629,10 @@ func AssignVehiclesToGroup(c *gin.Context) {
 
 /*
 =========================
-  POST /api/admin/vehicle-groups/:id/remove-vehicle
-  (Legacy - remove by vehicle_id)
+
+	POST /api/admin/vehicle-groups/:id/remove-vehicle
+	(Legacy - remove by vehicle_id)
+
 =========================
 */
 func RemoveVehicleFromGroup(c *gin.Context) {
@@ -659,8 +665,10 @@ func RemoveVehicleFromGroup(c *gin.Context) {
 
 /*
 =========================
-  GET /api/admin/vehicles/unassigned-ev
-  Get all EV vehicles not assigned to any group for given dates
+
+	GET /api/admin/vehicles/unassigned-ev
+	Get all EV vehicles not assigned to any group for given dates
+
 =========================
 */
 func GetUnassignedEVVehicles(c *gin.Context) {
@@ -719,8 +727,10 @@ func GetUnassignedEVVehicles(c *gin.Context) {
 
 /*
 =========================
-  GET /api/admin/vehicles/available-for-group
-  Get vehicles available for a date range
+
+	GET /api/admin/vehicles/available-for-group
+	Get vehicles available for a date range
+
 =========================
 */
 func GetAvailableVehiclesForGroup(c *gin.Context) {

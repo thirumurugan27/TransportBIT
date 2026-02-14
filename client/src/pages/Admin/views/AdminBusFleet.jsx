@@ -21,7 +21,7 @@ import {showConfirm} from "../../../utils/swal";
 import CustomSearch from "../../../components/ui/CustomSearch";
 import CustomDropdown from "../../../components/ui/CustomDropdown";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
+import {apiGet, apiPost} from "../../../utils/api";
 
 const STATUS_STYLES = {
   active: "bg-green/10 text-green border-green/20",
@@ -58,7 +58,7 @@ export default function AdminBusFleet() {
   const fetchBusFleet = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/admin/bus-fleet`);
+      const res = await apiGet("/api/admin/bus-fleet");
       if (res.ok) {
         const data = await res.json();
         setBusFleet(data || []);
@@ -72,7 +72,7 @@ export default function AdminBusFleet() {
 
   const fetchBusStops = async (busId) => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/bus/${busId}/stops`);
+      const res = await apiGet(`/api/admin/bus/${busId}/stops`);
       if (res.ok) {
         const data = await res.json();
         setBusStops(data || []);
@@ -123,11 +123,7 @@ export default function AdminBusFleet() {
       fee: Number(busStopForm.fee) || 0,
       stop_order: Number(busStopForm.stop_order) || 0,
     };
-    const res = await fetch(`${API_BASE}/api/admin/bus-stop/add`, {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify(payload),
-    });
+    const res = await apiPost("/api/admin/bus-stop/add", payload);
     if (res.ok) {
       showToast("Stop added successfully!", "success");
       setBusStopForm({stop_name: "", fee: 0, distance_km: 0, arrival_time: ""});
@@ -151,11 +147,7 @@ export default function AdminBusFleet() {
       fee: Number(editingStop.fee) || 0,
       stop_order: Number(editingStop.stop_order) || 0,
     };
-    const res = await fetch(`${API_BASE}/api/admin/bus-stop/update`, {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify(payload),
-    });
+    const res = await apiPost("/api/admin/bus-stop/update", payload);
     if (res.ok) {
       showToast("Stop updated!", "success");
       setEditingStop(null);
@@ -171,11 +163,7 @@ export default function AdminBusFleet() {
       "Are you sure you want to delete this stop?",
     );
     if (!isConfirmed) return;
-    const res = await fetch(`${API_BASE}/api/admin/bus-stop/delete`, {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({id: stopId}),
-    });
+    const res = await apiPost("/api/admin/bus-stop/delete", {id: stopId});
     if (res.ok) {
       showToast("Stop deleted!", "success");
       fetchBusStops(selectedBus.id);
@@ -186,16 +174,12 @@ export default function AdminBusFleet() {
   };
 
   const updateBusRoute = async () => {
-    const res = await fetch(`${API_BASE}/api/admin/bus-route/update`, {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({
-        id: selectedBus.id,
-        vehicle_id: selectedBus.id,
-        vehicle_name: editingBusRoute.vehicle_name,
-        start_point: editingBusRoute.start_point,
-        end_point: editingBusRoute.end_point,
-      }),
+    const res = await apiPost("/api/admin/bus-route/update", {
+      id: selectedBus.id,
+      vehicle_id: selectedBus.id,
+      vehicle_name: editingBusRoute.vehicle_name,
+      start_point: editingBusRoute.start_point,
+      end_point: editingBusRoute.end_point,
     });
     if (res.ok) {
       showToast("Route updated successfully!", "success");

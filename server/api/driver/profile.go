@@ -1,7 +1,6 @@
 package driver
 
 import (
-	"database/sql"
 	"log"
 	"net/http"
 
@@ -9,14 +8,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
-
-// DriverLoginResponse - response after driver login
-type DriverLoginResponse struct {
-	DriverID   int    `json:"driver_id"`
-	UserID     int    `json:"user_id"`
-	FullName   string `json:"full_name"`
-	IsIncharge bool   `json:"is_incharge"`
-}
 
 // DriverProfile - full driver profile
 type DriverProfile struct {
@@ -35,81 +26,12 @@ type DriverProfile struct {
 	Status          string `json:"status"`
 }
 
-type LoginRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
-
 /*
-	=========================
-	  POST /api/driver/login
-	=========================
-*/
-func DriverLogin(c *gin.Context) {
-	var req LoginRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
-		return
-	}
+=========================
 
-	log.Printf("Driver login attempt: username=%s", req.Username)
+	GET /api/driver/profile
 
-	// Check user credentials with role = 'DRIVER'
-	var userID int
-	var dbPassword string
-	err := config.DB.QueryRow(`
-		SELECT id, password FROM users 
-		WHERE username = ? AND role = 'DRIVER'
-	`, req.Username).Scan(&userID, &dbPassword)
-
-	if err == sql.ErrNoRows {
-		log.Printf("Driver not found: %s", req.Username)
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
-		return
-	}
-	if err != nil {
-		log.Printf("Driver login error: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
-		return
-	}
-
-	log.Printf("Found driver user ID: %d", userID)
-
-	// Check password
-	if dbPassword != req.Password {
-		log.Printf("Password mismatch for user: %s", req.Username)
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
-		return
-	}
-
-	// Get driver details including is_incharge
-	var driverID int
-	var fullName string
-	var isIncharge bool
-	err = config.DB.QueryRow(`
-		SELECT d.id, u.full_name, d.is_incharge FROM drivers d
-		JOIN users u ON d.user_id = u.id
-		WHERE d.user_id = ?
-	`, userID).Scan(&driverID, &fullName, &isIncharge)
-
-	if err != nil {
-		log.Printf("Driver fetch error: %v", err)
-		c.JSON(http.StatusNotFound, gin.H{"error": "Driver profile not found"})
-		return
-	}
-
-	c.JSON(http.StatusOK, DriverLoginResponse{
-		DriverID:   driverID,
-		UserID:     userID,
-		FullName:   fullName,
-		IsIncharge: isIncharge,
-	})
-}
-
-/*
-	=========================
-	  GET /api/driver/profile
-	=========================
+=========================
 */
 func GetDriverProfile(c *gin.Context) {
 	driverID := c.Query("driver_id")

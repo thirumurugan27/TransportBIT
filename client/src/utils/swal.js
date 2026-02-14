@@ -24,6 +24,10 @@ export const showError = (title, text) => {
     return showAlert('error', title, text);
 };
 
+export const showWarning = (title, text) => {
+    return showAlert('warning', title, text);
+};
+
 export const showConfirm = async (title, text) => {
     const result = await Swal.fire({
         title: title,

@@ -253,7 +253,7 @@ func ApproveLeave(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error processing leave request: " + err.Error()})
 		return
 	}
-	
+
 	rowsAffected, _ := result.RowsAffected()
 	if rowsAffected == 0 {
 		log.Printf("No rows affected for leave_id: %d", req.LeaveID)
@@ -268,7 +268,7 @@ func ApproveLeave(c *gin.Context) {
 	var notifTitle string
 	var notifMessage string
 	var nextStep string
-	
+
 	if newStatus == "rejected" {
 		notifTitle = "Leave Request Rejected by Incharge"
 		notifMessage = fmt.Sprintf("Your leave request from %s to %s has been rejected by incharge %s. Reason: %s",
@@ -287,16 +287,16 @@ func ApproveLeave(c *gin.Context) {
 	}
 
 	_, _ = config.DB.Exec(`
-		INSERT INTO driver_notifications (driver_id, title, message, type, related_id)
-		VALUES (?, ?, ?, 'leave', ?)
+		INSERT INTO notifications (recipient_role, recipient_id, title, message, type, reference_id)
+		VALUES ('DRIVER', ?, ?, ?, 'leave', ?)
 	`, driverID, notifTitle, notifMessage, req.LeaveID)
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":        fmt.Sprintf("Leave request processed successfully"),
-		"status":         newStatus,
-		"approved_by":    inchargeName,
-		"next_step":      nextStep,
-		"incharge_id":    approverID,
-		"incharge_name":  inchargeName,
+		"message":       fmt.Sprintf("Leave request processed successfully"),
+		"status":        newStatus,
+		"approved_by":   inchargeName,
+		"next_step":     nextStep,
+		"incharge_id":   approverID,
+		"incharge_name": inchargeName,
 	})
 }

@@ -89,24 +89,24 @@ func FixDatabaseSchema() {
 		log.Println("Schema Fix: temporary_assignments.created_by added")
 	}
 
-	// 9. Create user_notifications table for faculty and other user notifications
+	// 9. Create unified notifications table for all roles
 	_, err = config.DB.Exec(`
-		CREATE TABLE IF NOT EXISTS user_notifications (
+		CREATE TABLE IF NOT EXISTS notifications (
 			id INT AUTO_INCREMENT PRIMARY KEY,
-			user_id INT NOT NULL,
+			recipient_role ENUM('ADMIN','DRIVER','STUDENT','FACULTY','INCHARGE') NOT NULL,
+			recipient_id INT NOT NULL DEFAULT 0,
+			type VARCHAR(50) DEFAULT 'general',
 			title VARCHAR(255) NOT NULL,
 			message TEXT,
-			type VARCHAR(50) DEFAULT 'general',
-			related_id INT NULL,
-			is_read BOOLEAN DEFAULT FALSE,
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+			reference_id INT NULL,
+			is_read TINYINT DEFAULT 0,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		)
 	`)
 	if err != nil {
-		log.Printf("Schema Fix (user_notifications table): %v", err)
+		log.Printf("Schema Fix (notifications table): %v", err)
 	} else {
-		log.Println("Schema Fix: user_notifications table created/verified")
+		log.Println("Schema Fix: notifications table created/verified")
 	}
 
 	// 11. Fix vehiclerequests schema (add missing columns)

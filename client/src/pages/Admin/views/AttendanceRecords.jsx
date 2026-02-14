@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import {useToast} from "../../../context/ToastContext";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
+import {apiGet} from "../../../utils/api";
 
 export default function AttendanceRecords() {
   const {showToast} = useToast();
@@ -43,11 +43,11 @@ export default function AttendanceRecords() {
   const fetchAttendanceHistory = async () => {
     setLoading(true);
     try {
-      let url = `${API_BASE}/api/admin/attendance?start_date=${startDate}&end_date=${endDate}`;
+      let endpoint = `/api/admin/attendance?start_date=${startDate}&end_date=${endDate}`;
       if (statusFilter !== "all") {
-        url += `&status=${statusFilter}`;
+        endpoint += `&status=${statusFilter}`;
       }
-      const res = await fetch(url);
+      const res = await apiGet(endpoint);
       if (res.ok) {
         const data = await res.json();
         setAttendanceHistory(data || []);

@@ -21,7 +21,7 @@ import {
   Save,
 } from "lucide-react";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
+import {apiGet, apiPost, apiDelete} from "../../../utils/api";
 
 // Parse dd-mm-yyyy date format from backend
 const parseDate = (dateStr) => {
@@ -97,7 +97,7 @@ export default function Vehicles() {
   const fetchVehicles = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/admin/vehicles`);
+      const res = await apiGet("/api/admin/vehicles");
       const data = await res.json();
       setVehicles(data || []);
     } catch (err) {
@@ -181,11 +181,8 @@ export default function Vehicles() {
     );
     if (!isConfirmed) return;
     try {
-      const res = await fetch(
-        `${API_BASE}/api/admin/vehicles/delete?id=${id}`,
-        {
-          method: "DELETE",
-        },
+      const res = await apiDelete(
+        `/api/admin/vehicles/delete?id=${id}`,
       );
       if (res.ok) {
         showSuccess("Success", "Vehicle deleted successfully!");
@@ -225,17 +222,13 @@ export default function Vehicles() {
     }
 
     try {
-      const url = isEditing
-        ? `${API_BASE}/api/admin/vehicles/update`
-        : `${API_BASE}/api/admin/vehicles/create`;
+      const endpoint = isEditing
+        ? "/api/admin/vehicles/update"
+        : "/api/admin/vehicles/create";
 
       const body = isEditing ? {...vehicleForm, id: editingId} : vehicleForm;
 
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify(body),
-      });
+      const res = await apiPost(endpoint, body);
 
       if (res.ok) {
         showSuccess(
@@ -304,11 +297,7 @@ export default function Vehicles() {
     };
 
     try {
-      const res = await fetch(`${API_BASE}/api/admin/vehicles/update`, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify(updatedVehicle),
-      });
+      const res = await apiPost("/api/admin/vehicles/update", updatedVehicle);
 
       if (res.ok) {
         fetchVehicles();

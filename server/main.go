@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"strings"
 	"transport-server/api/admin"
 	"transport-server/api/bus"
 	"transport-server/api/student"
@@ -40,12 +41,16 @@ func main() {
 	r.Static("/uploads", "./uploads")
 
 	// 4. Configure CORS
+	allowedOrigins := os.Getenv("CORS_ORIGINS")
+	if allowedOrigins == "" {
+		allowedOrigins = "http://localhost:5173"
+	}
 	corsConfig := cors.Config{
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-Tunnel-Skip-Efficiency-Check"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
-		AllowOrigins:     []string{"http://localhost:5173", "https://d410t8rp-5173.inc1.devtunnels.ms"},
+		AllowOrigins:     strings.Split(allowedOrigins, ","),
 	}
 	r.Use(cors.New(corsConfig))
 

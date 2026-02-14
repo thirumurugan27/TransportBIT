@@ -120,13 +120,12 @@ func AddDriverKmLog(c *gin.Context) {
 
 	// Fetch driver user info for recorded_by metadata
 	var recordedByUserID int
-	var recordedByName string
 	err := config.DB.QueryRow(`
-		SELECT u.id, u.full_name
+		SELECT u.id
 		FROM drivers d
 		JOIN users u ON d.user_id = u.id
 		WHERE d.id = ?
-	`, req.DriverID).Scan(&recordedByUserID, &recordedByName)
+	`, req.DriverID).Scan(&recordedByUserID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Driver not found"})
 		return
@@ -170,10 +169,10 @@ func AddDriverKmLog(c *gin.Context) {
 		INSERT INTO km_logs (
 			driver_id, date, start_km, end_km, total_km, remarks,
 			vehicle_type, vehicle_id, assignment_id,
-			recorded_by_user_id, recorded_by_name
+			recorded_by_user_id
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, req.DriverID, req.Date, req.StartKm, req.EndKm, req.TotalKm, req.Remarks, req.VehicleType, vehicleID, assignmentID, recordedByUserID, recordedByName)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, req.DriverID, req.Date, req.StartKm, req.EndKm, req.TotalKm, req.Remarks, req.VehicleType, vehicleID, assignmentID, recordedByUserID)
 
 	if err != nil {
 		log.Printf("Add km log error: %v", err)

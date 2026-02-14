@@ -20,13 +20,7 @@ import {
 import {useToast} from "../../../context/ToastContext";
 import {showConfirm, showError, showSuccess} from "../../../utils/swal";
 import SearchableSelect from "../../../components/ui/SearchableSelect";
-
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
-
-const getAuthHeaders = () => {
-  const token = localStorage.getItem("token");
-  return token ? {Authorization: `Bearer ${token}`} : {};
-};
+import {apiGet, apiPost, apiDelete} from "../../../utils/api";
 
 const getCreatorIdFromToken = () => {
   const token = localStorage.getItem("token");
@@ -101,8 +95,8 @@ export default function Assignments() {
     setLoadingEvDetails(true);
     setShowEvDetailsModal(true);
     try {
-      const res = await fetch(
-        `${API_BASE}/api/admin/ev-assignments/${assignmentId}/details`,
+      const res = await apiGet(
+        `/api/admin/ev-assignments/${assignmentId}/details`,
       );
       if (res.ok) {
         const data = await res.json();
@@ -121,17 +115,17 @@ export default function Assignments() {
     setLoading(true);
     try {
       const [bus, car, ev, s, v, d, c] = await Promise.all([
-        fetch(
-          `${API_BASE}/api/admin/assignments/by-category?category=BUS&date=${filterDate}`,
+        apiGet(
+          `/api/admin/assignments/by-category?category=BUS&date=${filterDate}`,
         ).then((r) => r.json()),
-        fetch(
-          `${API_BASE}/api/admin/assignments/by-category?category=CAR&date=${filterDate}`,
+        apiGet(
+          `/api/admin/assignments/by-category?category=CAR&date=${filterDate}`,
         ).then((r) => r.json()),
-        fetch(`${API_BASE}/api/admin/ev-assignments?date=${filterDate}`).then((r) => r.json()),
-        fetch(`${API_BASE}/api/admin/shifts`).then((r) => r.json()),
-        fetch(`${API_BASE}/api/admin/vehicles`).then((r) => r.json()),
-        fetch(`${API_BASE}/api/admin/drivers`).then((r) => r.json()),
-        fetch(`${API_BASE}/api/admin/clusters`).then((r) => r.json()),
+        apiGet(`/api/admin/ev-assignments?date=${filterDate}`).then((r) => r.json()),
+        apiGet(`/api/admin/shifts`).then((r) => r.json()),
+        apiGet(`/api/admin/vehicles`).then((r) => r.json()),
+        apiGet(`/api/admin/drivers`).then((r) => r.json()),
+        apiGet(`/api/admin/clusters`).then((r) => r.json()),
       ]);
 
       setBusAssignments(bus || []);
@@ -155,7 +149,7 @@ export default function Assignments() {
   // Fetch available drivers when opening modal
   const fetchAvailableDrivers = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/drivers`);
+      const res = await apiGet(`/api/admin/drivers`);
       const allDrivers = await res.json();
       // Filter logic can be improved based on backend availability check
       // For now, using client side 'status' if available, or just all drivers
@@ -201,8 +195,8 @@ export default function Assignments() {
 
     const endpoint =
       createModalType === "ev"
-        ? `${API_BASE}/api/admin/ev-assignments/create`
-        : `${API_BASE}/api/admin/assignments/create`;
+        ? "/api/admin/ev-assignments/create"
+        : "/api/admin/assignments/create";
 
     const payload = {
       ...assignmentForm,
@@ -211,12 +205,7 @@ export default function Assignments() {
     };
 
     try {
-      const res = await fetch(endpoint, {
-        method: "POST",
-        credentials: "include",
-        headers: {"Content-Type": "application/json", ...getAuthHeaders()},
-        body: JSON.stringify(payload),
-      });
+      const res = await apiPost(endpoint, payload);
 
       if (res.ok) {
         showToast("Assignment created successfully!", "success");
@@ -265,8 +254,8 @@ export default function Assignments() {
 
     const endpoint =
       createModalType === "ev"
-        ? `${API_BASE}/api/admin/ev-assignments/create`
-        : `${API_BASE}/api/admin/assignments/create`;
+        ? "/api/admin/ev-assignments/create"
+        : "/api/admin/assignments/create";
 
     const payload = {
       ...conflictPendingForm,
@@ -275,12 +264,7 @@ export default function Assignments() {
     };
 
     try {
-      const res = await fetch(endpoint, {
-        method: "POST",
-        credentials: "include",
-        headers: {"Content-Type": "application/json", ...getAuthHeaders()},
-        body: JSON.stringify(payload),
-      });
+      const res = await apiPost(endpoint, payload);
 
       if (res.ok) {
         showToast("Assignment created successfully (forced)!", "success");
@@ -322,8 +306,8 @@ export default function Assignments() {
 
     const availabilityPromises = drivers.map(async (driver) => {
       try {
-        const response = await fetch(
-          `${API_BASE}/api/admin/assignments/check-driver-conflict?driver_id=${driver.driver_id || driver.id}&shift_id=${shiftId}&date=${startDate}`,
+        const response = await apiGet(
+          `/api/admin/assignments/check-driver-conflict?driver_id=${driver.driver_id || driver.id}&shift_id=${shiftId}&date=${startDate}`,
         );
         const data = await response.json();
         return {
@@ -355,8 +339,8 @@ export default function Assignments() {
 
     const availabilityPromises = vehicleList.map(async (vehicle) => {
       try {
-        const response = await fetch(
-          `${API_BASE}/api/admin/assignments/check-vehicle-conflict?vehicle_id=${vehicle.id}&shift_id=${shiftId}&date=${startDate}`,
+        const response = await apiGet(
+          `/api/admin/assignments/check-vehicle-conflict?vehicle_id=${vehicle.id}&shift_id=${shiftId}&date=${startDate}`,
         );
         const data = await response.json();
         return {
@@ -463,9 +447,7 @@ export default function Assignments() {
       ? "/api/admin/ev-assignments/delete"
       : "/api/admin/assignments/delete";
     try {
-      const res = await fetch(`${API_BASE}${endpoint}?id=${id}`, {
-        method: "DELETE",
-      });
+      const res = await apiDelete(`${endpoint}?id=${id}`);
       if (res.ok) {
         showToast("Deleted successfully", "success");
         fetchAllData();
@@ -480,15 +462,11 @@ export default function Assignments() {
   const handleReassign = async () => {
     if (!reassignModal || !reassignDriverId) return;
     try {
-      const res = await fetch(`${API_BASE}/api/admin/assignments/update`, {
-        method: "POST", // Assumed update endpoint from legacy code
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
+      const res = await apiPost(`/api/admin/assignments/update`, {
           assignment_id: reassignModal.id,
           driver_id: reassignDriverId,
           status: "assigned",
-        }),
-      });
+        });
       if (res.ok) {
         showToast("Reassigned successfully", "success");
         setReassignModal(null);

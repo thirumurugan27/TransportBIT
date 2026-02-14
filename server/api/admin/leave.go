@@ -438,8 +438,8 @@ func ApproveLeave(c *gin.Context) {
 	}
 
 	_, _ = config.DB.Exec(`
-		INSERT INTO driver_notifications (driver_id, title, message, type, related_id)
-		VALUES (?, ?, ?, 'leave', ?)
+		INSERT INTO notifications (recipient_role, recipient_id, title, message, type, reference_id)
+		VALUES ('DRIVER', ?, ?, ?, 'leave', ?)
 	`, driverID, notifTitle, notifMessage, req.LeaveID)
 
 	// If fully approved, check for affected assignments and suggest replacements
@@ -865,8 +865,8 @@ func ApproveLeaveWithAssignments(c *gin.Context) {
 		}
 
 		_, _ = tx.Exec(`
-			INSERT INTO driver_notifications (driver_id, title, message, type)
-			VALUES (?, ?, ?, 'assignment')
+			INSERT INTO notifications (recipient_role, recipient_id, title, message, type)
+			VALUES ('DRIVER', ?, ?, ?, 'assignment')
 		`, ta.ReplacementDriverID,
 			"Temporary Assignment Created",
 			fmt.Sprintf("You have been assigned to vehicle %s%s from %s to %s (covering for another driver on leave)",
@@ -923,8 +923,8 @@ func ApproveLeaveWithAssignments(c *gin.Context) {
 	}
 
 	_, _ = config.DB.Exec(`
-		INSERT INTO driver_notifications (driver_id, title, message, type, related_id)
-		VALUES (?, ?, ?, 'leave', ?)
+		INSERT INTO notifications (recipient_role, recipient_id, title, message, type, reference_id)
+		VALUES ('DRIVER', ?, ?, ?, 'leave', ?)
 	`, driverID, notifTitle, notifMessage, req.LeaveID)
 
 	c.JSON(http.StatusOK, gin.H{

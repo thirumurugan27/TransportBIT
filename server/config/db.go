@@ -7,17 +7,12 @@ import (
 	"os"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/joho/godotenv"
 )
 
 var DB *sql.DB
 
 func InitDB() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Println("Warning: Error loading .env file, using defaults or env vars")
-	}
-
+	// .env is already loaded in main.go via godotenv.Load()
 	dbUser := os.Getenv("DB_USER")
 	dbPassword := os.Getenv("DB_PASSWORD")
 	dbHost := os.Getenv("DB_HOST")

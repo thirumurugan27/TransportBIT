@@ -267,6 +267,30 @@ export default function ScheduleManagement() {
         setNewMemberForm({item_id: "", valid_from: "", valid_to: ""});
         openMemberModal(selectedGroupId, selectedGroupName, memberModalType);
         fetchData();
+      } else if (res.status === 409) {
+        const data = await res.json();
+        if (data.conflicts && data.conflicts.length > 0) {
+          const confirmed = await showConfirm(
+            "Driver Already Assigned",
+            data.conflicts.join("\n") + "\n\nDo you want to proceed anyway?",
+          );
+          if (confirmed) {
+            const forceRes = await fetch(`${API_BASE}${endpoint}`, {
+              method: "POST",
+              credentials: "include",
+              headers: {"Content-Type": "application/json", ...getAuthHeaders()},
+              body: JSON.stringify({...payload, force: true}),
+            });
+            if (forceRes.ok) {
+              showSuccess("Success", "Member added successfully!");
+              setNewMemberForm({item_id: "", valid_from: "", valid_to: ""});
+              openMemberModal(selectedGroupId, selectedGroupName, memberModalType);
+              fetchData();
+            } else {
+              showError("Error", "Failed to add member");
+            }
+          }
+        }
       } else {
         const errorData = await res.json();
         showError("Error", errorData.error || "Failed to add member");
@@ -447,7 +471,7 @@ export default function ScheduleManagement() {
     setShowModal(true);
   };
 
-  const handleCreateOrUpdateCluster = async () => {
+  const handleCreateOrUpdateCluster = async (force = false) => {
     if (!clusterForm.name) {
       showError("Error", "Name is required");
       return;
@@ -462,6 +486,7 @@ export default function ScheduleManagement() {
       : clusterForm;
     const payload = {
       ...basePayload,
+      force,
       shift_id:
         basePayload.shift_id === "" ? null : parseInt(basePayload.shift_id),
     };
@@ -490,12 +515,24 @@ export default function ScheduleManagement() {
           valid_to: "",
           driver_ids: [],
         });
+      } else if (res.status === 409) {
+        const data = await res.json();
+        if (data.conflicts && data.conflicts.length > 0) {
+          const confirmed = await showConfirm(
+            "Driver Already Assigned",
+            data.conflicts.join("\n") + "\n\nDo you want to proceed anyway?",
+          );
+          if (confirmed) {
+            await handleCreateOrUpdateCluster(true);
+          }
+        }
       } else {
-        showError("Error", "Failed: " + (await res.text()));
+        const errorData = await res.json().catch(() => null);
+        showError("Error", errorData?.error || "Failed to process group");
       }
     } catch (err) {
-      console.error(err);
-      showError("Error", "Error processing group");
+      console.error("Create/update cluster error:", err);
+      showError("Error", err.message || "Error processing group");
     }
   };
 
@@ -1989,7 +2026,7 @@ export default function ScheduleManagement() {
               <button
                 onClick={
                   modalType === "cluster"
-                    ? handleCreateOrUpdateCluster
+                    ? () => handleCreateOrUpdateCluster()
                     : modalType === "vehicle-group"
                       ? handleCreateOrUpdateVehicleGroup
                       : handleCreateOrUpdateShift
