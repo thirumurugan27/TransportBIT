@@ -4,6 +4,9 @@ import {useAuth} from "../../../context/AuthContext";
 import {useToast} from "../../../context/ToastContext";
 import Loading from "../../../components/ui/Loading";
 import SearchableSelect from "../../../components/ui/SearchableSelect";
+import CustomDropdown from "../../../components/ui/CustomDropdown";
+import CustomSearchableDropdown from "../../../components/ui/CustomSearchableDropdown";
+import CustomSearch from "../../../components/ui/CustomSearch";
 import {
   Plus,
   Truck,
@@ -13,24 +16,16 @@ import {
   Route,
   TrendingUp,
   AlertCircle,
-  Loader2,
-  Filter,
-  RefreshCw,
   Car,
   Bus,
   Zap,
   Clock,
-  ChevronDown,
-  ChevronUp,
-  History,
-  Search,
+  ChevronRight,
+  FileText,
   Award,
   Gauge,
   X,
   BarChart3,
-  ChevronRight,
-  FileText,
-  MapPin,
 } from "lucide-react";
 
 const formatNumber = (value, fraction = 1) =>
@@ -52,46 +47,22 @@ const getVehicleIcon = (type) => {
   }
 };
 
-const getVehicleTypeBadge = (type) => {
-  const typeStr = type?.toUpperCase() || "UNKNOWN";
-  const colors = {
-    BUS: "bg-blue-100 text-blue-700",
-    CAR: "bg-green-100 text-green-700",
-    EV: "bg-purple-100 text-purple-700",
-    VAN: "bg-orange-100 text-orange-700",
-  };
-  return (
-    <span
-      className={`px-2 py-0.5 rounded-md text-xs font-medium ${colors[typeStr] || "bg-gray-100 text-gray-700"}`}
-    >
-      {typeStr}
-    </span>
-  );
-};
-
-const periodPresets = [
-  {value: "today", label: "Today"},
-  {value: "week", label: "This Week"},
-  {value: "month", label: "This Month"},
-  {value: "all", label: "All Time"},
-];
-
 export default function KmManagement() {
   const {user} = useAuth();
   const {showToast} = useToast();
 
-  const [activeTab, setActiveTab] = useState("summary");
+  // Tab state
+  const [activeTab, setActiveTab] = useState("overview");
+
   const [loading, setLoading] = useState(false);
   const [logsLoading, setLogsLoading] = useState(false);
   const [filterMeta, setFilterMeta] = useState({drivers: [], vehicles: []});
   const [metaLoading, setMetaLoading] = useState(true);
 
+  // Entry modal
+  const [showEntryModal, setShowEntryModal] = useState(false);
   const [selectedDriverId, setSelectedDriverId] = useState("");
   const [driverInfo, setDriverInfo] = useState(null);
-  const [assignedVehicles, setAssignedVehicles] = useState([]);
-  const [vehiclesLoading, setVehiclesLoading] = useState(false);
-  const [showDriverVehicles, setShowDriverVehicles] = useState(false);
-
   const [form, setForm] = useState({
     date: getToday(),
     vehicle_id: "",
@@ -100,36 +71,55 @@ export default function KmManagement() {
     remarks: "",
   });
 
+  // Logs
   const [logFilters, setLogFilters] = useState({
     period: "today",
     driverId: "",
     vehicleId: "",
-    startDate: "",
-    endDate: "",
+    vehicleType: "",
     search: "",
   });
   const [logs, setLogs] = useState([]);
   const [logSummary, setLogSummary] = useState({total_km: 0, total_trips: 0});
 
+  // Summary
   const [summaryFilters, setSummaryFilters] = useState({
     period: "all",
     driverId: "",
     vehicleId: "",
-    startDate: "",
-    endDate: "",
   });
   const [kmSummary, setKmSummary] = useState(null);
   const [vehicleSummary, setVehicleSummary] = useState([]);
   const [vehicleSummaryLoading, setVehicleSummaryLoading] = useState(false);
 
+  // Driver history modal
   const [showDriverModal, setShowDriverModal] = useState(false);
   const [selectedDriverHistory, setSelectedDriverHistory] = useState(null);
   const [driverHistoryLoading, setDriverHistoryLoading] = useState(false);
 
+  // Vehicle Type detail modal
+  const [showVehicleTypeModal, setShowVehicleTypeModal] = useState(false);
+  const [selectedVehicleType, setSelectedVehicleType] = useState(null);
+  const [vehicleTypeLoading, setVehicleTypeLoading] = useState(false);
+  const [vehicleTypeLogs, setVehicleTypeLogs] = useState([]);
+
+  // Individual Vehicle detail modal
+  const [showVehicleModal, setShowVehicleModal] = useState(false);
+  const [selectedVehicle, setSelectedVehicle] = useState(null);
+  const [vehicleLoading, setVehicleLoading] = useState(false);
+  const [vehicleLogs, setVehicleLogs] = useState([]);
+
+  // Top Drivers search
+  const [driverSearch, setDriverSearch] = useState("");
+
+  // Vehicle search
+  const [vehicleSearch, setVehicleSearch] = useState("");
+
+  /* --- Data Fetching --- */
   const loadFilterMeta = async () => {
     try {
       setMetaLoading(true);
-      const res = await apiGet(`/api/admin/km-filters`);
+      const res = await apiGet("/api/admin/km-filters");
       if (res.ok) {
         const payload = await res.json();
         setFilterMeta({
@@ -144,46 +134,31 @@ export default function KmManagement() {
     }
   };
 
-  const fetchDriverVehicles = async (driverId, date) => {
+  const fetchDriverInfo = async (driverId) => {
+    if (!driverId) {
+      setDriverInfo(null);
+      return;
+    }
     try {
-      setVehiclesLoading(true);
-      const res = await apiGet(
-        `/api/admin/driver-assigned-vehicles?driver_id=${driverId}&date=${date}`,
+      // Fetch driver basic info from the drivers list
+      const driver = filterMeta.drivers.find(
+        (d) => String(d.id) === String(driverId),
       );
-      if (res.ok) {
-        const data = await res.json();
+      if (driver) {
         setDriverInfo({
-          id: data.driver_id,
-          name: data.driver_name,
-          cluster: data.cluster_name,
+          id: driver.id,
+          name: driver.name,
+          cluster: driver.cluster_name || null,
         });
-        setAssignedVehicles(data.vehicles || []);
-        setShowDriverVehicles(true);
-
-        if (data.vehicles?.length === 1) {
-          setForm((prev) => ({
-            ...prev,
-            vehicle_id: data.vehicles[0].vehicle_id,
-          }));
-        }
       }
     } catch (err) {
-      console.error("Failed to fetch driver vehicles", err);
-    } finally {
-      setVehiclesLoading(false);
+      console.error("Failed to fetch driver info", err);
     }
   };
 
   useEffect(() => {
-    if (selectedDriverId && form.date) {
-      fetchDriverVehicles(selectedDriverId, form.date);
-      setShowDriverVehicles(true);
-    } else {
-      setAssignedVehicles([]);
-      setDriverInfo(null);
-      setShowDriverVehicles(false);
-    }
-  }, [selectedDriverId, form.date]);
+    fetchDriverInfo(selectedDriverId);
+  }, [selectedDriverId, filterMeta.drivers]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -191,34 +166,25 @@ export default function KmManagement() {
       showToast("Please fill all required fields", "error");
       return;
     }
-
     if (!form.start_km || !form.end_km) {
       showToast("Please enter Start and End KM", "error");
       return;
     }
-
     const startKm = parseFloat(form.start_km);
     const endKm = parseFloat(form.end_km);
     if (endKm <= startKm) {
       showToast("End KM must be greater than Start KM", "error");
       return;
     }
-
     if (!user?.user_id) {
       showToast("Session expired. Please re-login.", "error");
       return;
     }
-
     try {
       setLoading(true);
-      const selectedVehicleMeta =
-        assignedVehicles.find(
-          (v) => String(v.vehicle_id) === String(form.vehicle_id),
-        ) ||
-        filterMeta.vehicles.find(
-          (v) => String(v.id) === String(form.vehicle_id),
-        );
-
+      const selectedVehicleMeta = filterMeta.vehicles.find(
+        (v) => String(v.id) === String(form.vehicle_id),
+      );
       const payload = {
         admin_user_id: user?.user_id,
         driver_id: Number(selectedDriverId),
@@ -230,20 +196,12 @@ export default function KmManagement() {
         remarks: form.remarks?.trim() || "",
         vehicle_type: selectedVehicleMeta?.vehicle_type || "",
       };
-
       const res = await apiPost("/api/admin/km-log/add", payload);
       const data = await res.json();
-
       if (res.ok) {
         showToast("KM log added successfully", "success");
-        setForm({
-          date: getToday(),
-          vehicle_id: "",
-          start_km: "",
-          end_km: "",
-          remarks: "",
-        });
-        setSelectedDriverId("");
+        resetForm();
+        setShowEntryModal(false);
         fetchKmLogs();
       } else {
         showToast(data.error || "Failed to add KM log", "error");
@@ -256,6 +214,18 @@ export default function KmManagement() {
     }
   };
 
+  const resetForm = () => {
+    setForm({
+      date: getToday(),
+      vehicle_id: "",
+      start_km: "",
+      end_km: "",
+      remarks: "",
+    });
+    setSelectedDriverId("");
+    setDriverInfo(null);
+  };
+
   const fetchKmLogs = async () => {
     try {
       setLogsLoading(true);
@@ -263,11 +233,10 @@ export default function KmManagement() {
       params.set("period", logFilters.period);
       if (logFilters.driverId) params.set("driver_id", logFilters.driverId);
       if (logFilters.vehicleId) params.set("vehicle_id", logFilters.vehicleId);
-      if (logFilters.startDate) params.set("start_date", logFilters.startDate);
-      if (logFilters.endDate) params.set("end_date", logFilters.endDate);
+      if (logFilters.vehicleType)
+        params.set("vehicle_type", logFilters.vehicleType);
       if (logFilters.search) params.set("search", logFilters.search);
-
-      const res = await apiGet(`/api/admin/km-logs?${params.toString()}`);
+      const res = await apiGet("/api/admin/km-logs?" + params.toString());
       if (res.ok) {
         const data = await res.json();
         setLogs(data.logs || []);
@@ -283,7 +252,6 @@ export default function KmManagement() {
     }
   };
 
-  // Summary functions
   const fetchKmSummary = async () => {
     try {
       setLoading(true);
@@ -293,12 +261,7 @@ export default function KmManagement() {
         params.set("driver_id", summaryFilters.driverId);
       if (summaryFilters.vehicleId)
         params.set("vehicle_id", summaryFilters.vehicleId);
-      if (summaryFilters.startDate)
-        params.set("start_date", summaryFilters.startDate);
-      if (summaryFilters.endDate)
-        params.set("end_date", summaryFilters.endDate);
-
-      const res = await apiGet(`/api/admin/km-summary?${params.toString()}`);
+      const res = await apiGet("/api/admin/km-summary?" + params.toString());
       if (res.ok) {
         const data = await res.json();
         setKmSummary(data);
@@ -319,13 +282,8 @@ export default function KmManagement() {
         params.set("driver_id", summaryFilters.driverId);
       if (summaryFilters.vehicleId)
         params.set("vehicle_id", summaryFilters.vehicleId);
-      if (summaryFilters.startDate)
-        params.set("start_date", summaryFilters.startDate);
-      if (summaryFilters.endDate)
-        params.set("end_date", summaryFilters.endDate);
-
       const res = await apiGet(
-        `/api/admin/km-vehicle-summary?${params.toString()}`,
+        "/api/admin/km-vehicle-summary?" + params.toString(),
       );
       if (res.ok) {
         const data = await res.json();
@@ -341,26 +299,12 @@ export default function KmManagement() {
     }
   };
 
-  const updateSummaryFilter = (key, value) => {
-    setSummaryFilters((prev) => ({...prev, [key]: value}));
-  };
-
-  const resetSummaryFilters = () => {
-    setSummaryFilters({
-      period: "month",
-      driverId: "",
-      vehicleId: "",
-      startDate: "",
-      endDate: "",
-    });
-  };
-
   const viewDriverHistory = async (driverId) => {
     try {
       setDriverHistoryLoading(true);
       setShowDriverModal(true);
       const res = await apiGet(
-        `/api/admin/driver-km-history?driver_id=${driverId}&period=all`,
+        "/api/admin/driver-km-history?driver_id=" + driverId + "&period=all",
       );
       if (res.ok) {
         const data = await res.json();
@@ -373,9 +317,46 @@ export default function KmManagement() {
     }
   };
 
-  const closeDriverModal = () => {
-    setShowDriverModal(false);
-    setSelectedDriverHistory(null);
+  const viewVehicleTypeDetails = async (vehicleType) => {
+    try {
+      setVehicleTypeLoading(true);
+      setShowVehicleTypeModal(true);
+      setSelectedVehicleType(vehicleType);
+      // Get logs for this vehicle type
+      const params = new URLSearchParams();
+      params.set("period", summaryFilters.period);
+      params.set("vehicle_type", vehicleType.vehicle_type);
+      const res = await apiGet("/api/admin/km-logs?" + params.toString());
+      if (res.ok) {
+        const data = await res.json();
+        setVehicleTypeLogs(data.logs || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch vehicle type logs", err);
+    } finally {
+      setVehicleTypeLoading(false);
+    }
+  };
+
+  const viewVehicleDetails = async (vehicle) => {
+    try {
+      setVehicleLoading(true);
+      setShowVehicleModal(true);
+      setSelectedVehicle(vehicle);
+      // Get logs for this vehicle
+      const params = new URLSearchParams();
+      params.set("period", summaryFilters.period);
+      params.set("vehicle_id", vehicle.vehicle_id);
+      const res = await apiGet("/api/admin/km-logs?" + params.toString());
+      if (res.ok) {
+        const data = await res.json();
+        setVehicleLogs(data.logs || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch vehicle logs", err);
+    } finally {
+      setVehicleLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -392,831 +373,311 @@ export default function KmManagement() {
   }, [logFilters]);
 
   const totalKm = parseFloat(form.end_km || 0) - parseFloat(form.start_km || 0);
-
   const summary = kmSummary || {};
-  const selectedDriver = summary.selected_driver;
-  const selectedVehicle = summary.selected_vehicle;
-
   const avgKmPerTrip =
     summary.avg_km_per_trip ??
     (summary.grand_total_trips > 0
       ? summary.grand_total_km / summary.grand_total_trips
       : 0);
-
   const maxVehicleKm =
     vehicleSummary.length > 0
       ? Math.max(...vehicleSummary.map((v) => v.total_km || 0)) || 1
       : 1;
 
-  const formatDateRange = (start, end) => {
-    if (start && end) {
-      if (start === end) return start;
-      return `${start} → ${end}`;
-    }
-    return start || end || "No date range";
-  };
+  const periodOptions = [
+    {value: "today", label: "Today"},
+    {value: "week", label: "This Week"},
+    {value: "month", label: "This Month"},
+    {value: "all", label: "All Time"},
+  ];
 
-  const activeBadges = [];
-  if (
-    !summaryFilters.startDate &&
-    !summaryFilters.endDate &&
-    summaryFilters.period !== "month"
-  ) {
-    const presetName =
-      periodPresets.find((preset) => preset.value === summaryFilters.period)
-        ?.label || summaryFilters.period;
-    activeBadges.push(presetName);
-  }
-  if (summaryFilters.driverId) {
-    const driver = filterMeta.drivers.find(
-      (d) => String(d.id) === String(summaryFilters.driverId),
-    );
-    activeBadges.push(driver?.name || "Driver filter");
-  }
-  if (summaryFilters.vehicleId) {
-    const vehicle = filterMeta.vehicles.find(
-      (v) => String(v.id) === String(summaryFilters.vehicleId),
-    );
-    activeBadges.push(vehicle?.vehicle_number || "Vehicle filter");
-  }
-  if (summaryFilters.startDate || summaryFilters.endDate) {
-    activeBadges.push(
-      `${summaryFilters.startDate || "Start"} → ${summaryFilters.endDate || "End"}`,
-    );
-  }
+  const driverOptions = [
+    {value: "", label: "All Drivers"},
+    ...(filterMeta.drivers || []).map((d) => ({
+      value: String(d.id),
+      label: d.name,
+    })),
+  ];
 
-  const hasCustomFilters =
-    summaryFilters.period !== "month" ||
-    Boolean(summaryFilters.driverId) ||
-    Boolean(summaryFilters.vehicleId) ||
-    Boolean(summaryFilters.startDate) ||
-    Boolean(summaryFilters.endDate);
+  const vehicleFilterOptions = [
+    {value: "", label: "All Vehicles"},
+    ...(filterMeta.vehicles || []).map((v) => ({
+      value: String(v.id),
+      label:
+        v.vehicle_name && v.vehicle_name !== v.vehicle_number
+          ? v.vehicle_name + " (" + v.vehicle_number + ")"
+          : v.vehicle_number,
+    })),
+  ];
+
+  const vehicleTypeOptions = [
+    {value: "", label: "All Types"},
+    {value: "BUS", label: "Bus"},
+    {value: "CAR", label: "Car"},
+    {value: "EV", label: "EV"},
+    {value: "BATTERY_VEHICLE", label: "Battery Vehicle"},
+  ];
 
   return (
     <div className="space-y-6 pb-12 animate-fadeIn">
-      {/* Header with Tabs */}
-      <div className="bg-white rounded-md shadow-sm border border-gray-100 overflow-hidden">
-        <div className="px-6 py-5 border-b border-gray-100">
-          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-            <Route size={28} className="text-primary" />
-            KM Management
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Comprehensive fleet mileage tracking and analytics
-          </p>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex border-b border-gray-100">
-          <button
-            onClick={() => setActiveTab("summary")}
-            className={`flex-1 px-6 py-4 text-sm font-semibold transition-all ${
-              activeTab === "summary"
-                ? "text-primary border-b-2 border-primary bg-primary/5"
-                : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-            }`}
-          >
-            <div className="flex items-center justify-center gap-2">
-              <BarChart3 size={18} />
-              Summary & Analytics
-            </div>
-          </button>
-          <button
-            onClick={() => setActiveTab("entry")}
-            className={`flex-1 px-6 py-4 text-sm font-semibold transition-all ${
-              activeTab === "entry"
-                ? "text-primary border-b-2 border-primary bg-primary/5"
-                : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-            }`}
-          >
-            <div className="flex items-center justify-center gap-2">
-              <Plus size={18} />
-              KM Log Entry
-            </div>
-          </button>
-        </div>
+      {/* Tab Navigation */}
+      <div className="inline-flex items-center gap-2 p-1.5 bg-gray-100 rounded-md">
+        <button
+          onClick={() => setActiveTab("overview")}
+          className={`inline-flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-semibold rounded-md transition-all duration-300 ${
+            activeTab === "overview"
+              ? "bg-primary text-white shadow-md"
+              : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          <BarChart3 className="w-4 h-4" />
+          Overview & Logs
+        </button>
+        <button
+          onClick={() => setActiveTab("individual")}
+          className={`inline-flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-semibold rounded-md transition-all duration-300 ${
+            activeTab === "individual"
+              ? "bg-primary text-white shadow-md"
+              : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          <User className="w-4 h-4" />
+          Individual Analysis
+        </button>
       </div>
 
-      {/* Summary Tab Content */}
-      {activeTab === "summary" && (
+      {/* Overview Tab */}
+      {activeTab === "overview" && (
         <>
-          {/* Summary Filters */}
-          <div className="bg-white rounded-md shadow-sm border border-gray-100">
-            <div className="px-6 py-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-2 text-gray-700 font-semibold">
-                <Filter size={18} className="text-primary" />
-                Smart Filters
-                {metaLoading && (
-                  <span className="flex items-center gap-1 text-xs font-normal text-gray-400">
-                    <Loading fullScreen={false} size="small" /> Syncing options
-                  </span>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={resetSummaryFilters}
-                disabled={!hasCustomFilters}
-                className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 disabled:text-gray-300"
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {[
+              {
+                label: "Total Distance",
+                value: formatNumber(summary.grand_total_km, 1) + " km",
+                icon: Map,
+                color: "bg-primary/10 text-primary",
+              },
+              {
+                label: "Total Trips",
+                value: summary.grand_total_trips || 0,
+                icon: Route,
+                color: "bg-green-50 text-green-600",
+              },
+              {
+                label: "Avg / Trip",
+                value: formatNumber(avgKmPerTrip, 1) + " km",
+                icon: TrendingUp,
+                color: "bg-amber-50 text-amber-600",
+              },
+            ].map((stat) => (
+              <div
+                key={stat.label}
+                className="bg-secondarybg rounded-md p-5 border border-primarybg shadow-sm"
               >
-                <RefreshCw size={16} /> Reset filters
-              </button>
-            </div>
-
-            <div className="px-6 pb-6 grid grid-cols-1 gap-4 lg:grid-cols-4">
-              {/* Period */}
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                  Period
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {periodPresets.map((preset) => {
-                    const isActive = summaryFilters.period === preset.value;
-                    return (
-                      <button
-                        key={preset.value}
-                        type="button"
-                        onClick={() =>
-                          updateSummaryFilter("period", preset.value)
-                        }
-                        className={`px-3 py-2 text-xs font-semibold rounded-md border transition-all ${
-                          isActive
-                            ? "bg-primary text-white border-primary shadow"
-                            : "border-gray-200 text-gray-600 hover:border-primary/40"
-                        }`}
-                      >
-                        {preset.label}
-                      </button>
-                    );
-                  })}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-bold text-secondarytext uppercase tracking-wider mb-2">
+                      {stat.label}
+                    </p>
+                    <h3 className="text-2xl font-extrabold text-primarytext">
+                      {stat.value}
+                    </h3>
+                  </div>
+                  <div className={"p-3 rounded-md shadow-sm " + stat.color}>
+                    <stat.icon size={24} strokeWidth={2.5} />
+                  </div>
                 </div>
               </div>
-
-              {/* Driver */}
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                  Driver
-                </p>
-                <SearchableSelect
-                  options={(filterMeta.drivers || []).map((driver) => ({
-                    value: driver.id,
-                    label: driver.name,
-                    subtitle: driver.cluster
-                      ? `Cluster: ${driver.cluster}`
-                      : null,
-                  }))}
-                  value={summaryFilters.driverId}
-                  onChange={(val) => updateSummaryFilter("driverId", val)}
-                  placeholder="All drivers"
-                  disabled={metaLoading}
-                  emptyMessage="No drivers found"
-                />
-              </div>
-
-              {/* Vehicle */}
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                  Vehicle
-                </p>
-                <SearchableSelect
-                  options={(filterMeta.vehicles || []).map((vehicle) => ({
-                    value: vehicle.id,
-                    label:
-                      vehicle.vehicle_name &&
-                      vehicle.vehicle_name !== vehicle.vehicle_number
-                        ? `${vehicle.vehicle_name} (${vehicle.vehicle_number})`
-                        : vehicle.vehicle_number,
-                    subtitle: vehicle.vehicle_type,
-                  }))}
-                  value={summaryFilters.vehicleId}
-                  onChange={(val) => updateSummaryFilter("vehicleId", val)}
-                  placeholder="All vehicles"
-                  disabled={metaLoading}
-                  emptyMessage="No vehicles found"
-                />
-              </div>
-
-              {/* Custom Range */}
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                  Custom Range
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="date"
-                    value={summaryFilters.startDate}
-                    onChange={(e) =>
-                      updateSummaryFilter("startDate", e.target.value)
-                    }
-                    className="border border-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  />
-                  <input
-                    type="date"
-                    value={summaryFilters.endDate}
-                    min={summaryFilters.startDate || undefined}
-                    onChange={(e) =>
-                      updateSummaryFilter("endDate", e.target.value)
-                    }
-                    className="border border-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {activeBadges.length > 0 && (
-              <div className="flex flex-wrap gap-2 px-6 py-4 border-t border-dashed border-gray-100 bg-gray-50/60 rounded-b-xl">
-                {activeBadges.map((label, idx) => (
-                  <span
-                    key={`${label}-${idx}`}
-                    className="inline-flex items-center gap-2 px-3 py-1 rounded-md text-xs font-semibold bg-white border border-primary/20 text-primary shadow-sm"
-                  >
-                    {label}
-                  </span>
-                ))}
-              </div>
-            )}
+            ))}
           </div>
 
-          {loading ? (
-            <Loading fullScreen={false} />
-          ) : (
-            <>
-              {/* Selected Driver/Vehicle Cards */}
-              {(selectedDriver || selectedVehicle) && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {selectedDriver && (
-                    <div className="bg-white rounded-md border border-primary/20 shadow-sm p-5 flex flex-col gap-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="p-3 rounded-md bg-primary/10 text-primary">
-                            <User size={22} />
+          {/* Toolbar */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-secondarybg p-5 rounded-md border border-primarybg shadow-sm">
+            <div className="flex items-center gap-3 w-full sm:w-auto flex-wrap">
+              <CustomSearch
+                value={logFilters.search}
+                onChange={(val) =>
+                  setLogFilters((prev) => ({...prev, search: val}))
+                }
+                placeholder="Search by driver, vehicle..."
+                className="flex-1 sm:w-72"
+              />
+              <CustomDropdown
+                value={logFilters.period}
+                onChange={(val) =>
+                  setLogFilters((prev) => ({...prev, period: val}))
+                }
+                options={periodOptions}
+                placeholder="Period"
+                width="w-36"
+              />
+              <CustomSearchableDropdown
+                value={logFilters.driverId}
+                onChange={(val) =>
+                  setLogFilters((prev) => ({...prev, driverId: val}))
+                }
+                options={driverOptions}
+                placeholder="All Drivers"
+                searchPlaceholder="Search drivers..."
+                width="w-56"
+              />
+              <CustomSearchableDropdown
+                value={logFilters.vehicleId}
+                onChange={(val) =>
+                  setLogFilters((prev) => ({...prev, vehicleId: val}))
+                }
+                options={vehicleFilterOptions}
+                placeholder="All Vehicles"
+                searchPlaceholder="Search vehicles..."
+                width="w-56"
+              />
+              <CustomDropdown
+                value={logFilters.vehicleType}
+                onChange={(val) =>
+                  setLogFilters((prev) => ({...prev, vehicleType: val}))
+                }
+                options={vehicleTypeOptions}
+                placeholder="All Types"
+                width="w-40"
+              />
+            </div>
+            <button
+              onClick={() => setShowEntryModal(true)}
+              className="bg-primary hover:bg-primarydull text-secondarybg px-6 py-3 rounded-md flex items-center gap-2 shadow-lg shadow-primary/30 transition-all duration-300 text-sm font-bold hover:scale-105 whitespace-nowrap"
+            >
+              <Plus size={18} strokeWidth={2.5} /> KM Log Entry
+            </button>
+          </div>
+
+          {/* KM Logs Table */}
+          <div className="bg-secondarybg rounded-md border border-primarybg shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              {logsLoading ? (
+                <Loading fullScreen={false} />
+              ) : logs.length > 0 ? (
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-primarybg">
+                      <th className="text-left py-3 px-4 text-xs font-bold text-secondarytext uppercase tracking-wider">
+                        Date
+                      </th>
+                      <th className="text-left py-3 px-4 text-xs font-bold text-secondarytext uppercase tracking-wider">
+                        Driver
+                      </th>
+                      <th className="text-left py-3 px-4 text-xs font-bold text-secondarytext uppercase tracking-wider">
+                        Vehicle
+                      </th>
+                      <th className="text-right py-3 px-4 text-xs font-bold text-secondarytext uppercase tracking-wider">
+                        Start KM
+                      </th>
+                      <th className="text-right py-3 px-4 text-xs font-bold text-secondarytext uppercase tracking-wider">
+                        End KM
+                      </th>
+                      <th className="text-right py-3 px-4 text-xs font-bold text-secondarytext uppercase tracking-wider">
+                        Total KM
+                      </th>
+                      <th className="text-left py-3 px-4 text-xs font-bold text-secondarytext uppercase tracking-wider">
+                        Remarks
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-primarybg">
+                    {logs.map((log) => (
+                      <tr
+                        key={log.id}
+                        className="hover:bg-primarybg transition-colors"
+                      >
+                        <td className="py-3 px-4 text-sm text-primarytext">
+                          {log.date}
+                        </td>
+                        <td className="py-3 px-4 text-sm font-medium text-primarytext">
+                          {log.driver_name}
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            <span className="text-secondarytext">
+                              {getVehicleIcon(log.vehicle_type)}
+                            </span>
+                            <div>
+                              <p className="text-sm text-primarytext font-medium">
+                                {log.vehicle_name &&
+                                log.vehicle_name !== log.vehicle_number
+                                  ? log.vehicle_name
+                                  : log.vehicle_number}
+                              </p>
+                              {log.vehicle_name &&
+                                log.vehicle_name !== log.vehicle_number && (
+                                  <p className="text-xs text-secondarytext">
+                                    {log.vehicle_number}
+                                  </p>
+                                )}
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-xs uppercase text-gray-500 font-semibold tracking-wide">
-                              Driver Focus
-                            </p>
-                            <p className="text-lg font-bold text-gray-800">
-                              {selectedDriver.driver_name}
-                            </p>
-                          </div>
-                        </div>
-                        <span className="text-xs font-semibold text-primary bg-primary/10 px-3 py-1 rounded-md">
-                          #{selectedDriver.driver_id}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-3 gap-3 text-center">
-                        <div>
-                          <p className="text-xs text-gray-500">Total KM</p>
-                          <p className="text-xl font-bold text-gray-800">
-                            {formatNumber(selectedDriver.total_km, 1)}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500">Trips</p>
-                          <p className="text-xl font-bold text-gray-800">
-                            {selectedDriver.trips || 0}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500">Avg / Trip</p>
-                          <p className="text-xl font-bold text-gray-800">
-                            {formatNumber(
-                              selectedDriver.trips > 0
-                                ? selectedDriver.total_km / selectedDriver.trips
-                                : 0,
-                              1,
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                      <p className="text-xs text-gray-500 text-center">
-                        {formatDateRange(
-                          selectedDriver.first_date,
-                          selectedDriver.last_date,
-                        )}
-                      </p>
-                    </div>
-                  )}
-                  {selectedVehicle && (
-                    <div className="bg-white rounded-md border border-emerald-100 shadow-sm p-5 flex flex-col gap-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="p-3 rounded-md bg-emerald-50 text-emerald-600">
-                            <Truck size={22} />
-                          </div>
-                          <div>
-                            <p className="text-xs uppercase text-gray-500 font-semibold tracking-wide">
-                              Vehicle Focus
-                            </p>
-                            <p className="text-lg font-bold text-gray-800">
-                              {selectedVehicle.vehicle_number}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {selectedVehicle.vehicle_type || "UNKNOWN"}
-                            </p>
-                          </div>
-                        </div>
-                        <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-md">
-                          #{selectedVehicle.vehicle_id}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-3 gap-3 text-center">
-                        <div>
-                          <p className="text-xs text-gray-500">Total KM</p>
-                          <p className="text-xl font-bold text-gray-800">
-                            {formatNumber(selectedVehicle.total_km, 1)}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500">Trips</p>
-                          <p className="text-xl font-bold text-gray-800">
-                            {selectedVehicle.trips || 0}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500">Avg / Trip</p>
-                          <p className="text-xl font-bold text-gray-800">
-                            {formatNumber(
-                              selectedVehicle.trips > 0
-                                ? selectedVehicle.total_km /
-                                    selectedVehicle.trips
-                                : 0,
-                              1,
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                      <p className="text-xs text-gray-500 text-center">
-                        {formatDateRange(
-                          selectedVehicle.first_date,
-                          selectedVehicle.last_date,
-                        )}
-                      </p>
-                    </div>
-                  )}
+                        </td>
+                        <td className="py-3 px-4 text-right text-sm text-secondarytext">
+                          {formatNumber(log.start_km)}
+                        </td>
+                        <td className="py-3 px-4 text-right text-sm text-secondarytext">
+                          {formatNumber(log.end_km)}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <span className="text-sm font-semibold text-primary">
+                            {formatNumber(log.total_km)} km
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-sm text-secondarytext max-w-[200px] truncate">
+                          {log.remarks || "\u2014"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="py-16 flex flex-col items-center text-secondarytext">
+                  <FileText size={48} className="mb-3 opacity-20" />
+                  <p className="font-medium">No logs found</p>
+                  <p className="text-sm mt-1">
+                    Try adjusting the filters or add a new entry
+                  </p>
                 </div>
               )}
-
-              {/* Stats Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-white rounded-md p-6 shadow-sm border border-gray-100 relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                    <Map size={64} className="text-primary" />
-                  </div>
-                  <div className="flex items-center gap-4 relative z-10">
-                    <div className="p-3 bg-primary/10 rounded-md text-primary">
-                      <Map size={24} />
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                        Total Distance
-                      </p>
-                      <p className="text-2xl font-bold text-gray-800 mt-1">
-                        {formatNumber(summary.grand_total_km, 1)}
-                        <span className="text-sm text-gray-500 font-normal ml-1">
-                          km
-                        </span>
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-md p-6 shadow-sm border border-gray-100 relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                    <Route size={64} className="text-green-500" />
-                  </div>
-                  <div className="flex items-center gap-4 relative z-10">
-                    <div className="p-3 bg-green-50 rounded-md text-green-600">
-                      <Route size={24} />
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                        Total Trips
-                      </p>
-                      <p className="text-2xl font-bold text-gray-800 mt-1">
-                        {summary.grand_total_trips || 0}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-md p-6 shadow-sm border border-gray-100 relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                    <TrendingUp size={64} className="text-amber-500" />
-                  </div>
-                  <div className="flex items-center gap-4 relative z-10">
-                    <div className="p-3 bg-amber-50 rounded-md text-amber-600">
-                      <TrendingUp size={24} />
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                        Avg / Trip
-                      </p>
-                      <p className="text-2xl font-bold text-gray-800 mt-1">
-                        {formatNumber(avgKmPerTrip, 1)}
-                        <span className="text-sm text-gray-500 font-normal ml-1">
-                          km
-                        </span>
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-md p-6 shadow-sm border border-gray-100 relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                    <Truck size={64} className="text-indigo-500" />
-                  </div>
-                  <div className="flex items-center gap-4 relative z-10">
-                    <div className="p-3 bg-indigo-50 rounded-md text-indigo-600">
-                      <Truck size={24} />
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                        Fleet Types
-                      </p>
-                      <p className="text-2xl font-bold text-gray-800 mt-1">
-                        {summary.by_vehicle_type?.length || 0}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Vehicle Types and Top Drivers */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* By Vehicle Type */}
-                <div className="lg:col-span-2 bg-white rounded-md shadow-sm border border-gray-100 flex flex-col">
-                  <div className="px-6 py-5 border-b border-gray-100">
-                    <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                      <Truck size={20} className="text-primary" />
-                      Distance by Vehicle Type
-                    </h3>
-                  </div>
-                  <div className="p-6">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {summary.by_vehicle_type?.map((item) => {
-                        const percentage =
-                          summary.grand_total_km > 0
-                            ? (
-                                ((item.total_km || 0) /
-                                  summary.grand_total_km) *
-                                100
-                              ).toFixed(1)
-                            : 0;
-                        return (
-                          <div
-                            key={item.vehicle_type}
-                            className="bg-gray-50 rounded-md p-5 border border-gray-100 hover:border-primary/30 hover:shadow-sm transition-all"
-                          >
-                            <div className="flex items-start justify-between mb-4">
-                              <div className="p-2.5 bg-white rounded-md shadow-sm text-gray-700">
-                                {getVehicleIcon(item.vehicle_type)}
-                              </div>
-                              <span className="px-2.5 py-1 bg-primary/10 text-primary text-xs font-bold rounded-md">
-                                {percentage}%
-                              </span>
-                            </div>
-                            <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">
-                              {item.vehicle_type}
-                            </h4>
-                            <p className="text-xl font-bold text-gray-800 mb-1">
-                              {formatNumber(item.total_km, 1)}
-                              <span className="text-sm text-gray-500 font-normal ml-1">
-                                km
-                              </span>
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {item.total_trips} trips •{" "}
-                              {formatNumber(item.avg_km_per_trip, 1)} km/trip
-                            </p>
-                            <div className="w-full bg-gray-200 rounded-md h-1.5 mt-4 overflow-hidden">
-                              <div
-                                className="bg-primary h-full rounded-md transition-all duration-500"
-                                style={{width: `${percentage}%`}}
-                              ></div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                      {(!summary.by_vehicle_type ||
-                        summary.by_vehicle_type.length === 0) && (
-                        <div className="col-span-full py-12 flex flex-col items-center text-center text-gray-400">
-                          <AlertCircle size={48} className="mb-2 opacity-20" />
-                          <p>No vehicle data recorded yet.</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Top Drivers */}
-                <div className="bg-white rounded-md shadow-sm border border-gray-100 flex flex-col h-full">
-                  <div className="px-6 py-5 border-b border-gray-100">
-                    <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                      <Award size={20} className="text-amber-500" />
-                      Top Drivers
-                    </h3>
-                  </div>
-                  <div className="p-4 flex-1 overflow-y-auto max-h-[500px]">
-                    <div className="space-y-3">
-                      {summary.top_drivers?.map((d, i) => (
-                        <div
-                          key={d.driver_id}
-                          onClick={() => viewDriverHistory(d.driver_id)}
-                          className="flex items-center gap-3 p-3 bg-gray-50 rounded-md border border-gray-100 hover:border-primary/30 transition-all hover:bg-white hover:shadow-sm cursor-pointer group"
-                        >
-                          <div
-                            className={`w-8 h-8 shrink-0 rounded-md flex items-center justify-center font-bold text-xs ${
-                              i === 0
-                                ? "bg-amber-100 text-amber-700 ring-4 ring-amber-50"
-                                : i === 1
-                                  ? "bg-gray-200 text-gray-700 ring-4 ring-gray-100"
-                                  : i === 2
-                                    ? "bg-orange-100 text-orange-700 ring-4 ring-orange-100"
-                                    : "bg-white border border-gray-200 text-gray-500"
-                            }`}
-                          >
-                            {i + 1}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-gray-800 text-sm truncate group-hover:text-primary transition-colors">
-                              {d.driver_name}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {d.trips} trips completed
-                            </p>
-                          </div>
-                          <div className="text-right shrink-0 flex items-center gap-2">
-                            <div>
-                              <p className="text-sm font-bold text-primary">
-                                {formatNumber(d.total_km, 0)} km
-                              </p>
-                              <p className="text-[10px] text-gray-400">
-                                {formatNumber(
-                                  d.total_km / Math.max(d.trips || 1, 1),
-                                  1,
-                                )}{" "}
-                                avg
-                              </p>
-                            </div>
-                            <ChevronRight
-                              size={16}
-                              className="text-gray-300 group-hover:text-primary transition-colors"
-                            />
-                          </div>
-                        </div>
-                      ))}
-                      {(!summary.top_drivers ||
-                        summary.top_drivers.length === 0) && (
-                        <div className="py-12 flex flex-col items-center text-center text-gray-400">
-                          <Award size={48} className="mb-2 opacity-20" />
-                          <p>No driver data available.</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Individual Vehicles Table */}
-              <div className="bg-secondarybg rounded-md shadow-sm border border-gray-100">
-                <div className="px-6 py-5 border-b border-gray-100">
-                  <h3 className="text-lg font-bold text-primarytext flex items-center gap-2">
-                    <Gauge size={20} className="text-primary" />
-                    Distance by Individual Vehicles
-                  </h3>
-                  <p className="text-sm text-secondarytext mt-1">
-                    KM driven by each vehicle in the fleet
-                  </p>
-                </div>
-                <div className="p-6">
-                  {vehicleSummaryLoading ? (
-                    <Loading fullScreen={false} size="small" />
-                  ) : vehicleSummary.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b border-gray-100">
-                            <th className="text-left py-3 px-4 text-xs font-bold text-secondarytext uppercase tracking-wider">
-                              Vehicle
-                            </th>
-                            <th className="text-left py-3 px-4 text-xs font-bold text-secondarytext uppercase tracking-wider">
-                              Type
-                            </th>
-                            <th className="text-right py-3 px-4 text-xs font-bold text-secondarytext uppercase tracking-wider">
-                              Total KM
-                            </th>
-                            <th className="text-right py-3 px-4 text-xs font-bold text-secondarytext uppercase tracking-wider">
-                              Trips
-                            </th>
-                            <th className="text-right py-3 px-4 text-xs font-bold text-secondarytext uppercase tracking-wider">
-                              Avg/Trip
-                            </th>
-                            <th className="text-left py-3 px-4 text-xs font-bold text-secondarytext uppercase tracking-wider">
-                              Progress
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50">
-                          {vehicleSummary.map((vehicle, idx) => {
-                            const percentage =
-                              ((vehicle.total_km || 0) / maxVehicleKm) * 100;
-                            return (
-                              <tr
-                                key={vehicle.vehicle_id}
-                                className="hover:bg-primarybg transition-colors"
-                              >
-                                <td className="py-3 px-4">
-                                  <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center text-primary">
-                                      {getVehicleIcon(vehicle.vehicle_type)}
-                                    </div>
-                                    <div>
-                                      <p className="font-semibold text-primarytext">
-                                        {vehicle.vehicle_name ||
-                                          vehicle.vehicle_number}
-                                      </p>
-                                      <p className="text-xs text-secondarytext">
-                                        {vehicle.vehicle_number}
-                                      </p>
-                                    </div>
-                                  </div>
-                                </td>
-                                <td className="py-3 px-4">
-                                  <span className="px-3 py-1 rounded-md text-xs font-medium bg-primary/10 text-primary">
-                                    {vehicle.vehicle_type}
-                                  </span>
-                                </td>
-                                <td className="py-3 px-4 text-right">
-                                  <span className="font-bold text-primarytext text-lg">
-                                    {formatNumber(vehicle.total_km, 1)}
-                                  </span>
-                                  <span className="text-secondarytext text-sm ml-1">
-                                    km
-                                  </span>
-                                </td>
-                                <td className="py-3 px-4 text-right text-secondarytext font-medium">
-                                  {vehicle.total_trips}
-                                </td>
-                                <td className="py-3 px-4 text-right text-secondarytext font-medium">
-                                  {formatNumber(vehicle.avg_km_per_trip, 1)} km
-                                </td>
-                                <td className="py-3 px-4 w-40">
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-full bg-primarybg rounded-md h-2.5 overflow-hidden">
-                                      <div
-                                        className="h-full rounded-md bg-primary transition-all duration-500"
-                                        style={{
-                                          width: `${percentage.toFixed(0)}%`,
-                                        }}
-                                      ></div>
-                                    </div>
-                                    <span className="text-xs text-secondarytext font-medium min-w-[3rem] text-right">
-                                      {percentage.toFixed(0)}%
-                                    </span>
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <div className="py-12 flex flex-col items-center text-center text-secondarytext">
-                      <Truck size={48} className="mb-2 opacity-20" />
-                      <p>No vehicle KM data recorded yet.</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Trip-wise summary table */}
-              <div className="bg-white rounded-md shadow-sm border border-gray-100">
-                <div className="px-6 py-5 border-b border-gray-100">
-                  <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                    <Gauge size={20} className="text-primary" />
-                    Trip-wise Breakdown
-                  </h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Driver, vehicle, and km per trip in the selected period
-                  </p>
-                </div>
-                <div className="p-6">
-                  {summary.trip_wise && summary.trip_wise.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b border-gray-100">
-                            <th className="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
-                              Date
-                            </th>
-                            <th className="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
-                              Driver
-                            </th>
-                            <th className="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
-                              Vehicle
-                            </th>
-                            <th className="text-right py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
-                              Start KM
-                            </th>
-                            <th className="text-right py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
-                              End KM
-                            </th>
-                            <th className="text-right py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
-                              Total KM
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50">
-                          {summary.trip_wise.map((trip) => (
-                            <tr
-                              key={`${trip.id}-${trip.date}-${trip.driver_id}`}
-                              className="hover:bg-gray-50 transition-colors"
-                            >
-                              <td className="py-3 px-4 text-sm text-gray-700">
-                                {trip.date || "-"}
-                              </td>
-                              <td className="py-3 px-4">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm font-semibold text-gray-800">
-                                    {trip.driver_name || "Unknown"}
-                                  </span>
-                                  {trip.driver_id && (
-                                    <span className="text-xs text-gray-500">
-                                      #{trip.driver_id}
-                                    </span>
-                                  )}
-                                </div>
-                              </td>
-                              <td className="py-3 px-4">
-                                <div className="flex items-center gap-2">
-                                  {getVehicleIcon(trip.vehicle_type)}
-                                  <div className="text-sm text-gray-800 font-medium">
-                                    {trip.vehicle_number || "N/A"}
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="py-3 px-4 text-right text-sm text-gray-600">
-                                {formatNumber(trip.start_km)}
-                              </td>
-                              <td className="py-3 px-4 text-right text-sm text-gray-600">
-                                {formatNumber(trip.end_km)}
-                              </td>
-                              <td className="py-3 px-4 text-right">
-                                <span className="text-sm font-semibold text-primary">
-                                  {formatNumber(trip.total_km)}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <div className="py-12 flex flex-col items-center text-center text-gray-400">
-                      <Truck size={48} className="mb-2 opacity-20" />
-                      <p>No trip data available for this period.</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </>
-          )}
-        </>
-      )}
-
-      {/* Entry Tab Content */}
-      {activeTab === "entry" && (
-        <>
-          {/* Entry Form - Clean & Simple */}
-          <div className="bg-white rounded-md shadow-sm border border-gray-200">
-            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-primary/10 rounded-md">
-                  <Plus size={20} className="text-primary" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-gray-800">
-                    Add KM Log Entry
-                  </h2>
-                  <p className="text-sm text-gray-500">
-                    Record daily vehicle mileage
-                  </p>
-                </div>
-              </div>
             </div>
+          </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-6">
-              {/* Basic Information */}
-              <div>
-                <h3 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
-                  <User size={16} className="text-primary" />
-                  Basic Information
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* KM Log Entry Modal */}
+          {showEntryModal && (
+            <div className="fixed inset-0 bg-black/50  flex items-center justify-center z-50 p-4 animate-fadeIn">
+              <div className="bg-secondarybg rounded-md shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col animate-scaleIn">
+                {/* Modal Header */}
+                <div className="px-6 py-4 border-b border-primarybg flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-primary/10 rounded-md">
+                      <Plus size={20} className="text-primary" />
+                    </div>
+                    <h2 className="text-lg font-bold text-primarytext">
+                      Add KM Log Entry
+                    </h2>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowEntryModal(false);
+                      resetForm();
+                    }}
+                    className="p-2 hover:bg-primarybg rounded-md transition-colors"
+                  >
+                    <X size={20} className="text-secondarytext" />
+                  </button>
+                </div>
+
+                {/* Modal Body */}
+                <form
+                  onSubmit={handleSubmit}
+                  className="flex-1 overflow-y-auto p-6 space-y-5"
+                >
                   {/* Date */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-primarytext">
                       Date <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -1226,14 +687,14 @@ export default function KmManagement() {
                         setForm((prev) => ({...prev, date: e.target.value}))
                       }
                       max={getToday()}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
+                      className="w-full h-[42px] px-3 border border-gray-200 rounded-md bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
                       required
                     />
                   </div>
 
-                  {/* Driver Selection */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">
+                  {/* Driver */}
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-primarytext">
                       Driver <span className="text-red-500">*</span>
                     </label>
                     <SearchableSelect
@@ -1248,487 +709,512 @@ export default function KmManagement() {
                       emptyMessage="No drivers found"
                     />
                   </div>
-                </div>
 
-                {/* Driver Info */}
-                {driverInfo && (
-                  <div className="mt-4 p-4 bg-blue-50 rounded-md border border-blue-200">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-md bg-primary text-white flex items-center justify-center font-bold">
+                  {/* Driver Info */}
+                  {driverInfo && (
+                    <div className="flex items-center gap-3 p-3 bg-primary/5 rounded-md border border-primary/10">
+                      <div className="w-9 h-9 rounded-md bg-primary text-white flex items-center justify-center font-bold text-sm">
                         {driverInfo.name?.charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <p className="font-semibold text-gray-800">
+                        <p className="text-sm font-semibold text-primarytext">
                           {driverInfo.name}
                         </p>
-                        <p className="text-sm text-gray-600">
-                          ID: {driverInfo.id}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Vehicle & Mileage */}
-              <div>
-                <h3 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
-                  <Truck size={16} className="text-primary" />
-                  Vehicle & Mileage
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* Vehicle */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">
-                      Vehicle <span className="text-red-500">*</span>
-                    </label>
-                    {assignedVehicles.length > 0 ? (
-                      <SearchableSelect
-                        options={assignedVehicles.map((v) => ({
-                          value: v.vehicle_id,
-                          label: v.vehicle_name
-                            ? `${v.vehicle_name} (${v.vehicle_number})`
-                            : v.vehicle_number,
-                          subtitle: v.vehicle_type,
-                        }))}
-                        value={form.vehicle_id}
-                        onChange={(val) =>
-                          setForm((prev) => ({...prev, vehicle_id: val}))
-                        }
-                        placeholder="Select vehicle"
-                        emptyMessage="No assigned vehicles"
-                      />
-                    ) : (
-                      <SearchableSelect
-                        options={filterMeta.vehicles.map((v) => ({
-                          value: v.id,
-                          label:
-                            v.vehicle_name &&
-                            v.vehicle_name !== v.vehicle_number
-                              ? `${v.vehicle_name} (${v.vehicle_number})`
-                              : v.vehicle_number,
-                          subtitle: v.vehicle_type,
-                        }))}
-                        value={form.vehicle_id}
-                        onChange={(val) =>
-                          setForm((prev) => ({...prev, vehicle_id: val}))
-                        }
-                        placeholder="Select vehicle"
-                        disabled={metaLoading}
-                        emptyMessage="No vehicles found"
-                      />
-                    )}
-                  </div>
-
-                  {/* Start KM */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">
-                      Start KM <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      value={form.start_km}
-                      onChange={(e) =>
-                        setForm((prev) => ({...prev, start_km: e.target.value}))
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
-                      placeholder="0.0"
-                      required
-                      min="0"
-                      step="0.1"
-                    />
-                  </div>
-
-                  {/* End KM */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">
-                      End KM <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      value={form.end_km}
-                      onChange={(e) =>
-                        setForm((prev) => ({...prev, end_km: e.target.value}))
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
-                      placeholder="0.0"
-                      required
-                      min={form.start_km || "0"}
-                      step="0.1"
-                    />
-                  </div>
-                </div>
-
-                {/* Total KM Display */}
-                {(form.start_km || form.end_km) && totalKm > 0 && (
-                  <div className="mt-4 p-4 bg-green-50 rounded-md border border-green-200">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-gray-700">
-                        Total Distance
-                      </span>
-                      <span className="text-2xl font-bold text-green-600">
-                        {totalKm.toFixed(1)} km
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Remarks */}
-                <div className="space-y-2 mt-4">
-                  <label className="text-sm font-medium text-gray-700">
-                    Remarks (Optional)
-                  </label>
-                  <textarea
-                    value={form.remarks}
-                    onChange={(e) =>
-                      setForm((prev) => ({...prev, remarks: e.target.value}))
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
-                    rows="3"
-                    placeholder="Add any notes..."
-                  />
-                </div>
-              </div>
-
-              {/* Submit Button */}
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setForm({
-                      date: getToday(),
-                      vehicle_id: "",
-                      start_km: "",
-                      end_km: "",
-                      remarks: "",
-                    });
-                    setSelectedDriverId("");
-                  }}
-                  className="px-5 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 font-medium"
-                >
-                  Reset
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="inline-flex items-center gap-2 px-6 py-2 bg-primary text-white rounded-md hover:bg-primary/90 disabled:opacity-50 font-medium"
-                >
-                  {loading ? (
-                    <>
-                      <Loading fullScreen={false} size="small" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Plus size={18} />
-                      Add Log
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-
-          {/* Assigned Vehicles */}
-          {showDriverVehicles && driverInfo && (
-            <div className="bg-white rounded-md shadow-sm border border-gray-200">
-              <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-gray-800 flex items-center gap-2">
-                    <Truck size={18} className="text-primary" />
-                    Assigned Vehicles for {driverInfo.name}
-                  </h3>
-                  {assignedVehicles.length > 0 && (
-                    <span className="px-3 py-1 bg-primary/10 text-primary rounded-md text-sm font-semibold">
-                      {assignedVehicles.length} Vehicles
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="p-6">
-                {vehiclesLoading ? (
-                  <Loading fullScreen={false} size="small" />
-                ) : assignedVehicles.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {assignedVehicles.map((vehicle) => (
-                      <div
-                        key={vehicle.vehicle_id}
-                        className="p-4 border border-gray-200 rounded-md hover:border-primary hover:shadow-sm transition-all"
-                      >
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            {getVehicleIcon(vehicle.vehicle_type)}
-                            <span className="font-semibold text-gray-800">
-                              {vehicle.vehicle_number}
-                            </span>
-                          </div>
-                          {getVehicleTypeBadge(vehicle.vehicle_type)}
-                        </div>
-                        {vehicle.vehicle_name && (
-                          <p className="text-sm text-gray-600 mt-2">
-                            {vehicle.vehicle_name}
+                        {driverInfo.cluster && (
+                          <p className="text-xs text-secondarytext">
+                            Cluster: {driverInfo.cluster}
                           </p>
                         )}
                       </div>
-                    ))}
+                    </div>
+                  )}
+
+                  {/* Vehicle */}
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-primarytext">
+                      Vehicle <span className="text-red-500">*</span>
+                    </label>
+                    <SearchableSelect
+                      options={filterMeta.vehicles.map((v) => ({
+                        value: v.id,
+                        label:
+                          v.vehicle_name && v.vehicle_name !== v.vehicle_number
+                            ? v.vehicle_name + " (" + v.vehicle_number + ")"
+                            : v.vehicle_number,
+                        subtitle: v.vehicle_type,
+                      }))}
+                      value={form.vehicle_id}
+                      onChange={(val) =>
+                        setForm((prev) => ({...prev, vehicle_id: val}))
+                      }
+                      placeholder="Search and select vehicle"
+                      disabled={metaLoading}
+                      emptyMessage="No vehicles found"
+                    />
                   </div>
-                ) : (
-                  <div className="py-12 flex flex-col items-center text-gray-400">
-                    <AlertCircle size={40} className="mb-2 opacity-30" />
-                    <p className="text-sm">
-                      No vehicles assigned for this date
-                    </p>
+
+                  {/* KM Inputs */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium text-primarytext">
+                        Start KM <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        value={form.start_km}
+                        onChange={(e) =>
+                          setForm((prev) => ({
+                            ...prev,
+                            start_km: e.target.value,
+                          }))
+                        }
+                        className="w-full h-[42px] px-3 border border-gray-200 rounded-md bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+                        placeholder="0.0"
+                        required
+                        min="0"
+                        step="0.1"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium text-primarytext">
+                        End KM <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        value={form.end_km}
+                        onChange={(e) =>
+                          setForm((prev) => ({...prev, end_km: e.target.value}))
+                        }
+                        className="w-full h-[42px] px-3 border border-gray-200 rounded-md bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+                        placeholder="0.0"
+                        required
+                        min={form.start_km || "0"}
+                        step="0.1"
+                      />
+                    </div>
                   </div>
-                )}
+
+                  {/* Total KM Display */}
+                  {totalKm > 0 && (
+                    <div className="flex items-center justify-between p-3 bg-green-50 rounded-md border border-green-100">
+                      <span className="text-sm font-medium text-green-700">
+                        Total Distance
+                      </span>
+                      <span className="text-lg font-bold text-green-600">
+                        {totalKm.toFixed(1)} km
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Remarks */}
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-primarytext">
+                      Remarks{" "}
+                      <span className="text-secondarytext font-normal">
+                        (Optional)
+                      </span>
+                    </label>
+                    <textarea
+                      value={form.remarks}
+                      onChange={(e) =>
+                        setForm((prev) => ({...prev, remarks: e.target.value}))
+                      }
+                      className="w-full px-3 py-2.5 border border-gray-200 rounded-md bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm resize-none"
+                      rows="2"
+                      placeholder="Add any notes..."
+                    />
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center justify-end gap-3 pt-3 border-t border-primarybg">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowEntryModal(false);
+                        resetForm();
+                      }}
+                      className="px-4 py-2.5 border border-gray-200 text-secondarytext rounded-md hover:bg-primarybg font-medium text-sm transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-md hover:bg-primarydull disabled:opacity-50 font-medium text-sm shadow-sm transition-all"
+                    >
+                      {loading ? (
+                        <>
+                          <Loading fullScreen={false} size="small" /> Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Plus size={16} /> Add Log
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
           )}
-
-          {/* Recent Logs */}
-          <div className="bg-white rounded-md shadow-sm border border-gray-200">
-            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-              <h2 className="font-semibold text-gray-800 flex items-center gap-2">
-                <History size={20} className="text-primary" />
-                Recent KM Logs
-              </h2>
-            </div>
-
-            {/* Filters */}
-            <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                {/* Period */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">
-                    Period
-                  </label>
-                  <div className="flex gap-2">
-                    {periodPresets.map((p) => (
-                      <button
-                        key={p.value}
-                        type="button"
-                        onClick={() =>
-                          setLogFilters((prev) => ({...prev, period: p.value}))
-                        }
-                        className={`flex-1 px-3 py-2 text-xs font-semibold rounded-md transition-all ${
-                          logFilters.period === p.value
-                            ? "bg-primary text-white"
-                            : "bg-white border border-gray-300 text-gray-700 hover:border-primary"
-                        }`}
-                      >
-                        {p.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Driver */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">
-                    Driver
-                  </label>
-                  <SearchableSelect
-                    options={filterMeta.drivers.map((d) => ({
-                      value: d.id,
-                      label: d.name,
-                    }))}
-                    value={logFilters.driverId}
-                    onChange={(val) =>
-                      setLogFilters((prev) => ({...prev, driverId: val}))
-                    }
-                    placeholder="All drivers"
-                    disabled={metaLoading}
-                  />
-                </div>
-
-                {/* Vehicle */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">
-                    Vehicle
-                  </label>
-                  <SearchableSelect
-                    options={filterMeta.vehicles.map((v) => ({
-                      value: v.id,
-                      label:
-                        v.vehicle_name && v.vehicle_name !== v.vehicle_number
-                          ? `${v.vehicle_name} (${v.vehicle_number})`
-                          : v.vehicle_number,
-                    }))}
-                    value={logFilters.vehicleId}
-                    onChange={(val) =>
-                      setLogFilters((prev) => ({...prev, vehicleId: val}))
-                    }
-                    placeholder="All vehicles"
-                    disabled={metaLoading}
-                  />
-                </div>
-
-                {/* Search */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">
-                    Search
-                  </label>
-                  <input
-                    type="text"
-                    value={logFilters.search}
-                    onChange={(e) =>
-                      setLogFilters((prev) => ({
-                        ...prev,
-                        search: e.target.value,
-                      }))
-                    }
-                    placeholder="Search..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
-                  />
-                </div>
-              </div>
-
-              {/* Summary */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-                <div className="p-3 bg-white rounded-md border border-gray-200">
-                  <p className="text-xs text-gray-600 font-medium">Total KM</p>
-                  <p className="text-xl font-bold text-primary mt-1">
-                    {formatNumber(logSummary.total_km)}
-                  </p>
-                </div>
-                <div className="p-3 bg-white rounded-md border border-gray-200">
-                  <p className="text-xs text-gray-600 font-medium">
-                    Total Trips
-                  </p>
-                  <p className="text-xl font-bold text-gray-800 mt-1">
-                    {logSummary.total_trips}
-                  </p>
-                </div>
-                <div className="p-3 bg-white rounded-md border border-gray-200">
-                  <p className="text-xs text-gray-600 font-medium">
-                    Avg / Trip
-                  </p>
-                  <p className="text-xl font-bold text-gray-800 mt-1">
-                    {logSummary.total_trips > 0
-                      ? formatNumber(
-                          logSummary.total_km / logSummary.total_trips,
-                        )
-                      : "0"}
-                  </p>
-                </div>
-                <div className="p-3 bg-white rounded-md border border-gray-200">
-                  <p className="text-xs text-gray-600 font-medium">Records</p>
-                  <p className="text-xl font-bold text-gray-800 mt-1">
-                    {logs.length}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Table */}
-            <div className="overflow-x-auto">
-              {logsLoading ? (
-                <Loading fullScreen={false} />
-              ) : logs.length > 0 ? (
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-gray-100 border-b border-gray-200">
-                      <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">
-                        Date
-                      </th>
-                      <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">
-                        Driver
-                      </th>
-                      <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">
-                        Vehicle
-                      </th>
-                      <th className="text-right py-3 px-4 text-xs font-bold text-gray-700 uppercase">
-                        Start KM
-                      </th>
-                      <th className="text-right py-3 px-4 text-xs font-bold text-gray-700 uppercase">
-                        End KM
-                      </th>
-                      <th className="text-right py-3 px-4 text-xs font-bold text-gray-700 uppercase">
-                        Total KM
-                      </th>
-                      <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">
-                        Remarks
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {logs.map((log) => (
-                      <tr key={log.id} className="hover:bg-gray-50">
-                        <td className="py-3 px-4 text-sm text-gray-700">
-                          {log.date}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-700">
-                          {log.driver_name}
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="flex items-center gap-2">
-                            {getVehicleIcon(log.vehicle_type)}
-                            <span className="text-sm text-gray-700">
-                              {log.vehicle_number}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-right text-sm text-gray-600">
-                          {formatNumber(log.start_km)}
-                        </td>
-                        <td className="py-3 px-4 text-right text-sm text-gray-600">
-                          {formatNumber(log.end_km)}
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <span className="text-sm font-semibold text-primary">
-                            {formatNumber(log.total_km)}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-500">
-                          {log.remarks || "-"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <div className="py-12 flex flex-col items-center text-gray-400">
-                  <FileText size={48} className="mb-2 opacity-20" />
-                  <p>No logs found</p>
-                </div>
-              )}
-            </div>
-          </div>
         </>
       )}
 
-      {/* Driver History Modal */}
+      {/* Individual Analysis Tab */}
+      {activeTab === "individual" && (
+        <div className="space-y-6">
+          {/* Filters for Individual Analysis */}
+          <div className="bg-secondarybg p-5 rounded-md border border-primarybg shadow-sm">
+            <div className="flex items-center gap-3 flex-wrap">
+              <CustomDropdown
+                value={summaryFilters.period}
+                onChange={(val) =>
+                  setSummaryFilters((prev) => ({...prev, period: val}))
+                }
+                options={periodOptions}
+                placeholder="Period"
+                width="w-36"
+              />
+              <CustomSearchableDropdown
+                value={summaryFilters.driverId}
+                onChange={(val) =>
+                  setSummaryFilters((prev) => ({...prev, driverId: val}))
+                }
+                options={driverOptions}
+                placeholder="All Drivers"
+                searchPlaceholder="Search drivers..."
+                width="w-64"
+              />
+              <CustomSearchableDropdown
+                value={summaryFilters.vehicleId}
+                onChange={(val) =>
+                  setSummaryFilters((prev) => ({...prev, vehicleId: val}))
+                }
+                options={vehicleFilterOptions}
+                placeholder="All Vehicles"
+                searchPlaceholder="Search vehicles..."
+                width="w-64"
+              />
+            </div>
+          </div>
+
+          {/* Distance by Vehicle Type & Top Drivers Row */}
+          <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
+            {/* Distance by Vehicle Type */}
+            <div className="xl:col-span-3 bg-secondarybg rounded-md border border-primarybg shadow-sm p-6">
+              <div className="flex items-center gap-2 mb-6">
+                <Truck className="text-primary" size={20} />
+                <h3 className="text-lg font-bold text-primarytext">
+                  Distance by Vehicle Type
+                </h3>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {summary.by_vehicle_type?.map((type) => {
+                  const totalKm = summary.grand_total_km || 1;
+                  const percentage = ((type.total_km / totalKm) * 100).toFixed(
+                    1,
+                  );
+                  return (
+                    <div
+                      key={type.vehicle_type}
+                      className="bg-primarybg p-5 rounded-md border border-gray-100 hover:border-primary/50 hover:shadow-sm transition-all duration-200 cursor-pointer group"
+                      onClick={() => viewVehicleTypeDetails(type)}
+                    >
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="p-2.5 bg-secondarybg rounded-md border border-gray-100 text-secondarytext group-hover:text-primary transition-colors">
+                          {getVehicleIcon(type.vehicle_type)}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-md">
+                            {percentage}%
+                          </span>
+                          <ChevronRight
+                            size={16}
+                            className="text-secondarytext group-hover:text-primary transition-colors"
+                          />
+                        </div>
+                      </div>
+                      <p className="text-xs text-secondarytext font-semibold uppercase tracking-wide mb-1">
+                        {type.vehicle_type}
+                      </p>
+                      <p className="text-primarytext mb-1">
+                        <span className="text-2xl font-bold">
+                          {formatNumber(type.total_km)}
+                        </span>
+                        <span className="text-base font-medium ml-1">km</span>
+                      </p>
+                      <p className="text-xs text-secondarytext">
+                        {type.total_trips} trips •{" "}
+                        {formatNumber(type.avg_km_per_trip)} km/trip
+                      </p>
+                      <div className="mt-4 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-primary rounded-full transition-all duration-500"
+                          style={{width: percentage + "%"}}
+                        />
+                      </div>
+                    </div>
+                  );
+                }) || (
+                  <p className="text-secondarytext text-center py-8 col-span-2">
+                    No vehicle type data available
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Top Drivers */}
+            <div className="xl:col-span-2 bg-secondarybg rounded-md border border-primarybg shadow-sm p-6 flex flex-col">
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <div className="flex items-center gap-2">
+                  <Award className="text-amber-500" size={20} />
+                  <h3 className="text-lg font-bold text-primarytext">
+                    Top Drivers
+                  </h3>
+                </div>
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <div className="space-y-3 h-full max-h-[650px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400 transition-colors">
+                  {summary.top_drivers
+                    ?.filter((driver) =>
+                      driver.driver_name
+                        .toLowerCase()
+                        .includes(driverSearch.toLowerCase()),
+                    )
+                    .map((driver, idx) => (
+                      <div
+                        key={driver.driver_id}
+                        className="flex items-center gap-4 p-4 bg-primarybg rounded-md border border-gray-100 hover:border-primary/50 hover:shadow-sm transition-all duration-200 cursor-pointer group"
+                        onClick={() => viewDriverHistory(driver.driver_id)}
+                      >
+                        <div
+                          className={`flex items-center justify-center w-9 h-9 rounded-md font-bold text-sm ${
+                            idx === 0
+                              ? "bg-amber-100 text-amber-600"
+                              : idx === 1
+                                ? "bg-gray-200 text-gray-600"
+                                : idx === 2
+                                  ? "bg-orange-100 text-orange-600"
+                                  : "bg-gray-100 text-secondarytext"
+                          }`}
+                        >
+                          {idx + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-primarytext text-sm truncate">
+                            {driver.driver_name}
+                          </p>
+                          <p className="text-xs text-secondarytext">
+                            {driver.trips || 0} trips
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-bold text-primary">
+                            {formatNumber(driver.total_km)} km
+                          </p>
+                          <p className="text-xs text-secondarytext">
+                            {driver.trips > 0
+                              ? formatNumber(driver.total_km / driver.trips)
+                              : 0}{" "}
+                            avg
+                          </p>
+                        </div>
+                        <ChevronRight
+                          size={18}
+                          className="text-secondarytext group-hover:text-primary transition-colors"
+                        />
+                      </div>
+                    )) || (
+                    <p className="text-secondarytext text-center py-8">
+                      No driver data available
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Vehicle-wise Analysis - Table Format */}
+          <div className="bg-secondarybg rounded-md border border-primarybg shadow-sm p-6">
+            <div className="flex items-center justify-between gap-3 mb-6">
+              <div className="flex items-center gap-2">
+                <Gauge className="text-primary" size={20} />
+                <h3 className="text-lg font-bold text-primarytext">
+                  Distance by Individual Vehicles
+                </h3>
+              </div>
+              <CustomSearch
+                value={vehicleSearch}
+                onChange={setVehicleSearch}
+                placeholder="Search vehicles..."
+                className="max-w-xs"
+              />
+            </div>
+            {vehicleSummaryLoading ? (
+              <Loading fullScreen={false} />
+            ) : vehicleSummary.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-primarybg">
+                      <th className="text-left py-3 px-4 text-xs font-bold text-secondarytext uppercase tracking-wider">
+                        Vehicle
+                      </th>
+                      <th className="text-left py-3 px-4 text-xs font-bold text-secondarytext uppercase tracking-wider">
+                        Type
+                      </th>
+                      <th className="text-right py-3 px-4 text-xs font-bold text-secondarytext uppercase tracking-wider">
+                        Total KM
+                      </th>
+                      <th className="text-right py-3 px-4 text-xs font-bold text-secondarytext uppercase tracking-wider">
+                        Trips
+                      </th>
+                      <th className="text-right py-3 px-4 text-xs font-bold text-secondarytext uppercase tracking-wider">
+                        Avg/Trip
+                      </th>
+                      <th className="text-left py-3 px-4 text-xs font-bold text-secondarytext uppercase tracking-wider">
+                        Progress
+                      </th>
+                      <th className="w-10"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-primarybg">
+                    {vehicleSummary
+                      .filter((vehicle) => {
+                        const searchLower = vehicleSearch.toLowerCase();
+                        return (
+                          vehicle.vehicle_name
+                            ?.toLowerCase()
+                            .includes(searchLower) ||
+                          vehicle.vehicle_number
+                            ?.toLowerCase()
+                            .includes(searchLower) ||
+                          vehicle.vehicle_type
+                            ?.toLowerCase()
+                            .includes(searchLower)
+                        );
+                      })
+                      .map((vehicle) => {
+                        const percentage =
+                          ((vehicle.total_km || 0) / maxVehicleKm) * 100;
+                        return (
+                          <tr
+                            key={vehicle.vehicle_id}
+                            className="hover:bg-primarybg transition-colors cursor-pointer"
+                            onClick={() => viewVehicleDetails(vehicle)}
+                          >
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-md bg-primary/10 flex items-center justify-center text-primary">
+                                  {getVehicleIcon(vehicle.vehicle_type)}
+                                </div>
+                                <div>
+                                  <p className="font-semibold text-primarytext text-sm">
+                                    {vehicle.vehicle_name &&
+                                    vehicle.vehicle_name !==
+                                      vehicle.vehicle_number
+                                      ? vehicle.vehicle_name
+                                      : vehicle.vehicle_number}
+                                  </p>
+                                  {vehicle.vehicle_name &&
+                                    vehicle.vehicle_name !==
+                                      vehicle.vehicle_number && (
+                                      <p className="text-xs text-secondarytext">
+                                        {vehicle.vehicle_number}
+                                      </p>
+                                    )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-primary/10 text-primary uppercase">
+                                {vehicle.vehicle_type}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <span className="font-bold text-primarytext">
+                                {formatNumber(vehicle.total_km, 1)}
+                              </span>
+                              <span className="text-secondarytext text-sm ml-1">
+                                km
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-right text-secondarytext font-medium">
+                              {vehicle.total_trips}
+                            </td>
+                            <td className="py-3 px-4 text-right text-secondarytext font-medium">
+                              {formatNumber(vehicle.avg_km_per_trip, 1)} km
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-2">
+                                <div className="w-full bg-primarybg rounded-full h-2 overflow-hidden">
+                                  <div
+                                    className="h-full rounded-full bg-primary transition-all duration-500"
+                                    style={{width: percentage.toFixed(0) + "%"}}
+                                  />
+                                </div>
+                                <span className="text-xs text-secondarytext font-medium min-w-12 text-right">
+                                  {percentage.toFixed(0)}%
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-3 pr-4">
+                              <ChevronRight
+                                size={18}
+                                className="text-secondarytext"
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-secondarytext text-center py-8">
+                No vehicle data available
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Driver History Modal - Outside tabs so it works from any tab */}
       {showDriverModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <div className="bg-white rounded-md shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-scaleIn">
-            {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-primary/5 to-transparent">
+        <div className="fixed inset-0 bg-black/50  flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-secondarybg rounded-md shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-scaleIn">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-primarybg flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-primary/10 rounded-md">
+                <div className="p-2.5 bg-primary/10 rounded-md">
                   <User size={20} className="text-primary" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-gray-800">
+                  <h2 className="text-lg font-bold text-primarytext">
                     {driverHistoryLoading
                       ? "Loading..."
                       : selectedDriverHistory?.driver_name || "Driver"}{" "}
-                    KM History
+                    — KM History
                   </h2>
                   {selectedDriverHistory?.cluster_name && (
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-secondarytext mt-0.5">
                       Cluster: {selectedDriverHistory.cluster_name}
                     </p>
                   )}
                 </div>
               </div>
               <button
-                onClick={closeDriverModal}
-                className="p-2 hover:bg-gray-100 rounded-md transition-colors"
+                onClick={() => {
+                  setShowDriverModal(false);
+                  setSelectedDriverHistory(null);
+                }}
+                className="p-2 hover:bg-primarybg rounded-md transition-colors"
               >
-                <X size={20} className="text-gray-500" />
+                <X size={20} className="text-secondarytext" />
               </button>
             </div>
 
-            {/* Modal Content */}
+            {/* Content */}
             <div className="flex-1 overflow-y-auto p-6">
               {driverHistoryLoading ? (
                 <Loading fullScreen={false} />
@@ -1736,44 +1222,51 @@ export default function KmManagement() {
                 <div className="space-y-6">
                   {/* Summary Stats */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-gray-50 rounded-md p-4 text-center">
-                      <p className="text-xs text-gray-500 uppercase font-semibold">
-                        Total KM
-                      </p>
-                      <p className="text-2xl font-bold text-primary mt-1">
-                        {formatNumber(selectedDriverHistory.total_km)}
-                      </p>
-                    </div>
-                    <div className="bg-gray-50 rounded-md p-4 text-center">
-                      <p className="text-xs text-gray-500 uppercase font-semibold">
-                        Total Trips
-                      </p>
-                      <p className="text-2xl font-bold text-gray-800 mt-1">
-                        {selectedDriverHistory.total_trips || 0}
-                      </p>
-                    </div>
-                    <div className="bg-gray-50 rounded-md p-4 text-center">
-                      <p className="text-xs text-gray-500 uppercase font-semibold">
-                        Avg per Trip
-                      </p>
-                      <p className="text-2xl font-bold text-gray-800 mt-1">
-                        {formatNumber(selectedDriverHistory.avg_km_per_trip)} km
-                      </p>
-                    </div>
-                    <div className="bg-gray-50 rounded-md p-4 text-center">
-                      <p className="text-xs text-gray-500 uppercase font-semibold">
-                        Vehicles Driven
-                      </p>
-                      <p className="text-2xl font-bold text-gray-800 mt-1">
-                        {selectedDriverHistory.by_vehicle?.length || 0}
-                      </p>
-                    </div>
+                    {[
+                      {
+                        label: "Total KM",
+                        value:
+                          formatNumber(selectedDriverHistory.total_km) + " km",
+                        highlight: true,
+                      },
+                      {
+                        label: "Total Trips",
+                        value: selectedDriverHistory.total_trips || 0,
+                      },
+                      {
+                        label: "Avg per Trip",
+                        value:
+                          formatNumber(selectedDriverHistory.avg_km_per_trip) +
+                          " km",
+                      },
+                      {
+                        label: "Vehicles Driven",
+                        value: selectedDriverHistory.by_vehicle?.length || 0,
+                      },
+                    ].map((s) => (
+                      <div
+                        key={s.label}
+                        className="bg-primarybg rounded-md p-4 text-center"
+                      >
+                        <p className="text-xs text-secondarytext uppercase font-semibold tracking-wide">
+                          {s.label}
+                        </p>
+                        <p
+                          className={
+                            "text-2xl font-bold mt-1 " +
+                            (s.highlight ? "text-primary" : "text-primarytext")
+                          }
+                        >
+                          {s.value}
+                        </p>
+                      </div>
+                    ))}
                   </div>
 
                   {/* Date Range */}
                   {(selectedDriverHistory.first_date ||
                     selectedDriverHistory.last_date) && (
-                    <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
+                    <div className="flex items-center justify-center gap-2 text-sm text-secondarytext bg-primarybg rounded-md py-2 px-4">
                       <Calendar size={14} />
                       <span>
                         {selectedDriverHistory.first_date || "N/A"} to{" "}
@@ -1785,7 +1278,7 @@ export default function KmManagement() {
                   {/* Vehicles Driven */}
                   {selectedDriverHistory.by_vehicle?.length > 0 && (
                     <div>
-                      <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-primarytext mb-3 flex items-center gap-2">
                         <Truck size={16} className="text-primary" />
                         Vehicles Driven
                       </h3>
@@ -1793,37 +1286,34 @@ export default function KmManagement() {
                         {selectedDriverHistory.by_vehicle.map((v, idx) => (
                           <div
                             key={v.vehicle_id || idx}
-                            className="flex items-center gap-3 p-3 bg-gray-50 rounded-md border border-gray-100"
+                            className="flex items-center gap-3 p-3 bg-primarybg rounded-md border border-gray-100"
                           >
-                            <div className="p-2 bg-white rounded-md shadow-sm">
+                            <div className="p-2 bg-secondarybg rounded-md shadow-sm text-secondarytext">
                               {getVehicleIcon(v.vehicle_type)}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="font-semibold text-gray-800 text-sm truncate">
-                                {v.vehicle_name || v.vehicle_number}
+                              <p className="font-semibold text-primarytext text-sm truncate">
+                                {v.vehicle_name &&
+                                v.vehicle_name !== v.vehicle_number
+                                  ? v.vehicle_name
+                                  : v.vehicle_number}
                               </p>
-                              <div className="flex items-center gap-2 text-xs text-gray-500">
-                                <span
-                                  className={`px-1.5 py-0.5 rounded-md text-[10px] font-medium ${
-                                    v.vehicle_type === "BUS"
-                                      ? "bg-blue-100 text-blue-700"
-                                      : v.vehicle_type === "CAR"
-                                        ? "bg-green-100 text-green-700"
-                                        : v.vehicle_type === "EV"
-                                          ? "bg-purple-100 text-purple-700"
-                                          : "bg-gray-100 text-gray-700"
-                                  }`}
-                                >
+                              <div className="flex items-center gap-2 text-xs text-secondarytext">
+                                {v.vehicle_name &&
+                                  v.vehicle_name !== v.vehicle_number && (
+                                    <span>{v.vehicle_number}</span>
+                                  )}
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary">
                                   {v.vehicle_type}
                                 </span>
-                                <span>{v.total_trips} trips</span>
+                                <span>{v.total_trips || 0} trips</span>
                               </div>
                             </div>
                             <div className="text-right">
                               <p className="font-bold text-primary text-sm">
                                 {formatNumber(v.total_km)} km
                               </p>
-                              <p className="text-xs text-gray-400">
+                              <p className="text-xs text-secondarytext">
                                 {formatNumber(v.avg_km_per_trip)} avg
                               </p>
                             </div>
@@ -1836,56 +1326,71 @@ export default function KmManagement() {
                   {/* Recent Logs */}
                   {selectedDriverHistory.recent_logs?.length > 0 && (
                     <div>
-                      <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-primarytext mb-3 flex items-center gap-2">
                         <Clock size={16} className="text-primary" />
                         Recent KM Logs
                       </h3>
-                      <div className="overflow-x-auto">
+                      <div className="overflow-x-auto rounded-md border border-gray-100">
                         <table className="w-full text-sm">
                           <thead>
-                            <tr className="bg-gray-50">
-                              <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500">
+                            <tr className="bg-primarybg">
+                              <th className="text-left py-2.5 px-3 text-xs font-semibold text-secondarytext">
                                 Date
                               </th>
-                              <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500">
+                              <th className="text-left py-2.5 px-3 text-xs font-semibold text-secondarytext">
                                 Vehicle
                               </th>
-                              <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500">
+                              <th className="text-right py-2.5 px-3 text-xs font-semibold text-secondarytext">
                                 Start
                               </th>
-                              <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500">
+                              <th className="text-right py-2.5 px-3 text-xs font-semibold text-secondarytext">
                                 End
                               </th>
-                              <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500">
+                              <th className="text-right py-2.5 px-3 text-xs font-semibold text-secondarytext">
                                 Total
                               </th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-gray-50">
+                          <tbody className="divide-y divide-primarybg">
                             {selectedDriverHistory.recent_logs.map(
                               (log, idx) => (
                                 <tr
                                   key={log.id || idx}
-                                  className="hover:bg-gray-50"
+                                  className="hover:bg-primarybg transition-colors"
                                 >
-                                  <td className="py-2 px-3 text-gray-700">
+                                  <td className="py-2.5 px-3 text-primarytext font-medium">
                                     {log.date}
                                   </td>
-                                  <td className="py-2 px-3">
-                                    <div className="flex items-center gap-1.5">
-                                      {getVehicleIcon(log.vehicle_type)}
-                                      <span className="text-gray-700">
-                                        {log.vehicle_number}
+                                  <td className="py-2.5 px-3">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-secondarytext">
+                                        {getVehicleIcon(log.vehicle_type)}
                                       </span>
+                                      <div>
+                                        <p className="text-primarytext font-medium text-sm">
+                                          {log.vehicle_name &&
+                                          log.vehicle_name !==
+                                            log.vehicle_number
+                                            ? log.vehicle_name
+                                            : log.vehicle_number}
+                                        </p>
+                                        {log.vehicle_name &&
+                                          log.vehicle_name !==
+                                            log.vehicle_number && (
+                                            <p className="text-xs text-secondarytext">
+                                              {log.vehicle_number}
+                                            </p>
+                                          )}
+                                      </div>
                                     </div>
                                   </td>
-                                  <td className="py-2 px-3 text-right text-gray-600">
+                                  <td className="py-2.5 px-3 text-right text-secondarytext">
                                     {formatNumber(log.start_km)}
                                   </td>
-                                  <td className="py-2 px-3 text-right text-gray-600">
+                                  <td className="py-2.5 px-3 text-right text-secondarytext">
                                     {formatNumber(log.end_km)}
                                   </td>
-                                  <td className="py-2 px-3 text-right font-semibold text-primary">
+                                  <td className="py-2.5 px-3 text-right font-semibold text-primary">
                                     {formatNumber(log.total_km)} km
                                   </td>
                                 </tr>
@@ -1900,7 +1405,7 @@ export default function KmManagement() {
                   {/* Monthly Trends */}
                   {selectedDriverHistory.monthly_trends?.length > 0 && (
                     <div>
-                      <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-primarytext mb-3 flex items-center gap-2">
                         <TrendingUp size={16} className="text-primary" />
                         Monthly Trends
                       </h3>
@@ -1908,15 +1413,15 @@ export default function KmManagement() {
                         {selectedDriverHistory.monthly_trends.map((m, idx) => (
                           <div
                             key={m.month || idx}
-                            className="bg-gray-50 rounded-md px-4 py-3 text-center min-w-[100px]"
+                            className="bg-primarybg rounded-md px-4 py-3 text-center min-w-24"
                           >
-                            <p className="text-xs text-gray-500 font-medium">
+                            <p className="text-xs text-secondarytext font-medium">
                               {m.month}
                             </p>
                             <p className="text-lg font-bold text-primary">
                               {formatNumber(m.total_km)}
                             </p>
-                            <p className="text-xs text-gray-400">
+                            <p className="text-xs text-secondarytext">
                               {m.trips} trips
                             </p>
                           </div>
@@ -1926,18 +1431,413 @@ export default function KmManagement() {
                   )}
                 </div>
               ) : (
-                <div className="py-12 text-center text-gray-400">
+                <div className="py-12 text-center text-secondarytext">
                   <AlertCircle size={48} className="mx-auto mb-2 opacity-30" />
                   <p>No history data available</p>
                 </div>
               )}
             </div>
 
-            {/* Modal Footer */}
-            <div className="px-6 py-4 border-t border-gray-100 flex justify-end">
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-primarybg flex justify-end">
               <button
-                onClick={closeDriverModal}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md font-medium hover:bg-gray-200 transition-colors"
+                onClick={() => {
+                  setShowDriverModal(false);
+                  setSelectedDriverHistory(null);
+                }}
+                className="px-5 py-2.5 bg-primary text-white rounded-md font-medium hover:bg-primarydull transition-colors text-sm"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Vehicle Type Detail Modal */}
+      {showVehicleTypeModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-secondarybg rounded-md shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-scaleIn">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-primarybg flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-primary/10 rounded-md">
+                  {selectedVehicleType &&
+                    getVehicleIcon(selectedVehicleType.vehicle_type)}
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-primarytext">
+                    {selectedVehicleType?.vehicle_type || "Vehicle Type"} — KM
+                    Details
+                  </h2>
+                  <p className="text-xs text-secondarytext mt-0.5">
+                    All trips for this vehicle type
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowVehicleTypeModal(false);
+                  setSelectedVehicleType(null);
+                  setVehicleTypeLogs([]);
+                }}
+                className="p-2 hover:bg-primarybg rounded-md transition-colors"
+              >
+                <X size={20} className="text-secondarytext" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {vehicleTypeLoading ? (
+                <Loading fullScreen={false} />
+              ) : selectedVehicleType ? (
+                <div className="space-y-6">
+                  {/* Summary Stats */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {[
+                      {
+                        label: "Total KM",
+                        value:
+                          formatNumber(selectedVehicleType.total_km) + " km",
+                        highlight: true,
+                      },
+                      {
+                        label: "Total Trips",
+                        value: selectedVehicleType.total_trips || 0,
+                      },
+                      {
+                        label: "Avg per Trip",
+                        value:
+                          formatNumber(selectedVehicleType.avg_km_per_trip) +
+                          " km",
+                      },
+                      {
+                        label: "Share",
+                        value:
+                          (
+                            (selectedVehicleType.total_km /
+                              (summary.grand_total_km || 1)) *
+                            100
+                          ).toFixed(1) + "%",
+                      },
+                    ].map((s) => (
+                      <div
+                        key={s.label}
+                        className="bg-primarybg rounded-md p-4 text-center"
+                      >
+                        <p className="text-xs text-secondarytext uppercase font-semibold tracking-wide">
+                          {s.label}
+                        </p>
+                        <p
+                          className={
+                            "text-2xl font-bold mt-1 " +
+                            (s.highlight ? "text-primary" : "text-primarytext")
+                          }
+                        >
+                          {s.value}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Recent Logs */}
+                  {vehicleTypeLogs.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-bold text-primarytext mb-3 flex items-center gap-2">
+                        <Clock size={16} className="text-primary" />
+                        KM Logs ({vehicleTypeLogs.length})
+                      </h3>
+                      <div className="overflow-x-auto rounded-md border border-gray-100">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-primarybg">
+                              <th className="text-left py-2.5 px-3 text-xs font-semibold text-secondarytext">
+                                Date
+                              </th>
+                              <th className="text-left py-2.5 px-3 text-xs font-semibold text-secondarytext">
+                                Driver
+                              </th>
+                              <th className="text-left py-2.5 px-3 text-xs font-semibold text-secondarytext">
+                                Vehicle
+                              </th>
+                              <th className="text-right py-2.5 px-3 text-xs font-semibold text-secondarytext">
+                                Start
+                              </th>
+                              <th className="text-right py-2.5 px-3 text-xs font-semibold text-secondarytext">
+                                End
+                              </th>
+                              <th className="text-right py-2.5 px-3 text-xs font-semibold text-secondarytext">
+                                Total
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-primarybg">
+                            {vehicleTypeLogs.slice(0, 50).map((log, idx) => (
+                              <tr
+                                key={log.id || idx}
+                                className="hover:bg-primarybg transition-colors"
+                              >
+                                <td className="py-2.5 px-3 text-primarytext font-medium">
+                                  {log.date}
+                                </td>
+                                <td className="py-2.5 px-3 text-primarytext">
+                                  {log.driver_name}
+                                </td>
+                                <td className="py-2.5 px-3">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-secondarytext">
+                                      {getVehicleIcon(log.vehicle_type)}
+                                    </span>
+                                    <div>
+                                      <p className="text-primarytext text-sm">
+                                        {log.vehicle_name &&
+                                        log.vehicle_name !== log.vehicle_number
+                                          ? log.vehicle_name
+                                          : log.vehicle_number}
+                                      </p>
+                                      {log.vehicle_name &&
+                                        log.vehicle_name !==
+                                          log.vehicle_number && (
+                                          <p className="text-xs text-secondarytext">
+                                            {log.vehicle_number}
+                                          </p>
+                                        )}
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-3 text-right text-secondarytext">
+                                  {formatNumber(log.start_km)}
+                                </td>
+                                <td className="py-2.5 px-3 text-right text-secondarytext">
+                                  {formatNumber(log.end_km)}
+                                </td>
+                                <td className="py-2.5 px-3 text-right font-semibold text-primary">
+                                  {formatNumber(log.total_km)} km
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {vehicleTypeLogs.length === 0 && (
+                    <div className="py-12 text-center text-secondarytext">
+                      <FileText size={48} className="mx-auto mb-2 opacity-30" />
+                      <p>No logs found for this vehicle type</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="py-12 text-center text-secondarytext">
+                  <AlertCircle size={48} className="mx-auto mb-2 opacity-30" />
+                  <p>No data available</p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-primarybg flex justify-end">
+              <button
+                onClick={() => {
+                  setShowVehicleTypeModal(false);
+                  setSelectedVehicleType(null);
+                  setVehicleTypeLogs([]);
+                }}
+                className="px-5 py-2.5 bg-primary text-white rounded-md font-medium hover:bg-primarydull transition-colors text-sm"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Individual Vehicle Detail Modal */}
+      {showVehicleModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-secondarybg rounded-md shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-scaleIn">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-primarybg flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-primary/10 rounded-md">
+                  {selectedVehicle &&
+                    getVehicleIcon(selectedVehicle.vehicle_type)}
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-primarytext">
+                    {selectedVehicle?.vehicle_name &&
+                    selectedVehicle?.vehicle_name !==
+                      selectedVehicle?.vehicle_number
+                      ? selectedVehicle.vehicle_name
+                      : selectedVehicle?.vehicle_number || "Vehicle"}{" "}
+                    — KM Details
+                  </h2>
+                  {selectedVehicle?.vehicle_name &&
+                    selectedVehicle?.vehicle_name !==
+                      selectedVehicle?.vehicle_number && (
+                      <p className="text-xs text-secondarytext mt-0.5">
+                        {selectedVehicle.vehicle_number} •{" "}
+                        {selectedVehicle.vehicle_type}
+                      </p>
+                    )}
+                  {(!selectedVehicle?.vehicle_name ||
+                    selectedVehicle?.vehicle_name ===
+                      selectedVehicle?.vehicle_number) && (
+                    <p className="text-xs text-secondarytext mt-0.5">
+                      {selectedVehicle?.vehicle_type}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowVehicleModal(false);
+                  setSelectedVehicle(null);
+                  setVehicleLogs([]);
+                }}
+                className="p-2 hover:bg-primarybg rounded-md transition-colors"
+              >
+                <X size={20} className="text-secondarytext" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {vehicleLoading ? (
+                <Loading fullScreen={false} />
+              ) : selectedVehicle ? (
+                <div className="space-y-6">
+                  {/* Summary Stats */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {[
+                      {
+                        label: "Total KM",
+                        value: formatNumber(selectedVehicle.total_km) + " km",
+                        highlight: true,
+                      },
+                      {
+                        label: "Total Trips",
+                        value: selectedVehicle.total_trips || 0,
+                      },
+                      {
+                        label: "Avg per Trip",
+                        value:
+                          formatNumber(selectedVehicle.avg_km_per_trip) + " km",
+                      },
+                      {
+                        label: "Vehicle Type",
+                        value: selectedVehicle.vehicle_type,
+                      },
+                    ].map((s) => (
+                      <div
+                        key={s.label}
+                        className="bg-primarybg rounded-md p-4 text-center"
+                      >
+                        <p className="text-xs text-secondarytext uppercase font-semibold tracking-wide">
+                          {s.label}
+                        </p>
+                        <p
+                          className={
+                            "text-2xl font-bold mt-1 " +
+                            (s.highlight ? "text-primary" : "text-primarytext")
+                          }
+                        >
+                          {s.value}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Logs */}
+                  {vehicleLogs.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-bold text-primarytext mb-3 flex items-center gap-2">
+                        <Clock size={16} className="text-primary" />
+                        KM Logs ({vehicleLogs.length})
+                      </h3>
+                      <div className="overflow-x-auto rounded-md border border-gray-100">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-primarybg">
+                              <th className="text-left py-2.5 px-3 text-xs font-semibold text-secondarytext">
+                                Date
+                              </th>
+                              <th className="text-left py-2.5 px-3 text-xs font-semibold text-secondarytext">
+                                Driver
+                              </th>
+                              <th className="text-right py-2.5 px-3 text-xs font-semibold text-secondarytext">
+                                Start KM
+                              </th>
+                              <th className="text-right py-2.5 px-3 text-xs font-semibold text-secondarytext">
+                                End KM
+                              </th>
+                              <th className="text-right py-2.5 px-3 text-xs font-semibold text-secondarytext">
+                                Total
+                              </th>
+                              <th className="text-left py-2.5 px-3 text-xs font-semibold text-secondarytext">
+                                Remarks
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-primarybg">
+                            {vehicleLogs.slice(0, 50).map((log, idx) => (
+                              <tr
+                                key={log.id || idx}
+                                className="hover:bg-primarybg transition-colors"
+                              >
+                                <td className="py-2.5 px-3 text-primarytext font-medium">
+                                  {log.date}
+                                </td>
+                                <td className="py-2.5 px-3 text-primarytext">
+                                  {log.driver_name}
+                                </td>
+                                <td className="py-2.5 px-3 text-right text-secondarytext">
+                                  {formatNumber(log.start_km)}
+                                </td>
+                                <td className="py-2.5 px-3 text-right text-secondarytext">
+                                  {formatNumber(log.end_km)}
+                                </td>
+                                <td className="py-2.5 px-3 text-right font-semibold text-primary">
+                                  {formatNumber(log.total_km)} km
+                                </td>
+                                <td className="py-2.5 px-3 text-secondarytext text-sm max-w-40 truncate">
+                                  {log.remarks || "—"}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {vehicleLogs.length === 0 && (
+                    <div className="py-12 text-center text-secondarytext">
+                      <FileText size={48} className="mx-auto mb-2 opacity-30" />
+                      <p>No logs found for this vehicle</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="py-12 text-center text-secondarytext">
+                  <AlertCircle size={48} className="mx-auto mb-2 opacity-30" />
+                  <p>No data available</p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-primarybg flex justify-end">
+              <button
+                onClick={() => {
+                  setShowVehicleModal(false);
+                  setSelectedVehicle(null);
+                  setVehicleLogs([]);
+                }}
+                className="px-5 py-2.5 bg-primary text-white rounded-md font-medium hover:bg-primarydull transition-colors text-sm"
               >
                 Close
               </button>

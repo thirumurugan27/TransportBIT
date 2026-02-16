@@ -681,7 +681,7 @@ export default function VehicleRequests() {
 
       {/* ========== DETAIL MODAL ========== */}
       {selectedRequest && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+        <div className="fixed inset-0 bg-slate-900/60  flex items-center justify-center z-50 p-4 animate-fadeIn">
           <div className="bg-secondarybg rounded-md shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-scaleIn">
             {/* Header */}
             <div className="p-6 border-b border-primarybg/50">
@@ -1098,7 +1098,7 @@ export default function VehicleRequests() {
 
       {/* ========== APPROVE/REJECT MODAL ========== */}
       {actionModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-60 p-4 animate-fadeIn">
+        <div className="fixed inset-0 bg-slate-900/60  flex items-center justify-center z-60 p-4 animate-fadeIn">
           <div className="bg-secondarybg rounded-md shadow-2xl w-full max-w-md overflow-hidden flex flex-col animate-scaleIn">
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-primarybg bg-gradient-to-r from-primary/5 to-transparent">
@@ -1284,7 +1284,7 @@ export default function VehicleRequests() {
 
       {/* ========== ASSIGN VEHICLE MODAL ========== */}
       {showAssignModal && assignRequest && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-60 p-4 animate-fadeIn">
+        <div className="fixed inset-0 bg-slate-900/60  flex items-center justify-center z-60 p-4 animate-fadeIn">
           <div className="bg-secondarybg rounded-md shadow-2xl w-full max-w-md overflow-hidden flex flex-col animate-scaleIn">
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-primarybg bg-gradient-to-r from-primary/5 to-transparent">

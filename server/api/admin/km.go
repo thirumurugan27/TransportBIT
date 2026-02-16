@@ -411,6 +411,7 @@ func GetAdminKmLogs(c *gin.Context) {
 	endDate := c.Query("end_date")
 	driverParam := c.Query("driver_id")
 	vehicleParam := c.Query("vehicle_id")
+	vehicleType := c.Query("vehicle_type")
 	search := c.Query("search")
 	limitParam := c.DefaultQuery("limit", "200")
 
@@ -421,7 +422,7 @@ func GetAdminKmLogs(c *gin.Context) {
 		limit = 500
 	}
 
-	filters := adminKmFilters{Period: period, StartDate: startDate, EndDate: endDate}
+	filters := adminKmFilters{Period: period, StartDate: startDate, EndDate: endDate, VehicleType: vehicleType}
 
 	if driverParam != "" {
 		if id, err := strconv.Atoi(driverParam); err == nil {
@@ -462,6 +463,7 @@ func GetAdminKmLogs(c *gin.Context) {
             kl.end_km,
             kl.total_km,
             kl.remarks,
+            NULLIF(COALESCE(v.vehicle_name, ''), '') as vehicle_name,
             COALESCE(v.vehicle_number, 'N/A') as vehicle_number,
             COALESCE(v.vehicle_type, 'UNKNOWN') as vehicle_type,
             u.full_name as driver_name,
@@ -504,6 +506,7 @@ func GetAdminKmLogs(c *gin.Context) {
 		EndKm         float64 `json:"end_km"`
 		TotalKm       float64 `json:"total_km"`
 		Remarks       *string `json:"remarks"`
+		VehicleName   *string `json:"vehicle_name"`
 		VehicleNumber string  `json:"vehicle_number"`
 		VehicleType   string  `json:"vehicle_type"`
 		DriverName    string  `json:"driver_name"`
@@ -517,7 +520,7 @@ func GetAdminKmLogs(c *gin.Context) {
 	for rows.Next() {
 		var l adminKmLog
 		if err := rows.Scan(&l.ID, &l.Date, &l.StartKm, &l.EndKm, &l.TotalKm, &l.Remarks,
-			&l.VehicleNumber, &l.VehicleType, &l.DriverName, &l.ClusterName,
+			&l.VehicleName, &l.VehicleNumber, &l.VehicleType, &l.DriverName, &l.ClusterName,
 			&l.Shift, &l.RouteName, &l.RecordedBy); err == nil {
 			logs = append(logs, l)
 		}
@@ -550,8 +553,9 @@ func GetKMSummary(c *gin.Context) {
 	endDate := c.Query("end_date")
 	driverParam := c.Query("driver_id")
 	vehicleParam := c.Query("vehicle_id")
+	vehicleType := c.Query("vehicle_type")
 
-	filters := adminKmFilters{Period: period, StartDate: startDate, EndDate: endDate}
+	filters := adminKmFilters{Period: period, StartDate: startDate, EndDate: endDate, VehicleType: vehicleType}
 
 	if driverParam != "" {
 		if id, err := strconv.Atoi(driverParam); err == nil {
@@ -702,7 +706,8 @@ func GetKMSummary(c *gin.Context) {
 	var selectedDriver interface{}
 	if filters.DriverID != nil {
 		row := config.DB.QueryRow(`
-            SELECT u.full_name, SUM(kl.total_km), COUNT(*), MIN(kl.date), MAX(kl.date)
+            SELECT u.full_name, SUM(kl.total_km), COUNT(*), 
+                   DATE_FORMAT(MIN(kl.date), '%d-%m-%Y'), DATE_FORMAT(MAX(kl.date), '%d-%m-%Y')
             FROM km_logs kl
             JOIN drivers d ON kl.driver_id = d.id
             JOIN users u ON d.user_id = u.id
@@ -734,7 +739,8 @@ func GetKMSummary(c *gin.Context) {
 	if filters.VehicleID != nil {
 		row := config.DB.QueryRow(`
             SELECT COALESCE(v.vehicle_number, 'N/A'), COALESCE(v.vehicle_type, 'UNKNOWN'),
-                   SUM(kl.total_km), COUNT(*), MIN(kl.date), MAX(kl.date)
+                   SUM(kl.total_km), COUNT(*), 
+                   DATE_FORMAT(MIN(kl.date), '%d-%m-%Y'), DATE_FORMAT(MAX(kl.date), '%d-%m-%Y')
             FROM km_logs kl
             LEFT JOIN vehicles v ON kl.vehicle_id = v.id
             `+whereClause+`
@@ -788,11 +794,13 @@ func GetVehicleKmSummary(c *gin.Context) {
 	driverParam := c.Query("driver_id")
 	vehicleIDParam := c.Query("vehicle_id")
 	vehicleNumberParam := c.Query("vehicle_number")
+	vehicleType := c.Query("vehicle_type")
 
 	filters := adminKmFilters{
-		Period:    period,
-		StartDate: startDate,
-		EndDate:   endDate,
+		Period:      period,
+		StartDate:   startDate,
+		EndDate:     endDate,
+		VehicleType: vehicleType,
 	}
 
 	if driverParam != "" {
@@ -899,11 +907,12 @@ func GetVehicleKmSummary(c *gin.Context) {
 }
 
 type adminKmFilters struct {
-	Period    string
-	StartDate string
-	EndDate   string
-	DriverID  *int
-	VehicleID *int
+	Period      string
+	StartDate   string
+	EndDate     string
+	DriverID    *int
+	VehicleID   *int
+	VehicleType string
 }
 
 func buildAdminKmWhereClause(f adminKmFilters) (string, []interface{}) {
@@ -938,6 +947,11 @@ func buildAdminKmWhereClause(f adminKmFilters) (string, []interface{}) {
 	if f.VehicleID != nil {
 		clauses = append(clauses, "kl.vehicle_id = ?")
 		args = append(args, *f.VehicleID)
+	}
+
+	if f.VehicleType != "" {
+		clauses = append(clauses, "kl.vehicle_type = ?")
+		args = append(args, f.VehicleType)
 	}
 
 	if len(clauses) == 0 {
@@ -1015,7 +1029,7 @@ func GetDriverKmHistory(c *gin.Context) {
 	var firstDate, lastDate sql.NullString
 	statsQuery := `
         SELECT COALESCE(SUM(kl.total_km), 0), COUNT(*),
-               MIN(kl.date), MAX(kl.date)
+               DATE_FORMAT(MIN(kl.date), '%d-%m-%Y'), DATE_FORMAT(MAX(kl.date), '%d-%m-%Y')
         FROM km_logs kl
         WHERE kl.driver_id = ?` + dateClause
 	config.DB.QueryRow(statsQuery, args...).Scan(&totalKm, &totalTrips, &firstDate, &lastDate)
@@ -1041,7 +1055,7 @@ func GetDriverKmHistory(c *gin.Context) {
                NULLIF(COALESCE(v.vehicle_name, ''), '') as vehicle_name,
                SUM(kl.total_km) as total_km, COUNT(*) as trips,
                AVG(kl.total_km) as avg_trip,
-               MIN(kl.date) as first_date, MAX(kl.date) as last_date
+               DATE_FORMAT(MIN(kl.date), '%d-%m-%Y') as first_date, DATE_FORMAT(MAX(kl.date), '%d-%m-%Y') as last_date
         FROM km_logs kl
         LEFT JOIN vehicles v ON kl.vehicle_id = v.id
         WHERE kl.driver_id = ?`+dateClause+` AND kl.vehicle_id IS NOT NULL
@@ -1097,6 +1111,7 @@ func GetDriverKmHistory(c *gin.Context) {
 	type kmLogEntry struct {
 		ID            int     `json:"id"`
 		Date          string  `json:"date"`
+		VehicleName   *string `json:"vehicle_name"`
 		VehicleNumber string  `json:"vehicle_number"`
 		VehicleType   string  `json:"vehicle_type"`
 		StartKm       float64 `json:"start_km"`
@@ -1107,6 +1122,7 @@ func GetDriverKmHistory(c *gin.Context) {
 
 	logRows, err := config.DB.Query(`
         SELECT kl.id, DATE_FORMAT(kl.date, '%d-%m-%Y') as date,
+               NULLIF(COALESCE(v.vehicle_name, ''), '') as vehicle_name,
                COALESCE(v.vehicle_number, 'N/A') as vehicle_number,
                COALESCE(kl.vehicle_type, 'UNKNOWN') as vehicle_type,
                kl.start_km, kl.end_km, kl.total_km, kl.remarks
@@ -1122,7 +1138,7 @@ func GetDriverKmHistory(c *gin.Context) {
 		defer logRows.Close()
 		for logRows.Next() {
 			var log kmLogEntry
-			logRows.Scan(&log.ID, &log.Date, &log.VehicleNumber, &log.VehicleType,
+			logRows.Scan(&log.ID, &log.Date, &log.VehicleName, &log.VehicleNumber, &log.VehicleType,
 				&log.StartKm, &log.EndKm, &log.TotalKm, &log.Remarks)
 			recentLogs = append(recentLogs, log)
 		}

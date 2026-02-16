@@ -582,7 +582,7 @@ export default function DriverHome() {
                 className="relative p-4 rounded-md bg-gray-50 border border-gray-100 hover:shadow-sm transition-all cursor-pointer"
                 onClick={() => navigate("/driver-dashboard/vehicle-requests")}
               >
-                <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-l-md"></div>
+                <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-md"></div>
 
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3 pl-2">
                   <div className="flex items-center gap-3 flex-1">
