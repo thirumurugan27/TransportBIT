@@ -1,4 +1,5 @@
 import React, {useEffect, useState, useMemo} from "react";
+import Loading from "../../../components/ui/Loading";
 import {
   Plus,
   Edit2,
@@ -278,13 +279,20 @@ export default function ScheduleManagement() {
             const forceRes = await fetch(`${API_BASE}${endpoint}`, {
               method: "POST",
               credentials: "include",
-              headers: {"Content-Type": "application/json", ...getAuthHeaders()},
+              headers: {
+                "Content-Type": "application/json",
+                ...getAuthHeaders(),
+              },
               body: JSON.stringify({...payload, force: true}),
             });
             if (forceRes.ok) {
               showSuccess("Success", "Member added successfully!");
               setNewMemberForm({item_id: "", valid_from: "", valid_to: ""});
-              openMemberModal(selectedGroupId, selectedGroupName, memberModalType);
+              openMemberModal(
+                selectedGroupId,
+                selectedGroupName,
+                memberModalType,
+              );
               fetchData();
             } else {
               showError("Error", "Failed to add member");
@@ -849,7 +857,7 @@ export default function ScheduleManagement() {
   }, [shifts, shiftSearch, shiftSort]);
 
   return (
-    <div className="space-y-6 pb-12 font-sans text-primarytext">
+    <div className="space-y-6 pb-12 font-sans text-primarytext animate-fadeIn">
       {/* Header Section */}
       <div className="bg-linear-to-r from-primary/5 to-primarydull/5 rounded-md p-6 border border-primary/10">
         <h1 className="text-3xl font-bold text-primarytext flex items-center gap-3">
@@ -1105,10 +1113,7 @@ export default function ScheduleManagement() {
       {/* Content Area */}
       <div className="bg-secondarybg rounded-md border border-gray-100 shadow-sm p-6 min-h-100">
         {loading ? (
-          <div className="flex flex-col justify-center items-center h-96">
-            <Loader2 className="w-10 h-10 text-primary animate-spin mb-3" />
-            <p className="text-secondarytext text-sm">Loading data...</p>
-          </div>
+          <Loading fullScreen={false} text="Loading data..." />
         ) : (
           <>
             {/* Driver Groups Tab */}
@@ -1454,8 +1459,8 @@ export default function ScheduleManagement() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-md shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-white rounded-md shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-scaleIn">
             {/* Modal Header */}
             <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center">
               <div className="flex items-center gap-4">
@@ -2042,8 +2047,8 @@ export default function ScheduleManagement() {
 
       {/* Member Management Modal */}
       {showMemberModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-md shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50  p-4 animate-fadeIn">
+          <div className="bg-white rounded-md shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-scaleIn">
             {/* Modal Header */}
             <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center">
               <div className="flex items-center gap-4">
@@ -2177,9 +2182,7 @@ export default function ScheduleManagement() {
                 </div>
 
                 {loadingMembers ? (
-                  <div className="flex justify-center py-8">
-                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                  </div>
+                  <Loading fullScreen={false} size="small" />
                 ) : groupMembers.length === 0 ? (
                   <div className="text-center py-6 text-secondarytext text-sm bg-white rounded-md border border-dashed border-gray-200">
                     No members added yet
@@ -2239,7 +2242,7 @@ export default function ScheduleManagement() {
 
       {/* Detail Modal */}
       {showDetailModal && detailItem && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-fadeIn">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4  animate-fadeIn">
           <div className="bg-white rounded-md shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-scaleIn">
             {/* Modal Header */}
             <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center">
@@ -2428,9 +2431,7 @@ export default function ScheduleManagement() {
                     </h4>
                   </div>
                   {loadingDetails ? (
-                    <div className="flex justify-center py-8">
-                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                    </div>
+                    <Loading fullScreen={false} size="small" />
                   ) : detailMembers.length === 0 ? (
                     <div className="text-center py-6 text-secondarytext text-sm bg-white rounded-md border border-dashed border-gray-200">
                       No {detailType === "cluster" ? "drivers" : "vehicles"}{" "}

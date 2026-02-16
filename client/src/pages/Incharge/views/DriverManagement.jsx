@@ -3,6 +3,7 @@ import {useAuth} from "../../../context/AuthContext";
 import {apiGet, apiPost, getToday} from "../../../utils/api";
 import {useToast} from "../../../context/ToastContext";
 import {showError} from "../../../utils/swal";
+import Loading from "../../../components/ui/Loading";
 import {formatTime} from "../../../utils/dateFormat";
 import {
   Users,
@@ -244,7 +245,7 @@ export default function DriverManagement() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fadeIn">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
@@ -333,9 +334,7 @@ export default function DriverManagement() {
 
       {/* Driver List */}
       {loading ? (
-        <div className="text-center py-12 text-secondarytext animate-pulse">
-          Loading drivers...
-        </div>
+        <Loading fullScreen={false} text="Loading drivers..." />
       ) : (
         <div className="space-y-3">
           {filteredDrivers.length > 0 ? (
@@ -529,8 +528,8 @@ export default function DriverManagement() {
 
       {/* Add KM Log Modal */}
       {showKmModal && selectedDriver && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-md p-6 w-full max-w-md mx-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fadeIn">
+          <div className="bg-white rounded-md p-6 w-full max-w-md mx-4 animate-scaleIn">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-primarytext">
                 Add KM Log
@@ -691,8 +690,8 @@ export default function DriverManagement() {
 
       {/* Apply Leave Modal */}
       {showLeaveModal && selectedDriver && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-md p-6 w-full max-w-md mx-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fadeIn">
+          <div className="bg-white rounded-md p-6 w-full max-w-md mx-4 animate-scaleIn">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-primarytext">
                 Apply Leave

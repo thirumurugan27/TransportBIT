@@ -2,6 +2,7 @@ import React, {useState, useEffect} from "react";
 import {apiGet, apiPost, getToday} from "../../../utils/api";
 import {useAuth} from "../../../context/AuthContext";
 import {useToast} from "../../../context/ToastContext";
+import Loading from "../../../components/ui/Loading";
 import SearchableSelect from "../../../components/ui/SearchableSelect";
 import {
   Plus,
@@ -452,7 +453,7 @@ export default function KmManagement() {
     Boolean(summaryFilters.endDate);
 
   return (
-    <div className="space-y-6 pb-12">
+    <div className="space-y-6 pb-12 animate-fadeIn">
       {/* Header with Tabs */}
       <div className="bg-white rounded-md shadow-sm border border-gray-100 overflow-hidden">
         <div className="px-6 py-5 border-b border-gray-100">
@@ -507,8 +508,7 @@ export default function KmManagement() {
                 Smart Filters
                 {metaLoading && (
                   <span className="flex items-center gap-1 text-xs font-normal text-gray-400">
-                    <Loader2 size={14} className="animate-spin" /> Syncing
-                    options
+                    <Loading fullScreen={false} size="small" /> Syncing options
                   </span>
                 )}
               </div>
@@ -637,9 +637,7 @@ export default function KmManagement() {
           </div>
 
           {loading ? (
-            <div className="flex justify-center p-20">
-              <div className="animate-spin inline-block w-8 h-8 border-4 border-current border-t-transparent text-primary rounded-md"></div>
-            </div>
+            <Loading fullScreen={false} />
           ) : (
             <>
               {/* Selected Driver/Vehicle Cards */}
@@ -992,9 +990,7 @@ export default function KmManagement() {
                 </div>
                 <div className="p-6">
                   {vehicleSummaryLoading ? (
-                    <div className="flex justify-center p-12">
-                      <div className="animate-spin inline-block w-7 h-7 border-4 border-current border-t-transparent text-primary rounded-md"></div>
-                    </div>
+                    <Loading fullScreen={false} size="small" />
                   ) : vehicleSummary.length > 0 ? (
                     <div className="overflow-x-auto">
                       <table className="w-full">
@@ -1307,7 +1303,8 @@ export default function KmManagement() {
                         options={filterMeta.vehicles.map((v) => ({
                           value: v.id,
                           label:
-                            v.vehicle_name && v.vehicle_name !== v.vehicle_number
+                            v.vehicle_name &&
+                            v.vehicle_name !== v.vehicle_number
                               ? `${v.vehicle_name} (${v.vehicle_number})`
                               : v.vehicle_number,
                           subtitle: v.vehicle_type,
@@ -1418,7 +1415,7 @@ export default function KmManagement() {
                 >
                   {loading ? (
                     <>
-                      <Loader2 size={18} className="animate-spin" />
+                      <Loading fullScreen={false} size="small" />
                       Saving...
                     </>
                   ) : (
@@ -1450,9 +1447,7 @@ export default function KmManagement() {
               </div>
               <div className="p-6">
                 {vehiclesLoading ? (
-                  <div className="flex justify-center py-8">
-                    <Loader2 size={24} className="animate-spin text-primary" />
-                  </div>
+                  <Loading fullScreen={false} size="small" />
                 ) : assignedVehicles.length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {assignedVehicles.map((vehicle) => (
@@ -1627,9 +1622,7 @@ export default function KmManagement() {
             {/* Table */}
             <div className="overflow-x-auto">
               {logsLoading ? (
-                <div className="flex justify-center py-12">
-                  <Loader2 size={32} className="animate-spin text-primary" />
-                </div>
+                <Loading fullScreen={false} />
               ) : logs.length > 0 ? (
                 <table className="w-full">
                   <thead>
@@ -1705,8 +1698,8 @@ export default function KmManagement() {
 
       {/* Driver History Modal */}
       {showDriverModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-md shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-white rounded-md shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-scaleIn">
             {/* Modal Header */}
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-primary/5 to-transparent">
               <div className="flex items-center gap-3">
@@ -1738,9 +1731,7 @@ export default function KmManagement() {
             {/* Modal Content */}
             <div className="flex-1 overflow-y-auto p-6">
               {driverHistoryLoading ? (
-                <div className="flex justify-center py-12">
-                  <Loader2 size={32} className="animate-spin text-primary" />
-                </div>
+                <Loading fullScreen={false} />
               ) : selectedDriverHistory ? (
                 <div className="space-y-6">
                   {/* Summary Stats */}

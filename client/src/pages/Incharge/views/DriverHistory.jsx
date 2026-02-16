@@ -1,6 +1,7 @@
 import React, {useState, useEffect} from "react";
 import {useAuth} from "../../../context/AuthContext";
 import {apiGet, getToday} from "../../../utils/api";
+import Loading from "../../../components/ui/Loading";
 
 export default function DriverHistory() {
   const {user} = useAuth();
@@ -76,7 +77,7 @@ export default function DriverHistory() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fadeIn">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h3 className="text-2xl font-bold text-primarytext">
@@ -214,9 +215,7 @@ export default function DriverHistory() {
       </div>
 
       {loading ? (
-        <div className="text-center py-12 text-secondarytext animate-pulse">
-          Loading...
-        </div>
+        <Loading fullScreen={false} />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Attendance Records */}

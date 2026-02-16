@@ -1,4 +1,5 @@
 import React, {useState, useEffect} from "react";
+import Loading from "../../../components/ui/Loading";
 import {
   Calendar,
   Clock,
@@ -239,9 +240,7 @@ export default function DriverApplyLeave() {
       {/* Leave History */}
       <div className="bg-white rounded-md border border-gray-100 shadow-sm overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center flex justify-center">
-            <Loader2 className="w-8 h-8 text-primary animate-spin" />
-          </div>
+          <Loading fullScreen={false} />
         ) : filteredLeaves.length === 0 ? (
           <div className="py-16 px-6 text-center">
             <div className="bg-gray-50 w-16 h-16 rounded-md flex items-center justify-center mx-auto mb-4">
@@ -383,7 +382,7 @@ export default function DriverApplyLeave() {
 
       {/* Apply Leave Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 animate-fadeIn">
           <div className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-md shadow-2xl animate-scaleIn overflow-hidden max-h-[92vh] sm:max-h-[85vh] overflow-y-auto sm:mx-4">
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 sticky top-0 bg-white z-10">
               <h3 className="text-base font-bold text-primarytext">
@@ -528,7 +527,7 @@ export default function DriverApplyLeave() {
 
       {/* Details Modal */}
       {showDetailsModal && selectedLeave && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 animate-fadeIn">
           <div className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-md shadow-2xl animate-scaleIn overflow-hidden max-h-[92vh] sm:max-h-[85vh] overflow-y-auto sm:mx-4">
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 sticky top-0 bg-white z-10">

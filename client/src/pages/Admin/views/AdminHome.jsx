@@ -1,5 +1,6 @@
 import React, {useState, useEffect} from "react";
 import {useNavigate} from "react-router-dom";
+import Loading from "../../../components/ui/Loading";
 import {
   Users,
   Bus,
@@ -124,7 +125,7 @@ export default function AdminHome() {
       : 0;
 
   return (
-    <div className="space-y-8 pb-8">
+    <div className="space-y-8 pb-8 animate-fadeIn">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-primarytext tracking-tight">
@@ -187,9 +188,7 @@ export default function AdminHome() {
           </div>
           <div className="space-y-4">
             {loading ? (
-              <div className="flex justify-center py-8">
-                <div className="w-8 h-8 border-4 border-primarybg border-t-primary rounded-md animate-spin"></div>
-              </div>
+              <Loading fullScreen={false} size="small" />
             ) : recentAssignments.length > 0 ? (
               recentAssignments.map((assignment, i) => (
                 <div

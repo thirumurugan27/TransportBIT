@@ -101,7 +101,7 @@ export default function FacultyProfile() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-2xl mx-auto animate-fadeIn">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">My Profile</h1>
         <p className="text-gray-600 mt-1">Manage your profile information</p>

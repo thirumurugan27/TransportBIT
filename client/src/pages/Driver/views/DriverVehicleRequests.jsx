@@ -227,7 +227,7 @@ export default function DriverVehicleRequests() {
   if (loading) return <Loading fullScreen={false} />;
 
   return (
-    <div className="space-y-4 sm:space-y-5 p-0 sm:p-2 lg:p-4">
+    <div className="space-y-4 sm:space-y-5 p-0 sm:p-2 lg:p-4 animate-fadeIn">
       {/* Page Header */}
       <div className="bg-white rounded-md shadow-sm border border-gray-100 p-3 sm:p-4 lg:p-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
@@ -544,7 +544,7 @@ export default function DriverVehicleRequests() {
 
       {/* Details Modal */}
       {selectedRequest && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm animate-fadeIn">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50  animate-fadeIn">
           <div className="bg-secondarybg rounded-t-2xl sm:rounded-md shadow-2xl w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col animate-scaleIn border border-gray-100">
             {/* Modal Header */}
             <div className="relative px-4 sm:px-6 py-4 sm:py-5 bg-gradient-to-br from-primary/5 to-primarybg border-b border-gray-200">

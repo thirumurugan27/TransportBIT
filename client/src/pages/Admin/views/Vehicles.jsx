@@ -1,4 +1,5 @@
 import React, {useState, useEffect} from "react";
+import Loading from "../../../components/ui/Loading";
 import {showError, showSuccess, showConfirm} from "../../../utils/swal";
 import {
   Car,
@@ -181,9 +182,7 @@ export default function Vehicles() {
     );
     if (!isConfirmed) return;
     try {
-      const res = await apiDelete(
-        `/api/admin/vehicles/delete?id=${id}`,
-      );
+      const res = await apiDelete(`/api/admin/vehicles/delete?id=${id}`);
       if (res.ok) {
         showSuccess("Success", "Vehicle deleted successfully!");
         fetchVehicles();
@@ -358,7 +357,7 @@ export default function Vehicles() {
   const expiryStats = getExpiryStats();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fadeIn">
       {/* View Mode Toggle */}
       <div className="flex justify-between items-center">
         <div className="flex bg-secondarybg rounded-md border border-primary/10 p-1.5 gap-1">
@@ -887,10 +886,7 @@ export default function Vehicles() {
       {viewMode === "fleet" && (
         <div className="bg-secondarybg rounded-md shadow-sm border border-primary/10 overflow-hidden">
           {loading ? (
-            <div className="p-16 text-center text-secondarytext flex flex-col items-center">
-              <div className="animate-spin rounded-md h-10 w-10 border-2 border-primary border-t-transparent mb-4"></div>
-              <p className="text-sm">Loading fleet data...</p>
-            </div>
+            <Loading fullScreen={false} text="Loading fleet data..." />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -1106,11 +1102,11 @@ export default function Vehicles() {
       {/* Vehicle Detail Modal */}
       {showDetailModal && selectedVehicle && (
         <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/50  flex items-center justify-center z-50 p-4 animate-fadeIn"
           onClick={() => setShowDetailModal(false)}
         >
           <div
-            className="bg-secondarybg rounded-md shadow-2xl w-full max-w-lg overflow-hidden"
+            className="bg-secondarybg rounded-md shadow-2xl w-full max-w-lg overflow-hidden animate-scaleIn"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -1356,7 +1352,7 @@ export default function Vehicles() {
       {/* Create Vehicle Modal */}
       {showCreateModal && (
         <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn"
+          className="fixed inset-0 bg-black/50  flex items-center justify-center z-50 p-4 animate-fadeIn"
           onClick={() => setShowCreateModal(false)}
         >
           <div

@@ -1,6 +1,7 @@
 import React, {useState, useEffect} from "react";
 import {apiGet, getToday} from "../../../utils/api";
 import {formatTime} from "../../../utils/dateFormat";
+import Loading from "../../../components/ui/Loading";
 
 export default function InchargeAssignments() {
   const [assignments, setAssignments] = useState([]);
@@ -27,7 +28,7 @@ export default function InchargeAssignments() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fadeIn">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-primarytext">
           Cluster Assignments
@@ -42,9 +43,7 @@ export default function InchargeAssignments() {
 
       <div className="bg-white rounded-md shadow-sm border border-gray-100 overflow-hidden">
         {loading ? (
-          <div className="p-8 text-center text-secondarytext animate-pulse">
-            Loading assignments...
-          </div>
+          <Loading fullScreen={false} text="Loading assignments..." />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">

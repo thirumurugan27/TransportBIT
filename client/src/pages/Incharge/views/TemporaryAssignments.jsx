@@ -1,4 +1,5 @@
 import React, {useState, useEffect} from "react";
+import Loading from "../../../components/ui/Loading";
 import {showError, showConfirm} from "../../../utils/swal";
 import {formatVehicleLabel} from "../../../utils/vehicleLabel";
 import SearchableSelect from "../../../components/ui/SearchableSelect";
@@ -203,7 +204,7 @@ export default function TemporaryAssignments({openModal}) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fadeIn">
       <div className="flex items-center justify-between">
         <h3 className="text-xl font-bold text-gray-700">
           Substitutions & Temporary Assignments
@@ -218,10 +219,7 @@ export default function TemporaryAssignments({openModal}) {
 
       {/* List */}
       {loading ? (
-        <div className="p-12 text-center text-gray-500 bg-white rounded-md shadow-sm border border-gray-100">
-          <div className="animate-spin inline-block w-8 h-8 border-4 border-current border-t-transparent text-[var(--color-primary)] rounded-md mb-4"></div>
-          <p>Loading temporary assignments...</p>
-        </div>
+        <Loading fullScreen={false} text="Loading temporary assignments..." />
       ) : tempAssignments.length === 0 ? (
         <div className="bg-white rounded-md shadow-sm border border-gray-100 p-12 text-center text-gray-400">
           <FileText size={48} className="mx-auto mb-3 opacity-20" />
@@ -312,8 +310,8 @@ export default function TemporaryAssignments({openModal}) {
 
       {/* Create Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-secondarybg rounded-md shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in duration-200">
+        <div className="fixed inset-0 bg-black/50  flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-secondarybg rounded-md shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-scaleIn">
             <div className="sticky top-0 z-10 bg-secondarybg flex justify-between items-center px-8 py-5 border-b border-gray-100">
               <h3 className="text-2xl font-bold text-primarytext">
                 New Temporary Assignment
@@ -498,11 +496,11 @@ export default function TemporaryAssignments({openModal}) {
       {/* Detail Modal */}
       {showDetailModal && selectedDetail && (
         <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/50  flex items-center justify-center z-50 p-4 animate-fadeIn"
           onClick={() => setShowDetailModal(false)}
         >
           <div
-            className="bg-secondarybg rounded-md shadow-xl w-full max-w-2xl animate-in fade-in zoom-in duration-200"
+            className="bg-secondarybg rounded-md shadow-xl w-full max-w-2xl animate-scaleIn"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-8 py-5 border-b border-gray-100 flex justify-between items-center">

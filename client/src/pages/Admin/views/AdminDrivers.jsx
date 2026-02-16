@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import React, {useState, useEffect} from "react";
+import {useSearchParams} from "react-router-dom";
+import Loading from "../../../components/ui/Loading";
 import {
   User,
   Users,
@@ -20,13 +21,13 @@ import {
   Clock,
   FileText,
 } from "lucide-react";
-import { useToast } from "../../../context/ToastContext";
+import {useToast} from "../../../context/ToastContext";
 import CustomDropdown from "../../../components/ui/CustomDropdown";
 
 import {apiGet, apiPost, apiPut, apiDelete} from "../../../utils/api";
 
 export default function AdminDrivers() {
-  const { showToast } = useToast();
+  const {showToast} = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -257,7 +258,7 @@ export default function AdminDrivers() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fadeIn">
       {/* License Expiry Alert */}
       {(expiredLicenses.length > 0 || expiringLicenses.length > 0) && (
         <div className="bg-customred/5 border-l-4 border-customred rounded-md p-5 shadow-sm">
@@ -341,11 +342,11 @@ export default function AdminDrivers() {
               setSearchParams(searchParams);
             }}
             options={[
-              { value: "all", label: "All Status" },
-              { value: "present", label: "Present" },
-              { value: "absent", label: "Absent" },
-              { value: "on_leave", label: "On Leave" },
-              { value: "not_marked", label: "Not Marked" },
+              {value: "all", label: "All Status"},
+              {value: "present", label: "Present"},
+              {value: "absent", label: "Absent"},
+              {value: "on_leave", label: "On Leave"},
+              {value: "not_marked", label: "Not Marked"},
             ]}
           />
         </div>
@@ -353,19 +354,21 @@ export default function AdminDrivers() {
           <div className="flex items-center bg-primarybg rounded-md p-1.5 border border-primarybg shadow-sm">
             <button
               onClick={() => setViewMode("table")}
-              className={`p-2.5 rounded-md transition-all duration-200 ${viewMode === "table"
-                ? "bg-primary text-secondarybg shadow-md"
-                : "text-secondarytext hover:text-primary hover:bg-primarybg"
-                }`}
+              className={`p-2.5 rounded-md transition-all duration-200 ${
+                viewMode === "table"
+                  ? "bg-primary text-secondarybg shadow-md"
+                  : "text-secondarytext hover:text-primary hover:bg-primarybg"
+              }`}
             >
               <List size={18} strokeWidth={2.5} />
             </button>
             <button
               onClick={() => setViewMode("grid")}
-              className={`p-2.5 rounded-md transition-all duration-200 ${viewMode === "grid"
-                ? "bg-primary text-secondarybg shadow-md"
-                : "text-secondarytext hover:text-primary hover:bg-primarybg"
-                }`}
+              className={`p-2.5 rounded-md transition-all duration-200 ${
+                viewMode === "grid"
+                  ? "bg-primary text-secondarybg shadow-md"
+                  : "text-secondarytext hover:text-primary hover:bg-primarybg"
+              }`}
             >
               <Grid size={18} strokeWidth={2.5} />
             </button>
@@ -383,9 +386,7 @@ export default function AdminDrivers() {
       {viewMode === "grid" ? (
         <div className="space-y-4">
           {loading ? (
-            <div className="flex justify-center py-12">
-              <div className="w-8 h-8 border-4 border-primarybg border-t-primary rounded-md animate-spin"></div>
-            </div>
+            <Loading fullScreen={false} />
           ) : filteredDrivers.length === 0 ? (
             <div className="text-center py-12 text-secondarytext">
               <Users size={48} className="mx-auto mb-3 opacity-20" />
@@ -447,14 +448,15 @@ export default function AdminDrivers() {
                 {/* Right: Status & Driver Name */}
                 <div className="flex items-center gap-4">
                   <span
-                    className={`px-4 py-2 rounded-md text-sm font-semibold ${driver.status === "present"
-                      ? "bg-customgreen/10 text-customgreen"
-                      : driver.status === "absent"
-                        ? "bg-customred/10 text-customred"
-                        : driver.status === "on_leave"
-                          ? "bg-pending/10 text-pending"
-                          : "bg-primarybg text-secondarytext"
-                      }`}
+                    className={`px-4 py-2 rounded-md text-sm font-semibold ${
+                      driver.status === "present"
+                        ? "bg-customgreen/10 text-customgreen"
+                        : driver.status === "absent"
+                          ? "bg-customred/10 text-customred"
+                          : driver.status === "on_leave"
+                            ? "bg-pending/10 text-pending"
+                            : "bg-primarybg text-secondarytext"
+                    }`}
                   >
                     {driver.status === "not_marked"
                       ? "Not Marked"
@@ -474,9 +476,7 @@ export default function AdminDrivers() {
         /* Table View - Proper Table with Headers */
         <div className="bg-secondarybg rounded-md shadow-sm overflow-hidden border border-primarybg">
           {loading ? (
-            <div className="flex justify-center py-12">
-              <div className="w-8 h-8 border-4 border-primarybg border-t-primary rounded-md animate-spin"></div>
-            </div>
+            <Loading fullScreen={false} />
           ) : filteredDrivers.length === 0 ? (
             <div className="text-center py-12 text-secondarytext">
               <Users size={48} className="mx-auto mb-3 opacity-20" />
@@ -571,14 +571,15 @@ export default function AdminDrivers() {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           <span
-                            className={`px-3 py-1.5 rounded-md text-xs font-semibold ${driver.status === "present"
-                              ? "bg-customgreen/10 text-customgreen"
-                              : driver.status === "absent"
-                                ? "bg-customred/10 text-customred"
-                                : driver.status === "on_leave"
-                                  ? "bg-pending/10 text-pending"
-                                  : "bg-primarybg text-secondarytext"
-                              }`}
+                            className={`px-3 py-1.5 rounded-md text-xs font-semibold ${
+                              driver.status === "present"
+                                ? "bg-customgreen/10 text-customgreen"
+                                : driver.status === "absent"
+                                  ? "bg-customred/10 text-customred"
+                                  : driver.status === "on_leave"
+                                    ? "bg-pending/10 text-pending"
+                                    : "bg-primarybg text-secondarytext"
+                            }`}
                           >
                             {driver.status === "not_marked"
                               ? "Not Marked"
@@ -603,7 +604,7 @@ export default function AdminDrivers() {
       {/* Driver Details Modal */}
       {showDetailsModal && selectedDriver && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50  p-4 animate-fadeIn"
           onClick={() => setShowDetailsModal(false)}
         >
           <div
@@ -768,14 +769,15 @@ export default function AdminDrivers() {
                         Current Status
                       </span>
                       <span
-                        className={`px-3 py-1 rounded-md text-xs font-semibold ${selectedDriver.status === "present"
-                          ? "bg-customgreen/20 text-customgreen"
-                          : selectedDriver.status === "absent"
-                            ? "bg-customred/20 text-customred"
-                            : selectedDriver.status === "on_leave"
-                              ? "bg-pending/20 text-pending"
-                              : "bg-primarybg text-secondarytext"
-                          }`}
+                        className={`px-3 py-1 rounded-md text-xs font-semibold ${
+                          selectedDriver.status === "present"
+                            ? "bg-customgreen/20 text-customgreen"
+                            : selectedDriver.status === "absent"
+                              ? "bg-customred/20 text-customred"
+                              : selectedDriver.status === "on_leave"
+                                ? "bg-pending/20 text-pending"
+                                : "bg-primarybg text-secondarytext"
+                        }`}
                       >
                         {selectedDriver.status === "not_marked"
                           ? "Not Marked"
@@ -824,8 +826,8 @@ export default function AdminDrivers() {
 
       {/* Create/Edit Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="bg-secondarybg rounded-md shadow-2xl w-full max-w-4xl my-8">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50  p-4 overflow-y-auto animate-fadeIn">
+          <div className="bg-secondarybg rounded-md shadow-2xl w-full max-w-4xl my-8 animate-scaleIn">
             {/* Header */}
             <div className="p-6 border-b border-primarybg/50">
               <div className="flex items-center justify-between">
@@ -961,9 +963,9 @@ export default function AdminDrivers() {
                             })
                           }
                           options={[
-                            { value: "LMV", label: "LMV" },
-                            { value: "HMV", label: "HMV" },
-                            { value: "MCWG", label: "MCWG" },
+                            {value: "LMV", label: "LMV"},
+                            {value: "HMV", label: "HMV"},
+                            {value: "MCWG", label: "MCWG"},
                           ]}
                           width="w-full"
                         />
@@ -1029,9 +1031,9 @@ export default function AdminDrivers() {
                             })
                           }
                           options={[
-                            { value: "CAR", label: "Car" },
-                            { value: "BUS", label: "Bus" },
-                            { value: "EV", label: "EV" },
+                            {value: "CAR", label: "Car"},
+                            {value: "BUS", label: "Bus"},
+                            {value: "EV", label: "EV"},
                           ]}
                           width="w-full"
                         />
@@ -1108,8 +1110,9 @@ export default function AdminDrivers() {
                       <input
                         required
                         disabled={isEditing}
-                        className={`w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium ${isEditing ? "opacity-50 cursor-not-allowed" : ""
-                          }`}
+                        className={`w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium ${
+                          isEditing ? "opacity-50 cursor-not-allowed" : ""
+                        }`}
                         value={driverForm.username}
                         onChange={(e) =>
                           setDriverForm({

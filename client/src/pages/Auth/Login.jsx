@@ -64,7 +64,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-primarybg flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-primarybg flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 animate-fadeIn">
       <div className="max-w-md w-full">
         {/* Login Card */}
         <div className="bg-white rounded-md border border-gray-100 p-8 space-y-6">
@@ -79,7 +79,9 @@ export default function Login() {
                 />
               </div>
             </div>
-            <h1 className="text-3xl font-bold text-primarytext">Transport BIT</h1>
+            <h1 className="text-3xl font-bold text-primarytext">
+              Transport BIT
+            </h1>
             <p className="mt-2 text-sm text-secondarytext">
               Transport Management System
             </p>

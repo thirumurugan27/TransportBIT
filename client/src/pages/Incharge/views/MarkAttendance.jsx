@@ -2,6 +2,7 @@ import React, {useState, useEffect} from "react";
 import {useAuth} from "../../../context/AuthContext";
 import {apiGet, apiPost, getToday} from "../../../utils/api";
 import {useToast} from "../../../context/ToastContext";
+import Loading from "../../../components/ui/Loading";
 import CustomDropdown from "../../../components/ui/CustomDropdown";
 
 export default function MarkAttendance() {
@@ -112,7 +113,7 @@ export default function MarkAttendance() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fadeIn">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h3 className="text-2xl font-bold text-primarytext">
@@ -215,9 +216,7 @@ export default function MarkAttendance() {
       </div>
 
       {loading ? (
-        <div className="text-center py-12 text-secondarytext animate-pulse">
-          Fetching driver list...
-        </div>
+        <Loading fullScreen={false} text="Fetching driver list..." />
       ) : (
         <div className="bg-secondarybg rounded-md shadow-sm border border-primarybg overflow-hidden">
           <div className="overflow-x-auto">

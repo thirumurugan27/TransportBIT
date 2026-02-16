@@ -1,4 +1,5 @@
 import React, {useState, useEffect, useMemo} from "react";
+import Loading from "../../../components/ui/Loading";
 import {
   Loader2,
   Bus,
@@ -653,7 +654,7 @@ export default function AdminBusFleet() {
   }
 
   return (
-    <div className="min-h-screen bg-primarybg p-6 space-y-6">
+    <div className="min-h-screen bg-primarybg p-6 space-y-6 animate-fadeIn">
       {/* Header Section */}
       <div className="bg-secondarybg rounded-md border border-primary/10 p-6 shadow-sm">
         <div className="flex flex-col gap-4">
@@ -758,9 +759,7 @@ export default function AdminBusFleet() {
 
       {/* Bus Fleet Grid */}
       {loading ? (
-        <div className="flex justify-center items-center py-20">
-          <Loader2 className="w-12 h-12 text-primary animate-spin" />
-        </div>
+        <Loading fullScreen={false} />
       ) : filteredBuses.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {filteredBuses.map((bus) => {

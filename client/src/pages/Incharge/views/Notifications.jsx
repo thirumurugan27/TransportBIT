@@ -1,6 +1,7 @@
 import React, {useState, useEffect} from "react";
 import {useAuth} from "../../../context/AuthContext";
 import {apiGet, apiPost} from "../../../utils/api";
+import Loading from "../../../components/ui/Loading";
 import CustomDropdown from "../../../components/ui/CustomDropdown";
 import {
   Bell,
@@ -142,7 +143,7 @@ export default function Notifications() {
   const totalCount = notifications.length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fadeIn">
       {/* Header */}
       <div className="bg-white rounded-md shadow-sm border border-gray-100 p-6">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -243,10 +244,7 @@ export default function Notifications() {
       {/* Notifications List */}
       <div className="bg-white rounded-md shadow-sm border border-gray-100 overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center text-secondarytext">
-            <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-3 text-gray-300" />
-            Loading notifications...
-          </div>
+          <Loading fullScreen={false} text="Loading notifications..." />
         ) : filteredNotifications.length > 0 ? (
           <div className="divide-y divide-gray-100">
             {filteredNotifications.map((notif) => (

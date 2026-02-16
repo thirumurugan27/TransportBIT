@@ -1,6 +1,7 @@
 import React, {useState, useEffect} from "react";
 import {useNavigate} from "react-router-dom";
 import {useAuth} from "../../../context/AuthContext";
+import Loading from "../../../components/ui/Loading";
 import {
   Clock,
   CheckCircle,
@@ -159,7 +160,7 @@ export default function FacultyHome() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fadeIn">
       {/* Welcome Section */}
       <div className="bg-gradient-to-r from-primary to-primarydull rounded-md p-6 text-white">
         <h1 className="text-2xl font-bold">
@@ -213,9 +214,7 @@ export default function FacultyHome() {
 
         <div className="p-4">
           {loading ? (
-            <div className="flex justify-center py-8">
-              <div className="w-8 h-8 border-4 border-gray-200 border-t-primary rounded-full animate-spin"></div>
-            </div>
+            <Loading fullScreen={false} size="small" />
           ) : activeRequests.length > 0 ? (
             <div className="space-y-3">
               {activeRequests.slice(0, 5).map((request) => {

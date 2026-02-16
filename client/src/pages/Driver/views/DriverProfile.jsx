@@ -44,7 +44,7 @@ export default function DriverProfile() {
     return <div className="p-8 text-center text-red">Profile not found.</div>;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
+    <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6 animate-fadeIn">
       {/* Header Card */}
       <div className="bg-white rounded-md p-4 sm:p-6 lg:p-8 shadow-sm border border-gray-100 flex flex-col sm:flex-row items-center gap-4 sm:gap-6 lg:gap-8">
         <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-tr from-primary to-primarydull rounded-md flex items-center justify-center text-white text-2xl sm:text-3xl font-bold border-4 border-white shadow-lg shrink-0">

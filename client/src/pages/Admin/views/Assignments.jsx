@@ -1,5 +1,6 @@
 import React, {useState, useEffect} from "react";
 import TemporaryAssignments from "./TemporaryAssignments";
+import Loading from "../../../components/ui/Loading";
 import {
   Bus,
   Car,
@@ -111,7 +112,9 @@ export default function Assignments() {
   const [filterShift, setFilterShift] = useState(""); // empty means all
   const [filterStatus, setFilterStatus] = useState(""); // empty means all
   const [showFilters, setShowFilters] = useState(false);
-  const [filterDate, setFilterDate] = useState(new Date().toISOString().split("T")[0]); // YYYY-MM-DD, defaults to today
+  const [filterDate, setFilterDate] = useState(
+    new Date().toISOString().split("T")[0],
+  ); // YYYY-MM-DD, defaults to today
 
   // EV Reassignment Modal States
   const [showEvReassignModal, setShowEvReassignModal] = useState(false);
@@ -227,7 +230,9 @@ export default function Assignments() {
         apiGet(
           `/api/admin/assignments/by-category?category=CAR&date=${filterDate}`,
         ).then((r) => r.json()),
-        apiGet(`/api/admin/ev-assignments?date=${filterDate}`).then((r) => r.json()),
+        apiGet(`/api/admin/ev-assignments?date=${filterDate}`).then((r) =>
+          r.json(),
+        ),
         apiGet(
           `/api/admin/assignments/by-category?category=OTHER&date=${filterDate}`,
         ).then((r) => r.json()),
@@ -712,7 +717,7 @@ export default function Assignments() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fadeIn">
       {/* Header */}
       <div className="bg-secondarybg rounded-md shadow-sm border border-gray-100 p-6">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -889,15 +894,24 @@ export default function Assignments() {
             <button
               onClick={() => setShowFilters(!showFilters)}
               className={`w-full lg:w-auto h-[42px] px-6 rounded-md font-semibold transition-all flex items-center justify-center gap-2 whitespace-nowrap ${
-                showFilters || filterShift || filterStatus || filterDate !== new Date().toISOString().split("T")[0]
+                showFilters ||
+                filterShift ||
+                filterStatus ||
+                filterDate !== new Date().toISOString().split("T")[0]
                   ? "bg-primary text-white hover:bg-primary/90 shadow-sm"
                   : "border border-gray-200 bg-primarybg text-primarytext hover:border-primary hover:text-primary"
               }`}
             >
               <Filter size={16} /> Filters
-              {(filterShift || filterStatus || filterDate !== new Date().toISOString().split("T")[0]) && (
+              {(filterShift ||
+                filterStatus ||
+                filterDate !== new Date().toISOString().split("T")[0]) && (
                 <span className="bg-white text-primary rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
-                  {(filterShift ? 1 : 0) + (filterStatus ? 1 : 0) + (filterDate !== new Date().toISOString().split("T")[0] ? 1 : 0)}
+                  {(filterShift ? 1 : 0) +
+                    (filterStatus ? 1 : 0) +
+                    (filterDate !== new Date().toISOString().split("T")[0]
+                      ? 1
+                      : 0)}
                 </span>
               )}
             </button>
@@ -960,7 +974,9 @@ export default function Assignments() {
               </div>
 
               {/* Clear Filters */}
-              {(filterShift || filterStatus || filterDate !== new Date().toISOString().split("T")[0]) && (
+              {(filterShift ||
+                filterStatus ||
+                filterDate !== new Date().toISOString().split("T")[0]) && (
                 <div className="mt-4 flex justify-end">
                   <button
                     onClick={() => {
@@ -984,9 +1000,7 @@ export default function Assignments() {
         {activeTab === "temporary" ? (
           <TemporaryAssignments openModal={openTempModal} />
         ) : loading ? (
-          <div className="p-12 text-center text-secondarytext">
-            Loading assignments...
-          </div>
+          <Loading fullScreen={false} text="Loading assignments..." />
         ) : (
           <div className="p-4 grid gap-4">
             {getCurrentAssignments().length > 0 ? (
@@ -1196,11 +1210,11 @@ export default function Assignments() {
       {/* Create Modal */}
       {showCreateModal && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn"
           onClick={() => setShowCreateModal(false)}
         >
           <div
-            className="bg-secondarybg rounded-md shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
+            className="bg-secondarybg rounded-md shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto animate-scaleIn"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6 border-b border-gray-100 flex justify-between items-center">
@@ -1253,107 +1267,107 @@ export default function Assignments() {
 
               {/* Shift Selection - For all assignment types (optional for EV) */}
               <div>
-                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                    Shift
-                  </label>
-                  <SearchableSelect
-                    value={assignmentForm.shift_id}
-                    onChange={(val) =>
-                      setAssignmentForm({
-                        ...assignmentForm,
-                        shift_id: parseInt(val) || 0,
-                      })
-                    }
-                    placeholder="Select Shift"
-                    options={shifts.map((s) => {
-                      const timeDisplay =
-                        s.slots && s.slots.length > 0
-                          ? s.slots
-                              .map(
-                                (slot) =>
-                                  `${formatTimeAMPM(slot.start_time)}-${formatTimeAMPM(slot.end_time)}`,
-                              )
-                              .join(", ")
-                          : `${formatTimeAMPM(s.start_time)}-${formatTimeAMPM(s.end_time)}`;
-                      return {
-                        value: s.id,
-                        label: s.name,
-                        subtitle: timeDisplay,
-                      };
-                    })}
-                    emptyMessage="No shifts available"
-                  />
+                <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
+                  Shift
+                </label>
+                <SearchableSelect
+                  value={assignmentForm.shift_id}
+                  onChange={(val) =>
+                    setAssignmentForm({
+                      ...assignmentForm,
+                      shift_id: parseInt(val) || 0,
+                    })
+                  }
+                  placeholder="Select Shift"
+                  options={shifts.map((s) => {
+                    const timeDisplay =
+                      s.slots && s.slots.length > 0
+                        ? s.slots
+                            .map(
+                              (slot) =>
+                                `${formatTimeAMPM(slot.start_time)}-${formatTimeAMPM(slot.end_time)}`,
+                            )
+                            .join(", ")
+                        : `${formatTimeAMPM(s.start_time)}-${formatTimeAMPM(s.end_time)}`;
+                    return {
+                      value: s.id,
+                      label: s.name,
+                      subtitle: timeDisplay,
+                    };
+                  })}
+                  emptyMessage="No shifts available"
+                />
 
-                  {/* Shift Details Display */}
-                  {assignmentForm.shift_id > 0 &&
-                    (() => {
-                      const selectedShift = shifts.find(
-                        (s) => s.id === assignmentForm.shift_id,
-                      );
-                      if (!selectedShift) return null;
+                {/* Shift Details Display */}
+                {assignmentForm.shift_id > 0 &&
+                  (() => {
+                    const selectedShift = shifts.find(
+                      (s) => s.id === assignmentForm.shift_id,
+                    );
+                    if (!selectedShift) return null;
 
-                      const hasSlots =
-                        selectedShift.slots && selectedShift.slots.length > 0;
+                    const hasSlots =
+                      selectedShift.slots && selectedShift.slots.length > 0;
 
-                      return (
-                        <div className="mt-3 p-4 bg-primary/5 border border-primary/20 rounded-md">
-                          <div className="flex items-start justify-between mb-3">
-                            <div>
-                              <h4 className="text-sm font-bold text-primarytext">
-                                {selectedShift.name}
-                              </h4>
-                              {selectedShift.description && (
-                                <p className="text-xs text-secondarytext mt-0.5">
-                                  {selectedShift.description}
-                                </p>
-                              )}
+                    return (
+                      <div className="mt-3 p-4 bg-primary/5 border border-primary/20 rounded-md">
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <h4 className="text-sm font-bold text-primarytext">
+                              {selectedShift.name}
+                            </h4>
+                            {selectedShift.description && (
+                              <p className="text-xs text-secondarytext mt-0.5">
+                                {selectedShift.description}
+                              </p>
+                            )}
+                          </div>
+                          <span className="text-xs font-semibold text-primary bg-white px-2 py-1 rounded-md">
+                            {hasSlots
+                              ? `${selectedShift.slots.length} Slots`
+                              : "Single Shift"}
+                          </span>
+                        </div>
+
+                        {hasSlots ? (
+                          <div className="space-y-2">
+                            <p className="text-xs font-bold text-secondarytext uppercase tracking-wider">
+                              Time Slots
+                            </p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {selectedShift.slots.map((slot, idx) => (
+                                <div
+                                  key={idx}
+                                  className="flex items-center gap-2 bg-white px-3 py-2 rounded-md border border-primary/10"
+                                >
+                                  <Clock
+                                    size={14}
+                                    className="text-primary shrink-0"
+                                  />
+                                  <span className="text-sm font-medium text-primarytext">
+                                    {formatTimeAMPM(slot.start_time)} -{" "}
+                                    {formatTimeAMPM(slot.end_time)}
+                                  </span>
+                                </div>
+                              ))}
                             </div>
-                            <span className="text-xs font-semibold text-primary bg-white px-2 py-1 rounded-md">
-                              {hasSlots
-                                ? `${selectedShift.slots.length} Slots`
-                                : "Single Shift"}
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-md border border-primary/10">
+                            <Clock
+                              size={14}
+                              className="text-primary shrink-0"
+                            />
+                            <span className="text-sm font-medium text-primarytext">
+                              {formatTimeAMPM(selectedShift.start_time)} -{" "}
+                              {formatTimeAMPM(selectedShift.end_time)}
                             </span>
                           </div>
-
-                          {hasSlots ? (
-                            <div className="space-y-2">
-                              <p className="text-xs font-bold text-secondarytext uppercase tracking-wider">
-                                Time Slots
-                              </p>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                {selectedShift.slots.map((slot, idx) => (
-                                  <div
-                                    key={idx}
-                                    className="flex items-center gap-2 bg-white px-3 py-2 rounded-md border border-primary/10"
-                                  >
-                                    <Clock
-                                      size={14}
-                                      className="text-primary shrink-0"
-                                    />
-                                    <span className="text-sm font-medium text-primarytext">
-                                      {formatTimeAMPM(slot.start_time)} -{" "}
-                                      {formatTimeAMPM(slot.end_time)}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-md border border-primary/10">
-                              <Clock
-                                size={14}
-                                className="text-primary shrink-0"
-                              />
-                              <span className="text-sm font-medium text-primarytext">
-                                {formatTimeAMPM(selectedShift.start_time)} -{" "}
-                                {formatTimeAMPM(selectedShift.end_time)}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
-                </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+              </div>
 
               {createModalType === "ev" ? (
                 <div>
@@ -1532,11 +1546,11 @@ export default function Assignments() {
       {/* Reassign Modal */}
       {reassignModal && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn"
           onClick={() => setReassignModal(null)}
         >
           <div
-            className="bg-secondarybg rounded-md shadow-xl max-w-lg w-full p-6"
+            className="bg-secondarybg rounded-md shadow-xl max-w-lg w-full p-6 animate-scaleIn"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-4">
@@ -1598,14 +1612,14 @@ export default function Assignments() {
       {/* Time Conflict Warning Modal */}
       {conflictModal && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn"
           onClick={() => {
             setConflictModal(null);
             setConflictPendingForm(null);
           }}
         >
           <div
-            className="bg-secondarybg rounded-md shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto"
+            className="bg-secondarybg rounded-md shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto animate-scaleIn"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -1732,7 +1746,8 @@ export default function Assignments() {
                         </p>
                         {conflict.faculty_name && (
                           <p>
-                            <strong>Requested by:</strong> {conflict.faculty_name}
+                            <strong>Requested by:</strong>{" "}
+                            {conflict.faculty_name}
                           </p>
                         )}
                       </div>
@@ -1869,23 +1884,21 @@ export default function Assignments() {
       {/* EV Assignment Details Modal */}
       {showEvDetailsModal && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn"
           onClick={() => {
             setShowEvDetailsModal(false);
             setEvDetails(null);
           }}
         >
           <div
-            className="bg-white rounded-md shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-md shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto animate-scaleIn"
             onClick={(e) => e.stopPropagation()}
           >
             {loadingEvDetails ? (
-              <div className="p-16 text-center">
-                <div className="animate-spin inline-block w-12 h-12 border-4 border-primary border-t-transparent rounded-md mb-4"></div>
-                <p className="text-secondarytext">
-                  Loading assignment details...
-                </p>
-              </div>
+              <Loading
+                fullScreen={false}
+                text="Loading assignment details..."
+              />
             ) : evDetails ? (
               <>
                 {/* Clean Header */}
@@ -2183,11 +2196,11 @@ export default function Assignments() {
       {/* EV Reassignment Modal */}
       {showEvReassignModal && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn"
           onClick={() => setShowEvReassignModal(false)}
         >
           <div
-            className="bg-white rounded-md shadow-2xl max-w-2xl w-full"
+            className="bg-white rounded-md shadow-2xl max-w-2xl w-full animate-scaleIn"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -2349,9 +2362,11 @@ export default function Assignments() {
             onClick={(e) => e.stopPropagation()}
           >
             {loadingDetails ? (
-              <div className="p-12 text-center text-secondarytext">
-                Loading assignment details...
-              </div>
+              <Loading
+                fullScreen={false}
+                size="small"
+                text="Loading assignment details..."
+              />
             ) : assignmentDetails?.assignment ? (
               <>
                 {/* Header */}

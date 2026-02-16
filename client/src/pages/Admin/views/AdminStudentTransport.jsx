@@ -478,7 +478,7 @@ export default function AdminStudentTransport() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6 animate-fadeIn">
       {/* Header */}
       <div className="bg-secondarybg rounded-md p-6 border border-primary/10">
         <div className="flex items-center justify-between">
@@ -1158,8 +1158,8 @@ export default function AdminStudentTransport() {
 
       {/* Assign Student Modal */}
       {showAssignModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-secondarybg rounded-md shadow-2xl max-w-lg w-full p-6 border border-primarybg">
+        <div className="fixed inset-0 bg-black/60  flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-secondarybg rounded-md shadow-2xl max-w-lg w-full p-6 border border-primarybg animate-scaleIn">
             <h3 className="text-xl font-bold text-primarytext mb-6">
               Assign Student to Bus
             </h3>
@@ -1264,8 +1264,8 @@ export default function AdminStudentTransport() {
 
       {/* Record Payment Modal */}
       {showPaymentModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-secondarybg rounded-md shadow-2xl max-w-lg w-full p-6 border border-primarybg">
+        <div className="fixed inset-0 bg-black/60  flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-secondarybg rounded-md shadow-2xl max-w-lg w-full p-6 border border-primarybg animate-scaleIn">
             <h3 className="text-xl font-bold text-primarytext mb-6">
               Record Payment
             </h3>
@@ -1369,8 +1369,8 @@ export default function AdminStudentTransport() {
 
       {/* Process Request Modal */}
       {showProcessModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-secondarybg rounded-md shadow-2xl max-w-lg w-full p-6 border border-primarybg">
+        <div className="fixed inset-0 bg-black/60  flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-secondarybg rounded-md shadow-2xl max-w-lg w-full p-6 border border-primarybg animate-scaleIn">
             <h3 className="text-xl font-bold text-primarytext mb-6">
               Process Stop Change Request
             </h3>
@@ -1414,8 +1414,8 @@ export default function AdminStudentTransport() {
 
       {/* Process Transport Request Modal */}
       {showTransportProcessModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-secondarybg rounded-md shadow-2xl max-w-lg w-full p-6 border border-primarybg">
+        <div className="fixed inset-0 bg-black/60  flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-secondarybg rounded-md shadow-2xl max-w-lg w-full p-6 border border-primarybg animate-scaleIn">
             <h3 className="text-xl font-bold text-primarytext mb-6">
               Process Transport Request
             </h3>
@@ -1462,8 +1462,8 @@ export default function AdminStudentTransport() {
 
       {/* Student Detail Modal */}
       {showStudentDetailModal && selectedStudent && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-secondarybg rounded-md shadow-2xl max-w-lg w-full p-6 border border-primarybg">
+        <div className="fixed inset-0 bg-black/60  flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-secondarybg rounded-md shadow-2xl max-w-lg w-full p-6 border border-primarybg animate-scaleIn">
             <h3 className="text-xl font-bold text-primarytext mb-6">
               Student Details
             </h3>

@@ -213,7 +213,7 @@ export default function InchargeHome() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fadeIn">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white rounded-md shadow-sm p-6 border border-gray-100">
           <div className="flex justify-between items-start">
@@ -455,8 +455,8 @@ export default function InchargeHome() {
 
       {/* Request Replacement Modal */}
       {showRequestModal && selectedVehicle && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-md p-6 w-full max-w-md mx-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fadeIn">
+          <div className="bg-white rounded-md p-6 w-full max-w-md mx-4 animate-scaleIn">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-primarytext">
                 Request Replacement Vehicle

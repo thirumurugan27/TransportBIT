@@ -1,6 +1,7 @@
 import React, {useState, useEffect} from "react";
 import {ChevronDown, ChevronRight, MapPin, Clock} from "lucide-react";
 import {apiGet} from "../../../utils/api";
+import Loading from "../../../components/ui/Loading";
 
 export default function StudentTrackBus() {
   const [buses, setBuses] = useState([]);
@@ -54,7 +55,7 @@ export default function StudentTrackBus() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fadeIn">
       <div className="bg-white p-6 rounded-md shadow-sm border border-gray-100">
         <h2 className="text-2xl font-bold text-gray-800 mb-2">Bus Routes</h2>
         <p className="text-gray-500">
@@ -65,7 +66,7 @@ export default function StudentTrackBus() {
 
       <div className="space-y-4">
         {loading ? (
-          <div className="p-8 text-center text-gray-500">Loading buses...</div>
+          <Loading fullScreen={false} text="Loading buses..." />
         ) : buses.length === 0 ? (
           <div className="p-8 text-center text-gray-500 bg-white rounded-md border border-gray-100">
             No buses found.
@@ -113,9 +114,11 @@ export default function StudentTrackBus() {
                     Route Stops
                   </h4>
                   {loadingStops ? (
-                    <div className="text-center py-4 text-gray-500">
-                      Loading stops...
-                    </div>
+                    <Loading
+                      fullScreen={false}
+                      size="small"
+                      text="Loading stops..."
+                    />
                   ) : stops.length === 0 ? (
                     <div className="text-center py-4 text-gray-500 italic">
                       No stops defined for this route.

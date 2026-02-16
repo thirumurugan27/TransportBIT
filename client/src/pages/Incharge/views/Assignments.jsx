@@ -1,5 +1,6 @@
 import React, {useState, useEffect} from "react";
 import TemporaryAssignments from "./TemporaryAssignments";
+import Loading from "../../../components/ui/Loading";
 import {
   Bus,
   Car,
@@ -78,7 +79,9 @@ export default function Assignments() {
   const [reassignDriverId, setReassignDriverId] = useState(0);
 
   // Date Filter
-  const [filterDate, setFilterDate] = useState(new Date().toISOString().split("T")[0]);
+  const [filterDate, setFilterDate] = useState(
+    new Date().toISOString().split("T")[0],
+  );
 
   // Conflict Modal State
   const [conflictModal, setConflictModal] = useState(null); // { conflicts: [], message: '' }
@@ -121,7 +124,9 @@ export default function Assignments() {
         apiGet(
           `/api/admin/assignments/by-category?category=CAR&date=${filterDate}`,
         ).then((r) => r.json()),
-        apiGet(`/api/admin/ev-assignments?date=${filterDate}`).then((r) => r.json()),
+        apiGet(`/api/admin/ev-assignments?date=${filterDate}`).then((r) =>
+          r.json(),
+        ),
         apiGet(`/api/admin/shifts`).then((r) => r.json()),
         apiGet(`/api/admin/vehicles`).then((r) => r.json()),
         apiGet(`/api/admin/drivers`).then((r) => r.json()),
@@ -463,10 +468,10 @@ export default function Assignments() {
     if (!reassignModal || !reassignDriverId) return;
     try {
       const res = await apiPost(`/api/admin/assignments/update`, {
-          assignment_id: reassignModal.id,
-          driver_id: reassignDriverId,
-          status: "assigned",
-        });
+        assignment_id: reassignModal.id,
+        driver_id: reassignDriverId,
+        status: "assigned",
+      });
       if (res.ok) {
         showToast("Reassigned successfully", "success");
         setReassignModal(null);
@@ -514,7 +519,7 @@ export default function Assignments() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fadeIn">
       {/* Header */}
       <div className="bg-secondarybg rounded-md shadow-sm border border-gray-100 p-6">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -647,7 +652,9 @@ export default function Assignments() {
         />
         {filterDate !== new Date().toISOString().split("T")[0] && (
           <button
-            onClick={() => setFilterDate(new Date().toISOString().split("T")[0])}
+            onClick={() =>
+              setFilterDate(new Date().toISOString().split("T")[0])
+            }
             className="px-3 py-1.5 text-xs text-primary border border-primary/30 rounded-md hover:bg-primary/5 font-semibold transition-colors"
           >
             Today
@@ -660,9 +667,7 @@ export default function Assignments() {
         {activeTab === "temporary" ? (
           <TemporaryAssignments openModal={openTempModal} />
         ) : loading ? (
-          <div className="p-12 text-center text-secondarytext">
-            Loading assignments...
-          </div>
+          <Loading fullScreen={false} text="Loading assignments..." />
         ) : (
           <div className="p-4 grid gap-4">
             {(activeTab === "bus"
@@ -839,11 +844,11 @@ export default function Assignments() {
       {/* Create Modal */}
       {showCreateModal && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn"
           onClick={() => setShowCreateModal(false)}
         >
           <div
-            className="bg-secondarybg rounded-md shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+            className="bg-secondarybg rounded-md shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto animate-scaleIn"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="sticky top-0 z-10 bg-secondarybg px-8 py-5 border-b border-gray-100 flex justify-between items-center">
@@ -1084,11 +1089,11 @@ export default function Assignments() {
       {/* Reassign Modal */}
       {reassignModal && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn"
           onClick={() => setReassignModal(null)}
         >
           <div
-            className="bg-secondarybg rounded-md shadow-xl max-w-lg w-full p-6"
+            className="bg-secondarybg rounded-md shadow-xl max-w-lg w-full p-6 animate-scaleIn"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-4">
@@ -1150,14 +1155,14 @@ export default function Assignments() {
       {/* Time Conflict Warning Modal */}
       {conflictModal && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn"
           onClick={() => {
             setConflictModal(null);
             setConflictPendingForm(null);
           }}
         >
           <div
-            className="bg-secondarybg rounded-md shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto"
+            className="bg-secondarybg rounded-md shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto animate-scaleIn"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -1284,7 +1289,8 @@ export default function Assignments() {
                         </p>
                         {conflict.faculty_name && (
                           <p>
-                            <strong>Requested by:</strong> {conflict.faculty_name}
+                            <strong>Requested by:</strong>{" "}
+                            {conflict.faculty_name}
                           </p>
                         )}
                       </div>
@@ -1421,20 +1427,21 @@ export default function Assignments() {
       {/* EV Assignment Details Modal */}
       {showEvDetailsModal && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn"
           onClick={() => {
             setShowEvDetailsModal(false);
             setEvDetails(null);
           }}
         >
           <div
-            className="bg-secondarybg rounded-md shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+            className="bg-secondarybg rounded-md shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto animate-scaleIn"
             onClick={(e) => e.stopPropagation()}
           >
             {loadingEvDetails ? (
-              <div className="p-12 text-center text-secondarytext">
-                Loading assignment details...
-              </div>
+              <Loading
+                fullScreen={false}
+                text="Loading assignment details..."
+              />
             ) : evDetails ? (
               <>
                 {/* Header */}

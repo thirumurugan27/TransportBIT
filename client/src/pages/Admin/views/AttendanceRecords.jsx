@@ -1,4 +1,5 @@
 import React, {useState, useEffect} from "react";
+import Loading from "../../../components/ui/Loading";
 import CustomDropdown from "../../../components/ui/CustomDropdown";
 import {
   Loader2,
@@ -94,7 +95,7 @@ export default function AttendanceRecords() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fadeIn">
       {/* Header with filters */}
       <div className="bg-white rounded-md shadow-sm border border-gray-100 p-6">
         <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-6">
@@ -255,10 +256,7 @@ export default function AttendanceRecords() {
       {/* Attendance Table */}
       <div className="bg-white rounded-md shadow-sm border border-gray-100 overflow-hidden">
         {loading ? (
-          <div className="p-12 flex flex-col items-center justify-center text-gray-500">
-            <div className="animate-spin inline-block w-8 h-8 border-4 border-current border-t-transparent text-primary rounded-md mb-4"></div>
-            <p>Loading attendance records...</p>
-          </div>
+          <Loading fullScreen={false} text="Loading attendance records..." />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">

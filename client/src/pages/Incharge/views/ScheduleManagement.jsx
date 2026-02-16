@@ -1,4 +1,5 @@
 import React, {useState, useEffect} from "react";
+import Loading from "../../../components/ui/Loading";
 import {showError, showConfirm, showSuccess} from "../../../utils/swal";
 import SearchableSelect from "../../../components/ui/SearchableSelect";
 import {
@@ -180,7 +181,9 @@ export default function ScheduleManagement() {
     const endpoint = isEditing
       ? "/api/admin/clusters/update"
       : "/api/admin/clusters/create-with-schedule";
-    const payload = isEditing ? {...clusterForm, id: editingId, force} : {...clusterForm, force};
+    const payload = isEditing
+      ? {...clusterForm, id: editingId, force}
+      : {...clusterForm, force};
 
     try {
       const res = await fetch(`${API_BASE}${endpoint}`, {
@@ -305,7 +308,7 @@ export default function ScheduleManagement() {
   });
 
   return (
-    <div className="space-y-8 pb-12 font-sans text-primarytext">
+    <div className="space-y-8 pb-12 font-sans text-primarytext animate-fadeIn">
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
@@ -429,9 +432,7 @@ export default function ScheduleManagement() {
       {/* Content */}
       <div className="bg-secondarybg rounded-md border border-gray-100 shadow-sm overflow-hidden p-6 min-h-75">
         {loading ? (
-          <div className="flex justify-center items-center h-48">
-            <Loader2 className="w-8 h-8 text-primary animate-spin" />
-          </div>
+          <Loading fullScreen={false} text="Loading data..." />
         ) : (
           <>
             {activeTab === "groups" && (
@@ -600,8 +601,8 @@ export default function ScheduleManagement() {
       </div>
       {/* MODAL */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-md shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-white rounded-md shadow-2xl w-full max-w-2xl overflow-hidden animate-scaleIn flex flex-col max-h-[90vh]">
             <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
               <div>
                 <h3 className="text-xl font-bold text-primarytext">

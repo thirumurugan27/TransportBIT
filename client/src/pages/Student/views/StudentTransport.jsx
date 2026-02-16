@@ -471,8 +471,8 @@ export default function StudentTransport() {
 
         {/* Transport Request Modal */}
         {showTransportRequestModal && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-secondarybg rounded-md shadow-2xl max-w-md w-full p-6 border border-primarybg">
+          <div className="fixed inset-0 bg-black/60  flex items-center justify-center z-50 p-4 animate-fadeIn">
+            <div className="bg-secondarybg rounded-md shadow-2xl max-w-md w-full p-6 border border-primarybg animate-scaleIn">
               <h3 className="text-xl font-bold text-primarytext mb-6">
                 Request Bus Transport
               </h3>
@@ -585,7 +585,7 @@ export default function StudentTransport() {
   ];
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6 animate-fadeIn">
       {/* Header */}
       <div className="bg-secondarybg rounded-md p-6 border border-primary/10">
         <div className="flex items-center justify-between">
@@ -931,8 +931,8 @@ export default function StudentTransport() {
 
       {/* Stop Change Request Modal */}
       {showRequestModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-secondarybg rounded-md shadow-2xl max-w-md w-full p-6 border border-primarybg">
+        <div className="fixed inset-0 bg-black/60  flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-secondarybg rounded-md shadow-2xl max-w-md w-full p-6 border border-primarybg animate-scaleIn">
             <h3 className="text-xl font-bold text-primarytext mb-6">
               Request Stop Change
             </h3>

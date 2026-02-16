@@ -1,4 +1,5 @@
 import React, {useState, useEffect} from "react";
+import Loading from "../../../components/ui/Loading";
 import {
   Car,
   Calendar,
@@ -326,7 +327,7 @@ export default function FCReplacementManagement() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fadeIn">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
@@ -473,7 +474,7 @@ export default function FCReplacementManagement() {
             {loading ? (
               <tr>
                 <td colSpan={7} className="p-8 text-center">
-                  <div className="w-8 h-8 border-4 border-primarybg border-t-primary rounded-md animate-spin mx-auto"></div>
+                  <Loading fullScreen={false} size="small" />
                 </td>
               </tr>
             ) : requests.length === 0 ? (
@@ -610,8 +611,8 @@ export default function FCReplacementManagement() {
 
       {/* Create Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-md p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fadeIn">
+          <div className="bg-white rounded-md p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto animate-scaleIn">
             <h2 className="text-xl font-bold text-primarytext mb-4">
               Create Vehicle Replacement Request
             </h2>
@@ -876,8 +877,8 @@ export default function FCReplacementManagement() {
 
       {/* Approve Modal */}
       {showApproveModal && selectedRequest && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-md p-6 w-full max-w-lg">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fadeIn">
+          <div className="bg-white rounded-md p-6 w-full max-w-lg animate-scaleIn">
             <h2 className="text-xl font-bold text-primarytext mb-4">
               Approve & Assign Replacement Vehicle
             </h2>
@@ -949,8 +950,8 @@ export default function FCReplacementManagement() {
 
       {/* Edit Modal */}
       {showEditModal && selectedRequest && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-md p-6 w-full max-w-lg">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fadeIn">
+          <div className="bg-white rounded-md p-6 w-full max-w-lg animate-scaleIn">
             <h2 className="text-xl font-bold text-primarytext mb-4">
               Edit Replacement Request
             </h2>

@@ -1,4 +1,5 @@
 import React, {useState, useEffect} from "react";
+import Loading from "../../../components/ui/Loading";
 import {showError, showConfirm} from "../../../utils/swal";
 import {formatVehicleLabel} from "../../../utils/vehicleLabel";
 import SearchableSelect from "../../../components/ui/SearchableSelect";
@@ -203,13 +204,10 @@ export default function TemporaryAssignments({openModal}) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fadeIn">
       {/* List */}
       {loading ? (
-        <div className="p-12 text-center text-gray-500 bg-white rounded-md shadow-sm border border-gray-100">
-          <div className="animate-spin inline-block w-8 h-8 border-4 border-current border-t-transparent text-[var(--color-primary)] rounded-md mb-4"></div>
-          <p>Loading temporary assignments...</p>
-        </div>
+        <Loading fullScreen={false} text="Loading temporary assignments..." />
       ) : tempAssignments.length === 0 ? (
         <div className="bg-white rounded-md shadow-sm border border-gray-100 p-12 text-center text-gray-400">
           <FileText size={48} className="mx-auto mb-3 opacity-20" />
@@ -300,8 +298,8 @@ export default function TemporaryAssignments({openModal}) {
 
       {/* Create Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-secondarybg rounded-md shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-secondarybg rounded-md shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto animate-scaleIn">
             <div className="p-6 border-b border-gray-100 flex justify-between items-center">
               <h3 className="text-lg font-bold text-primarytext">
                 New Temporary Assignment
@@ -482,11 +480,11 @@ export default function TemporaryAssignments({openModal}) {
       {/* Detail Modal */}
       {showDetailModal && selectedDetail && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn"
           onClick={() => setShowDetailModal(false)}
         >
           <div
-            className="bg-white rounded-md shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-md shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-scaleIn"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}

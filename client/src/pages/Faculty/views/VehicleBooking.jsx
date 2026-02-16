@@ -510,8 +510,8 @@ export default function VehicleBooking() {
 
       {/* New Request Modal - Removed: Now uses full page at /new-vehicle-request */}
       {false && showNewRequestModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-3xl rounded-md shadow-xl overflow-hidden max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/40 animate-fadeIn">
+          <div className="bg-white w-full max-w-3xl rounded-md shadow-xl overflow-hidden max-h-[90vh] flex flex-col animate-scaleIn">
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
               <div>
@@ -1206,8 +1206,8 @@ export default function VehicleBooking() {
 
       {/* Details Modal */}
       {showDetailsModal && selectedRequest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-secondarybg w-full max-w-3xl rounded-md shadow-2xl overflow-hidden max-h-[90vh] flex flex-col border border-gray-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/50 animate-fadeIn">
+          <div className="bg-secondarybg w-full max-w-3xl rounded-md shadow-2xl overflow-hidden max-h-[90vh] flex flex-col border border-gray-100 animate-scaleIn">
             {/* Header */}
             <div className="px-6 py-4 bg-primarybg border-b border-gray-200">
               <div className="flex items-center justify-between">
@@ -1626,8 +1626,11 @@ export default function VehicleBooking() {
                 (selectedRequest.status === "assigned" ||
                   selectedRequest.status === "trip_started") && (
                   <div className="bg-primarybg rounded-md border border-gray-200 p-4 text-center">
-                    <Loader2 className="w-6 h-6 animate-spin text-primary mx-auto mb-2" />
-                    <p className="text-sm text-secondarytext">Loading OTP...</p>
+                    <Loading
+                      fullScreen={false}
+                      size="small"
+                      text="Loading OTP..."
+                    />
                   </div>
                 )}
             </div>

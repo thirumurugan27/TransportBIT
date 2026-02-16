@@ -365,7 +365,7 @@ export default function VehicleRequestForm() {
   if (loading) return <Loading fullScreen={false} />;
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 p-4">
+    <div className="max-w-5xl mx-auto space-y-6 p-4 animate-fadeIn">
       {/* Header */}
       <div className="bg-secondarybg rounded-md shadow-sm border border-gray-100 p-6">
         <div className="flex items-center justify-between">

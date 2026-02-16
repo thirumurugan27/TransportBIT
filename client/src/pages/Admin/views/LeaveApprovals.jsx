@@ -1,4 +1,5 @@
 import React, {useState, useEffect} from "react";
+import Loading from "../../../components/ui/Loading";
 import {showError, showSuccess} from "../../../utils/swal";
 import CustomDropdown from "../../../components/ui/CustomDropdown";
 import {
@@ -132,15 +133,12 @@ export default function LeaveApprovals() {
           end_date: ta.end_date,
         }));
 
-      const res = await apiPost(
-        "/api/admin/leave/approve-with-assignments",
-        {
-          leave_id: selectedLeave.id,
-          approver_id: 1,
-          remarks: remarks || "",
-          temporary_assignments: tempAssignmentsArray,
-        },
-      );
+      const res = await apiPost("/api/admin/leave/approve-with-assignments", {
+        leave_id: selectedLeave.id,
+        approver_id: 1,
+        remarks: remarks || "",
+        temporary_assignments: tempAssignmentsArray,
+      });
 
       if (res.ok) {
         setShowAssignmentModal(false);
@@ -274,9 +272,7 @@ export default function LeaveApprovals() {
       {/* Leave Requests Table */}
       <div className="bg-white rounded-md shadow-sm border border-gray-200 overflow-hidden">
         {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="w-8 h-8 animate-spin text-[#8b5cf6]" />
-          </div>
+          <Loading fullScreen={false} />
         ) : filteredLeaves.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <FileText className="w-12 h-12 text-gray-300 mb-3" />
@@ -443,7 +439,7 @@ export default function LeaveApprovals() {
 
       {/* Leave Details Modal */}
       {showLeaveModal && selectedLeave && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/50 animate-fadeIn">
           <div className="bg-white w-full max-w-2xl rounded-md shadow-2xl animate-scaleIn overflow-hidden max-h-[90vh] flex flex-col">
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-[#8b5cf6]/5 to-transparent">
@@ -723,7 +719,7 @@ export default function LeaveApprovals() {
 
       {/* Temporary Assignment Modal */}
       {showAssignmentModal && selectedLeave && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 bg-black/50 animate-fadeIn">
           <div className="bg-white w-full max-w-4xl rounded-md shadow-2xl animate-scaleIn overflow-hidden max-h-[90vh] flex flex-col">
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-[#8b5cf6]/5 to-transparent">
@@ -757,9 +753,7 @@ export default function LeaveApprovals() {
             {/* Modal Body */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               {loadingAssignments ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-8 h-8 animate-spin text-[#8b5cf6]" />
-                </div>
+                <Loading fullScreen={false} />
               ) : affectedAssignments.length === 0 ? (
                 <div className="bg-green-50 border border-green-200 rounded-md p-6 text-center">
                   <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto mb-3" />

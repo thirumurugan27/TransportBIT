@@ -1,6 +1,7 @@
 import React, {useState, useEffect} from "react";
 import {useNavigate} from "react-router-dom";
 import {useAuth} from "../../../context/AuthContext";
+import Loading from "../../../components/ui/Loading";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
@@ -51,7 +52,7 @@ export default function StudentHome() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fadeIn">
       <div className="bg-primary rounded-md p-6 text-white shadow-lg">
         <h2 className="text-2xl font-bold mb-1">Hello, {studentName}!</h2>
         <p className="text-white/80">
@@ -69,7 +70,7 @@ export default function StudentHome() {
             <h3 className="font-semibold text-gray-800">My Bus</h3>
           </div>
           {loading ? (
-            <p className="text-gray-500 text-sm">Loading...</p>
+            <Loading fullScreen={false} size="small" />
           ) : transport ? (
             <div className="space-y-1">
               <p className="text-lg font-medium text-gray-800">
@@ -103,7 +104,7 @@ export default function StudentHome() {
             <h3 className="font-semibold text-gray-800">My Stop</h3>
           </div>
           {loading ? (
-            <p className="text-gray-500 text-sm">Loading...</p>
+            <Loading fullScreen={false} size="small" />
           ) : transport ? (
             <div className="space-y-1">
               <p className="text-lg font-medium text-gray-800">
@@ -136,7 +137,7 @@ export default function StudentHome() {
             <h3 className="font-semibold text-gray-800">Fee Status</h3>
           </div>
           {loading ? (
-            <p className="text-gray-500 text-sm">Loading...</p>
+            <Loading fullScreen={false} size="small" />
           ) : transport ? (
             <div className="space-y-1">
               <p className="text-gray-500 text-sm">

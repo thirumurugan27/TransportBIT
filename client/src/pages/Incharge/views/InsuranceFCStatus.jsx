@@ -2,6 +2,7 @@ import React, {useState, useEffect} from "react";
 import {useAuth} from "../../../context/AuthContext";
 import {apiGet} from "../../../utils/api";
 import {useToast} from "../../../context/ToastContext";
+import Loading from "../../../components/ui/Loading";
 import CustomDropdown from "../../../components/ui/CustomDropdown";
 import {
   Shield,
@@ -260,7 +261,7 @@ export default function InsuranceFCStatus() {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 animate-fadeIn">
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
@@ -401,10 +402,7 @@ export default function InsuranceFCStatus() {
       {/* Vehicle List */}
       <div className="bg-secondarybg rounded-md border border-gray-100 overflow-hidden">
         {loading ? (
-          <div className="p-12 flex flex-col items-center justify-center text-secondarytext">
-            <Loader2 className="w-8 h-8 animate-spin text-primary mb-3" />
-            <p>Loading vehicles...</p>
-          </div>
+          <Loading fullScreen={false} text="Loading vehicles..." />
         ) : sortedVehicles.length === 0 ? (
           <div className="p-12 text-center text-secondarytext">
             No vehicles found matching your filters.
@@ -534,13 +532,14 @@ export default function InsuranceFCStatus() {
 
       {/* Detail Modal (View Only for Incharge) */}
       {selectedVehicle && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/40">
-          <div className="bg-secondarybg rounded-md shadow-xl w-full max-w-lg overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/40 animate-fadeIn">
+          <div className="bg-secondarybg rounded-md shadow-xl w-full max-w-lg overflow-hidden animate-scaleIn">
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <div>
                 <h3 className="text-lg font-bold text-primarytext">
-                  {selectedVehicle.vehicle_name || selectedVehicle.vehicle_number}
+                  {selectedVehicle.vehicle_name ||
+                    selectedVehicle.vehicle_number}
                 </h3>
                 <p className="text-sm text-secondarytext">
                   {selectedVehicle.vehicle_number} •{" "}

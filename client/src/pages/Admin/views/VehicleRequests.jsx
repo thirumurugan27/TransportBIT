@@ -526,7 +526,7 @@ export default function VehicleRequests() {
   if (loading) return <Loading fullScreen={false} />;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fadeIn">
       <h1 className="text-secondarytext text-xl font-normal">
         Vehicle Requests
       </h1>
@@ -1398,14 +1398,14 @@ export default function VehicleRequests() {
       {/* ========== CONFLICT MODAL ========== */}
       {conflictModal && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70] p-4"
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70] p-4 animate-fadeIn"
           onClick={() => {
             setConflictModal(null);
             setConflictPendingAction(null);
           }}
         >
           <div
-            className="bg-secondarybg rounded-md shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto"
+            className="bg-secondarybg rounded-md shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto animate-scaleIn"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}

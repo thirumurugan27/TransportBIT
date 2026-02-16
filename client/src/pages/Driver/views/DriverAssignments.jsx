@@ -2,6 +2,7 @@ import React, {useState, useEffect} from "react";
 import {useAuth} from "../../../context/AuthContext";
 import {apiGet} from "../../../utils/api";
 import {formatTime} from "../../../utils/dateFormat";
+import Loading from "../../../components/ui/Loading";
 import {
   Calendar,
   Clock,
@@ -27,7 +28,9 @@ export default function DriverAssignments() {
   const [loading, setLoading] = useState(true);
   const [selectedEVAssignment, setSelectedEVAssignment] = useState(null);
   const [activeTab, setActiveTab] = useState("all");
-  const [filterDate, setFilterDate] = useState(new Date().toISOString().split("T")[0]);
+  const [filterDate, setFilterDate] = useState(
+    new Date().toISOString().split("T")[0],
+  );
   const {user} = useAuth();
   const driverId = user?.driver_id;
 
@@ -41,7 +44,9 @@ export default function DriverAssignments() {
     setLoading(true);
     try {
       const dateParam = filterDate ? `&date=${filterDate}` : "";
-      const res = await apiGet(`/api/driver/assignments?driver_id=${driverId}${dateParam}`);
+      const res = await apiGet(
+        `/api/driver/assignments?driver_id=${driverId}${dateParam}`,
+      );
       if (res.ok) {
         const data = await res.json();
         setAssignments(data || []);
@@ -187,7 +192,7 @@ export default function DriverAssignments() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fadeIn">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
         <div>
@@ -208,7 +213,9 @@ export default function DriverAssignments() {
           />
           {filterDate !== new Date().toISOString().split("T")[0] && (
             <button
-              onClick={() => setFilterDate(new Date().toISOString().split("T")[0])}
+              onClick={() =>
+                setFilterDate(new Date().toISOString().split("T")[0])
+              }
               className="px-3 py-2 text-xs text-primary border border-primary/30 rounded-md hover:bg-primary/5 font-semibold transition-colors whitespace-nowrap"
             >
               Today
@@ -266,9 +273,7 @@ export default function DriverAssignments() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center p-20">
-          <div className="animate-spin inline-block w-8 h-8 border-4 border-current border-t-transparent text-primary rounded-md"></div>
-        </div>
+        <Loading fullScreen={false} />
       ) : (
         <>
           {filteredAssignments.length === 0 ? (
@@ -644,8 +649,8 @@ export default function DriverAssignments() {
 
       {/* EV Assignment Details Modal */}
       {selectedEVAssignment && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-          <div className="bg-white rounded-t-2xl sm:rounded-md shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden">
+        <div className="fixed inset-0 bg-black/50  flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 animate-fadeIn">
+          <div className="bg-white rounded-t-2xl sm:rounded-md shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden animate-scaleIn">
             {/* Header */}
             <div className="bg-green text-white p-4 sm:p-6 flex items-center justify-between">
               <div className="flex items-center gap-3">

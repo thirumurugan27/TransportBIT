@@ -2,6 +2,7 @@ import React, {useState, useEffect} from "react";
 import {useAuth} from "../../../context/AuthContext";
 import {apiGet, apiPost, getToday} from "../../../utils/api";
 import {useToast} from "../../../context/ToastContext";
+import Loading from "../../../components/ui/Loading";
 import {
   Map,
   Route,
@@ -185,7 +186,7 @@ export default function DriverKmLog() {
   const stats = calculateStats();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fadeIn">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
         <div>
@@ -207,9 +208,7 @@ export default function DriverKmLog() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center p-20">
-          <div className="animate-spin inline-block w-8 h-8 border-4 border-current border-t-transparent text-primary rounded-full"></div>
-        </div>
+        <Loading fullScreen={false} />
       ) : (
         <>
           {/* Stats Cards (Replicating Admin KmSummary Style) */}
@@ -452,8 +451,8 @@ export default function DriverKmLog() {
 
       {/* Add Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-t-2xl sm:rounded-md w-full max-w-md shadow-2xl overflow-hidden transform transition-all scale-100">
+        <div className="fixed inset-0 bg-black/60  flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 animate-fadeIn">
+          <div className="bg-white rounded-t-2xl sm:rounded-md w-full max-w-md shadow-2xl overflow-hidden animate-scaleIn">
             <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
               <h3 className="text-lg font-bold text-gray-800">
                 Add Daily KM Log
