@@ -1,7 +1,7 @@
 import React, {useState, useEffect} from "react";
 import {useAuth} from "../../../context/AuthContext";
 import {apiGet, apiPost, getToday} from "../../../utils/api";
-import {formatDate} from "../../../utils/dateFormat";
+
 import {
   Shield,
   AlertTriangle,
@@ -435,8 +435,7 @@ export default function InchargeHome() {
                     ({req.replacement_type})
                   </span>
                   <p className="text-xs text-secondarytext mt-1">
-                    {formatDate(req.start_date)} -{" "}
-                    {formatDate(req.expected_end_date)}
+                    {req.start_date || "-"} - {req.expected_end_date || "-"}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">

@@ -3,6 +3,7 @@ import {useAuth} from "../../../context/AuthContext";
 import {apiGet, apiPost, getToday} from "../../../utils/api";
 import {useToast} from "../../../context/ToastContext";
 import Loading from "../../../components/ui/Loading";
+import SearchableSelect from "../../../components/ui/SearchableSelect";
 import {
   Map,
   Route,
@@ -11,13 +12,14 @@ import {
   Truck,
   Calendar,
   AlertCircle,
-  Car,
+  X,
 } from "lucide-react";
 
 export default function DriverKmLog() {
   const {showToast} = useToast();
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [vehicles, setVehicles] = useState([]);
   const {user} = useAuth();
@@ -27,7 +29,6 @@ export default function DriverKmLog() {
     date: getToday(),
     start_km: 0,
     end_km: 0,
-    vehicle_type: "BUS",
     vehicle_id: "",
     assignment_id: "",
     remarks: "",
@@ -53,12 +54,8 @@ export default function DriverKmLog() {
       );
       if (res.ok) {
         const data = await res.json();
-        // If existing end_km is found, use it as start_km
         if (data.end_km !== undefined) {
-          setForm((prev) => ({
-            ...prev,
-            start_km: data.end_km,
-          }));
+          setForm((prev) => ({...prev, start_km: data.end_km}));
         }
       }
     } catch (err) {
@@ -83,11 +80,9 @@ export default function DriverKmLog() {
 
   const fetchAssignedVehicles = async () => {
     try {
-      // Fetch driver's assignments to get their vehicles
       const res = await apiGet(`/api/driver/assignments?driver_id=${driverId}`);
       if (res.ok) {
         const assignments = await res.json();
-        // Extract unique vehicles from assignments
         const uniqueVehicles = [];
         const seenIds = new Set();
         (assignments || []).forEach((a) => {
@@ -95,20 +90,19 @@ export default function DriverKmLog() {
             seenIds.add(a.vehicle_id);
             uniqueVehicles.push({
               id: a.vehicle_id,
+              vehicle_name: a.vehicle_name,
               vehicle_number: a.vehicle_number,
-              vehicle_type: a.vehicle_type || "BUS",
+              vehicle_type: a.vehicle_type || "N/A",
               assignment_id: a.id,
             });
           }
         });
         setVehicles(uniqueVehicles);
-        // Set default vehicle if available
         if (uniqueVehicles.length > 0) {
           setForm((prev) => ({
             ...prev,
             vehicle_id: uniqueVehicles[0].id,
-            vehicle_type: uniqueVehicles[0].vehicle_type,
-            assignment_id: uniqueVehicles[0].assignment_id || "",
+            assignment_id: uniqueVehicles[0].assignment_id?.toString() || "",
           }));
         }
       }
@@ -119,24 +113,26 @@ export default function DriverKmLog() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (parseFloat(form.end_km) <= parseFloat(form.start_km)) {
+      showToast("End KM must be greater than Start KM", "warning");
+      return;
+    }
+    if (!form.vehicle_id) {
+      showToast("Please select a vehicle", "warning");
+      return;
+    }
+
+    setSubmitting(true);
     try {
-      // Basic validation
-      if (parseFloat(form.end_km) <= parseFloat(form.start_km)) {
-        showToast("End KM must be greater than Start KM", "warning");
-        return;
-      }
-
-      if (!form.vehicle_id) {
-        showToast("Please select a vehicle", "warning");
-        return;
-      }
-
+      const selectedVehicle = vehicles.find(
+        (v) => v.id === parseInt(form.vehicle_id),
+      );
       const payload = {
         driver_id: parseInt(driverId),
         date: form.date,
         start_km: parseFloat(form.start_km),
         end_km: parseFloat(form.end_km),
-        vehicle_type: form.vehicle_type,
+        vehicle_type: selectedVehicle?.vehicle_type || "BUS",
         vehicle_id: parseInt(form.vehicle_id),
         assignment_id: form.assignment_id ? parseInt(form.assignment_id) : null,
         remarks: form.remarks,
@@ -144,34 +140,32 @@ export default function DriverKmLog() {
       };
 
       const res = await apiPost("/api/driver/km-log/add", payload);
-
       if (res.ok) {
         showToast("Log added!", "success");
-        setShowModal(false);
+        closeModal();
         fetchLogs();
-        setForm({
-          ...form,
-          start_km: 0,
-          end_km: 0,
-          remarks: "",
-        });
       } else {
         const errData = await res.json();
-        showToast(
-          "Failed to add log: " + (errData.error || "Unknown error"),
-          "error",
-        );
+        showToast("Failed: " + (errData.error || "Unknown error"), "error");
       }
     } catch (err) {
       console.error(err);
+      showToast("Failed to add log", "error");
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  // Calculate Summary Stats from fetched logs
+  const closeModal = () => {
+    setShowModal(false);
+    setForm((prev) => ({...prev, start_km: 0, end_km: 0, remarks: ""}));
+  };
+
+  const totalKm = parseFloat(form.end_km || 0) - parseFloat(form.start_km || 0);
+
   const calculateStats = () => {
     const totalTrips = logs.length;
     const totalKm = logs.reduce((sum, log) => {
-      // Assuming log.total_km is available, else calculate
       const dist =
         log.total_km !== undefined
           ? parseFloat(log.total_km)
@@ -179,30 +173,32 @@ export default function DriverKmLog() {
       return sum + (isNaN(dist) ? 0 : dist);
     }, 0);
     const avgKm = totalTrips > 0 ? totalKm / totalTrips : 0;
-
     return {totalTrips, totalKm, avgKm};
   };
 
   const stats = calculateStats();
 
+  const vehicleOptions = vehicles.map((v) => ({
+    value: String(v.id),
+    label: v.vehicle_name || v.vehicle_number,
+    subtitle: v.vehicle_number,
+  }));
+
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-5 animate-fadeIn">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-primarytext flex items-center gap-2">
-            <Truck className="text-primary" size={24} />
-            My KM Logs
-          </h1>
-          <p className="text-sm text-secondarytext mt-1">
+          <h1 className="text-2xl font-bold text-primarytext">My KM Logs</h1>
+          <p className="text-sm text-secondarytext mt-0.5">
             Track your vehicle usage and trip history
           </p>
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="bg-primary text-white px-5 py-2.5 rounded-md hover:bg-primarydull transition-colors flex items-center gap-2 shadow-lg shadow-primary/30 font-medium"
+          className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-md hover:bg-primary/90 transition-colors text-sm font-medium"
         >
-          <Plus size={20} />
+          <Plus size={18} />
           Add Entry
         </button>
       </div>
@@ -211,89 +207,79 @@ export default function DriverKmLog() {
         <Loading fullScreen={false} />
       ) : (
         <>
-          {/* Stats Cards (Replicating Admin KmSummary Style) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
-            {/* Total Distance Card */}
-            <div className="bg-white rounded-md p-4 sm:p-6 shadow-sm border border-gray-100 relative overflow-hidden group">
-              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <Map size={64} className="text-primary" />
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="bg-secondarybg rounded-md border border-gray-100 p-4 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
+                <Map size={56} className="text-primary" />
               </div>
-              <div className="flex items-center gap-4 relative z-10">
-                <div className="p-3 bg-primary/10 rounded-md text-primary">
-                  <Map size={24} />
+              <div className="flex items-center gap-3 relative z-10">
+                <div className="p-2.5 bg-primary/10 rounded-md">
+                  <Map size={20} className="text-primary" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                  <p className="text-xs font-bold text-secondarytext uppercase tracking-wider">
                     Total Distance
                   </p>
-                  <p className="text-2xl font-bold text-gray-800 mt-1">
+                  <p className="text-xl font-bold text-primarytext mt-0.5">
                     {stats.totalKm.toFixed(1)}{" "}
-                    <span className="text-sm text-gray-500 font-normal">
+                    <span className="text-sm text-secondarytext font-normal">
                       km
                     </span>
-                  </p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    Based on recent logs
                   </p>
                 </div>
               </div>
             </div>
-
-            {/* Total Trips Card */}
-            <div className="bg-white rounded-md p-4 sm:p-6 shadow-sm border border-gray-100 relative overflow-hidden group">
-              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <Route size={64} className="text-green" />
+            <div className="bg-secondarybg rounded-md border border-gray-100 p-4 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
+                <Route size={56} className="text-green-500" />
               </div>
-              <div className="flex items-center gap-4 relative z-10">
-                <div className="p-3 bg-green/10 rounded-md text-green">
-                  <Route size={24} />
+              <div className="flex items-center gap-3 relative z-10">
+                <div className="p-2.5 bg-green-100 rounded-md">
+                  <Route size={20} className="text-green-600" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                  <p className="text-xs font-bold text-secondarytext uppercase tracking-wider">
                     Total Trips
                   </p>
-                  <p className="text-2xl font-bold text-gray-800 mt-1">
+                  <p className="text-xl font-bold text-primarytext mt-0.5">
                     {stats.totalTrips}
                   </p>
-                  <p className="text-xs text-gray-400 mt-1">Logged entries</p>
                 </div>
               </div>
             </div>
-
-            {/* Avg/Trip Card */}
-            <div className="bg-white rounded-md p-4 sm:p-6 shadow-sm border border-gray-100 relative overflow-hidden group">
-              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <TrendingUp size={64} className="text-pending" />
+            <div className="bg-secondarybg rounded-md border border-gray-100 p-4 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
+                <TrendingUp size={56} className="text-orange-500" />
               </div>
-              <div className="flex items-center gap-4 relative z-10">
-                <div className="p-3 bg-pending/10 rounded-md text-pending">
-                  <TrendingUp size={24} />
+              <div className="flex items-center gap-3 relative z-10">
+                <div className="p-2.5 bg-orange-100 rounded-md">
+                  <TrendingUp size={20} className="text-orange-600" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                  <p className="text-xs font-bold text-secondarytext uppercase tracking-wider">
                     Avg / Trip
                   </p>
-                  <p className="text-2xl font-bold text-gray-800 mt-1">
+                  <p className="text-xl font-bold text-primarytext mt-0.5">
                     {stats.avgKm.toFixed(1)}{" "}
-                    <span className="text-sm text-gray-500 font-normal">
+                    <span className="text-sm text-secondarytext font-normal">
                       km
                     </span>
                   </p>
-                  <p className="text-xs text-gray-400 mt-1">Per logged entry</p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Logs Section */}
-          <div className="bg-white rounded-md shadow-sm border border-gray-100 overflow-hidden">
-            <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
-              <h3 className="font-bold text-primarytext flex items-center gap-2">
-                <Calendar size={18} className="text-secondarytext" />
+          {/* Logs Table */}
+          <div className="bg-secondarybg rounded-md border border-gray-100 overflow-hidden">
+            <div className="px-4 sm:px-6 py-3.5 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="font-bold text-primarytext text-sm flex items-center gap-2">
+                <Calendar size={16} className="text-secondarytext" />
                 Recent Logs
               </h3>
-              <span className="text-xs text-secondarytext bg-white px-2 py-1 rounded-md border border-gray-200">
-                Last {logs.length} entries
+              <span className="text-xs text-secondarytext bg-primarybg px-2 py-1 rounded-md">
+                {logs.length} entries
               </span>
             </div>
 
@@ -306,11 +292,11 @@ export default function DriverKmLog() {
                       ? parseFloat(log.total_km)
                       : parseFloat(log.end_km) - parseFloat(log.start_km);
                   return (
-                    <div key={log.id} className="p-4 space-y-3">
+                    <div key={log.id} className="p-4 space-y-2.5">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <Calendar size={14} className="text-secondarytext" />
-                          <span className="font-semibold text-primarytext text-sm">
+                          <Calendar size={13} className="text-secondarytext" />
+                          <span className="font-bold text-primarytext text-sm">
                             {log.date}
                           </span>
                         </div>
@@ -324,9 +310,6 @@ export default function DriverKmLog() {
                             {log.vehicle_number}
                           </span>
                         )}
-                        <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-primarybg text-secondarytext">
-                          {log.vehicle_type || "BUS"}
-                        </span>
                       </div>
                       <div className="flex items-center gap-4 text-xs text-secondarytext">
                         <span>
@@ -353,7 +336,9 @@ export default function DriverKmLog() {
               ) : (
                 <div className="p-12 text-center text-secondarytext">
                   <AlertCircle size={32} className="opacity-20 mx-auto mb-2" />
-                  <p>No logs found. Add your first entry!</p>
+                  <p className="text-sm">
+                    No logs found. Add your first entry!
+                  </p>
                 </div>
               )}
             </div>
@@ -361,24 +346,24 @@ export default function DriverKmLog() {
             {/* Desktop Table View */}
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50/50 border-b border-gray-100">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
+                <thead>
+                  <tr className="bg-primarybg border-b border-gray-100">
+                    <th className="px-6 py-3.5 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
                       Date
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
+                    <th className="px-6 py-3.5 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
                       Vehicle
                     </th>
-                    <th className="px-6 py-4 text-right text-xs font-bold text-secondarytext uppercase tracking-wider">
+                    <th className="px-6 py-3.5 text-right text-xs font-bold text-secondarytext uppercase tracking-wider">
                       Start KM
                     </th>
-                    <th className="px-6 py-4 text-right text-xs font-bold text-secondarytext uppercase tracking-wider">
+                    <th className="px-6 py-3.5 text-right text-xs font-bold text-secondarytext uppercase tracking-wider">
                       End KM
                     </th>
-                    <th className="px-6 py-4 text-right text-xs font-bold text-secondarytext uppercase tracking-wider">
+                    <th className="px-6 py-3.5 text-right text-xs font-bold text-secondarytext uppercase tracking-wider">
                       Distance
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
+                    <th className="px-6 py-3.5 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
                       Remarks
                     </th>
                   </tr>
@@ -395,35 +380,28 @@ export default function DriverKmLog() {
                           key={log.id}
                           className="hover:bg-primarybg transition-colors"
                         >
-                          <td className="px-6 py-4 whitespace-nowrap font-semibold text-primarytext text-sm">
+                          <td className="px-6 py-3.5 whitespace-nowrap font-bold text-primarytext text-sm">
                             {log.date}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex flex-col">
-                              {log.vehicle_number && (
-                                <span className="text-sm font-medium text-primarytext">
-                                  {log.vehicle_number}
-                                </span>
-                              )}
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-primarybg text-secondarytext w-fit mt-0.5">
-                                {log.vehicle_type || "BUS"}
-                              </span>
-                            </div>
+                          <td className="px-6 py-3.5 whitespace-nowrap">
+                            <span className="text-sm font-medium text-primarytext">
+                              {log.vehicle_number || "—"}
+                            </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right font-mono text-secondarytext text-sm">
+                          <td className="px-6 py-3.5 whitespace-nowrap text-right font-mono text-secondarytext text-sm">
                             {log.start_km}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right font-mono text-secondarytext text-sm">
+                          <td className="px-6 py-3.5 whitespace-nowrap text-right font-mono text-secondarytext text-sm">
                             {log.end_km}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                          <td className="px-6 py-3.5 whitespace-nowrap text-right">
                             <span className="font-bold text-primary text-sm">
                               {dist.toFixed(1)} km
                             </span>
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="px-6 py-3.5">
                             <p className="text-sm text-secondarytext truncate max-w-[200px]">
-                              {log.remarks || "-"}
+                              {log.remarks || "—"}
                             </p>
                           </td>
                         </tr>
@@ -437,7 +415,9 @@ export default function DriverKmLog() {
                       >
                         <div className="flex flex-col items-center justify-center gap-2">
                           <AlertCircle size={32} className="opacity-20" />
-                          <p>No logs found. Add your first entry!</p>
+                          <p className="text-sm">
+                            No logs found. Add your first entry!
+                          </p>
                         </div>
                       </td>
                     </tr>
@@ -449,153 +429,175 @@ export default function DriverKmLog() {
         </>
       )}
 
-      {/* Add Modal */}
+      {/* Add KM Log Entry Modal — matches admin style */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/60  flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 animate-fadeIn">
-          <div className="bg-white rounded-t-2xl sm:rounded-md w-full max-w-md shadow-2xl overflow-hidden animate-scaleIn">
-            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-gray-800">
-                Add Daily KM Log
-              </h3>
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn"
+          onClick={closeModal}
+        >
+          <div
+            className="bg-secondarybg rounded-md shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col animate-scaleIn"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-primarybg flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-primary/10 rounded-md">
+                  <Plus size={20} className="text-primary" />
+                </div>
+                <h2 className="text-lg font-bold text-primarytext">
+                  Add KM Log Entry
+                </h2>
+              </div>
               <button
-                onClick={() => setShowModal(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                onClick={closeModal}
+                className="p-2 hover:bg-primarybg rounded-md transition-colors"
               >
-                ✕
+                <X size={20} className="text-secondarytext" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-5">
-              <div>
-                <label className="block text-sm font-semibold text-primarytext mb-1.5">
-                  Date
+            {/* Modal Body */}
+            <form
+              onSubmit={handleSubmit}
+              className="flex-1 overflow-y-auto p-6 space-y-5"
+            >
+              {/* Date */}
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-primarytext">
+                  Date <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="date"
-                  required
-                  className="w-full border border-gray-200 bg-primarybg px-3 py-2.5 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
                   value={form.date}
-                  onChange={(e) => setForm({...form, date: e.target.value})}
+                  onChange={(e) =>
+                    setForm((prev) => ({...prev, date: e.target.value}))
+                  }
+                  max={getToday()}
+                  className="w-full h-[42px] px-3 border border-gray-200 rounded-md bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+                  required
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-primarytext mb-1.5">
-                    Start KM
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    step="0.1"
-                    min="0"
-                    className="w-full border border-gray-200 bg-primarybg px-3 py-2.5 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
-                    value={form.start_km}
-                    onChange={(e) =>
-                      setForm({...form, start_km: e.target.value})
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-primarytext mb-1.5">
-                    End KM
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    step="0.1"
-                    min="0"
-                    className="w-full border border-gray-200 bg-primarybg px-3 py-2.5 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
-                    value={form.end_km}
-                    onChange={(e) => setForm({...form, end_km: e.target.value})}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-primarytext mb-1.5">
-                  Vehicle *
+              {/* Vehicle */}
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-primarytext">
+                  Vehicle <span className="text-red-500">*</span>
                 </label>
-                <select
-                  required
-                  className="w-full border border-gray-200 bg-primarybg px-3 py-2.5 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
-                  value={form.vehicle_id}
-                  onChange={(e) => {
+                <SearchableSelect
+                  options={vehicleOptions}
+                  value={String(form.vehicle_id)}
+                  onChange={(val) => {
                     const selectedVehicle = vehicles.find(
-                      (v) => v.id === parseInt(e.target.value),
+                      (v) => String(v.id) === val,
                     );
-                    setForm({
-                      ...form,
-                      vehicle_id: e.target.value,
-                      vehicle_type:
-                        selectedVehicle?.vehicle_type || form.vehicle_type,
+                    setForm((prev) => ({
+                      ...prev,
+                      vehicle_id: val,
                       assignment_id:
                         selectedVehicle?.assignment_id?.toString() || "",
-                    });
+                    }));
                   }}
-                >
-                  <option value="">Select Vehicle</option>
-                  {vehicles.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.vehicle_number} ({v.vehicle_type})
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Search and select vehicle"
+                  emptyMessage="No vehicles assigned"
+                />
                 {vehicles.length === 0 && (
-                  <p className="text-xs text-pending mt-1">
+                  <p className="text-xs text-orange-500 mt-1">
                     No vehicles assigned. Contact admin.
                   </p>
                 )}
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-primarytext mb-1.5">
-                  Vehicle Type
-                </label>
-                <select
-                  className="w-full border border-gray-200 bg-primarybg px-3 py-2.5 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
-                  value={form.vehicle_type}
-                  onChange={(e) =>
-                    setForm({...form, vehicle_type: e.target.value})
-                  }
-                >
-                  <option value="BUS">Bus</option>
-                  <option value="CAR">Car</option>
-                  <option value="EV">EV / Van</option>
-                  <option value="VAN">Van</option>
-                  <option value="TRUCK">Truck</option>
-                </select>
+              {/* KM Inputs */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-primarytext">
+                    Start KM <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={form.start_km}
+                    onChange={(e) =>
+                      setForm((prev) => ({...prev, start_km: e.target.value}))
+                    }
+                    className="w-full h-[42px] px-3 border border-gray-200 rounded-md bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+                    placeholder="0.0"
+                    required
+                    min="0"
+                    step="0.1"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-primarytext">
+                    End KM <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={form.end_km}
+                    onChange={(e) =>
+                      setForm((prev) => ({...prev, end_km: e.target.value}))
+                    }
+                    className="w-full h-[42px] px-3 border border-gray-200 rounded-md bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+                    placeholder="0.0"
+                    required
+                    min={form.start_km || "0"}
+                    step="0.1"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-primarytext mb-1.5">
+              {/* Total KM Display */}
+              {totalKm > 0 && (
+                <div className="flex items-center justify-between p-3 bg-green-50 rounded-md border border-green-100">
+                  <span className="text-sm font-medium text-green-700">
+                    Total Distance
+                  </span>
+                  <span className="text-lg font-bold text-green-600">
+                    {totalKm.toFixed(1)} km
+                  </span>
+                </div>
+              )}
+
+              {/* Remarks */}
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-primarytext">
                   Remarks{" "}
                   <span className="text-secondarytext font-normal">
                     (Optional)
                   </span>
                 </label>
                 <textarea
-                  className="w-full border border-gray-200 bg-primarybg px-3 py-2.5 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none resize-none"
-                  rows="3"
                   value={form.remarks}
-                  onChange={(e) => setForm({...form, remarks: e.target.value})}
-                  placeholder="Route details, fuel info, or issues..."
-                ></textarea>
+                  onChange={(e) =>
+                    setForm((prev) => ({...prev, remarks: e.target.value}))
+                  }
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-md bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm resize-none"
+                  rows="2"
+                  placeholder="Add any notes..."
+                />
               </div>
 
-              <div className="pt-2 flex gap-3">
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-primarybg">
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
-                  className="flex-1 px-4 py-2.5 bg-red text-white rounded-md font-medium transition-colors hover:opacity-90"
+                  onClick={closeModal}
+                  className="px-4 py-2.5 border border-gray-200 text-secondarytext rounded-md hover:bg-primarybg font-medium text-sm transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2.5 bg-primary hover:bg-primarydull text-white rounded-md font-medium transition-colors shadow-lg shadow-primary/25"
+                  disabled={submitting}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-md hover:bg-primary/90 disabled:opacity-50 font-medium text-sm transition-colors"
                 >
-                  Save Log
+                  {submitting ? (
+                    <>Saving...</>
+                  ) : (
+                    <>
+                      <Plus size={16} /> Add Log
+                    </>
+                  )}
                 </button>
               </div>
             </form>

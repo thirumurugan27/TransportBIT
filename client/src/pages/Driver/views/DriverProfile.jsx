@@ -1,14 +1,20 @@
 import React, {useState, useEffect} from "react";
 import {useAuth} from "../../../context/AuthContext";
 import {apiGet} from "../../../utils/api";
-import {parseDate} from "../../../utils/dateFormat";
 import Loading from "../../../components/ui/Loading";
 
 // Check if date is expired
 const isExpired = (dateStr) => {
   if (!dateStr) return false;
-  const expiry = parseDate(dateStr);
-  if (!expiry || isNaN(expiry)) return false;
+  // Parse dd-mm-yyyy format
+  const match = dateStr.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (!match) {
+    const d = new Date(dateStr);
+    return !isNaN(d) && d < new Date();
+  }
+  const [, day, month, year] = match;
+  const expiry = new Date(year, month - 1, day);
+  if (isNaN(expiry)) return false;
   return expiry < new Date();
 };
 

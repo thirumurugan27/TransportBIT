@@ -256,6 +256,33 @@ func registerAdminRoutes(adm *gin.RouterGroup) {
 	adm.POST("/vehicle-request/assign", admin.AssignVehicleToRequest)
 	adm.POST("/vehicle-request/complete", admin.CompleteVehicleRequest)
 	adm.GET("/vehicle-requests/pending-count", admin.GetPendingVehicleRequestCount)
+
+	// Service & Repair
+	adm.GET("/service-types", admin.GetServiceTypes)
+	adm.POST("/service-types/create", admin.CreateServiceType)
+	adm.POST("/service-types/update", admin.UpdateServiceType)
+	adm.DELETE("/service-types/delete", admin.DeleteServiceType)
+
+	adm.GET("/services", admin.GetAllServiceRecords)
+	adm.GET("/services/stats", admin.GetServiceStats)
+	adm.GET("/services/:id", admin.GetServiceRecordByID)
+	adm.POST("/services/create", admin.CreateServiceRecord)
+	adm.POST("/services/update", admin.UpdateServiceRecord)
+	adm.DELETE("/services/delete", admin.DeleteServiceRecord)
+	adm.POST("/services/:id/approve", admin.ApproveServiceRequest)
+	adm.POST("/services/:id/reject", admin.RejectServiceRequest)
+	adm.POST("/services/:id/start", admin.StartServiceRecord)
+	adm.POST("/services/:id/complete", admin.CompleteServiceRecord)
+
+	adm.GET("/services/:id/parts", admin.GetPartsByServiceRecord)
+	adm.POST("/services/parts/add", admin.AddPart)
+	adm.POST("/services/parts/update", admin.UpdatePart)
+	adm.DELETE("/services/parts/delete", admin.DeletePart)
+	adm.GET("/parts", admin.GetAllParts)
+	adm.GET("/parts/expenditure", admin.GetPartsExpenditure)
+
+	adm.GET("/service-tracking", admin.GetServiceTracking)
+	adm.POST("/service-tracking/update", admin.UpdateServiceTracking)
 }
 
 // registerDriverRoutes sets up all driver endpoints under /api/driver
@@ -288,6 +315,12 @@ func registerDriverRoutes(drv *gin.RouterGroup) {
 	drv.GET("/vehicle-requests/upcoming", driver.GetDriverUpcomingVehicleRequests)
 	drv.POST("/vehicle-request/verify-start-otp", driver.VerifyStartOTP)
 	drv.POST("/vehicle-request/verify-end-otp", driver.VerifyEndOTP)
+
+	// Service & Repair (Driver)
+	drv.GET("/service-types", admin.GetServiceTypes)
+	drv.POST("/services/report", driver.ReportIssue)
+	drv.GET("/services/my-requests", driver.GetMyServiceRequests)
+	drv.GET("/services/vehicle-history", driver.GetVehicleServiceHistory)
 }
 
 // registerStudentRoutes sets up all student endpoints under /api/student

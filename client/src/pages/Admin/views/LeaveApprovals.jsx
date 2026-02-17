@@ -20,8 +20,6 @@ import {
   Calendar,
 } from "lucide-react";
 import {
-  formatDate,
-  formatTime,
   calculateDuration,
   getStatusLabel,
   getStatusColor,
@@ -363,11 +361,11 @@ export default function LeaveApprovals() {
                       <td className="px-6 py-4 text-sm text-gray-700">
                         <div className="flex flex-col">
                           <span className="font-medium">
-                            {formatDate(leave.start_date)}
+                            {leave.start_date || "-"}
                           </span>
                           {leave.start_time && (
                             <span className="text-xs text-gray-500">
-                              {formatTime(leave.start_time)}
+                              {leave.start_time}
                             </span>
                           )}
                         </div>
@@ -375,11 +373,11 @@ export default function LeaveApprovals() {
                       <td className="px-6 py-4 text-sm text-gray-700">
                         <div className="flex flex-col">
                           <span className="font-medium">
-                            {formatDate(leave.end_date)}
+                            {leave.end_date || "-"}
                           </span>
                           {leave.end_time && (
                             <span className="text-xs text-gray-500">
-                              {formatTime(leave.end_time)}
+                              {leave.end_time}
                             </span>
                           )}
                         </div>
@@ -483,10 +481,10 @@ export default function LeaveApprovals() {
                       From Date
                     </p>
                     <p className="text-sm font-medium text-gray-800">
-                      {formatDate(selectedLeave.start_date)}
+                      {selectedLeave.start_date || "-"}
                       {selectedLeave.start_time && (
                         <span className="text-gray-600">
-                          , {formatTime(selectedLeave.start_time)}
+                          , {selectedLeave.start_time}
                         </span>
                       )}
                     </p>
@@ -496,10 +494,10 @@ export default function LeaveApprovals() {
                       To Date
                     </p>
                     <p className="text-sm font-medium text-gray-800">
-                      {formatDate(selectedLeave.end_date)}
+                      {selectedLeave.end_date || "-"}
                       {selectedLeave.end_time && (
                         <span className="text-gray-600">
-                          , {formatTime(selectedLeave.end_time)}
+                          , {selectedLeave.end_time}
                         </span>
                       )}
                     </p>
@@ -509,9 +507,7 @@ export default function LeaveApprovals() {
                       Gate Out
                     </p>
                     <p className="text-sm text-gray-800">
-                      {selectedLeave.start_time
-                        ? formatTime(selectedLeave.start_time)
-                        : "-"}
+                      {selectedLeave.start_time || "-"}
                     </p>
                   </div>
                   <div>
@@ -519,9 +515,7 @@ export default function LeaveApprovals() {
                       Gate In
                     </p>
                     <p className="text-sm text-gray-800">
-                      {selectedLeave.end_time
-                        ? formatTime(selectedLeave.end_time)
-                        : "-"}
+                      {selectedLeave.end_time || "-"}
                     </p>
                   </div>
                   <div>
@@ -734,8 +728,8 @@ export default function LeaveApprovals() {
                   </span>{" "}
                   | Leave:{" "}
                   <span className="font-semibold">
-                    {formatDate(selectedLeave.start_date)} -{" "}
-                    {formatDate(selectedLeave.end_date)}
+                    {selectedLeave.start_date || "-"} -{" "}
+                    {selectedLeave.end_date || "-"}
                   </span>
                 </p>
               </div>

@@ -1,6 +1,5 @@
 import React, {useState, useEffect} from "react";
 import {apiGet, getToday} from "../../../utils/api";
-import {formatTime} from "../../../utils/dateFormat";
 import Loading from "../../../components/ui/Loading";
 
 export default function InchargeAssignments() {
@@ -107,8 +106,8 @@ export default function InchargeAssignments() {
                         {assignment.shift_name}
                       </div>
                       <div className="text-xs text-secondarytext">
-                        {formatTime(assignment.start_time)} -{" "}
-                        {formatTime(assignment.end_time)}
+                        {assignment.start_time || "-"} -{" "}
+                        {assignment.end_time || "-"}
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900">

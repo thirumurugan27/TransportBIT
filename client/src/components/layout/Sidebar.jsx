@@ -18,7 +18,7 @@ export default function Sidebar({
   mobileOpen = false,
   onClose,
 }) {
-  const [vehiclesOpen, setVehiclesOpen] = useState(false);
+  const [openSubmenu, setOpenSubmenu] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
   const {logout} = useAuth();
@@ -64,7 +64,7 @@ export default function Sidebar({
 
   const handleMenuClick = (item) => {
     if (item.hasSubmenu) {
-      setVehiclesOpen(!vehiclesOpen);
+      setOpenSubmenu(openSubmenu === item.key ? null : item.key);
     } else {
       const path = menuConfig.basePath + (item.path || "");
       navigate(path);
@@ -96,11 +96,18 @@ export default function Sidebar({
     return location.pathname === itemPath;
   };
 
-  const isVehicleSubmenuActive = () => {
-    return menuConfig.items
-      .find((item) => item.hasSubmenu)
-      ?.submenu?.some((sub) => isSubmenuActive(sub));
+  const isSubmenuGroupActive = (item) => {
+    return item.submenu?.some((sub) => isSubmenuActive(sub));
   };
+
+  // Auto-open submenu if one of its children is active
+  useEffect(() => {
+    const activeSubmenu = menuConfig.items.find(
+      (item) =>
+        item.hasSubmenu && item.submenu?.some((sub) => isSubmenuActive(sub)),
+    );
+    if (activeSubmenu) setOpenSubmenu(activeSubmenu.key);
+  }, [location.pathname]);
 
   return (
     <>
@@ -165,7 +172,7 @@ export default function Sidebar({
                     onClick={() => handleMenuClick(item)}
                     className={`w-full flex items-center justify-between px-3 py-2.5 group
                     rounded-md transition-all duration-300 ease-in-out ${
-                      isVehicleSubmenuActive()
+                      isSubmenuGroupActive(item)
                         ? "text-primary font-medium"
                         : "text-secondarytext hover:bg-primarybg"
                     }`}
@@ -173,7 +180,7 @@ export default function Sidebar({
                     <div className="flex items-center gap-3">
                       <span
                         className={
-                          isVehicleSubmenuActive()
+                          isSubmenuGroupActive(item)
                             ? "text-primary"
                             : "text-gray-400 group-hover:text-primary"
                         }
@@ -186,15 +193,17 @@ export default function Sidebar({
                         </span>
                       )}
                     </div>
-                    {!isCollapsed && <ChevronDownIcon isOpen={vehiclesOpen} />}
+                    {!isCollapsed && (
+                      <ChevronDownIcon isOpen={openSubmenu === item.key} />
+                    )}
                   </button>
 
                   {/* Submenu */}
                   {!isCollapsed && (
                     <div
                       className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                        vehiclesOpen
-                          ? "max-h-40 opacity-100"
+                        openSubmenu === item.key
+                          ? "max-h-60 opacity-100"
                           : "max-h-0 opacity-0"
                       }`}
                     >

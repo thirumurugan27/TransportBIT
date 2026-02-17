@@ -2,7 +2,6 @@ import React, {useState, useEffect} from "react";
 import {useNavigate} from "react-router-dom";
 import {useAuth} from "../../../context/AuthContext";
 import {apiGet, apiPost, getToday} from "../../../utils/api";
-import {formatTime} from "../../../utils/dateFormat";
 import {
   Calendar,
   Clock,
@@ -414,8 +413,8 @@ export default function DriverHome() {
                           </p>
                           <div className="flex items-center gap-1.5 text-gray-500 text-sm mt-1">
                             <Clock size={14} />
-                            {formatTime(assignment.start_time)} -{" "}
-                            {formatTime(assignment.end_time)}
+                            {assignment.start_time || "-"} -{" "}
+                            {assignment.end_time || "-"}
                           </div>
                         </div>
 
@@ -511,8 +510,8 @@ export default function DriverHome() {
                         </p>
                         <div className="flex items-center gap-1.5 text-primarytext font-medium">
                           <Clock size={14} className="text-gray-400" />
-                          {formatTime(assignment.start_time)} -{" "}
-                          {formatTime(assignment.end_time)}
+                          {assignment.start_time || "-"} -{" "}
+                          {assignment.end_time || "-"}
                         </div>
                       </div>
 
@@ -682,8 +681,8 @@ export default function DriverHome() {
                 <div>
                   <p className="text-xs text-secondarytext">Shift Time</p>
                   <p className="font-medium text-primarytext">
-                    {formatTime(selectedEVAssignment.start_time)} -{" "}
-                    {formatTime(selectedEVAssignment.end_time)}
+                    {selectedEVAssignment.start_time || "-"} -{" "}
+                    {selectedEVAssignment.end_time || "-"}
                   </p>
                 </div>
               </div>

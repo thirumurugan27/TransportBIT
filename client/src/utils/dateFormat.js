@@ -15,6 +15,30 @@ export const formatDate = (dateStr) => {
 };
 
 /**
+ * Format JavaScript Date object or date string to dd-mm-yyyy format
+ * @param {Date|string} date - Date object or date string
+ * @returns {string} Formatted date in dd-mm-yyyy format or "-" if invalid
+ */
+export const formatDateToDDMMYYYY = (date) => {
+    if (!date) return "-";
+
+    let dateObj;
+    if (date instanceof Date) {
+        dateObj = date;
+    } else {
+        dateObj = new Date(date);
+    }
+
+    if (isNaN(dateObj.getTime())) return "-";
+
+    const day = String(dateObj.getDate()).padStart(2, "0");
+    const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+    const year = dateObj.getFullYear();
+
+    return `${day}-${month}-${year}`;
+};
+
+/**
  * Return time as-is from backend (already in hh:mm AM/PM format)
  * If time is in 24-hour format (legacy), convert it to 12-hour format
  * @param {string} timeStr - Time string (hh:mm AM/PM or HH:MM:SS)

@@ -2,7 +2,6 @@ import React, {useState, useEffect} from "react";
 import {useAuth} from "../../../context/AuthContext";
 import {useToast} from "../../../context/ToastContext";
 import {showConfirm} from "../../../utils/swal";
-import {formatTime} from "../../../utils/dateFormat";
 import Loading from "../../../components/ui/Loading";
 import {
   Bus,
@@ -516,7 +515,7 @@ export default function StudentTransport() {
                       >
                         {stop.stop_name} - ₹{stop.fee?.toLocaleString()}
                         {stop.arrival_time
-                          ? ` (Arrives ${formatTime(stop.arrival_time)})`
+                          ? ` (Arrives ${stop.arrival_time})`
                           : ""}
                       </option>
                     ))}
@@ -688,7 +687,7 @@ export default function StudentTransport() {
                       <span className="text-secondarytext">Arrival Time</span>
                       <span className="font-semibold text-primarytext">
                         {transport.arrival_time
-                          ? formatTime(transport.arrival_time)
+                          ? transport.arrival_time
                           : "N/A"}
                       </span>
                     </div>
@@ -696,7 +695,7 @@ export default function StudentTransport() {
                       <span className="text-secondarytext">Departure Time</span>
                       <span className="font-semibold text-primarytext">
                         {transport.departure_time
-                          ? formatTime(transport.departure_time)
+                          ? transport.departure_time
                           : "N/A"}
                       </span>
                     </div>
@@ -991,9 +990,7 @@ export default function StudentTransport() {
                   value={stop.stop_id || stop.id}
                 >
                   {stop.stop_name} - ₹{stop.fee?.toLocaleString()}
-                  {stop.arrival_time
-                    ? ` (Arrives ${formatTime(stop.arrival_time)})`
-                    : ""}
+                  {stop.arrival_time ? ` (Arrives ${stop.arrival_time})` : ""}
                 </option>
               ))}
             </select>

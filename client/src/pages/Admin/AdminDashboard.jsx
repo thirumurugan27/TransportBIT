@@ -14,6 +14,10 @@ import AttendanceRecords from "./views/AttendanceRecords";
 import FCReplacementManagement from "./views/FCReplacementManagement";
 import VehicleRequests from "./views/VehicleRequests";
 import AdminStudentTransport from "./views/AdminStudentTransport";
+import ServiceRecords from "./views/ServiceRecords";
+import PartsPurchases from "./views/PartsPurchases";
+import ServiceTypes from "./views/ServiceTypes";
+import ServiceReminders from "./views/ServiceReminders";
 
 import {useAuth} from "../../context/AuthContext";
 import {apiGet, getToday} from "../../utils/api";
@@ -106,6 +110,10 @@ export default function AdminDashboard() {
               path="student-transport"
               element={<AdminStudentTransport />}
             />
+            <Route path="service-records" element={<ServiceRecords />} />
+            <Route path="parts-purchases" element={<PartsPurchases />} />
+            <Route path="service-types" element={<ServiceTypes />} />
+            <Route path="service-reminders" element={<ServiceReminders />} />
             <Route path="*" element={<AdminHome />} />
           </Routes>
         </main>

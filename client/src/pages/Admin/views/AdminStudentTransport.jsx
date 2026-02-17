@@ -1,6 +1,5 @@
 import React, {useState, useEffect} from "react";
 import {useToast} from "../../../context/ToastContext";
-import {formatTime} from "../../../utils/dateFormat";
 import Loading from "../../../components/ui/Loading";
 import {
   Users,
@@ -1225,7 +1224,7 @@ export default function AdminStudentTransport() {
               <option value={0}>-- Select Stop --</option>
               {selectedBusStops.map((s) => (
                 <option key={s.stop_id} value={s.stop_id}>
-                  {s.stop_name} (Arrival: {formatTime(s.arrival_time)})
+                  {s.stop_name} (Arrival: {s.arrival_time || "-"})
                 </option>
               ))}
             </select>

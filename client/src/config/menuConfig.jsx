@@ -16,6 +16,7 @@ import {
   BusIcon,
   TrackIcon,
   BusPassIcon,
+  WrenchIcon,
 } from "../components/layout/Icons";
 
 // Admin Menu Configuration
@@ -59,6 +60,37 @@ export const adminMenuConfig = {
       path: "/all-assignments",
     },
     {
+      key: "vehicleRequests",
+      label: "Vehicle Requests",
+      icon: <VehicleIcon />,
+      path: "/vehicle-requests",
+    },
+
+    {
+      key: "serviceRepair",
+      label: "Service & Repair",
+      icon: <WrenchIcon />,
+      hasSubmenu: true,
+      submenu: [
+        {
+          key: "serviceRecords",
+          label: "Service Records",
+          path: "/service-records",
+        },
+        {
+          key: "partsPurchases",
+          label: "Parts & Purchases",
+          path: "/parts-purchases",
+        },
+        {key: "serviceTypes", label: "Service Types", path: "/service-types"},
+        {
+          key: "serviceReminders",
+          label: "Service Reminders",
+          path: "/service-reminders",
+        },
+      ],
+    },
+    {
       key: "kmManagement",
       label: "KM Management",
       icon: <KmIcon />,
@@ -81,12 +113,6 @@ export const adminMenuConfig = {
       label: "FC Replacements",
       icon: <AssignmentIcon />,
       path: "/fc-replacement",
-    },
-    {
-      key: "vehicleRequests",
-      label: "Vehicle Requests",
-      icon: <VehicleIcon />,
-      path: "/vehicle-requests",
     },
     {
       key: "studentTransport",
@@ -132,6 +158,12 @@ export const driverMenuConfig = {
       label: "Apply Leave",
       icon: <LeaveIcon />,
       path: "/apply-leave",
+    },
+    {
+      key: "serviceRepair",
+      label: "Service & Repair",
+      icon: <WrenchIcon />,
+      path: "/service-repair",
     },
     {
       key: "profile",

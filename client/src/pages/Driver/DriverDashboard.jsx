@@ -9,6 +9,7 @@ import DriverKmLog from "./views/DriverKmLog";
 import DriverApplyLeave from "./views/DriverApplyLeave";
 import DriverProfile from "./views/DriverProfile";
 import Notifications from "./views/Notifications";
+import DriverServiceRepair from "./views/DriverServiceRepair";
 import {useAuth} from "../../context/AuthContext";
 
 export default function DriverDashboard() {
@@ -43,6 +44,7 @@ export default function DriverDashboard() {
             <Route path="km-log" element={<DriverKmLog />} />
             <Route path="apply-leave" element={<DriverApplyLeave />} />
             <Route path="notifications" element={<Notifications />} />
+            <Route path="service-repair" element={<DriverServiceRepair />} />
             <Route path="profile" element={<DriverProfile />} />
             <Route path="*" element={<DriverHome />} />
           </Routes>

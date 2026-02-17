@@ -1,7 +1,6 @@
 import React, {useState, useEffect} from "react";
 import {useAuth} from "../../../context/AuthContext";
 import {apiGet} from "../../../utils/api";
-import {formatTime} from "../../../utils/dateFormat";
 import Loading from "../../../components/ui/Loading";
 import {
   Calendar,
@@ -345,8 +344,8 @@ export default function DriverAssignments() {
                               {assignment.shift_name}
                             </p>
                             <p className="text-xs text-secondarytext font-mono mt-0.5">
-                              {formatTime(assignment.start_time)} -{" "}
-                              {formatTime(assignment.end_time)}
+                              {assignment.start_time || "-"} -{" "}
+                              {assignment.end_time || "-"}
                             </p>
                           </div>
                         </div>
@@ -454,8 +453,8 @@ export default function DriverAssignments() {
                               {assignment.shift_name}
                             </p>
                             <p className="text-xs text-secondarytext font-mono mt-0.5">
-                              {formatTime(assignment.start_time)} -{" "}
-                              {formatTime(assignment.end_time)}
+                              {assignment.start_time || "-"} -{" "}
+                              {assignment.end_time || "-"}
                             </p>
                           </div>
                         </div>
@@ -571,8 +570,8 @@ export default function DriverAssignments() {
                             {assignment.shift_name}
                           </p>
                           <p className="text-xs text-secondarytext font-mono mt-0.5">
-                            {formatTime(assignment.start_time)} -{" "}
-                            {formatTime(assignment.end_time)}
+                            {assignment.start_time || "-"} -{" "}
+                            {assignment.end_time || "-"}
                           </p>
                         </div>
                       </div>
@@ -694,8 +693,8 @@ export default function DriverAssignments() {
                     Shift Time
                   </p>
                   <p className="font-bold text-primarytext text-sm">
-                    {formatTime(selectedEVAssignment.start_time)} -{" "}
-                    {formatTime(selectedEVAssignment.end_time)}
+                    {selectedEVAssignment.start_time || "-"} -{" "}
+                    {selectedEVAssignment.end_time || "-"}
                   </p>
                 </div>
               </div>

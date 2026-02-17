@@ -746,3 +746,194 @@ type AssignVehicleRequestInput struct {
 	DriverID    int  `json:"driver_id"`
 	ForceAssign bool `json:"force_assign"`
 }
+
+/* =========================
+   SERVICE & REPAIR MODELS
+========================= */
+
+// ServiceType - Master lookup for service categories
+type ServiceType struct {
+	ID                     int     `json:"id"`
+	Name                   string  `json:"name"`
+	Description            string  `json:"description"`
+	EstimatedDurationHours float64 `json:"estimated_duration_hours"`
+	IsActive               bool    `json:"is_active"`
+	CreatedAt              string  `json:"created_at"`
+}
+
+type CreateServiceTypeRequest struct {
+	Name                   string  `json:"name"`
+	Description            string  `json:"description"`
+	EstimatedDurationHours float64 `json:"estimated_duration_hours"`
+}
+
+type UpdateServiceTypeRequest struct {
+	ID                     int     `json:"id"`
+	Name                   string  `json:"name"`
+	Description            string  `json:"description"`
+	EstimatedDurationHours float64 `json:"estimated_duration_hours"`
+	IsActive               bool    `json:"is_active"`
+}
+
+// ServiceRecord - Core service/repair record
+type ServiceRecord struct {
+	ID               int     `json:"id"`
+	VehicleID        int     `json:"vehicle_id"`
+	ServiceTypeID    *int    `json:"service_type_id"`
+	ReportedBy       *int    `json:"reported_by"`
+	AssignedToAdmin  *int    `json:"assigned_to_admin"`
+	Title            string  `json:"title"`
+	Description      string  `json:"description"`
+	Severity         string  `json:"severity"`
+	Status           string  `json:"status"`
+	OdometerAtService *int   `json:"odometer_at_service"`
+	ScheduledDate    *string `json:"scheduled_date"`
+	StartedAt        *string `json:"started_at"`
+	CompletedAt      *string `json:"completed_at"`
+	WorkshopName     string  `json:"workshop_name"`
+	MechanicName     string  `json:"mechanic_name"`
+	MechanicContact  string  `json:"mechanic_contact"`
+	LaborCost        float64 `json:"labor_cost"`
+	PartsCost        float64 `json:"parts_cost"`
+	TotalCost        float64 `json:"total_cost"`
+	NextServiceDate  *string `json:"next_service_date"`
+	NextServiceKm    *int    `json:"next_service_km"`
+	AdminRemarks     string  `json:"admin_remarks"`
+	RejectionReason  string  `json:"rejection_reason"`
+	CreatedAt        string  `json:"created_at"`
+	UpdatedAt        string  `json:"updated_at"`
+	// Joined fields
+	VehicleNumber   string `json:"vehicle_number"`
+	VehicleName     string `json:"vehicle_name"`
+	VehicleType     string `json:"vehicle_type"`
+	ServiceTypeName string `json:"service_type_name"`
+	ReportedByName  string `json:"reported_by_name"`
+	AdminName       string `json:"admin_name"`
+}
+
+type CreateServiceRecordRequest struct {
+	VehicleID         int     `json:"vehicle_id"`
+	ServiceTypeID     *int    `json:"service_type_id"`
+	Title             string  `json:"title"`
+	Description       string  `json:"description"`
+	Severity          string  `json:"severity"`
+	OdometerAtService *int    `json:"odometer_at_service"`
+	ScheduledDate     *string `json:"scheduled_date"`
+	WorkshopName      string  `json:"workshop_name"`
+	MechanicName      string  `json:"mechanic_name"`
+	MechanicContact   string  `json:"mechanic_contact"`
+	LaborCost         float64 `json:"labor_cost"`
+}
+
+type UpdateServiceRecordRequest struct {
+	ID               int     `json:"id"`
+	ServiceTypeID    *int    `json:"service_type_id"`
+	Title            string  `json:"title"`
+	Description      string  `json:"description"`
+	Severity         string  `json:"severity"`
+	OdometerAtService *int   `json:"odometer_at_service"`
+	ScheduledDate    *string `json:"scheduled_date"`
+	WorkshopName     string  `json:"workshop_name"`
+	MechanicName     string  `json:"mechanic_name"`
+	MechanicContact  string  `json:"mechanic_contact"`
+	LaborCost        float64 `json:"labor_cost"`
+	AdminRemarks     string  `json:"admin_remarks"`
+}
+
+// PartPurchased - Parts bought for a service
+type PartPurchased struct {
+	ID              int     `json:"id"`
+	ServiceRecordID int     `json:"service_record_id"`
+	PartName        string  `json:"part_name"`
+	PartNumber      string  `json:"part_number"`
+	VendorName      string  `json:"vendor_name"`
+	VendorContact   string  `json:"vendor_contact"`
+	Quantity        int     `json:"quantity"`
+	UnitPrice       float64 `json:"unit_price"`
+	TotalPrice      float64 `json:"total_price"`
+	WarrantyMonths  int     `json:"warranty_months"`
+	InvoiceNumber   string  `json:"invoice_number"`
+	PurchasedDate   string  `json:"purchased_date"`
+	AddedBy         *int    `json:"added_by"`
+	CreatedAt       string  `json:"created_at"`
+	// Joined fields
+	VehicleNumber string `json:"vehicle_number"`
+	VehicleName   string `json:"vehicle_name"`
+	ServiceTitle  string `json:"service_title"`
+	AddedByName   string `json:"added_by_name"`
+}
+
+type CreatePartRequest struct {
+	ServiceRecordID int     `json:"service_record_id"`
+	PartName        string  `json:"part_name"`
+	PartNumber      string  `json:"part_number"`
+	VendorName      string  `json:"vendor_name"`
+	VendorContact   string  `json:"vendor_contact"`
+	Quantity        int     `json:"quantity"`
+	UnitPrice       float64 `json:"unit_price"`
+	WarrantyMonths  int     `json:"warranty_months"`
+	InvoiceNumber   string  `json:"invoice_number"`
+	PurchasedDate   string  `json:"purchased_date"`
+}
+
+type UpdatePartRequest struct {
+	ID             int     `json:"id"`
+	PartName       string  `json:"part_name"`
+	PartNumber     string  `json:"part_number"`
+	VendorName     string  `json:"vendor_name"`
+	VendorContact  string  `json:"vendor_contact"`
+	Quantity       int     `json:"quantity"`
+	UnitPrice      float64 `json:"unit_price"`
+	WarrantyMonths int     `json:"warranty_months"`
+	InvoiceNumber  string  `json:"invoice_number"`
+	PurchasedDate  string  `json:"purchased_date"`
+}
+
+// VehicleServiceTracking - KM-based service tracking per vehicle
+type VehicleServiceTracking struct {
+	ID               int    `json:"id"`
+	VehicleID        int    `json:"vehicle_id"`
+	LastServicedKm   int    `json:"last_serviced_km"`
+	NextServiceKm    int    `json:"next_service_km"`
+	LastServiceDate  string `json:"last_service_date"`
+	NextServiceDate  string `json:"next_service_date"`
+	Notes            string `json:"notes"`
+	CreatedAt        string `json:"created_at"`
+	UpdatedAt        string `json:"updated_at"`
+	// Computed/Joined fields
+	VehicleNumber string `json:"vehicle_number"`
+	VehicleName   string `json:"vehicle_name"`
+	VehicleType   string `json:"vehicle_type"`
+	CurrentKm     int    `json:"current_km"`
+	RemainingKm   int    `json:"remaining_km"`
+	Status        string `json:"status"` // overdue, danger, warning, on_track
+}
+
+type UpdateServiceTrackingRequest struct {
+	VehicleID       int    `json:"vehicle_id"`
+	LastServicedKm  int    `json:"last_serviced_km"`
+	NextServiceKm   int    `json:"next_service_km"`
+	LastServiceDate string `json:"last_service_date"`
+	NextServiceDate string `json:"next_service_date"`
+	Notes           string `json:"notes"`
+}
+
+// DriverServiceReportRequest - Driver reports a vehicle issue
+type DriverServiceReportRequest struct {
+	VehicleID         int    `json:"vehicle_id"`
+	ServiceTypeID     *int   `json:"service_type_id"`
+	Title             string `json:"title"`
+	Description       string `json:"description"`
+	Severity          string `json:"severity"`
+	OdometerAtService *int   `json:"odometer_at_service"`
+}
+
+// ServiceStats - Dashboard statistics
+type ServiceStats struct {
+	TotalServices    int     `json:"total_services"`
+	ActiveServices   int     `json:"active_services"`
+	PendingRequests  int     `json:"pending_requests"`
+	CompletedMonth   int     `json:"completed_this_month"`
+	TotalCostMonth   float64 `json:"total_cost_this_month"`
+	OverdueReminders int     `json:"overdue_reminders"`
+}
