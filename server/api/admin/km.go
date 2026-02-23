@@ -62,8 +62,8 @@ func GetDriverAssignedVehicles(c *gin.Context) {
 		       NULLIF(COALESCE(v.vehicle_name, ''), '') as vehicle_name,
 		       a.id as assignment_id, 'REGULAR' as assignment_type,
 		       s.name as shift_name,
-		       TIME_FORMAT(s.start_time, '%H:%i') as start_time,
-		       TIME_FORMAT(s.end_time, '%H:%i') as end_time,
+		       TIME_FORMAT(s.start_time, '%h:%i %p') as start_time,
+		       TIME_FORMAT(s.end_time, '%h:%i %p') as end_time,
 		       DATE_FORMAT(a.start_date, '%d-%m-%Y') as start_date,
 		       DATE_FORMAT(a.end_date, '%d-%m-%Y') as end_date
 		FROM assignments a
@@ -582,6 +582,7 @@ func GetKMSummary(c *gin.Context) {
 	summaryRow := config.DB.QueryRow(`
         SELECT COALESCE(SUM(kl.total_km), 0), COUNT(*)
         FROM km_logs kl
+        LEFT JOIN vehicles v ON kl.vehicle_id = v.id
         `+whereClause+`
     `, args...)
 	summaryRow.Scan(&grandTotalKm, &grandTotalTrips)
@@ -596,13 +597,14 @@ func GetKMSummary(c *gin.Context) {
 		AvgKMPerTrip float64 `json:"avg_km_per_trip"`
 	}
 	rows, _ := config.DB.Query(`
-        SELECT COALESCE(kl.vehicle_type, 'UNKNOWN') as vehicle_type,
+        SELECT COALESCE(v.vehicle_type, 'UNKNOWN') as vehicle_type,
                COUNT(*) as trips,
                SUM(kl.total_km) as total_km,
                AVG(kl.total_km) as avg_trip
         FROM km_logs kl
+        LEFT JOIN vehicles v ON kl.vehicle_id = v.id
         `+whereClause+`
-        GROUP BY COALESCE(kl.vehicle_type, 'UNKNOWN')
+        GROUP BY COALESCE(v.vehicle_type, 'UNKNOWN')
     `, args...)
 	var byVehicleType []vehicleTypeBreakdown
 	if rows != nil {
@@ -618,6 +620,7 @@ func GetKMSummary(c *gin.Context) {
         FROM km_logs kl
         JOIN drivers d ON kl.driver_id = d.id
         JOIN users u ON d.user_id = u.id
+        LEFT JOIN vehicles v ON kl.vehicle_id = v.id
         `+whereClause+`
         GROUP BY kl.driver_id, u.full_name
         ORDER BY total_km DESC
@@ -950,7 +953,7 @@ func buildAdminKmWhereClause(f adminKmFilters) (string, []interface{}) {
 	}
 
 	if f.VehicleType != "" {
-		clauses = append(clauses, "kl.vehicle_type = ?")
+		clauses = append(clauses, "v.vehicle_type = ?")
 		args = append(args, f.VehicleType)
 	}
 
@@ -1085,11 +1088,12 @@ func GetDriverKmHistory(c *gin.Context) {
 	copy(typeArgs, args)
 
 	typeRows, err := config.DB.Query(`
-        SELECT COALESCE(kl.vehicle_type, 'UNKNOWN') as vehicle_type,
+        SELECT COALESCE(v.vehicle_type, 'UNKNOWN') as vehicle_type,
                SUM(kl.total_km) as total_km, COUNT(*) as trips
         FROM km_logs kl
+        LEFT JOIN vehicles v ON kl.vehicle_id = v.id
         WHERE kl.driver_id = ?`+dateClause+`
-        GROUP BY COALESCE(kl.vehicle_type, 'UNKNOWN')
+        GROUP BY COALESCE(v.vehicle_type, 'UNKNOWN')
         ORDER BY total_km DESC
     `, typeArgs...)
 
@@ -1124,7 +1128,7 @@ func GetDriverKmHistory(c *gin.Context) {
         SELECT kl.id, DATE_FORMAT(kl.date, '%d-%m-%Y') as date,
                NULLIF(COALESCE(v.vehicle_name, ''), '') as vehicle_name,
                COALESCE(v.vehicle_number, 'N/A') as vehicle_number,
-               COALESCE(kl.vehicle_type, 'UNKNOWN') as vehicle_type,
+               COALESCE(v.vehicle_type, 'UNKNOWN') as vehicle_type,
                kl.start_km, kl.end_km, kl.total_km, kl.remarks
         FROM km_logs kl
         LEFT JOIN vehicles v ON kl.vehicle_id = v.id

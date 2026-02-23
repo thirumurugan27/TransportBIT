@@ -14,5 +14,5 @@ export const formatVehicleLabel = (item = {}) => {
         return `${name} (${number})`;
     }
 
-    return name || number || "Unnamed vehicle";
+    return name || number || "N/A";
 };

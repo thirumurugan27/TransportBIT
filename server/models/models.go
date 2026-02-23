@@ -751,6 +751,39 @@ type AssignVehicleRequestInput struct {
    SERVICE & REPAIR MODELS
 ========================= */
 
+// Vendor - Master vendor record
+type Vendor struct {
+	ID        int    `json:"id"`
+	Name      string `json:"name"`
+	Address   string `json:"address"`
+	Contact   string `json:"contact"`
+	GSTNumber string `json:"gst_number"`
+	Email     string `json:"email"`
+	IsActive  bool   `json:"is_active"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
+	// Computed fields (from aggregation)
+	TotalSpent float64 `json:"total_spent,omitempty"`
+	PartsCount int     `json:"parts_count,omitempty"`
+}
+
+type CreateVendorRequest struct {
+	Name      string `json:"name"`
+	Address   string `json:"address"`
+	Contact   string `json:"contact"`
+	GSTNumber string `json:"gst_number"`
+	Email     string `json:"email"`
+}
+
+type UpdateVendorRequest struct {
+	ID        int    `json:"id"`
+	Name      string `json:"name"`
+	Address   string `json:"address"`
+	Contact   string `json:"contact"`
+	GSTNumber string `json:"gst_number"`
+	Email     string `json:"email"`
+}
+
 // ServiceType - Master lookup for service categories
 type ServiceType struct {
 	ID                     int     `json:"id"`
@@ -840,20 +873,52 @@ type UpdateServiceRecordRequest struct {
 	AdminRemarks     string  `json:"admin_remarks"`
 }
 
-// PartPurchased - Parts bought for a service
+// Product purchase status constants
+const (
+	ProductStatusPending   = "pending"
+	ProductStatusReceived  = "received"
+	ProductStatusReturned  = "returned"
+	ProductStatusCancelled = "cancelled"
+)
+
+var ValidProductStatuses = []string{
+	ProductStatusPending,
+	ProductStatusReceived,
+	ProductStatusReturned,
+	ProductStatusCancelled,
+}
+
+func IsValidProductStatus(status string) bool {
+	for _, s := range ValidProductStatuses {
+		if s == status {
+			return true
+		}
+	}
+	return false
+}
+
+// PartPurchased - Products bought for a service
 type PartPurchased struct {
 	ID              int     `json:"id"`
+	PurchaseOrderID *int    `json:"purchase_order_id"`
 	ServiceRecordID int     `json:"service_record_id"`
 	PartName        string  `json:"part_name"`
-	PartNumber      string  `json:"part_number"`
+	VendorID        *int    `json:"vendor_id"`
 	VendorName      string  `json:"vendor_name"`
 	VendorContact   string  `json:"vendor_contact"`
+	VendorAddress   string  `json:"vendor_address"`
+	VendorGST       string  `json:"vendor_gst"`
 	Quantity        int     `json:"quantity"`
 	UnitPrice       float64 `json:"unit_price"`
 	TotalPrice      float64 `json:"total_price"`
 	WarrantyMonths  int     `json:"warranty_months"`
 	InvoiceNumber   string  `json:"invoice_number"`
 	PurchasedDate   string  `json:"purchased_date"`
+	Status          string  `json:"status"`
+	OrderedDate     string  `json:"ordered_date"`
+	ReceivedDate    string  `json:"received_date"`
+	ReturnedDate    string  `json:"returned_date"`
+	CancelledDate   string  `json:"cancelled_date"`
 	AddedBy         *int    `json:"added_by"`
 	CreatedAt       string  `json:"created_at"`
 	// Joined fields
@@ -866,27 +931,128 @@ type PartPurchased struct {
 type CreatePartRequest struct {
 	ServiceRecordID int     `json:"service_record_id"`
 	PartName        string  `json:"part_name"`
-	PartNumber      string  `json:"part_number"`
-	VendorName      string  `json:"vendor_name"`
-	VendorContact   string  `json:"vendor_contact"`
+	VendorID        *int    `json:"vendor_id"`
 	Quantity        int     `json:"quantity"`
 	UnitPrice       float64 `json:"unit_price"`
 	WarrantyMonths  int     `json:"warranty_months"`
 	InvoiceNumber   string  `json:"invoice_number"`
 	PurchasedDate   string  `json:"purchased_date"`
+	Status          string  `json:"status"`
+	OrderedDate     string  `json:"ordered_date"`
 }
 
 type UpdatePartRequest struct {
 	ID             int     `json:"id"`
 	PartName       string  `json:"part_name"`
-	PartNumber     string  `json:"part_number"`
-	VendorName     string  `json:"vendor_name"`
-	VendorContact  string  `json:"vendor_contact"`
+	VendorID       *int    `json:"vendor_id"`
 	Quantity       int     `json:"quantity"`
 	UnitPrice      float64 `json:"unit_price"`
 	WarrantyMonths int     `json:"warranty_months"`
 	InvoiceNumber  string  `json:"invoice_number"`
 	PurchasedDate  string  `json:"purchased_date"`
+	Status         string  `json:"status"`
+	OrderedDate    string  `json:"ordered_date"`
+	ReceivedDate   string  `json:"received_date"`
+	ReturnedDate   string  `json:"returned_date"`
+	CancelledDate  string  `json:"cancelled_date"`
+}
+
+// BulkPartItem - Single item in a bulk purchase
+type BulkPartItem struct {
+	PartName       string  `json:"part_name"`
+	Quantity       int     `json:"quantity"`
+	UnitPrice      float64 `json:"unit_price"`
+	WarrantyMonths int     `json:"warranty_months"`
+}
+
+// BulkCreatePartsRequest - Multiple parts from same vendor in one purchase
+type BulkCreatePartsRequest struct {
+	ServiceRecordID int            `json:"service_record_id"`
+	VendorID        *int           `json:"vendor_id"`
+	InvoiceNumber   string         `json:"invoice_number"`
+	PurchasedDate   string         `json:"purchased_date"`
+	Status          string         `json:"status"`
+	Parts           []BulkPartItem `json:"parts"`
+}
+
+/* =========================
+   PURCHASE ORDER MODELS
+========================= */
+
+// PurchaseOrder - Groups multiple parts into a single bill/order
+type PurchaseOrder struct {
+	ID              int     `json:"id"`
+	ServiceRecordID int     `json:"service_record_id"`
+	VendorID        *int    `json:"vendor_id"`
+	VendorName      string  `json:"vendor_name"`
+	VendorContact   string  `json:"vendor_contact"`
+	VendorAddress   string  `json:"vendor_address"`
+	VendorGST       string  `json:"vendor_gst"`
+	InvoiceNumber   string  `json:"invoice_number"`
+	PurchasedDate   string  `json:"purchased_date"`
+	Status          string  `json:"status"`
+	OrderedDate     string  `json:"ordered_date"`
+	ReceivedDate    string  `json:"received_date"`
+	ReturnedDate    string  `json:"returned_date"`
+	CancelledDate   string  `json:"cancelled_date"`
+	Notes           string  `json:"notes"`
+	AddedBy         *int    `json:"added_by"`
+	AddedByName     string  `json:"added_by_name"`
+	CreatedAt       string  `json:"created_at"`
+	UpdatedAt       string  `json:"updated_at"`
+	// Joined fields
+	VehicleNumber string `json:"vehicle_number"`
+	VehicleName   string `json:"vehicle_name"`
+	ServiceTitle  string `json:"service_title"`
+	// Computed fields
+	TotalAmount  float64          `json:"total_amount"`
+	ProductCount int              `json:"product_count"`
+	Products     []PartPurchased  `json:"products"`
+	InvoiceFile  *PurchaseInvoice `json:"invoice_file,omitempty"`
+}
+
+// PurchaseInvoice - Uploaded invoice document for a purchase order
+type PurchaseInvoice struct {
+	ID              int    `json:"id"`
+	PurchaseOrderID int    `json:"purchase_order_id"`
+	FileName        string `json:"file_name"`
+	OriginalName    string `json:"original_name"`
+	FileType        string `json:"file_type"`
+	FileSize        int64  `json:"file_size"`
+	FilePath        string `json:"file_path"`
+	FileURL         string `json:"file_url"`
+	UploadedBy      *int   `json:"uploaded_by"`
+	CreatedAt       string `json:"created_at"`
+	UpdatedAt       string `json:"updated_at"`
+}
+
+// CreatePurchaseOrderRequest - Request to create a purchase order with products
+type CreatePurchaseOrderRequest struct {
+	ServiceRecordID int            `json:"service_record_id"`
+	VendorID        *int           `json:"vendor_id"`
+	InvoiceNumber   string         `json:"invoice_number"`
+	PurchasedDate   string         `json:"purchased_date"`
+	Status          string         `json:"status"`
+	Notes           string         `json:"notes"`
+	Parts           []BulkPartItem `json:"parts"`
+}
+
+// UpdatePurchaseOrderRequest - Request to update order-level fields
+type UpdatePurchaseOrderRequest struct {
+	ID            int    `json:"id"`
+	VendorID      *int   `json:"vendor_id"`
+	InvoiceNumber string `json:"invoice_number"`
+	PurchasedDate string `json:"purchased_date"`
+	Notes         string `json:"notes"`
+}
+
+// AddProductToOrderRequest - Add a product to an existing order
+type AddProductToOrderRequest struct {
+	PurchaseOrderID int     `json:"purchase_order_id"`
+	PartName        string  `json:"part_name"`
+	Quantity        int     `json:"quantity"`
+	UnitPrice       float64 `json:"unit_price"`
+	WarrantyMonths  int     `json:"warranty_months"`
 }
 
 // VehicleServiceTracking - KM-based service tracking per vehicle

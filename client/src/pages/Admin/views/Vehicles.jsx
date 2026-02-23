@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from "react";
+import React, {useState, useEffect, useRef} from "react";
 import Loading from "../../../components/ui/Loading";
 import {showError, showSuccess, showConfirm} from "../../../utils/swal";
 import {
@@ -20,6 +20,7 @@ import {
   FileText,
   Calendar,
   Save,
+  ChevronDown,
 } from "lucide-react";
 
 import {apiGet, apiPost, apiDelete} from "../../../utils/api";
@@ -47,15 +48,23 @@ const getDaysUntil = (dateStr) => {
 
 // Get status color based on days remaining
 const getStatusColor = (days) => {
-  if (days === null) return "bg-gray-100 text-gray-500";
-  if (days < 0) return "bg-red-500 text-white"; // Expired
-  if (days <= 30) return "bg-red-100 text-red-700"; // Critical
-  if (days <= 90) return "bg-amber-100 text-amber-700"; // Warning
-  return "bg-green-100 text-green-700"; // OK
+  if (days === null) return "bg-primarybg text-secondarytext";
+  if (days < 0) return "bg-red text-secondarybg"; // Expired
+  if (days <= 30) return "bg-red/10 text-red"; // Critical
+  if (days <= 90) return "bg-pending/10 text-pending"; // Warning
+  return "bg-green/10 text-green"; // OK
 };
 
 // Display date from backend (already in dd-mm-yyyy format)
 const formatDate = (dateStr) => dateStr || "-";
+
+const VEHICLE_TYPE_OPTIONS = [
+  {value: "ALL", label: "All Vehicles", icon: Bus},
+  {value: "BUS", label: "College Bus", icon: Bus},
+  {value: "CAR", label: "Car", icon: Car},
+  {value: "BATTERY_VEHICLE", label: "Battery Vehicle", icon: Zap},
+  {value: "OTHER", label: "Others", icon: Truck},
+];
 
 export default function Vehicles() {
   const [vehicles, setVehicles] = useState([]);
@@ -74,6 +83,10 @@ export default function Vehicles() {
   // Inline expiry edit state
   const [editingExpiry, setEditingExpiry] = useState(null); // { vehicleId, field }
   const [expiryFormValue, setExpiryFormValue] = useState("");
+
+  // Filter Dropdown
+  const [showTypeDropdown, setShowTypeDropdown] = useState(false);
+  const dropdownRef = useRef(null);
 
   // Detail Modal State
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -112,6 +125,17 @@ export default function Vehicles() {
     fetchVehicles();
   }, []);
 
+  // Close dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setShowTypeDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const filteredVehicles = vehicles.filter((v) => {
     const matchesType = filterType === "ALL" || v.vehicle_type === filterType;
     const matchesSearch =
@@ -144,7 +168,7 @@ export default function Vehicles() {
       case "BATTERY_VEHICLE":
         return "Battery Vehicle";
       case "OTHER":
-        return "Special Purpose";
+        return "Others";
       default:
         return type;
     }
@@ -507,26 +531,71 @@ export default function Vehicles() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <div className="flex bg-secondarybg rounded-md border border-primary/10 p-1.5 gap-1">
-          {["ALL", "BUS", "CAR", "BATTERY_VEHICLE", "OTHER"].map((type) => {
-            return (
-              <button
-                key={type}
-                onClick={() => setFilterType(type)}
-                className={`min-w-24 px-4 py-2.5 rounded-md text-sm font-semibold transition-all whitespace-nowrap ${
-                  filterType === type
-                    ? "bg-primary text-white shadow-sm"
-                    : "text-secondarytext hover:bg-primary/5 hover:text-primary"
-                }`}
-              >
-                {type === "ALL"
-                  ? "All"
-                  : type === "BATTERY_VEHICLE"
-                    ? "Battery Vehicle"
-                    : type.charAt(0) + type.slice(1).toLowerCase()}
-              </button>
-            );
-          })}
+        <div className="relative" ref={dropdownRef}>
+          <button
+            onClick={() => setShowTypeDropdown(!showTypeDropdown)}
+            className="flex items-center gap-3 px-4 py-3 bg-secondarybg border border-primary/10 rounded-md hover:border-primary/30 transition-all min-w-52 text-sm"
+          >
+            {(() => {
+              const opt = VEHICLE_TYPE_OPTIONS.find(
+                (t) => t.value === filterType,
+              );
+              const Icon = opt?.icon || Bus;
+              return (
+                <>
+                  <Icon size={16} className="text-primary" />
+                  <span className="font-medium text-primarytext">
+                    {opt?.label || "All Vehicles"}
+                  </span>
+                </>
+              );
+            })()}
+            <ChevronDown
+              size={16}
+              className={`text-secondarytext ml-auto transition-transform duration-200 ${
+                showTypeDropdown ? "rotate-180" : ""
+              }`}
+            />
+          </button>
+
+          {showTypeDropdown && (
+            <div className="absolute top-full left-0 mt-1.5 w-full bg-secondarybg border border-primary/10 rounded-md shadow-lg z-30 py-1 animate-fadeIn">
+              {VEHICLE_TYPE_OPTIONS.map((type) => {
+                const Icon = type.icon;
+                const count =
+                  type.value === "ALL"
+                    ? vehicles.length
+                    : vehicles.filter((v) => v.vehicle_type === type.value)
+                        .length;
+                return (
+                  <button
+                    key={type.value}
+                    onClick={() => {
+                      setFilterType(type.value);
+                      setShowTypeDropdown(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
+                      filterType === type.value
+                        ? "bg-primary/10 text-primary font-semibold"
+                        : "text-primarytext hover:bg-primarybg"
+                    }`}
+                  >
+                    <Icon size={16} />
+                    <span className="flex-1 text-left">{type.label}</span>
+                    <span
+                      className={`text-xs font-medium px-2 py-0.5 rounded-md ${
+                        filterType === type.value
+                          ? "bg-primary/20 text-primary"
+                          : "bg-primarybg text-secondarytext"
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
@@ -535,77 +604,77 @@ export default function Vehicles() {
         <>
           {/* Expiry Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white rounded-md p-5 shadow-sm border border-gray-200">
+            <div className="bg-secondarybg rounded-md p-5 shadow-sm border border-primary/10">
               <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-blue-100 text-blue-600 rounded-md">
+                <div className="p-2 bg-skyblue/10 text-skyblue rounded-md">
                   <Shield size={20} />
                 </div>
-                <h4 className="font-bold text-gray-800">Insurance</h4>
+                <h4 className="font-bold text-primarytext">Insurance</h4>
               </div>
               <div className="grid grid-cols-2 gap-2 text-center">
-                <div className="bg-red-50 p-3 rounded-md">
-                  <p className="text-2xl font-bold text-red-600">
+                <div className="bg-red/5 p-3 rounded-md">
+                  <p className="text-2xl font-bold text-red">
                     {expiryStats.insurance.expired}
                   </p>
-                  <p className="text-xs text-red-600 font-medium">Expired</p>
+                  <p className="text-xs text-red font-medium">Expired</p>
                 </div>
-                <div className="bg-amber-50 p-3 rounded-md">
-                  <p className="text-2xl font-bold text-amber-600">
+                <div className="bg-pending/10 p-3 rounded-md">
+                  <p className="text-2xl font-bold text-pending">
                     {expiryStats.insurance.critical}
                   </p>
-                  <p className="text-xs text-amber-600 font-medium">
+                  <p className="text-xs text-pending font-medium">
                     {"< 30 days"}
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-md p-5 shadow-sm border border-gray-200">
+            <div className="bg-secondarybg rounded-md p-5 shadow-sm border border-primary/10">
               <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-green-100 text-green-600 rounded-md">
+                <div className="p-2 bg-green/10 text-green rounded-md">
                   <FileCheck size={20} />
                 </div>
-                <h4 className="font-bold text-gray-800">
+                <h4 className="font-bold text-primarytext">
                   FC (Fitness Certificate)
                 </h4>
               </div>
               <div className="grid grid-cols-2 gap-2 text-center">
-                <div className="bg-red-50 p-3 rounded-md">
-                  <p className="text-2xl font-bold text-red-600">
+                <div className="bg-red/5 p-3 rounded-md">
+                  <p className="text-2xl font-bold text-red">
                     {expiryStats.fc.expired}
                   </p>
-                  <p className="text-xs text-red-600 font-medium">Expired</p>
+                  <p className="text-xs text-red font-medium">Expired</p>
                 </div>
-                <div className="bg-amber-50 p-3 rounded-md">
-                  <p className="text-2xl font-bold text-amber-600">
+                <div className="bg-pending/10 p-3 rounded-md">
+                  <p className="text-2xl font-bold text-pending">
                     {expiryStats.fc.critical}
                   </p>
-                  <p className="text-xs text-amber-600 font-medium">
+                  <p className="text-xs text-pending font-medium">
                     {"< 30 days"}
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-md p-5 shadow-sm border border-gray-200">
+            <div className="bg-secondarybg rounded-md p-5 shadow-sm border border-primary/10">
               <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-purple-100 text-purple-600 rounded-md">
+                <div className="p-2 bg-primary/10 text-primary rounded-md">
                   <FileText size={20} />
                 </div>
-                <h4 className="font-bold text-gray-800">Permit</h4>
+                <h4 className="font-bold text-primarytext">Permit</h4>
               </div>
               <div className="grid grid-cols-2 gap-2 text-center">
-                <div className="bg-red-50 p-3 rounded-md">
-                  <p className="text-2xl font-bold text-red-600">
+                <div className="bg-red/5 p-3 rounded-md">
+                  <p className="text-2xl font-bold text-red">
                     {expiryStats.permit.expired}
                   </p>
-                  <p className="text-xs text-red-600 font-medium">Expired</p>
+                  <p className="text-xs text-red font-medium">Expired</p>
                 </div>
-                <div className="bg-amber-50 p-3 rounded-md">
-                  <p className="text-2xl font-bold text-amber-600">
+                <div className="bg-pending/10 p-3 rounded-md">
+                  <p className="text-2xl font-bold text-pending">
                     {expiryStats.permit.critical}
                   </p>
-                  <p className="text-xs text-amber-600 font-medium">
+                  <p className="text-xs text-pending font-medium">
                     {"< 30 days"}
                   </p>
                 </div>
@@ -614,47 +683,47 @@ export default function Vehicles() {
           </div>
 
           {/* Expiry Table */}
-          <div className="bg-white rounded-md shadow-sm border border-gray-200 overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50/50">
-              <p className="text-sm text-gray-500">
-                <span className="font-medium text-gray-700">💡 Tip:</span> Click
+          <div className="bg-secondarybg rounded-md shadow-sm border border-primary/10 overflow-hidden">
+            <div className="px-6 py-4 border-b border-primary/5 bg-primarybg/50">
+              <p className="text-sm text-secondarytext">
+                <span className="font-medium text-primarytext">Tip:</span> Click
                 on any expiry date cell to update it directly
               </p>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50/50 border-b border-gray-100">
+                <thead className="bg-primarybg/50 border-b border-primary/5">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
                       S.No
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
                       Vehicle
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
                       Type
                     </th>
-                    <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">
                       Insurance Expire
                     </th>
-                    <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">
                       Days
                     </th>
-                    <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">
                       FC Expire
                     </th>
-                    <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">
                       Days
                     </th>
-                    <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">
                       Permit Expire
                     </th>
-                    <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">
                       Days
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-primary/5">
                   {filteredVehicles && filteredVehicles.length > 0 ? (
                     [...filteredVehicles]
                       .sort((a, b) => {
@@ -678,26 +747,32 @@ export default function Vehicles() {
                         return (
                           <tr
                             key={v.id}
-                            className="hover:bg-gray-50/50 transition-colors"
+                            className="hover:bg-primarybg/50 transition-colors"
                           >
-                            <td className="px-4 py-3 text-sm text-gray-600 font-medium">
+                            <td className="px-4 py-3 text-sm text-secondarytext font-medium">
                               {idx + 1}
                             </td>
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-2">
                                 {v.vehicle_type === "BUS" ? (
-                                  <Bus size={16} className="text-blue-500" />
+                                  <Bus size={16} className="text-primary" />
+                                ) : v.vehicle_type === "CAR" ? (
+                                  <Car size={16} className="text-green" />
+                                ) : v.vehicle_type === "BATTERY_VEHICLE" ? (
+                                  <Zap size={16} className="text-pending" />
                                 ) : (
-                                  <Car size={16} className="text-green-500" />
+                                  <Truck
+                                    size={16}
+                                    className="text-secondarytext"
+                                  />
                                 )}
-                                <span className="font-semibold text-gray-900">
-                                  {v.vehicle_name || v.vehicle_number} (
-                                  {v.vehicle_number})
+                                <span className="font-semibold text-primarytext">
+                                  {v.vehicle_name || v.vehicle_number}
                                 </span>
                               </div>
                             </td>
-                            <td className="px-4 py-3 text-sm text-gray-600">
-                              {v.vehicle_type}
+                            <td className="px-4 py-3 text-sm text-secondarytext">
+                              {getVehicleTypeLabel(v.vehicle_type)}
                             </td>
 
                             {/* Insurance Expire - Clickable */}
@@ -717,13 +792,13 @@ export default function Vehicles() {
                                   />
                                   <button
                                     onClick={handleExpiryUpdate}
-                                    className="p-1 text-green-600 hover:bg-green-50 rounded-md"
+                                    className="p-1 text-green hover:bg-green/10 rounded-md"
                                   >
                                     <Save size={14} />
                                   </button>
                                   <button
                                     onClick={cancelExpiryEdit}
-                                    className="p-1 text-gray-400 hover:bg-gray-100 rounded-md"
+                                    className="p-1 text-secondarytext hover:bg-primarybg rounded-md"
                                   >
                                     <X size={14} />
                                   </button>
@@ -736,7 +811,7 @@ export default function Vehicles() {
                                       "insurance_expire_date",
                                     )
                                   }
-                                  className="px-2 py-1 text-sm text-gray-700 hover:bg-blue-50 rounded-md border border-transparent hover:border-blue-200 transition-all cursor-pointer"
+                                  className="px-2 py-1 text-sm text-primarytext hover:bg-skyblue/10 rounded-md border border-transparent hover:border-skyblue/20 transition-all cursor-pointer"
                                   title="Click to update"
                                 >
                                   {formatDate(v.insurance_expire_date)}
@@ -753,7 +828,7 @@ export default function Vehicles() {
                                     : insDays}
                                 </span>
                               ) : (
-                                <span className="text-gray-400">-</span>
+                                <span className="text-secondarytext/60">-</span>
                               )}
                             </td>
 
@@ -773,13 +848,13 @@ export default function Vehicles() {
                                   />
                                   <button
                                     onClick={handleExpiryUpdate}
-                                    className="p-1 text-green-600 hover:bg-green-50 rounded-md"
+                                    className="p-1 text-green hover:bg-green/10 rounded-md"
                                   >
                                     <Save size={14} />
                                   </button>
                                   <button
                                     onClick={cancelExpiryEdit}
-                                    className="p-1 text-gray-400 hover:bg-gray-100 rounded-md"
+                                    className="p-1 text-secondarytext hover:bg-primarybg rounded-md"
                                   >
                                     <X size={14} />
                                   </button>
@@ -789,7 +864,7 @@ export default function Vehicles() {
                                   onClick={() =>
                                     handleExpiryClick(v, "fc_expire_date")
                                   }
-                                  className="px-2 py-1 text-sm text-gray-700 hover:bg-green-50 rounded-md border border-transparent hover:border-green-200 transition-all cursor-pointer"
+                                  className="px-2 py-1 text-sm text-primarytext hover:bg-green/10 rounded-md border border-transparent hover:border-green/20 transition-all cursor-pointer"
                                   title="Click to update"
                                 >
                                   {formatDate(v.fc_expire_date)}
@@ -806,7 +881,7 @@ export default function Vehicles() {
                                     : fcDays}
                                 </span>
                               ) : (
-                                <span className="text-gray-400">-</span>
+                                <span className="text-secondarytext/60">-</span>
                               )}
                             </td>
 
@@ -826,13 +901,13 @@ export default function Vehicles() {
                                   />
                                   <button
                                     onClick={handleExpiryUpdate}
-                                    className="p-1 text-green-600 hover:bg-green-50 rounded-md"
+                                    className="p-1 text-green hover:bg-green/10 rounded-md"
                                   >
                                     <Save size={14} />
                                   </button>
                                   <button
                                     onClick={cancelExpiryEdit}
-                                    className="p-1 text-gray-400 hover:bg-gray-100 rounded-md"
+                                    className="p-1 text-secondarytext hover:bg-primarybg rounded-md"
                                   >
                                     <X size={14} />
                                   </button>
@@ -842,7 +917,7 @@ export default function Vehicles() {
                                   onClick={() =>
                                     handleExpiryClick(v, "permit_expire_date")
                                   }
-                                  className="px-2 py-1 text-sm text-gray-700 hover:bg-purple-50 rounded-md border border-transparent hover:border-purple-200 transition-all cursor-pointer"
+                                  className="px-2 py-1 text-sm text-primarytext hover:bg-primary/5 rounded-md border border-transparent hover:border-primary/20 transition-all cursor-pointer"
                                   title="Click to update"
                                 >
                                   {formatDate(v.permit_expire_date)}
@@ -859,7 +934,7 @@ export default function Vehicles() {
                                     : permitDays}
                                 </span>
                               ) : (
-                                <span className="text-gray-400">-</span>
+                                <span className="text-secondarytext/60">-</span>
                               )}
                             </td>
                           </tr>
@@ -869,7 +944,7 @@ export default function Vehicles() {
                     <tr>
                       <td
                         colSpan="9"
-                        className="px-6 py-12 text-center text-gray-500"
+                        className="px-6 py-12 text-center text-secondarytext"
                       >
                         No vehicles found.
                       </td>
@@ -901,9 +976,11 @@ export default function Vehicles() {
                     <th className="px-6 py-4 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
                       Specs
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
-                      Route / Location
-                    </th>
+                    {filterType === "BUS" && (
+                      <th className="px-6 py-4 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
+                        Route
+                      </th>
+                    )}
                     <th className="px-6 py-4 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">
                       Status
                     </th>
@@ -948,11 +1025,7 @@ export default function Vehicles() {
                               <div className="font-bold text-primarytext text-base group-hover:text-primary transition-colors">
                                 {getVehicleLabel(v)}
                               </div>
-                              <div className="text-xs text-secondarytext mt-1 flex items-center gap-2">
-                                <span className="bg-primarybg px-2 py-0.5 rounded-md font-mono">
-                                  #{v.id}
-                                </span>
-                                <span className="text-secondarytext/60">•</span>
+                              <div className="text-xs text-secondarytext mt-1">
                                 <span className="font-medium">
                                   {v.vehicle_number}
                                 </span>
@@ -1024,8 +1097,8 @@ export default function Vehicles() {
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-5">
-                          {v.vehicle_type === "BUS" ? (
+                        {filterType === "BUS" && (
+                          <td className="px-6 py-5">
                             <div className="flex flex-col gap-0.5">
                               <div className="flex items-center gap-2">
                                 <div className="w-2 h-2 rounded-full bg-green shadow-sm"></div>
@@ -1041,12 +1114,8 @@ export default function Vehicles() {
                                 </span>
                               </div>
                             </div>
-                          ) : (
-                            <span className="text-secondarytext text-sm">
-                              -
-                            </span>
-                          )}
-                        </td>
+                          </td>
+                        )}
                         <td className="px-6 py-5 text-center">
                           <span
                             className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-md min-w-24 ${
@@ -1075,7 +1144,10 @@ export default function Vehicles() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="5" className="px-6 py-16 text-center">
+                      <td
+                        colSpan={filterType === "BUS" ? 5 : 4}
+                        className="px-6 py-16 text-center"
+                      >
                         <div className="flex flex-col items-center gap-4">
                           <div className="w-16 h-16 bg-primarybg rounded-md flex items-center justify-center">
                             <Bus size={32} className="text-secondarytext/50" />
@@ -1110,7 +1182,7 @@ export default function Vehicles() {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="px-6 py-5 border-b border-gray-100 flex items-start justify-between">
+            <div className="px-6 py-5 border-b border-primary/10 flex items-start justify-between">
               <div className="flex items-center gap-4">
                 <div
                   className={`p-3 rounded-md ${
@@ -1291,7 +1363,7 @@ export default function Vehicles() {
                     </h4>
                   </div>
                   <div className="grid grid-cols-3 gap-3">
-                    <div className="text-center p-3 bg-secondarybg rounded-md border border-gray-100">
+                    <div className="text-center p-3 bg-secondarybg rounded-md border border-primary/10">
                       <p className="text-xs text-secondarytext mb-1">
                         Insurance
                       </p>
@@ -1299,13 +1371,13 @@ export default function Vehicles() {
                         {formatDate(selectedVehicle.insurance_expire_date)}
                       </p>
                     </div>
-                    <div className="text-center p-3 bg-secondarybg rounded-md border border-gray-100">
+                    <div className="text-center p-3 bg-secondarybg rounded-md border border-primary/10">
                       <p className="text-xs text-secondarytext mb-1">FC</p>
                       <p className="text-sm font-semibold text-primarytext">
                         {formatDate(selectedVehicle.fc_expire_date)}
                       </p>
                     </div>
-                    <div className="text-center p-3 bg-secondarybg rounded-md border border-gray-100">
+                    <div className="text-center p-3 bg-secondarybg rounded-md border border-primary/10">
                       <p className="text-xs text-secondarytext mb-1">Permit</p>
                       <p className="text-sm font-semibold text-primarytext">
                         {formatDate(selectedVehicle.permit_expire_date)}
@@ -1317,7 +1389,7 @@ export default function Vehicles() {
             </div>
 
             {/* Footer with Actions */}
-            <div className="px-6 py-4 border-t border-gray-100 flex justify-end items-center gap-3">
+            <div className="px-6 py-4 border-t border-primary/10 flex justify-end items-center gap-3">
               <button
                 onClick={() => setShowDetailModal(false)}
                 className="px-5 py-2.5 text-secondarytext hover:text-primarytext hover:bg-primarybg rounded-md font-semibold transition-colors text-sm"
@@ -1356,17 +1428,17 @@ export default function Vehicles() {
           onClick={() => setShowCreateModal(false)}
         >
           <div
-            className="bg-white rounded-md shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col animate-scaleIn"
+            className="bg-secondarybg rounded-md shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col animate-scaleIn"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50/50">
-              <h2 className="text-lg font-bold text-gray-800">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-primary/10 bg-primarybg/50">
+              <h2 className="text-lg font-bold text-primarytext">
                 {isEditing ? "Edit" : "Create"}{" "}
                 {vehicleForm.vehicle_type === "BUS" ? "Bus" : "Vehicle"}
               </h2>
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-gray-200 text-gray-500 transition-colors"
+                className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-primarybg text-secondarytext transition-colors"
               >
                 <X size={20} />
               </button>
@@ -1375,7 +1447,7 @@ export default function Vehicles() {
             <div className="p-6 overflow-y-auto space-y-5">
               {/* Vehicle Type Selection */}
               <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                <label className="block text-xs font-semibold text-secondarytext uppercase tracking-wider mb-2">
                   Vehicle Category
                 </label>
                 <div className="grid grid-cols-2 gap-2">
@@ -1388,7 +1460,7 @@ export default function Vehicles() {
                       className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-md text-sm font-medium border transition-all ${
                         vehicleForm.vehicle_type === type
                           ? "bg-primary/10 border-primary text-primary ring-1 ring-primary"
-                          : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
+                          : "bg-secondarybg border-primary/10 text-secondarytext hover:bg-primarybg hover:border-primary/20"
                       }`}
                     >
                       {type === "BUS" && (
@@ -1419,7 +1491,7 @@ export default function Vehicles() {
               {/* Basic Info */}
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-primarytext mb-1">
                     Vehicle Name / Vehicle Number
                   </label>
                   <input
@@ -1431,12 +1503,12 @@ export default function Vehicles() {
                         vehicle_name: e.target.value,
                       })
                     }
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                    className="w-full px-4 py-2.5 border border-primary/10 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-primarytext mb-1">
                     Registration Number
                   </label>
                   <input
@@ -1448,12 +1520,12 @@ export default function Vehicles() {
                         vehicle_number: e.target.value.toUpperCase(),
                       })
                     }
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none font-mono uppercase transition-all"
+                    className="w-full px-4 py-2.5 border border-primary/10 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none font-mono uppercase transition-all"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-primarytext mb-1">
                     Status
                   </label>
                   <select
@@ -1464,7 +1536,7 @@ export default function Vehicles() {
                         status: e.target.value,
                       })
                     }
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white transition-all"
+                    className="w-full px-4 py-2.5 border border-primary/10 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-secondarybg transition-all"
                   >
                     <option value="available">✅ Available</option>
                     <option value="in_service">🚌 In Service</option>
@@ -1476,7 +1548,7 @@ export default function Vehicles() {
               {/* Specs */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-primarytext mb-1">
                     Fuel Type
                   </label>
                   <select
@@ -1487,7 +1559,7 @@ export default function Vehicles() {
                         fuel_type: e.target.value,
                       })
                     }
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white transition-all"
+                    className="w-full px-4 py-2.5 border border-primary/10 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-secondarybg transition-all"
                   >
                     <option value="DIESEL">🛢️ Diesel</option>
                     <option value="PETROL">⛽ Petrol</option>
@@ -1496,7 +1568,7 @@ export default function Vehicles() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-primarytext mb-1">
                     Seats
                   </label>
                   <input
@@ -1508,7 +1580,7 @@ export default function Vehicles() {
                         seating_capacity: parseInt(e.target.value) || 0,
                       })
                     }
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                    className="w-full px-4 py-2.5 border border-primary/10 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
                     min="0"
                   />
                 </div>
@@ -1516,13 +1588,13 @@ export default function Vehicles() {
 
               {/* Route Details (Bus Only) */}
               {vehicleForm.vehicle_type === "BUS" && (
-                <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
-                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                <div className="bg-primarybg p-4 rounded-md border border-primary/10">
+                  <h4 className="text-xs font-semibold text-secondarytext uppercase tracking-wider mb-3">
                     Route Details
                   </h4>
                   <div className="space-y-3">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-primarytext mb-1">
                         Start Point
                       </label>
                       <input
@@ -1534,11 +1606,11 @@ export default function Vehicles() {
                             start_point: e.target.value,
                           })
                         }
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white transition-all"
+                        className="w-full px-4 py-2.5 border border-primary/10 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-secondarybg transition-all"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-primarytext mb-1">
                         End Point
                       </label>
                       <input
@@ -1550,7 +1622,7 @@ export default function Vehicles() {
                             end_point: e.target.value,
                           })
                         }
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white transition-all"
+                        className="w-full px-4 py-2.5 border border-primary/10 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-secondarybg transition-all"
                       />
                     </div>
                   </div>
@@ -1558,13 +1630,13 @@ export default function Vehicles() {
               )}
 
               {/* Insurance, FC & Permit Dates */}
-              <div className="bg-amber-50 p-4 rounded-md border border-amber-200">
-                <h4 className="text-xs font-semibold text-amber-700 uppercase tracking-wider mb-3">
-                  📋 Insurance, FC & Permit Details
+              <div className="bg-pending/5 p-4 rounded-md border border-pending/20">
+                <h4 className="text-xs font-semibold text-pending uppercase tracking-wider mb-3">
+                  Insurance, FC & Permit Details
                 </h4>
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-primarytext mb-1">
                       Insurance Expire Date
                     </label>
                     <input
@@ -1576,11 +1648,11 @@ export default function Vehicles() {
                           insurance_expire_date: e.target.value,
                         })
                       }
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white transition-all"
+                      className="w-full px-4 py-2.5 border border-primary/10 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-secondarybg transition-all"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-primarytext mb-1">
                       FC (Fitness Certificate) Expire Date
                     </label>
                     <input
@@ -1592,11 +1664,11 @@ export default function Vehicles() {
                           fc_expire_date: e.target.value,
                         })
                       }
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white transition-all"
+                      className="w-full px-4 py-2.5 border border-primary/10 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-secondarybg transition-all"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-primarytext mb-1">
                       Permit Expire Date
                     </label>
                     <input
@@ -1608,7 +1680,7 @@ export default function Vehicles() {
                           permit_expire_date: e.target.value,
                         })
                       }
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white transition-all"
+                      className="w-full px-4 py-2.5 border border-primary/10 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-secondarybg transition-all"
                     />
                   </div>
                 </div>

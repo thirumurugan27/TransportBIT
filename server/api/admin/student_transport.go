@@ -403,7 +403,7 @@ func GetAllStopChangeRequests(c *gin.Context) {
 			COALESCE(scr.reason, ''), scr.status,
 			COALESCE(scr.admin_remarks, ''),
 			scr.processed_by, COALESCE(admin.full_name, ''),
-			DATE_FORMAT(scr.processed_at, '%d-%m-%Y %H:%i'), DATE_FORMAT(scr.created_at, '%d-%m-%Y %H:%i')
+			DATE_FORMAT(scr.processed_at, '%d-%m-%Y %h:%i %p'), DATE_FORMAT(scr.created_at, '%d-%m-%Y %h:%i %p')
 		FROM stop_change_requests scr
 		LEFT JOIN student_transport st ON scr.student_transport_id = st.id
 		LEFT JOIN users u ON st.user_id = u.id

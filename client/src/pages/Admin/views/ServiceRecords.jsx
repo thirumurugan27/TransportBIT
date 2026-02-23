@@ -231,7 +231,7 @@ export default function ServiceRecords() {
     try {
       const res = await apiPost(
         `/api/admin/services/${showRejectModal.id}/reject`,
-        {admin_remarks: rejectReason},
+        {rejection_reason: rejectReason},
       );
       const data = await res.json();
       if (res.ok) {
@@ -351,7 +351,7 @@ export default function ServiceRecords() {
         },
         {
           label: "Monthly Cost",
-          value: `₹${(stats.monthly_cost || 0).toLocaleString()}`,
+          value: `₹${(stats.total_cost_this_month || 0).toLocaleString()}`,
           icon: DollarSign,
           color: "bg-purple-50 text-purple-600",
         },
@@ -907,11 +907,11 @@ export default function ServiceRecords() {
                 </div>
               </div>
 
-              {/* Parts Purchased */}
+              {/* Products Purchased */}
               {detailParts.length > 0 && (
                 <div className="bg-primarybg/50 rounded-md p-4">
                   <h4 className="text-xs font-bold text-secondarytext uppercase tracking-wider mb-3">
-                    Parts Purchased
+                    Products Purchased
                   </h4>
                   <div className="space-y-2">
                     {detailParts.map((p) => (

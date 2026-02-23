@@ -68,10 +68,11 @@ func getSingleDayAttendanceByDate(c *gin.Context, date, status string) {
 			a.checkout_time,
 			u.full_name,
 			a.marked_by_incharge_id,
-			a.marked_by_incharge_name
+			COALESCE(incharge_u.full_name, '') as marked_by_incharge_name
 		FROM drivers d
 		JOIN users u ON d.user_id = u.id
 		LEFT JOIN attendance a ON a.user_id = u.id AND a.date = ` + date + `
+		LEFT JOIN users incharge_u ON a.marked_by_incharge_id = incharge_u.id
 		LEFT JOIN leave_requests lr ON lr.driver_id = d.id 
 			AND lr.status = 'admin_approved'
 			AND ` + date + ` BETWEEN lr.start_date AND lr.end_date
@@ -120,10 +121,11 @@ func getAttendanceRange(c *gin.Context, startDate, endDate, status string) {
 
 	query := `
 		SELECT a.id, a.user_id, DATE_FORMAT(a.date, '%d-%m-%Y') as date, a.status, a.checkin_time, a.checkout_time, u.full_name,
-			a.marked_by_incharge_id, a.marked_by_incharge_name
+			a.marked_by_incharge_id, COALESCE(incharge_u.full_name, '') as marked_by_incharge_name
 		FROM attendance a
 		JOIN users u ON a.user_id = u.id
 		JOIN drivers d ON d.user_id = u.id AND d.is_incharge = 0
+		LEFT JOIN users incharge_u ON a.marked_by_incharge_id = incharge_u.id
 		WHERE ` + dateCondition + statusCondition + `
 		ORDER BY a.date DESC, a.id DESC
 	`

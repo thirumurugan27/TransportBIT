@@ -25,7 +25,7 @@ func GetTemporaryAssignments(c *gin.Context) {
 		       DATE_FORMAT(ta.start_date, '%d-%m-%Y') as start_date,
 		       DATE_FORMAT(ta.end_date, '%d-%m-%Y') as end_date,
 		       ta.reason, ta.status,
-		       DATE_FORMAT(ta.created_at, '%d-%m-%Y %H:%i') as created_at,
+		       DATE_FORMAT(ta.created_at, '%d-%m-%Y %h:%i %p') as created_at,
 		       u_orig.full_name as original_driver_name,
 		       COALESCE(u_repl.full_name, 'Not Assigned') as replacement_driver_name,
 		       COALESCE(s.name, 'EV Cluster') as shift_name,
@@ -68,7 +68,7 @@ func GetTemporaryAssignments(c *gin.Context) {
 		// Fetch shift slots if shift_id is available
 		if ta.ShiftID != nil && *ta.ShiftID > 0 {
 			slotRows, slotErr := config.DB.Query(`
-				SELECT TIME_FORMAT(start_time, '%H:%i'), TIME_FORMAT(end_time, '%H:%i')
+				SELECT TIME_FORMAT(start_time, '%h:%i %p'), TIME_FORMAT(end_time, '%h:%i %p')
 				FROM shift_slots
 				WHERE shift_id = ?
 				ORDER BY slot_order ASC

@@ -143,6 +143,7 @@ func registerAdminRoutes(adm *gin.RouterGroup) {
 	// Leave Management
 	adm.GET("/leave/pending", admin.GetPendingLeaveRequests)
 	adm.GET("/leave/all", admin.GetAllLeaveRequests)
+	adm.POST("/leave/apply", admin.AdminApplyLeave)
 	adm.POST("/leave/approve", admin.ApproveLeave)
 	adm.GET("/leave/history", admin.GetLeaveHistory)
 	adm.GET("/leave/stats", admin.GetLeaveStats)
@@ -276,10 +277,34 @@ func registerAdminRoutes(adm *gin.RouterGroup) {
 
 	adm.GET("/services/:id/parts", admin.GetPartsByServiceRecord)
 	adm.POST("/services/parts/add", admin.AddPart)
+	adm.POST("/services/parts/add-bulk", admin.AddBulkParts)
 	adm.POST("/services/parts/update", admin.UpdatePart)
+	adm.POST("/services/parts/update-status", admin.UpdatePartStatus)
 	adm.DELETE("/services/parts/delete", admin.DeletePart)
 	adm.GET("/parts", admin.GetAllParts)
 	adm.GET("/parts/expenditure", admin.GetPartsExpenditure)
+
+	// Purchase Orders
+	adm.GET("/purchase-orders", admin.GetAllPurchaseOrders)
+	adm.GET("/purchase-orders/:id", admin.GetPurchaseOrderByID)
+	adm.POST("/purchase-orders/create", admin.CreatePurchaseOrder)
+	adm.POST("/purchase-orders/update", admin.UpdatePurchaseOrder)
+	adm.POST("/purchase-orders/update-status", admin.UpdatePurchaseOrderStatus)
+	adm.DELETE("/purchase-orders/delete", admin.DeletePurchaseOrder)
+	adm.POST("/purchase-orders/add-product", admin.AddProductToOrder)
+	adm.DELETE("/purchase-orders/remove-product", admin.RemoveProductFromOrder)
+
+	// Purchase Order Invoice Upload
+	adm.POST("/purchase-orders/:id/invoice", admin.UploadPurchaseInvoice)
+	adm.GET("/purchase-orders/:id/invoice", admin.GetPurchaseInvoice)
+	adm.DELETE("/purchase-orders/:id/invoice", admin.DeletePurchaseInvoice)
+
+	// Vendors
+	adm.GET("/vendors", admin.GetVendors)
+	adm.GET("/vendors/:id", admin.GetVendorByID)
+	adm.POST("/vendors/create", admin.CreateVendor)
+	adm.POST("/vendors/update", admin.UpdateVendor)
+	adm.DELETE("/vendors/delete", admin.DeleteVendor)
 
 	adm.GET("/service-tracking", admin.GetServiceTracking)
 	adm.POST("/service-tracking/update", admin.UpdateServiceTracking)

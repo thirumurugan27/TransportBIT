@@ -74,6 +74,23 @@ export const apiDelete = async (endpoint) => {
 };
 
 /**
+ * Make an authenticated file upload request (multipart/form-data)
+ * @param {string} endpoint - API endpoint
+ * @param {FormData} formData - FormData instance containing the file(s)
+ * @returns {Promise<Response>}
+ */
+export const apiUpload = async (endpoint, formData) => {
+    return fetch(`${API_BASE}${endpoint}`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+            'X-Tunnel-Skip-Efficiency-Check': 'true',
+        },
+        body: formData,
+    });
+};
+
+/**
  * Helper to get today's date in YYYY-MM-DD format
  * @returns {string}
  */

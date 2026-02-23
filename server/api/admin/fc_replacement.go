@@ -66,7 +66,7 @@ func GetFCReplacements(c *gin.Context) {
 			DATE_FORMAT(r.end_date, '%d-%m-%Y') as end_date,
 			r.reason, r.status, r.requested_by_role, r.requested_by_id,
 			r.approved_by_id, r.notes, r.driver_notified,
-			DATE_FORMAT(r.created_at, '%d-%m-%Y %H:%i') as created_at,
+			DATE_FORMAT(r.created_at, '%d-%m-%Y %h:%i %p') as created_at,
 			DATEDIFF(r.end_date, CURDATE()) as days_remaining
 		FROM fc_replacement_requests r
 		JOIN vehicles v ON r.vehicle_id = v.id
@@ -623,7 +623,7 @@ func GetRecentFCCompletions(c *gin.Context) {
 		SELECT 
 			fcr.id, v.vehicle_number, u.full_name as driver_name, 
 			fcr.reason, DATE_FORMAT(fcr.end_date, '%d-%m-%Y') as end_date,
-			DATE_FORMAT(fcr.updated_at, '%d-%m-%Y %H:%i') as completed_at
+			DATE_FORMAT(fcr.updated_at, '%d-%m-%Y %h:%i %p') as completed_at
 		FROM fc_replacement_requests fcr
 		JOIN vehicles v ON fcr.vehicle_id = v.id
 		JOIN drivers d ON fcr.driver_id = d.id

@@ -35,10 +35,12 @@ func main() {
 	bus.InitBusStopsTable()
 	student.InitStudentTransportTables()
 	admin.EnsureVehicleRequestOTPColumns()
+	admin.InitPurchaseInvoiceTable()
 
 	// 3. Initialize Gin Router
 	r := gin.Default()
 	r.Static("/uploads", "./uploads")
+	r.Static("/documents", "./Documents")
 
 	// 4. Configure CORS
 	allowedOrigins := os.Getenv("CORS_ORIGINS")

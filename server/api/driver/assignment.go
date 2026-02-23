@@ -74,8 +74,8 @@ func GetDriverTodayAssignment(c *gin.Context) {
 		SELECT 
 				a.id, v.id as vehicle_id, COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name, v.vehicle_number, v.vehicle_type,
 			s.name as shift_name, 
-			TIME_FORMAT(s.start_time, '%H:%i') as start_time,
-			TIME_FORMAT(s.end_time, '%H:%i') as end_time,
+			TIME_FORMAT(s.start_time, '%h:%i %p') as start_time,
+			TIME_FORMAT(s.end_time, '%h:%i %p') as end_time,
 			DATE_FORMAT(a.assigned_date, '%d-%m-%Y') as assigned_date,
 			a.status
 		FROM assignments a

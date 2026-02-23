@@ -173,7 +173,7 @@ export default function Sidebar({
                     className={`w-full flex items-center justify-between px-3 py-2.5 group
                     rounded-md transition-all duration-300 ease-in-out ${
                       isSubmenuGroupActive(item)
-                        ? "text-primary font-medium"
+                        ? "bg-primary/10 text-primary font-medium"
                         : "text-secondarytext hover:bg-primarybg"
                     }`}
                   >
@@ -203,22 +203,33 @@ export default function Sidebar({
                     <div
                       className={`overflow-hidden transition-all duration-300 ease-in-out ${
                         openSubmenu === item.key
-                          ? "max-h-60 opacity-100"
+                          ? "max-h-80 opacity-100"
                           : "max-h-0 opacity-0"
                       }`}
                     >
-                      <div className="mt-1 ml-4 space-y-1">
+                      <div className="mt-0.5 ml-6 space-y-0.5">
                         {item.submenu.map((subItem) => (
                           <button
                             key={subItem.key}
                             onClick={() => handleSubmenuClick(subItem)}
-                            className={`w-full flex items-center px-3 py-2.5 rounded-md transition-all duration-300 ease-in-out text-[14px] ${
+                            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-md transition-all duration-200 ease-in-out text-[13px] group/sub ${
                               isSubmenuActive(subItem)
-                                ? "bg-primary text-white shadow-md shadow-primary/20"
+                                ? "bg-primary text-white"
                                 : "text-secondarytext hover:text-primary hover:bg-primarybg"
                             }`}
                           >
-                            {subItem.label}
+                            {subItem.icon && (
+                              <span
+                                className={
+                                  isSubmenuActive(subItem)
+                                    ? "text-white"
+                                    : "text-gray-400 group-hover/sub:text-primary"
+                                }
+                              >
+                                {subItem.icon}
+                              </span>
+                            )}
+                            <span className="font-medium">{subItem.label}</span>
                           </button>
                         ))}
                       </div>

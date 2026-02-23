@@ -41,16 +41,20 @@ func GetLeaveHistory(c *gin.Context) {
 			   DATE_FORMAT(lr.end_date, '%d-%m-%Y') as end_date,
 			   TIME_FORMAT(lr.end_time, '%h:%i %p') as end_time,
 			   lr.reason, lr.status,
-			   lr.incharge_id, u_inc.full_name as incharge_name, lr.incharge_approved_at, lr.incharge_remarks,
-			   lr.admin_id, u_adm.full_name as admin_name, lr.admin_approved_at, lr.admin_remarks,
-			   lr.created_at
+			   lr.incharge_id, u_inc.full_name as incharge_name,
+			   DATE_FORMAT(lr.incharge_approved_at, '%d-%m-%Y %h:%i %p') as incharge_approved_at,
+			   lr.incharge_remarks,
+			   lr.admin_id, u_adm.full_name as admin_name,
+			   DATE_FORMAT(lr.admin_approved_at, '%d-%m-%Y %h:%i %p') as admin_approved_at,
+			   lr.admin_remarks,
+			   DATE_FORMAT(lr.created_at, '%d-%m-%Y %h:%i %p') as created_at
 		FROM leave_requests lr
 		JOIN drivers d ON lr.driver_id = d.id
 		JOIN users u ON d.user_id = u.id
 		LEFT JOIN users u_inc ON lr.incharge_id = u_inc.id
 		LEFT JOIN users u_adm ON lr.admin_id = u_adm.id
 		ORDER BY lr.created_at DESC
-		LIMIT 100
+		LIMIT 200
 	`)
 	if err != nil {
 		log.Printf("Get leave history error: %v", err)
@@ -227,8 +231,13 @@ func GetPendingLeaveRequests(c *gin.Context) {
 			SELECT lr.id, lr.driver_id, u.full_name as driver_name, lr.leave_type, 
 				   DATE_FORMAT(lr.start_date, '%d-%m-%Y'), TIME_FORMAT(lr.start_time, '%h:%i %p'),
 				   DATE_FORMAT(lr.end_date, '%d-%m-%Y'), TIME_FORMAT(lr.end_time, '%h:%i %p'), lr.reason, lr.status,
-				   lr.incharge_id, u_inc.full_name as incharge_name, lr.incharge_approved_at, lr.incharge_remarks,
-				   lr.admin_id, u_adm.full_name as admin_name, lr.admin_approved_at, lr.admin_remarks, lr.created_at
+				   lr.incharge_id, u_inc.full_name as incharge_name,
+				   DATE_FORMAT(lr.incharge_approved_at, '%d-%m-%Y %h:%i %p') as incharge_approved_at,
+				   lr.incharge_remarks,
+				   lr.admin_id, u_adm.full_name as admin_name,
+				   DATE_FORMAT(lr.admin_approved_at, '%d-%m-%Y %h:%i %p') as admin_approved_at,
+				   lr.admin_remarks,
+				   DATE_FORMAT(lr.created_at, '%d-%m-%Y %h:%i %p') as created_at
 			FROM leave_requests lr
 			JOIN drivers d ON lr.driver_id = d.id
 			JOIN users u ON d.user_id = u.id
@@ -931,6 +940,91 @@ func ApproveLeaveWithAssignments(c *gin.Context) {
 		"message":             "Leave approved and temporary assignments created successfully",
 		"status":              newStatus,
 		"assignments_created": len(req.TemporaryAssignments),
+	})
+}
+
+/*
+=========================
+
+	POST /api/admin/leave/apply
+	Admin applies leave on behalf of a driver
+
+=========================
+*/
+func AdminApplyLeave(c *gin.Context) {
+	var req struct {
+		DriverID  int    `json:"driver_id"`
+		LeaveType string `json:"leave_type"`
+		StartDate string `json:"start_date"`
+		StartTime string `json:"start_time"`
+		EndDate   string `json:"end_date"`
+		EndTime   string `json:"end_time"`
+		Reason    string `json:"reason"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	if req.DriverID == 0 || req.StartDate == "" || req.EndDate == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing required fields: driver_id, start_date, end_date"})
+		return
+	}
+
+	// Set defaults
+	startTime := req.StartTime
+	if startTime == "" {
+		startTime = "09:00:00"
+	}
+	endTime := req.EndTime
+	if endTime == "" {
+		endTime = "17:00:00"
+	}
+	leaveType := req.LeaveType
+	if leaveType == "" {
+		leaveType = "Leave"
+	}
+
+	// Verify driver exists
+	var driverExists int
+	err := config.DB.QueryRow("SELECT COUNT(*) FROM drivers WHERE id = ?", req.DriverID).Scan(&driverExists)
+	if err != nil || driverExists == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Driver not found"})
+		return
+	}
+
+	// Insert the leave request as admin_approved (since admin is applying it)
+	result, err := config.DB.Exec(`
+		INSERT INTO leave_requests
+		(driver_id, leave_type, start_date, start_time, end_date, end_time, reason, status, admin_approved_at, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, 'admin_approved', NOW(), NOW())
+	`, req.DriverID, leaveType, req.StartDate, startTime, req.EndDate, endTime, req.Reason)
+
+	if err != nil {
+		log.Printf("AdminApplyLeave DB Error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	id, _ := result.LastInsertId()
+
+	// Auto-mark attendance as absent for the leave period
+	markAttendanceForLeave(req.DriverID, req.StartDate, req.EndDate)
+
+	// Notify the driver
+	_, _ = config.DB.Exec(`
+		INSERT INTO notifications (recipient_role, recipient_id, title, message, type, reference_id)
+		VALUES ('DRIVER', ?, ?, ?, 'leave', ?)
+	`, req.DriverID,
+		"Leave Applied by Admin",
+		fmt.Sprintf("Admin has applied %s leave on your behalf from %s to %s. Reason: %s",
+			leaveType, req.StartDate, req.EndDate, req.Reason),
+		id)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Leave applied successfully by admin",
+		"id":      id,
 	})
 }
 

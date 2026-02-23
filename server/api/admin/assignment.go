@@ -30,8 +30,8 @@ func GetAllAssignments(c *gin.Context) {
 		       a.original_driver_id,
 		       a.created_by,
 		       s.name AS shift_name, 
-		       TIME_FORMAT(s.start_time, '%H:%i') as start_time, 
-		       TIME_FORMAT(s.end_time, '%H:%i') as end_time,
+		       TIME_FORMAT(s.start_time, 'h:%i %p') as start_time, 
+		       TIME_FORMAT(s.end_time, '%h:%i %p') as end_time,
 		       v.vehicle_number, v.vehicle_type,
 		       COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name,
 		       u.full_name AS driver_name,
@@ -1296,7 +1296,7 @@ func GetAssignmentDetails(c *gin.Context) {
 		EndTime   string `json:"end_time"`
 	}
 	slotRows, _ := config.DB.Query(`
-		SELECT TIME_FORMAT(start_time, '%H:%i'), TIME_FORMAT(end_time, '%H:%i')
+		SELECT TIME_FORMAT(start_time, '%h:%i %p'), TIME_FORMAT(end_time, '%h:%i %p')
 		FROM shift_slots
 		WHERE shift_id = ?
 		ORDER BY slot_order ASC

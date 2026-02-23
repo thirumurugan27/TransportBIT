@@ -18,6 +18,7 @@ import ServiceRecords from "./views/ServiceRecords";
 import PartsPurchases from "./views/PartsPurchases";
 import ServiceTypes from "./views/ServiceTypes";
 import ServiceReminders from "./views/ServiceReminders";
+import Vendors from "./views/Vendors";
 
 import {useAuth} from "../../context/AuthContext";
 import {apiGet, getToday} from "../../utils/api";
@@ -114,6 +115,7 @@ export default function AdminDashboard() {
             <Route path="parts-purchases" element={<PartsPurchases />} />
             <Route path="service-types" element={<ServiceTypes />} />
             <Route path="service-reminders" element={<ServiceReminders />} />
+            <Route path="vendors" element={<Vendors />} />
             <Route path="*" element={<AdminHome />} />
           </Routes>
         </main>

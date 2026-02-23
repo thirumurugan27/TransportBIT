@@ -105,8 +105,8 @@ func GetInchargeAssignments(c *gin.Context) {
 				END as driver_status,
 				a.vehicle_id, COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name, v.vehicle_number, v.vehicle_type,
 				a.shift_id, s.name as shift_name, 
-				TIME_FORMAT(s.start_time, '%H:%i') as start_time,
-				TIME_FORMAT(s.end_time, '%H:%i') as end_time,
+				TIME_FORMAT(s.start_time, '%h:%i %p') as start_time,
+				TIME_FORMAT(s.end_time, '%h:%i %p') as end_time,
 				DATE_FORMAT(a.assigned_date, '%d-%m-%Y') as assigned_date,
 				DATE_FORMAT(a.start_date, '%d-%m-%Y') as start_date,
 				DATE_FORMAT(a.end_date, '%d-%m-%Y') as end_date,
@@ -203,10 +203,11 @@ func GetInchargeClusterDrivers(c *gin.Context) {
 			att.checkin_time,
 			CASE WHEN lr.id IS NOT NULL THEN 1 ELSE 0 END as has_approved_leave,
 			att.marked_by_incharge_id,
-			att.marked_by_incharge_name
+			COALESCE(incharge_u.full_name, '') as marked_by_incharge_name
 		FROM drivers d
 		JOIN users u ON d.user_id = u.id
 		LEFT JOIN attendance att ON att.user_id = d.user_id AND att.date = ` + date + `
+		LEFT JOIN users incharge_u ON att.marked_by_incharge_id = incharge_u.id
 		LEFT JOIN leave_requests lr ON lr.driver_id = d.id 
 			AND lr.status = 'admin_approved' 
 			AND ` + date + ` BETWEEN lr.start_date AND lr.end_date
@@ -306,11 +307,11 @@ func InchargeMarkAttendance(c *gin.Context) {
 
 	// Upsert attendance with incharge tracking
 	_, err = config.DB.Exec(`
-		INSERT INTO attendance (user_id, date, status, checkin_time, marked_by_incharge_id, marked_by_incharge_name)
-		VALUES (?, ?, ?, ?, ?, ?)
+		INSERT INTO attendance (user_id, date, status, checkin_time, marked_by_incharge_id)
+		VALUES (?, ?, ?, ?, ?)
 		ON DUPLICATE KEY UPDATE status=VALUES(status), checkin_time=VALUES(checkin_time), 
-			marked_by_incharge_id=VALUES(marked_by_incharge_id), marked_by_incharge_name=VALUES(marked_by_incharge_name)
-	`, req.UserID, req.Date, req.Status, req.CheckinTime, req.InchargeID, inchargeName)
+			marked_by_incharge_id=VALUES(marked_by_incharge_id)
+	`, req.UserID, req.Date, req.Status, req.CheckinTime, req.InchargeID)
 
 	if err != nil {
 		log.Printf("Mark attendance error: %v", err)
@@ -393,10 +394,11 @@ func GetInchargeAttendanceHistory(c *gin.Context) {
 			a.checkin_time,
 			a.checkout_time,
 			a.marked_by_incharge_id,
-			a.marked_by_incharge_name
+			COALESCE(incharge_u.full_name, '') as marked_by_incharge_name
 		FROM attendance a
 		JOIN users u ON a.user_id = u.id
 		JOIN drivers d ON d.user_id = u.id AND d.is_incharge = 0
+		LEFT JOIN users incharge_u ON a.marked_by_incharge_id = incharge_u.id
 		WHERE a.date BETWEEN ` + startDate + ` AND ` + endDate + statusCondition + `
 		ORDER BY a.date DESC, u.full_name ASC
 	`)
@@ -637,7 +639,7 @@ func GetInchargeFCReplacements(c *gin.Context) {
 			DATE_FORMAT(r.end_date, '%d-%m-%Y') as end_date,
 			r.reason, r.status, r.requested_by_role,
 			r.notes, r.driver_notified,
-			DATE_FORMAT(r.created_at, '%d-%m-%Y %H:%i') as created_at,
+			DATE_FORMAT(r.created_at, '%d-%m-%Y %h:%i %p') as created_at,
 			DATEDIFF(r.end_date, CURDATE()) as days_remaining
 		FROM fc_replacement_requests r
 		JOIN vehicles v ON r.vehicle_id = v.id
@@ -878,7 +880,6 @@ func InchargeAddKmLog(c *gin.Context) {
 		EndKm        float64 `json:"end_km"`
 		TotalKm      float64 `json:"total_km"`
 		Remarks      string  `json:"remarks"`
-		VehicleType  string  `json:"vehicle_type"`
 		VehicleID    *int    `json:"vehicle_id"`
 		AssignmentID *int    `json:"assignment_id"`
 	}
@@ -923,13 +924,6 @@ func InchargeAddKmLog(c *gin.Context) {
 		req.TotalKm = req.EndKm - req.StartKm
 	}
 
-	if req.VehicleType == "" {
-		config.DB.QueryRow(`SELECT vehicle_type FROM vehicles WHERE id = ?`, *req.VehicleID).Scan(&req.VehicleType)
-		if req.VehicleType == "" {
-			req.VehicleType = "BUS"
-		}
-	}
-
 	// Auto-detect assignment when not provided
 	if req.AssignmentID == nil {
 		var assignmentID sql.NullInt64
@@ -967,11 +961,11 @@ func InchargeAddKmLog(c *gin.Context) {
 	result, err := config.DB.Exec(`
 		INSERT INTO km_logs (
 			driver_id, date, start_km, end_km, total_km, remarks,
-			vehicle_type, vehicle_id, assignment_id,
+			vehicle_id, assignment_id,
 			recorded_by_user_id
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, req.DriverID, req.Date, req.StartKm, req.EndKm, req.TotalKm, remarks, req.VehicleType, vehicleID, assignmentID, inchargeUserID)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, req.DriverID, req.Date, req.StartKm, req.EndKm, req.TotalKm, remarks, vehicleID, assignmentID, inchargeUserID)
 
 	if err != nil {
 		log.Printf("Incharge add km log error: %v", err)
@@ -1106,10 +1100,11 @@ func GetDriverKmLogs(c *gin.Context) {
 	rows, err := config.DB.Query(`
 		SELECT 
 			kl.id, kl.driver_id, kl.date, kl.start_km, kl.end_km, kl.total_km, 
-			kl.remarks, kl.vehicle_type, u.full_name as driver_name
+			kl.remarks, COALESCE(v.vehicle_type, 'UNKNOWN') as vehicle_type, u.full_name as driver_name
 		FROM km_logs kl
 		JOIN drivers d ON kl.driver_id = d.id
 		JOIN users u ON d.user_id = u.id
+		LEFT JOIN vehicles v ON kl.vehicle_id = v.id
 		WHERE kl.driver_id = ?
 		ORDER BY kl.date DESC
 		LIMIT 50
@@ -1210,7 +1205,7 @@ func GetInchargeKmSummary(c *gin.Context) {
 			kl.end_km,
 			kl.total_km,
 			kl.remarks,
-			COALESCE(kl.vehicle_type, 'UNKNOWN') as vehicle_type,
+			COALESCE(v.vehicle_type, 'UNKNOWN') as vehicle_type,
 			COALESCE(v.vehicle_number, 'N/A') as vehicle_number,
 			COALESCE(s.name, 'N/A') as shift,
 			'N/A' as route_name,

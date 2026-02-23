@@ -138,7 +138,7 @@ func GetClusterMembers(c *gin.Context) {
 		       COALESCE(u.full_name, '') as driver_name,
 		       DATE_FORMAT(dcm.valid_from, '%d-%m-%Y') as valid_from,
 		       DATE_FORMAT(dcm.valid_to, '%d-%m-%Y') as valid_to,
-		       DATE_FORMAT(dcm.added_at, '%d-%m-%Y %H:%i') as added_at
+		       DATE_FORMAT(dcm.added_at, '%d-%m-%Y %h:%i %p') as added_at
 		FROM driver_cluster_members dcm
 		JOIN drivers d ON dcm.driver_id = d.id
 		JOIN users u ON d.user_id = u.id

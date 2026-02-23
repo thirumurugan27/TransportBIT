@@ -15,12 +15,13 @@ import {
 } from "lucide-react";
 import {useToast} from "../../../context/ToastContext";
 
-import {apiGet} from "../../../utils/api";
+import {apiGet, apiPost} from "../../../utils/api";
 
 export default function AttendanceRecords() {
   const {showToast} = useToast();
   const [attendanceHistory, setAttendanceHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [markingId, setMarkingId] = useState(null);
 
   // Default to today
   const today = new Date().toISOString().split("T")[0];
@@ -57,6 +58,38 @@ export default function AttendanceRecords() {
       console.error("Error fetching attendance history:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const isSingleDay = startDate === endDate;
+
+  const handleMarkAttendance = async (userId, status) => {
+    setMarkingId(userId);
+    try {
+      const now = new Date();
+      const checkinTime =
+        status === "present"
+          ? now.toISOString().slice(0, 19).replace("T", " ")
+          : "";
+
+      const res = await apiPost("/api/admin/attendance/mark", {
+        user_id: userId,
+        date: startDate,
+        status: status,
+        checkin_time: checkinTime,
+      });
+
+      if (res.ok) {
+        showToast(`Attendance marked as ${status}`, "success");
+        fetchAttendanceHistory();
+      } else {
+        const errData = await res.text();
+        showToast("Error: " + errData, "error");
+      }
+    } catch (err) {
+      showToast("Error: " + err.message, "error");
+    } finally {
+      setMarkingId(null);
     }
   };
 
@@ -101,10 +134,10 @@ export default function AttendanceRecords() {
         <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-6">
           <div>
             <h3 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-              Attendance Records
+              Attendance Management
             </h3>
             <p className="text-sm text-gray-500 mt-1">
-              View and export driver attendance history
+              Mark attendance and view driver attendance records
             </p>
           </div>
 
@@ -180,12 +213,12 @@ export default function AttendanceRecords() {
       </div>
 
       {/* Info banner when viewing single day */}
-      {startDate === endDate && (
+      {isSingleDay && (
         <div className="bg-blue-50 border border-blue-100 rounded-md p-4 flex items-center gap-3">
-          <Calendar className="w-5 h-5 text-blue-600" />
+          <Calendar className="w-5 h-5 text-blue-600 flex-shrink-0" />
           <p className="text-sm text-blue-700">
-            Showing attendance for <strong>{startDate}</strong> - All drivers
-            are listed with their status
+            Showing all drivers for <strong>{startDate}</strong> — use the
+            action buttons to mark attendance.
           </p>
         </div>
       )}
@@ -277,6 +310,11 @@ export default function AttendanceRecords() {
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Marked By
                   </th>
+                  {isSingleDay && (
+                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -343,12 +381,70 @@ export default function AttendanceRecords() {
                           <span className="text-gray-300">-</span>
                         )}
                       </td>
+                      {isSingleDay && (
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleMarkAttendance(record.user_id, "present");
+                              }}
+                              disabled={
+                                record.status === "present" ||
+                                record.status === "on_leave" ||
+                                markingId === record.user_id
+                              }
+                              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                                record.status === "present" ||
+                                record.status === "on_leave"
+                                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                  : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm"
+                              }`}
+                            >
+                              {markingId === record.user_id ? (
+                                <Loader2
+                                  size={14}
+                                  className="animate-spin inline"
+                                />
+                              ) : (
+                                "Present"
+                              )}
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleMarkAttendance(record.user_id, "absent");
+                              }}
+                              disabled={
+                                record.status === "absent" ||
+                                record.status === "on_leave" ||
+                                markingId === record.user_id
+                              }
+                              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                                record.status === "absent" ||
+                                record.status === "on_leave"
+                                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                  : "bg-rose-600 text-white hover:bg-rose-700 shadow-sm"
+                              }`}
+                            >
+                              {markingId === record.user_id ? (
+                                <Loader2
+                                  size={14}
+                                  className="animate-spin inline"
+                                />
+                              ) : (
+                                "Absent"
+                              )}
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))
                 ) : (
                   <tr>
                     <td
-                      colSpan="5"
+                      colSpan={isSingleDay ? "6" : "5"}
                       className="px-6 py-16 text-center text-gray-400"
                     >
                       <div className="flex flex-col items-center gap-2">

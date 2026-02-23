@@ -8,12 +8,11 @@ import {
   Search,
   Filter,
   Loader2,
-  AlertCircle,
   X,
   FileText,
-  ChevronDown,
   User,
   ShieldCheck,
+  Calendar,
 } from "lucide-react";
 import {useAuth} from "../../../context/AuthContext";
 import {apiGet, apiPost} from "../../../utils/api";
@@ -98,10 +97,20 @@ export default function LeaveApprovals() {
       leave.reason?.toLowerCase().includes(searchQuery.toLowerCase());
 
     const status = getStatus(leave);
-    const matchesStatus =
-      statusFilter === "ALL" ||
-      status.toUpperCase() === statusFilter ||
-      (statusFilter === "PENDING" && !leave.status);
+    let matchesStatus = false;
+    if (statusFilter === "ALL") {
+      matchesStatus = true;
+    } else if (statusFilter === "PENDING") {
+      matchesStatus = status === "pending";
+    } else if (statusFilter === "INCHARGE_APPROVED") {
+      matchesStatus = status === "incharge_approved";
+    } else if (statusFilter === "ADMIN_APPROVED") {
+      matchesStatus = status === "admin_approved";
+    } else if (statusFilter === "APPROVED") {
+      matchesStatus = status === "approved";
+    } else if (statusFilter === "REJECTED") {
+      matchesStatus = status === "rejected";
+    }
 
     return matchesSearch && matchesStatus;
   });
@@ -115,63 +124,73 @@ export default function LeaveApprovals() {
     modalStatus === "rejected" && selectedLeave?.incharge_id;
   const adminRejected = modalStatus === "rejected" && selectedLeave?.admin_id;
 
+  // Count stats
+  const pendingCount = pendingLeaves.filter(
+    (l) => getStatus(l) === "pending",
+  ).length;
+
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-            <CheckCircle2 className="w-7 h-7 text-[#8b5cf6]" />
-            Leave Approvals
-          </h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Review and approve driver leave requests
-          </p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-primarytext flex items-center gap-2">
+          <CheckCircle2 className="w-7 h-7 text-primary" />
+          Leave Approvals
+        </h1>
+        <p className="text-sm text-secondarytext mt-1">
+          Review and manage driver leave requests
+        </p>
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-white rounded-md p-4 shadow-sm border border-gray-200">
+      <div className="bg-secondarybg rounded-md p-4 shadow-sm border border-gray-200">
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-secondarytext w-5 h-5" />
             <input
               type="text"
               placeholder="Search by driver name, leave type, or reason..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#8b5cf6]/30 focus:border-[#8b5cf6] text-sm"
+              className="w-full h-[42px] pl-10 pr-4 bg-primarybg border border-gray-200 rounded-md text-sm text-primarytext placeholder:text-secondarytext hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
             />
           </div>
           <div className="flex items-center gap-3">
-            <Filter className="w-5 h-5 text-gray-500" />
+            <Filter className="w-5 h-5 text-secondarytext" />
             <CustomDropdown
               value={statusFilter}
               onChange={setStatusFilter}
               options={[
                 {value: "ALL", label: "All Status"},
-                {value: "PENDING", label: "Pending"},
-                {value: "APPROVED", label: "Approved"},
+                {
+                  value: "PENDING",
+                  label: `Pending${pendingCount > 0 ? ` (${pendingCount})` : ""}`,
+                },
+                {value: "INCHARGE_APPROVED", label: "Incharge Approved"},
+                {value: "ADMIN_APPROVED", label: "Admin Approved"},
+                {value: "APPROVED", label: "Fully Approved"},
                 {value: "REJECTED", label: "Rejected"},
               ]}
-              width="w-40"
+              width="w-52"
             />
           </div>
         </div>
       </div>
 
       {/* Leave Requests Table */}
-      <div className="bg-white rounded-md shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-secondarybg rounded-md shadow-sm border border-gray-200 overflow-hidden">
         {loading ? (
           <Loading fullScreen={false} />
         ) : filteredLeaves.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <FileText className="w-12 h-12 text-gray-300 mb-3" />
-            <h3 className="text-lg font-semibold text-gray-800 mb-1">
+            <h3 className="text-lg font-semibold text-primarytext mb-1">
               No Leave Requests
             </h3>
-            <p className="text-sm text-gray-500">
-              There are no leave requests requiring your approval.
+            <p className="text-sm text-secondarytext">
+              {statusFilter !== "ALL"
+                ? "No leave requests found for the selected filter."
+                : "There are no leave requests at this time."}
             </p>
           </div>
         ) : (
@@ -179,22 +198,25 @@ export default function LeaveApprovals() {
             <table className="w-full text-left">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-6 py-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Driver Name
+                  <th className="px-6 py-4 text-xs font-semibold text-secondarytext uppercase tracking-wider">
+                    Driver
                   </th>
-                  <th className="px-6 py-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-xs font-semibold text-secondarytext uppercase tracking-wider">
                     Type
                   </th>
-                  <th className="px-6 py-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    From Date
+                  <th className="px-6 py-4 text-xs font-semibold text-secondarytext uppercase tracking-wider">
+                    From
                   </th>
-                  <th className="px-6 py-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    To Date
+                  <th className="px-6 py-4 text-xs font-semibold text-secondarytext uppercase tracking-wider">
+                    To
                   </th>
-                  <th className="px-6 py-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-xs font-semibold text-secondarytext uppercase tracking-wider">
                     Duration
                   </th>
-                  <th className="px-6 py-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-xs font-semibold text-secondarytext uppercase tracking-wider">
+                    Applied On
+                  </th>
+                  <th className="px-6 py-4 text-xs font-semibold text-secondarytext uppercase tracking-wider">
                     Status
                   </th>
                 </tr>
@@ -214,50 +236,48 @@ export default function LeaveApprovals() {
                     >
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-md bg-[#8b5cf6]/10 text-[#8b5cf6] flex items-center justify-center font-semibold text-sm">
+                          <div className="w-10 h-10 rounded-md bg-primary/10 text-primary flex items-center justify-center font-semibold text-sm">
                             {leave.driver_name?.charAt(0) || "D"}
                           </div>
-                          <div>
-                            <p className="text-sm font-semibold text-gray-800">
-                              {leave.driver_name || "Unknown"}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              ID: {leave.driver_id}
-                            </p>
-                          </div>
+                          <p className="text-sm font-semibold text-primarytext">
+                            {leave.driver_name || "Unknown"}
+                          </p>
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-[#8b5cf6]/10 text-[#8b5cf6]">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-primary/10 text-primary">
                           {leave.leave_type}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">
+                      <td className="px-6 py-4 text-sm text-primarytext">
                         <div className="flex flex-col">
                           <span className="font-medium">
                             {leave.start_date || "-"}
                           </span>
                           {leave.start_time && (
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-secondarytext">
                               {leave.start_time}
                             </span>
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">
+                      <td className="px-6 py-4 text-sm text-primarytext">
                         <div className="flex flex-col">
                           <span className="font-medium">
                             {leave.end_date || "-"}
                           </span>
                           {leave.end_time && (
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-secondarytext">
                               {leave.end_time}
                             </span>
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-sm font-semibold text-gray-800">
+                      <td className="px-6 py-4 text-sm font-semibold text-primarytext">
                         {calculateDuration(leave.start_date, leave.end_date)}
+                      </td>
+                      <td className="px-6 py-4 text-xs text-secondarytext">
+                        {leave.created_at || "-"}
                       </td>
                       <td className="px-6 py-4">
                         <span
@@ -273,7 +293,7 @@ export default function LeaveApprovals() {
             </table>
           </div>
         )}
-        <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 text-xs text-gray-600 flex justify-between items-center">
+        <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 text-xs text-secondarytext flex justify-between items-center">
           <span>Total: {filteredLeaves.length} leave request(s)</span>
         </div>
       </div>
@@ -283,152 +303,152 @@ export default function LeaveApprovals() {
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/50 animate-fadeIn">
           <div className="bg-white w-full max-w-2xl rounded-md shadow-2xl animate-scaleIn overflow-hidden max-h-[90vh] flex flex-col">
             {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-[#8b5cf6]/5 to-transparent">
-              <h3 className="text-xl font-bold text-gray-800">
-                Leave Details - {selectedLeave.leave_type}
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200 bg-primary/5">
+              <h3 className="text-xl font-bold text-primarytext flex items-center gap-2">
+                <FileText className="w-5 h-5 text-primary" />
+                Leave Details
               </h3>
               <button
                 onClick={() => setShowLeaveModal(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="text-secondarytext hover:text-primarytext transition-colors"
               >
                 <X className="w-6 h-6" />
               </button>
             </div>
 
-            {/* Modal Body - Scrollable */}
+            {/* Modal Body */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              {/* Leave Information Section */}
-              <div>
-                <h4 className="text-base font-bold text-gray-800 mb-4">
-                  Leave Information
-                </h4>
-                <div className="grid grid-cols-2 gap-x-8 gap-y-5">
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                      Leave Type
-                    </p>
-                    <p className="text-sm text-gray-800">
-                      {selectedLeave.leave_type}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                      Type
-                    </p>
-                    <span className="inline-flex items-center px-3 py-1 rounded-md text-xs font-semibold bg-[#8b5cf6] text-white">
+              {/* Driver Info */}
+              <div className="flex items-center gap-4 pb-4 border-b border-gray-100">
+                <div className="w-12 h-12 rounded-md bg-primary/10 text-primary flex items-center justify-center font-bold text-lg">
+                  {selectedLeave.driver_name?.charAt(0) || "D"}
+                </div>
+                <div className="flex-1">
+                  <p className="text-lg font-bold text-primarytext">
+                    {selectedLeave.driver_name || "Unknown Driver"}
+                  </p>
+                  <div className="flex items-center gap-3 mt-1">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-primary/10 text-primary">
                       {selectedLeave.leave_type}
                     </span>
+                    <span
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold ${getStatusColor(selectedLeave).bg} ${getStatusColor(selectedLeave).text}`}
+                    >
+                      {getStatusLabel(selectedLeave)}
+                    </span>
                   </div>
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                      From Date
+                </div>
+              </div>
+
+              {/* Leave Details Grid */}
+              <div>
+                <h4 className="text-sm font-bold text-primarytext mb-3 flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-primary" />
+                  Leave Period
+                </h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-primarybg rounded-md p-3 border border-gray-100">
+                    <p className="text-xs font-semibold text-secondarytext mb-1">
+                      From
                     </p>
-                    <p className="text-sm font-medium text-gray-800">
+                    <p className="text-sm font-semibold text-primarytext">
                       {selectedLeave.start_date || "-"}
-                      {selectedLeave.start_time && (
-                        <span className="text-gray-600">
-                          , {selectedLeave.start_time}
-                        </span>
-                      )}
                     </p>
+                    {selectedLeave.start_time && (
+                      <p className="text-xs text-secondarytext mt-0.5">
+                        {selectedLeave.start_time}
+                      </p>
+                    )}
                   </div>
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                      To Date
+                  <div className="bg-primarybg rounded-md p-3 border border-gray-100">
+                    <p className="text-xs font-semibold text-secondarytext mb-1">
+                      To
                     </p>
-                    <p className="text-sm font-medium text-gray-800">
+                    <p className="text-sm font-semibold text-primarytext">
                       {selectedLeave.end_date || "-"}
-                      {selectedLeave.end_time && (
-                        <span className="text-gray-600">
-                          , {selectedLeave.end_time}
-                        </span>
-                      )}
                     </p>
+                    {selectedLeave.end_time && (
+                      <p className="text-xs text-secondarytext mt-0.5">
+                        {selectedLeave.end_time}
+                      </p>
+                    )}
                   </div>
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                      Gate Out
-                    </p>
-                    <p className="text-sm text-gray-800">
-                      {selectedLeave.start_time || "-"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                      Gate In
-                    </p>
-                    <p className="text-sm text-gray-800">
-                      {selectedLeave.end_time || "-"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                  <div className="bg-primarybg rounded-md p-3 border border-gray-100">
+                    <p className="text-xs font-semibold text-secondarytext mb-1">
                       Duration
                     </p>
-                    <p className="text-sm font-semibold text-gray-800">
+                    <p className="text-sm font-semibold text-primarytext">
                       {calculateDuration(
                         selectedLeave.start_date,
                         selectedLeave.end_date,
                       )}
                     </p>
                   </div>
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                      Status
+                  <div className="bg-primarybg rounded-md p-3 border border-gray-100">
+                    <p className="text-xs font-semibold text-secondarytext mb-1">
+                      Applied On
                     </p>
-                    <span
-                      className={`inline-flex items-center px-3 py-1 rounded-md text-xs font-semibold ${getStatusColor(selectedLeave).bg} ${getStatusColor(selectedLeave).text}`}
-                    >
-                      {getStatusLabel(selectedLeave)}
-                    </span>
-                  </div>
-                  <div className="col-span-2">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                      Remarks
-                    </p>
-                    <p className="text-sm text-gray-800">
-                      {selectedLeave.reason || "No remarks provided"}
+                    <p className="text-sm font-semibold text-primarytext">
+                      {selectedLeave.created_at || "-"}
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* Approval Status Section */}
-              <div className="border-t border-gray-200 pt-5">
-                <h4 className="text-base font-bold text-gray-800 mb-4">
+              {/* Reason */}
+              {selectedLeave.reason && (
+                <div>
+                  <h4 className="text-sm font-bold text-primarytext mb-2">
+                    Reason
+                  </h4>
+                  <p className="text-sm text-secondarytext bg-primarybg rounded-md p-3 border border-gray-100">
+                    {selectedLeave.reason}
+                  </p>
+                </div>
+              )}
+
+              {/* Approval Status */}
+              <div>
+                <h4 className="text-sm font-bold text-primarytext mb-3">
                   Approval Status
                 </h4>
                 <div className="space-y-3">
                   {/* Incharge Approval */}
-                  <div className="bg-gray-50 rounded-md p-4 border border-gray-200">
-                    <div className="flex items-start gap-3">
-                      <User className="w-5 h-5 text-gray-600 mt-0.5" />
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold text-gray-800 mb-1">
-                          Incharge Approval
-                        </p>
-                        {selectedLeave.incharge_name ? (
-                          <div>
-                            <p className="text-sm text-gray-700">
-                              {selectedLeave.incharge_name}
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1">
-                              {getStatus(selectedLeave) === "rejected" &&
-                              selectedLeave.incharge_id
-                                ? `Rejected by ${selectedLeave.incharge_name}`
-                                : selectedLeave.incharge_approved_at
-                                  ? `Approved by ${selectedLeave.incharge_name}`
-                                  : "Not yet reviewed"}
-                            </p>
-                          </div>
-                        ) : (
-                          <p className="text-sm text-gray-500">
-                            Not yet reviewed
+                  <div
+                    className={`rounded-md p-4 border ${inchargeApproved ? "bg-green-50 border-green-200" : inchargeRejected ? "bg-red-50 border-red-200" : "bg-gray-50 border-gray-200"}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <User className="w-5 h-5 text-secondarytext" />
+                        <div>
+                          <p className="text-sm font-semibold text-primarytext">
+                            Incharge
                           </p>
-                        )}
+                          {selectedLeave.incharge_name ? (
+                            <p className="text-xs text-secondarytext mt-0.5">
+                              {inchargeRejected ? "Rejected" : "Approved"} by{" "}
+                              {selectedLeave.incharge_name}
+                              {selectedLeave.incharge_approved_at && (
+                                <span>
+                                  {" "}
+                                  • {selectedLeave.incharge_approved_at}
+                                </span>
+                              )}
+                            </p>
+                          ) : (
+                            <p className="text-xs text-secondarytext mt-0.5">
+                              Not yet reviewed
+                            </p>
+                          )}
+                          {selectedLeave.incharge_remarks && (
+                            <p className="text-xs text-secondarytext mt-1 italic">
+                              &quot;{selectedLeave.incharge_remarks}&quot;
+                            </p>
+                          )}
+                        </div>
                       </div>
                       <span
-                        className={`px-3 py-1 rounded-md text-xs font-semibold ${
+                        className={`px-2.5 py-1 rounded-md text-xs font-semibold ${
                           inchargeApproved
                             ? "bg-green-100 text-green-700"
                             : inchargeRejected
@@ -446,35 +466,41 @@ export default function LeaveApprovals() {
                   </div>
 
                   {/* Admin Approval */}
-                  <div className="bg-blue-50 rounded-md p-4 border border-blue-200">
-                    <div className="flex items-start gap-3">
-                      <ShieldCheck className="w-5 h-5 text-blue-600 mt-0.5" />
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold text-gray-800 mb-1">
-                          Admin Approval
-                        </p>
-                        {selectedLeave.admin_name ? (
-                          <div>
-                            <p className="text-sm text-gray-700">
-                              {selectedLeave.admin_name}
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1">
-                              {getStatus(selectedLeave) === "rejected" &&
-                              selectedLeave.admin_id
-                                ? `Rejected by ${selectedLeave.admin_name}`
-                                : selectedLeave.admin_approved_at
-                                  ? `Approved by ${selectedLeave.admin_name}`
-                                  : "Not yet reviewed"}
-                            </p>
-                          </div>
-                        ) : (
-                          <p className="text-sm text-gray-500">
-                            Not yet reviewed
+                  <div
+                    className={`rounded-md p-4 border ${adminApproved ? "bg-green-50 border-green-200" : adminRejected ? "bg-red-50 border-red-200" : "bg-blue-50 border-blue-200"}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <ShieldCheck className="w-5 h-5 text-secondarytext" />
+                        <div>
+                          <p className="text-sm font-semibold text-primarytext">
+                            Admin
                           </p>
-                        )}
+                          {selectedLeave.admin_name ? (
+                            <p className="text-xs text-secondarytext mt-0.5">
+                              {adminRejected ? "Rejected" : "Approved"} by{" "}
+                              {selectedLeave.admin_name}
+                              {selectedLeave.admin_approved_at && (
+                                <span>
+                                  {" "}
+                                  • {selectedLeave.admin_approved_at}
+                                </span>
+                              )}
+                            </p>
+                          ) : (
+                            <p className="text-xs text-secondarytext mt-0.5">
+                              Not yet reviewed
+                            </p>
+                          )}
+                          {selectedLeave.admin_remarks && (
+                            <p className="text-xs text-secondarytext mt-1 italic">
+                              &quot;{selectedLeave.admin_remarks}&quot;
+                            </p>
+                          )}
+                        </div>
                       </div>
                       <span
-                        className={`px-3 py-1 rounded-md text-xs font-semibold ${
+                        className={`px-2.5 py-1 rounded-md text-xs font-semibold ${
                           adminApproved
                             ? "bg-green-100 text-green-700"
                             : adminRejected
@@ -493,11 +519,11 @@ export default function LeaveApprovals() {
                 </div>
               </div>
 
-              {/* Action Buttons for Pending Requests */}
+              {/* Remarks input for pending leaves */}
               {!selectedLeave.incharge_approved_at &&
                 getStatus(selectedLeave) !== "rejected" && (
-                  <div className="border-t border-gray-200 pt-5">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <div>
+                    <label className="block text-sm font-semibold text-primarytext mb-2">
                       Remarks (Optional)
                     </label>
                     <textarea
@@ -505,7 +531,7 @@ export default function LeaveApprovals() {
                       onChange={(e) => setRemarks(e.target.value)}
                       placeholder="Add your remarks here..."
                       rows="3"
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#8b5cf6]/30 focus:border-[#8b5cf6] text-sm resize-none"
+                      className="w-full px-3 py-2.5 bg-primarybg border border-gray-200 rounded-md text-sm text-primarytext placeholder:text-secondarytext hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none"
                     />
                   </div>
                 )}
@@ -517,11 +543,17 @@ export default function LeaveApprovals() {
               getStatus(selectedLeave) !== "rejected" ? (
                 <>
                   <button
+                    onClick={() => setShowLeaveModal(false)}
+                    className="px-5 py-2.5 bg-white hover:bg-gray-50 text-secondarytext border border-gray-200 rounded-md font-semibold text-sm transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
                     onClick={() =>
                       handleLeaveAction(selectedLeave.id, "rejected")
                     }
                     disabled={actionProcessing === selectedLeave.id}
-                    className="px-5 py-2.5 bg-white hover:bg-red-50 text-red-600 border border-red-200 rounded-md font-semibold text-sm transition-colors disabled:opacity-50 flex items-center gap-2"
+                    className="px-5 py-2.5 bg-white hover:bg-red-50 text-red border border-red/20 rounded-md font-semibold text-sm transition-colors disabled:opacity-50 flex items-center gap-2"
                   >
                     {actionProcessing === selectedLeave.id ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -535,20 +567,20 @@ export default function LeaveApprovals() {
                       handleLeaveAction(selectedLeave.id, "approved")
                     }
                     disabled={actionProcessing === selectedLeave.id}
-                    className="px-6 py-2.5 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white rounded-md font-semibold text-sm shadow-sm transition-all disabled:opacity-50 flex items-center gap-2"
+                    className="px-6 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-md font-semibold text-sm shadow-sm transition-all disabled:opacity-50 flex items-center gap-2"
                   >
                     {actionProcessing === selectedLeave.id ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
                       <CheckCircle2 className="w-4 h-4" />
                     )}
-                    Approve Leave
+                    Approve
                   </button>
                 </>
               ) : (
                 <button
                   onClick={() => setShowLeaveModal(false)}
-                  className="w-full py-3 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white rounded-md font-semibold text-sm transition-colors"
+                  className="px-6 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-md font-semibold text-sm transition-colors"
                 >
                   Close
                 </button>

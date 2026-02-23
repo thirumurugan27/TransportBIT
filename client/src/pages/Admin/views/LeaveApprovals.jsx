@@ -2,6 +2,7 @@ import React, {useState, useEffect} from "react";
 import Loading from "../../../components/ui/Loading";
 import {showError, showSuccess} from "../../../utils/swal";
 import CustomDropdown from "../../../components/ui/CustomDropdown";
+import SearchableDropdown from "../../../components/ui/SearchableDropdown";
 import {
   CheckCircle2,
   XCircle,
@@ -18,6 +19,7 @@ import {
   Users,
   ArrowRight,
   Calendar,
+  Plus,
 } from "lucide-react";
 import {
   calculateDuration,
@@ -54,6 +56,20 @@ export default function LeaveApprovals() {
   const [tempAssignments, setTempAssignments] = useState({});
   const [loadingAssignments, setLoadingAssignments] = useState(false);
 
+  // Apply leave modal states
+  const [showApplyLeaveModal, setShowApplyLeaveModal] = useState(false);
+  const [driversList, setDriversList] = useState([]);
+  const [applyLeaveLoading, setApplyLeaveLoading] = useState(false);
+  const [applyLeaveForm, setApplyLeaveForm] = useState({
+    driver_id: "",
+    leave_type: "Casual Leave",
+    start_date: "",
+    start_time: "09:00",
+    end_date: "",
+    end_time: "17:00",
+    reason: "",
+  });
+
   const fetchLeaveRequests = async () => {
     setLoading(true);
     try {
@@ -75,6 +91,74 @@ export default function LeaveApprovals() {
   useEffect(() => {
     fetchLeaveRequests();
   }, []);
+
+  // Fetch drivers list for apply leave modal
+  const fetchDriversList = async () => {
+    try {
+      const res = await apiGet("/api/admin/drivers");
+      if (res.ok) {
+        const data = await res.json();
+        setDriversList(Array.isArray(data) ? data : []);
+      }
+    } catch (err) {
+      console.error("Error fetching drivers:", err);
+    }
+  };
+
+  const openApplyLeaveModal = () => {
+    fetchDriversList();
+    setApplyLeaveForm({
+      driver_id: "",
+      leave_type: "Casual Leave",
+      start_date: "",
+      start_time: "09:00",
+      end_date: "",
+      end_time: "17:00",
+      reason: "",
+    });
+    setShowApplyLeaveModal(true);
+  };
+
+  const handleApplyLeave = async () => {
+    if (
+      !applyLeaveForm.driver_id ||
+      !applyLeaveForm.start_date ||
+      !applyLeaveForm.end_date
+    ) {
+      showError(
+        "Missing Fields",
+        "Please select a driver, start date, and end date.",
+      );
+      return;
+    }
+    setApplyLeaveLoading(true);
+    try {
+      const res = await apiPost("/api/admin/leave/apply", {
+        driver_id: parseInt(applyLeaveForm.driver_id),
+        leave_type: applyLeaveForm.leave_type,
+        start_date: applyLeaveForm.start_date,
+        start_time: applyLeaveForm.start_time + ":00",
+        end_date: applyLeaveForm.end_date,
+        end_time: applyLeaveForm.end_time + ":00",
+        reason: applyLeaveForm.reason,
+      });
+      if (res.ok) {
+        showSuccess(
+          "Leave Applied",
+          "Leave has been applied successfully on behalf of the driver.",
+        );
+        setShowApplyLeaveModal(false);
+        fetchLeaveRequests();
+      } else {
+        const errData = await res.json();
+        showError("Error", errData.error || "Failed to apply leave");
+      }
+    } catch (err) {
+      showError("Error", err.message);
+    } finally {
+      setApplyLeaveLoading(false);
+    }
+  };
 
   // Fetch affected assignments for a leave request
   const fetchAffectedAssignments = async (leaveId) => {
@@ -229,12 +313,19 @@ export default function LeaveApprovals() {
         <div>
           <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
             <ShieldCheck className="w-7 h-7 text-[#8b5cf6]" />
-            Leave Approvals - Admin
+            Leave Management
           </h1>
           <p className="text-sm text-gray-600 mt-1">
-            Final approval for driver leave requests
+            Apply leave on behalf of drivers and manage approvals
           </p>
         </div>
+        <button
+          onClick={openApplyLeaveModal}
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white rounded-md font-semibold text-sm shadow-sm transition-all"
+        >
+          <Plus className="w-4 h-4" />
+          Apply Leave
+        </button>
       </div>
 
       {/* Search and Filters */}
@@ -945,6 +1036,200 @@ export default function LeaveApprovals() {
                     : "Approve Leave"}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Apply Leave Modal */}
+      {showApplyLeaveModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/50 animate-fadeIn">
+          <div className="bg-white w-full max-w-lg rounded-md shadow-2xl animate-scaleIn overflow-hidden max-h-[90vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-[#8b5cf6]/5 to-transparent">
+              <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                <Plus className="w-5 h-5 text-[#8b5cf6]" />
+                Apply Leave (Admin)
+              </h3>
+              <button
+                onClick={() => setShowApplyLeaveModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-5">
+              {/* Driver Select */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                  Select Driver <span className="text-red-500">*</span>
+                </label>
+                <SearchableDropdown
+                  value={applyLeaveForm.driver_id}
+                  onChange={(val) =>
+                    setApplyLeaveForm((prev) => ({
+                      ...prev,
+                      driver_id: val,
+                    }))
+                  }
+                  options={driversList.map((d) => ({
+                    value: String(d.id || d.driver_id),
+                    label: `${d.full_name || d.name}${d.phone ? ` (${d.phone})` : ""}`,
+                  }))}
+                  placeholder="-- Select a driver --"
+                  searchPlaceholder="Search driver name or phone..."
+                  width="w-full"
+                />
+              </div>
+
+              {/* Leave Type */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                  Leave Type
+                </label>
+                <CustomDropdown
+                  value={applyLeaveForm.leave_type}
+                  onChange={(val) =>
+                    setApplyLeaveForm((prev) => ({
+                      ...prev,
+                      leave_type: val,
+                    }))
+                  }
+                  options={[
+                    {value: "Casual Leave", label: "Casual Leave"},
+                    {value: "Sick Leave", label: "Sick Leave"},
+                    {value: "Permission", label: "Permission"},
+                    {value: "Emergency Leave", label: "Emergency Leave"},
+                    {value: "Compensatory Off", label: "Compensatory Off"},
+                    {value: "Other", label: "Other"},
+                  ]}
+                  placeholder="Select leave type"
+                  width="w-full"
+                />
+              </div>
+
+              {/* Date Range */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                    Start Date <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={applyLeaveForm.start_date}
+                    onChange={(e) =>
+                      setApplyLeaveForm((prev) => ({
+                        ...prev,
+                        start_date: e.target.value,
+                      }))
+                    }
+                    className="w-full h-[42px] px-3 bg-primarybg border border-gray-200 rounded-md text-sm text-primarytext hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                    End Date <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={applyLeaveForm.end_date}
+                    onChange={(e) =>
+                      setApplyLeaveForm((prev) => ({
+                        ...prev,
+                        end_date: e.target.value,
+                      }))
+                    }
+                    className="w-full h-[42px] px-3 bg-primarybg border border-gray-200 rounded-md text-sm text-primarytext hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* Time Range */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                    Start Time
+                  </label>
+                  <input
+                    type="time"
+                    value={applyLeaveForm.start_time}
+                    onChange={(e) =>
+                      setApplyLeaveForm((prev) => ({
+                        ...prev,
+                        start_time: e.target.value,
+                      }))
+                    }
+                    className="w-full h-[42px] px-3 bg-primarybg border border-gray-200 rounded-md text-sm text-primarytext hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                    End Time
+                  </label>
+                  <input
+                    type="time"
+                    value={applyLeaveForm.end_time}
+                    onChange={(e) =>
+                      setApplyLeaveForm((prev) => ({
+                        ...prev,
+                        end_time: e.target.value,
+                      }))
+                    }
+                    className="w-full h-[42px] px-3 bg-primarybg border border-gray-200 rounded-md text-sm text-primarytext hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* Reason */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                  Reason
+                </label>
+                <textarea
+                  value={applyLeaveForm.reason}
+                  onChange={(e) =>
+                    setApplyLeaveForm((prev) => ({
+                      ...prev,
+                      reason: e.target.value,
+                    }))
+                  }
+                  placeholder="Reason for leave..."
+                  rows="3"
+                  className="w-full px-3 py-2.5 bg-primarybg border border-gray-200 rounded-md text-sm text-primarytext placeholder:text-secondarytext hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none"
+                />
+              </div>
+
+              <div className="bg-blue-50 border border-blue-100 rounded-md p-3">
+                <p className="text-xs text-blue-700">
+                  <strong>Note:</strong> Leave applied by admin will be
+                  auto-approved (admin_approved). Attendance will be
+                  automatically marked as absent for the leave period.
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setShowApplyLeaveModal(false)}
+                className="px-5 py-2.5 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 rounded-md font-semibold text-sm transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleApplyLeave}
+                disabled={applyLeaveLoading}
+                className="px-6 py-2.5 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white rounded-md font-semibold text-sm shadow-sm transition-all disabled:opacity-50 flex items-center gap-2"
+              >
+                {applyLeaveLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="w-4 h-4" />
+                )}
+                Apply Leave
+              </button>
             </div>
           </div>
         </div>

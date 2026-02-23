@@ -85,8 +85,8 @@ func GetVehicleGroups(c *gin.Context) {
 			    WHERE vgm.group_id = vg.id) as vehicle_count,
 			   DATE_FORMAT(vg.valid_from, '%d-%m-%Y'),
 			   DATE_FORMAT(vg.valid_to, '%d-%m-%Y'),
-			   DATE_FORMAT(vg.created_at, '%d-%m-%Y %H:%i'),
-			   DATE_FORMAT(vg.updated_at, '%d-%m-%Y %H:%i')
+			   DATE_FORMAT(vg.created_at, '%d-%m-%Y %h:%i %p'),
+			   DATE_FORMAT(vg.updated_at, '%d-%m-%Y %h:%i %p')
 		FROM vehicle_groups vg
 		ORDER BY vg.name
 	`)
@@ -362,8 +362,8 @@ func GetVehicleGroupDetails(c *gin.Context) {
 			    WHERE vgm.group_id = vg.id) as vehicle_count,
 			   DATE_FORMAT(vg.valid_from, '%d-%m-%Y'),
 			   DATE_FORMAT(vg.valid_to, '%d-%m-%Y'),
-			   DATE_FORMAT(vg.created_at, '%d-%m-%Y %H:%i'),
-			   DATE_FORMAT(vg.updated_at, '%d-%m-%Y %H:%i')
+			   DATE_FORMAT(vg.created_at, '%d-%m-%Y %h:%i %p'),
+			   DATE_FORMAT(vg.updated_at, '%d-%m-%Y %h:%i %p')
 		FROM vehicle_groups vg
 		WHERE vg.id = ?
 	`, id).Scan(&group.ID, &group.Name, &group.Description, &group.VehicleCount, &validFrom, &validTo, &createdAt, &updatedAt)
@@ -401,7 +401,7 @@ func GetVehicleGroupMembers(c *gin.Context) {
 		       v.vehicle_number, v.vehicle_type,
 		       DATE_FORMAT(vgm.valid_from, '%d-%m-%Y') as valid_from,
 		       DATE_FORMAT(vgm.valid_to, '%d-%m-%Y') as valid_to,
-		       DATE_FORMAT(vgm.added_at, '%d-%m-%Y %H:%i') as added_at
+		       DATE_FORMAT(vgm.added_at, '%d-%m-%Y %h:%i %p') as added_at
 		FROM vehicle_group_members vgm
 		JOIN vehicles v ON vgm.vehicle_id = v.id
 		WHERE vgm.group_id = ?

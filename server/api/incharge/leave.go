@@ -60,23 +60,28 @@ func GetPendingLeaveRequests(c *gin.Context) {
 			   DATE_FORMAT(lr.end_date, '%d-%m-%Y') as end_date,
 			   TIME_FORMAT(lr.end_time, '%h:%i %p') as end_time,
 			   lr.reason, lr.status,
-			   lr.incharge_id, u_inc.full_name as incharge_name, lr.incharge_approved_at, lr.incharge_remarks,
-			   lr.admin_id, u_adm.full_name as admin_name, lr.admin_approved_at, lr.admin_remarks,
-			   lr.created_at
-		FROM leave_requests lr
+			   lr.incharge_id, u_inc.full_name as incharge_name,
+			   DATE_FORMAT(lr.incharge_approved_at, '%d-%m-%Y %h:%i %p') as incharge_approved_at,
+			   lr.incharge_remarks,
+			   lr.admin_id, u_adm.full_name as admin_name,
+			   DATE_FORMAT(lr.admin_approved_at, '%d-%m-%Y %h:%i %p') as admin_approved_at,
+			   lr.admin_remarks,
+			   DATE_FORMAT(lr.created_at, '%d-%m-%Y %h:%i %p') as created_at
+		FROM leave_requests lr 
 		JOIN drivers d ON lr.driver_id = d.id
 		JOIN users u ON d.user_id = u.id
 		LEFT JOIN users u_inc ON lr.incharge_id = u_inc.id
 		LEFT JOIN users u_adm ON lr.admin_id = u_adm.id
-		WHERE lr.status IN ('pending', 'incharge_approved', 'rejected', 'admin_approved')
 		ORDER BY 
 			CASE 
 				WHEN lr.status = 'pending' THEN 1
 				WHEN lr.status = 'incharge_approved' THEN 2
-				ELSE 3
+				WHEN lr.status = 'admin_approved' THEN 3
+				WHEN lr.status = 'approved' THEN 4
+				ELSE 5
 			END,
 			lr.created_at DESC
-		LIMIT 100
+		LIMIT 200
 	`)
 	if err != nil {
 		log.Printf("Get pending leaves error: %v", err)
