@@ -382,7 +382,8 @@ func AddProductToOrder(c *gin.Context) {
 	// Get order details to inherit shared fields
 	var serviceRecordID int
 	var vendorID sql.NullInt64
-	var invoiceNumber, purchasedDate, status string
+	var invoiceNumber, status string
+	var purchasedDate sql.NullString
 	err := config.DB.QueryRow(`
 		SELECT service_record_id, vendor_id, COALESCE(invoice_number, ''), 
 			   purchased_date, status
@@ -401,6 +402,11 @@ func AddProductToOrder(c *gin.Context) {
 		vendorIDVal = vendorID.Int64
 	}
 
+	var purchasedDateVal interface{}
+	if purchasedDate.Valid && purchasedDate.String != "" {
+		purchasedDateVal = purchasedDate.String
+	}
+
 	result, err := config.DB.Exec(`
 		INSERT INTO parts_purchased 
 		(purchase_order_id, service_record_id, part_name, vendor_id,
@@ -409,8 +415,8 @@ func AddProductToOrder(c *gin.Context) {
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, req.PurchaseOrderID, serviceRecordID, req.PartName, vendorIDVal,
 		req.Quantity, req.UnitPrice, totalPrice, req.WarrantyMonths,
-		invoiceNumber, nilIfEmpty(purchasedDate),
-		status, nilIfEmpty(purchasedDate), adminID)
+		invoiceNumber, purchasedDateVal,
+		status, purchasedDateVal, adminID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add product: " + err.Error()})
 		return

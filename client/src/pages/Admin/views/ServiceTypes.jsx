@@ -216,75 +216,115 @@ export default function ServiceTypes() {
       {/* Modal */}
       {showModal && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn"
+          className="fixed inset-0 bg-black/60 overflow-y-auto z-50 animate-overlayFadeIn"
           onClick={closeModal}
         >
-          <div
-            className="bg-secondarybg rounded-md shadow-xl max-w-md w-full animate-scaleIn"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-primarytext">
-                {editingType ? "Edit Service Type" : "Add Service Type"}
-              </h3>
-              <button
-                onClick={closeModal}
-                className="text-secondarytext hover:text-primarytext transition-colors"
-              >
-                <X size={20} />
-              </button>
+          <div className="flex items-start justify-center min-h-full p-6">
+            <div
+              className="bg-secondarybg rounded-md shadow-2xl w-full max-w-lg my-8 animate-modalSlideIn"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-5 border-b border-primarybg">
+                <div className="flex items-center gap-4">
+                  <div className="w-11 h-11 bg-primary rounded-md flex items-center justify-center shadow-md">
+                    <Settings size={20} className="text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-primarytext">
+                      {editingType ? "Edit Service Type" : "Add Service Type"}
+                    </h3>
+                    <p className="text-xs text-secondarytext mt-0.5">
+                      {editingType
+                        ? "Update service category details"
+                        : "Create a new service category"}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={closeModal}
+                  className="p-2 hover:bg-primarybg rounded-md transition-colors text-secondarytext hover:text-primarytext"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Body */}
+              <form onSubmit={handleSubmit} className="p-6 space-y-5">
+                <div className="bg-primarybg rounded-md p-5 space-y-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Settings size={14} className="text-secondarytext" />
+                    <p className="text-xs font-bold text-secondarytext uppercase tracking-wider">
+                      Service Details
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
+                      Name <span className="text-red">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={form.name}
+                      onChange={(e) => setForm({...form, name: e.target.value})}
+                      className="w-full bg-secondarybg border border-primarybg rounded-md px-3 py-2.5 text-sm text-primarytext focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      placeholder="e.g., Oil Change"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
+                      Description
+                    </label>
+                    <textarea
+                      value={form.description}
+                      onChange={(e) =>
+                        setForm({...form, description: e.target.value})
+                      }
+                      className="w-full bg-secondarybg border border-primarybg rounded-md px-3 py-2.5 text-sm text-primarytext focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
+                      rows={3}
+                      placeholder="Brief description of this service type"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
+                      Estimated Duration (hours)
+                    </label>
+                    <input
+                      type="number"
+                      value={form.estimated_duration_hours}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          estimated_duration_hours: e.target.value,
+                        })
+                      }
+                      className="w-full bg-secondarybg border border-primarybg rounded-md px-3 py-2.5 text-sm text-primarytext focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      step="0.5"
+                      min="0"
+                      placeholder="e.g., 2"
+                    />
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="flex justify-end gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    className="px-5 py-2.5 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 rounded-md transition-colors font-semibold text-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors font-semibold text-sm flex items-center gap-2"
+                  >
+                    {editingType ? <Edit2 size={15} /> : <Plus size={15} />}
+                    {editingType ? "Update Type" : "Create Service Type"}
+                  </button>
+                </div>
+              </form>
             </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                  Name
-                </label>
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={(e) => setForm({...form, name: e.target.value})}
-                  className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  placeholder="e.g., Oil Change"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                  Description
-                </label>
-                <textarea
-                  value={form.description}
-                  onChange={(e) =>
-                    setForm({...form, description: e.target.value})
-                  }
-                  className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
-                  rows={3}
-                  placeholder="Brief description"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                  Estimated Duration (hours)
-                </label>
-                <input
-                  type="number"
-                  value={form.estimated_duration_hours}
-                  onChange={(e) =>
-                    setForm({...form, estimated_duration_hours: e.target.value})
-                  }
-                  className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  step="0.5"
-                  min="0"
-                  placeholder="e.g., 2"
-                />
-              </div>
-              <button
-                type="submit"
-                className="w-full bg-primary text-white rounded-md py-2.5 font-medium hover:bg-primary/90 transition-colors"
-              >
-                {editingType ? "Update" : "Create Service Type"}
-              </button>
-            </form>
           </div>
         </div>
       )}

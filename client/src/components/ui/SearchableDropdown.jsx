@@ -13,6 +13,7 @@ import {ChevronDown, Check, Search, X} from "lucide-react";
  * @param {string} className - Additional CSS classes for the container
  * @param {string} width - Width of the dropdown (default: "w-48")
  * @param {string} searchPlaceholder - Placeholder for search input
+ * @param {boolean} isWhite - Use white background instead of primarybg (default: false)
  */
 export default function SearchableDropdown({
   value,
@@ -22,6 +23,7 @@ export default function SearchableDropdown({
   className = "",
   width = "w-48",
   searchPlaceholder = "Search...",
+  isWhite = false,
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -133,7 +135,7 @@ export default function SearchableDropdown({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full h-[42px] px-3 bg-primarybg border border-gray-200 rounded-md text-sm text-left flex items-center justify-between gap-2 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+        className={`w-full h-[42px] px-3 ${isWhite ? "bg-white" : "bg-primarybg"} border border-gray-200 rounded-md text-sm text-left flex items-center justify-between gap-2 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all`}
       >
         <span
           className={
@@ -152,7 +154,9 @@ export default function SearchableDropdown({
 
       {/* Dropdown Panel */}
       {isOpen && (
-        <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg animate-in fade-in duration-150">
+        <div
+          className={`absolute z-50 mt-1 w-full ${isWhite ? "bg-white" : "bg-primarybg"} border border-gray-200 rounded-md shadow-lg animate-in fade-in duration-150`}
+        >
           {/* Search Input */}
           <div className="p-2 border-b border-gray-100">
             <div className="relative">
@@ -166,7 +170,7 @@ export default function SearchableDropdown({
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder={searchPlaceholder}
-                className="w-full pl-8 pr-8 py-2 text-sm border border-gray-200 rounded-md bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-secondarytext"
+                className={`w-full pl-8 pr-8 py-2 text-sm border border-gray-200 rounded-md ${isWhite ? "bg-white" : "bg-primarybg"} focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-secondarytext`}
               />
               {searchTerm && (
                 <button
@@ -206,7 +210,7 @@ export default function SearchableDropdown({
                     setSearchTerm("");
                   }}
                   onMouseEnter={() => setHighlightedIndex(index)}
-                  className={`w-full px-3 py-2 text-sm text-left flex items-center justify-between transition-colors ${
+                  className={`w-full px-3 py-2 text-sm text-left flex items-center justify-between transition-colors ${isWhite ? "hover:bg-gray-50" : "hover:bg-primarybg/70"} ${
                     value === option.value
                       ? "text-primary font-medium bg-primary/5"
                       : highlightedIndex === index
@@ -225,7 +229,9 @@ export default function SearchableDropdown({
 
           {/* Footer count */}
           {searchTerm && filteredOptions.length > 0 && (
-            <div className="px-3 py-1.5 text-xs text-secondarytext border-t border-gray-100 bg-gray-50">
+            <div
+              className={`px-3 py-1.5 text-xs text-secondarytext border-t border-gray-100 ${isWhite ? "bg-gray-50" : "bg-primarybg/50"}`}
+            >
               Showing {filteredOptions.length} of {options.length}
             </div>
           )}

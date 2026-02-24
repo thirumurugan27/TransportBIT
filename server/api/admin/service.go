@@ -570,10 +570,10 @@ func CompleteServiceRecord(c *gin.Context) {
 		return
 	}
 
-	// Set vehicle status back to active
+	// Set vehicle status back to available
 	var vehicleID int
 	tx.QueryRow(`SELECT vehicle_id FROM service_records WHERE id = ?`, idInt).Scan(&vehicleID)
-	_, err = tx.Exec(`UPDATE vehicles SET status = 'active' WHERE id = ?`, vehicleID)
+	_, err = tx.Exec(`UPDATE vehicles SET status = 'available' WHERE id = ?`, vehicleID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to restore vehicle status: " + err.Error()})
 		return
@@ -603,7 +603,70 @@ func CompleteServiceRecord(c *gin.Context) {
 	config.DB.QueryRow(`SELECT title FROM service_records WHERE id = ?`, idInt).Scan(&title)
 	go notifyDriversOfService(idInt, vehicleID, title, "service_completed")
 
-	c.JSON(http.StatusOK, gin.H{"message": "Service completed, vehicle restored to active"})
+	c.JSON(http.StatusOK, gin.H{"message": "Service completed, vehicle status set to available"})
+}
+
+// CancelServiceRecord cancels a service record (from reported, approved, or in_progress)
+func CancelServiceRecord(c *gin.Context) {
+	id := c.Param("id")
+	idInt, err := strconv.Atoi(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid service record ID"})
+		return
+	}
+
+	var body struct {
+		Reason string `json:"reason"`
+	}
+	c.ShouldBindJSON(&body)
+
+	// Get current status and vehicle ID
+	var currentStatus string
+	var vehicleID int
+	err = config.DB.QueryRow(`SELECT status, vehicle_id FROM service_records WHERE id = ?`, idInt).Scan(&currentStatus, &vehicleID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Service record not found"})
+		return
+	}
+
+	// Only allow cancel from certain states
+	if currentStatus == "completed" || currentStatus == "cancelled" || currentStatus == "rejected" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot cancel a service that is already " + currentStatus})
+		return
+	}
+
+	tx, err := config.DB.Begin()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+		return
+	}
+	defer tx.Rollback()
+
+	// Cancel the service record
+	_, err = tx.Exec(`
+		UPDATE service_records SET status = 'cancelled', admin_remarks = ?
+		WHERE id = ?
+	`, body.Reason, idInt)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to cancel service: " + err.Error()})
+		return
+	}
+
+	// If it was in_progress, restore the vehicle to available
+	if currentStatus == "in_progress" {
+		_, err = tx.Exec(`UPDATE vehicles SET status = 'available' WHERE id = ?`, vehicleID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to restore vehicle status: " + err.Error()})
+			return
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Service cancelled successfully"})
 }
 
 // DeleteServiceRecord deletes a service record
@@ -619,7 +682,7 @@ func DeleteServiceRecord(c *gin.Context) {
 	var vehicleID int
 	config.DB.QueryRow(`SELECT status, vehicle_id FROM service_records WHERE id = ?`, id).Scan(&status, &vehicleID)
 	if status == "in_progress" {
-		config.DB.Exec(`UPDATE vehicles SET status = 'active' WHERE id = ?`, vehicleID)
+		config.DB.Exec(`UPDATE vehicles SET status = 'available' WHERE id = ?`, vehicleID)
 	}
 
 	_, err := config.DB.Exec(`DELETE FROM service_records WHERE id = ?`, id)
@@ -835,7 +898,7 @@ func notifyDriversOfService(serviceID int, vehicleID int, serviceTitle string, n
 		messageText = fmt.Sprintf("Your service request '%s' has been approved.", serviceTitle)
 	case "service_completed":
 		titleText = "Service Completed"
-		messageText = fmt.Sprintf("Service '%s' for your vehicle has been completed. Vehicle is now active.", serviceTitle)
+		messageText = fmt.Sprintf("Service '%s' for your vehicle has been completed. Vehicle is now available.", serviceTitle)
 	default:
 		titleText = "Service Update"
 		messageText = fmt.Sprintf("Update for service: %s", serviceTitle)

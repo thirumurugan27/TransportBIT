@@ -420,30 +420,30 @@ export default function ServiceReminders() {
       {/* Detail Modal */}
       {showDetailModal && selectedVehicle && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn"
+          className="fixed inset-0 bg-black/60 overflow-y-auto z-50 animate-overlayFadeIn"
           onClick={closeDetail}
         >
-          <div
-            className="bg-secondarybg rounded-md shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-scaleIn"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="p-6 border-b border-gray-100">
-              <div className="flex items-start justify-between">
+          <div className="flex items-start justify-center min-h-full p-6">
+            <div
+              className="bg-secondarybg rounded-md shadow-2xl w-full max-w-2xl my-8 animate-modalSlideIn"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-5 border-b border-primarybg">
                 <div className="flex items-center gap-4">
                   <div
-                    className={`w-14 h-14 rounded-md ${STATUS_CONFIG[selectedVehicle.status]?.headerBg || "bg-primary"} flex items-center justify-center shadow-md`}
+                    className={`w-12 h-12 rounded-md ${STATUS_CONFIG[selectedVehicle.status]?.headerBg || "bg-primary"} flex items-center justify-center shadow-md`}
                   >
                     {getVehicleIcon(selectedVehicle.vehicle_type)}
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-primarytext">
+                    <h2 className="text-lg font-bold text-primarytext">
                       {selectedVehicle.vehicle_name ||
                         selectedVehicle.vehicle_number}
                     </h2>
                     <div className="flex items-center gap-2 mt-1">
                       {selectedVehicle.vehicle_name && (
-                        <span className="text-sm text-secondarytext">
+                        <span className="text-xs text-secondarytext">
                           {selectedVehicle.vehicle_number}
                         </span>
                       )}
@@ -460,311 +460,329 @@ export default function ServiceReminders() {
                 </div>
                 <button
                   onClick={closeDetail}
-                  className="text-secondarytext hover:text-primarytext p-2 hover:bg-primarybg rounded-md transition-colors"
+                  className="p-2 hover:bg-primarybg rounded-md transition-colors text-secondarytext hover:text-primarytext"
                 >
-                  <X size={20} />
+                  <X size={18} />
                 </button>
               </div>
-            </div>
 
-            {/* Content */}
-            {!isEditing ? (
-              <>
-                <div className="p-6 space-y-4">
-                  {/* KM Overview Section */}
-                  <div className="bg-primarybg rounded-md p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Gauge size={16} className="text-primary" />
-                      <h4 className="text-sm font-bold text-secondarytext uppercase tracking-wide">
-                        KM Overview
-                      </h4>
+              {/* Content */}
+              {!isEditing ? (
+                <>
+                  <div className="p-6 space-y-5">
+                    {/* KM Overview Section */}
+                    <div className="bg-primarybg rounded-md p-5">
+                      <div className="flex items-center gap-2 mb-4">
+                        <Gauge size={16} className="text-primary" />
+                        <h4 className="text-xs font-bold text-secondarytext uppercase tracking-wider">
+                          KM Overview
+                        </h4>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="text-center bg-secondarybg rounded-md p-3">
+                          <p className="text-xs text-secondarytext font-medium mb-1">
+                            Serviced At
+                          </p>
+                          <p className="text-lg font-bold text-primarytext">
+                            {selectedVehicle.last_serviced_km.toLocaleString()}
+                          </p>
+                          <p className="text-[11px] text-secondarytext">km</p>
+                        </div>
+                        <div className="text-center bg-secondarybg rounded-md p-3">
+                          <p className="text-xs text-secondarytext font-medium mb-1">
+                            Current KM
+                          </p>
+                          <p className="text-lg font-bold text-primarytext">
+                            {selectedVehicle.current_km.toLocaleString()}
+                          </p>
+                          <p className="text-[11px] text-secondarytext">km</p>
+                        </div>
+                        <div className="text-center bg-secondarybg rounded-md p-3">
+                          <p className="text-xs text-secondarytext font-medium mb-1">
+                            To Be Serviced
+                          </p>
+                          <p className="text-lg font-bold text-primarytext">
+                            {selectedVehicle.next_service_km.toLocaleString()}
+                          </p>
+                          <p className="text-[11px] text-secondarytext">km</p>
+                        </div>
+                      </div>
                     </div>
-                    <div className="grid grid-cols-3 gap-4">
-                      <div className="text-center bg-secondarybg rounded-md p-3">
-                        <p className="text-xs text-secondarytext font-medium mb-1">
-                          Serviced At
-                        </p>
-                        <p className="text-lg font-bold text-primarytext">
-                          {selectedVehicle.last_serviced_km.toLocaleString()}
-                        </p>
-                        <p className="text-[11px] text-secondarytext">km</p>
+
+                    {/* Progress & Remaining */}
+                    <div className="bg-primarybg rounded-md p-5">
+                      <div className="flex items-center gap-2 mb-4">
+                        <AlertTriangle size={16} className="text-primary" />
+                        <h4 className="text-xs font-bold text-secondarytext uppercase tracking-wider">
+                          Service Progress
+                        </h4>
                       </div>
-                      <div className="text-center bg-secondarybg rounded-md p-3">
-                        <p className="text-xs text-secondarytext font-medium mb-1">
-                          Current KM
-                        </p>
-                        <p className="text-lg font-bold text-primarytext">
-                          {selectedVehicle.current_km.toLocaleString()}
-                        </p>
-                        <p className="text-[11px] text-secondarytext">km</p>
-                      </div>
-                      <div className="text-center bg-secondarybg rounded-md p-3">
-                        <p className="text-xs text-secondarytext font-medium mb-1">
-                          To Be Serviced
-                        </p>
-                        <p className="text-lg font-bold text-primarytext">
-                          {selectedVehicle.next_service_km.toLocaleString()}
-                        </p>
-                        <p className="text-[11px] text-secondarytext">km</p>
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-secondarytext">
+                            Remaining KM
+                          </span>
+                          <span
+                            className={`text-sm font-bold px-2.5 py-1 rounded-md ${getKmStatusColor(selectedVehicle.remaining_km)}`}
+                          >
+                            {selectedVehicle.remaining_km <= 0
+                              ? `${Math.abs(selectedVehicle.remaining_km).toLocaleString()} km overdue`
+                              : `${selectedVehicle.remaining_km.toLocaleString()} km`}
+                          </span>
+                        </div>
+                        <div>
+                          <div className="w-full bg-primarybg rounded-full h-2.5">
+                            <div
+                              className={`h-2.5 rounded-full transition-all ${STATUS_CONFIG[selectedVehicle.status]?.progressColor}`}
+                              style={{
+                                width: `${Math.min(100, getProgressPercent(selectedVehicle))}%`,
+                              }}
+                            />
+                          </div>
+                          <div className="flex justify-between mt-1">
+                            <span className="text-[11px] text-secondarytext">
+                              {selectedVehicle.last_serviced_km.toLocaleString()}{" "}
+                              km
+                            </span>
+                            <span className="text-[11px] text-secondarytext font-medium">
+                              {Math.round(getProgressPercent(selectedVehicle))}%
+                              used
+                            </span>
+                            <span className="text-[11px] text-secondarytext">
+                              {selectedVehicle.next_service_km.toLocaleString()}{" "}
+                              km
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     </div>
+
+                    {/* Dates Section */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-primarybg rounded-md p-5">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Calendar size={16} className="text-primary" />
+                          <h4 className="text-xs font-bold text-secondarytext uppercase tracking-wider">
+                            Service Dates
+                          </h4>
+                        </div>
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-secondarytext">
+                              Last Service
+                            </span>
+                            <span className="text-sm font-semibold text-primarytext">
+                              {selectedVehicle.last_service_date || "Not set"}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-secondarytext">
+                              Next Service
+                            </span>
+                            <span className="text-sm font-semibold text-primarytext">
+                              {selectedVehicle.next_service_date || "Not set"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-primarybg rounded-md p-5">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Clock size={16} className="text-primary" />
+                          <h4 className="text-xs font-bold text-secondarytext uppercase tracking-wider">
+                            Record Info
+                          </h4>
+                        </div>
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-secondarytext">
+                              Created
+                            </span>
+                            <span className="text-sm font-semibold text-primarytext">
+                              {selectedVehicle.created_at || "-"}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-secondarytext">
+                              Updated
+                            </span>
+                            <span className="text-sm font-semibold text-primarytext">
+                              {selectedVehicle.updated_at || "-"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Notes */}
+                    {selectedVehicle.notes && (
+                      <div className="bg-primarybg rounded-md p-5">
+                        <div className="flex items-center gap-2 mb-3">
+                          <StickyNote size={16} className="text-primary" />
+                          <h4 className="text-xs font-bold text-secondarytext uppercase tracking-wider">
+                            Notes
+                          </h4>
+                        </div>
+                        <p className="text-sm text-primarytext whitespace-pre-wrap">
+                          {selectedVehicle.notes}
+                        </p>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Progress & Remaining */}
-                  <div className="bg-primarybg rounded-md p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <AlertTriangle size={16} className="text-primary" />
-                      <h4 className="text-sm font-bold text-secondarytext uppercase tracking-wide">
-                        Service Progress
-                      </h4>
+                  {/* Footer Actions */}
+                  <div className="px-6 py-4 border-t border-primarybg flex justify-end items-center gap-3">
+                    <button
+                      onClick={closeDetail}
+                      className="px-5 py-2.5 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 rounded-md font-semibold text-sm transition-colors"
+                    >
+                      Close
+                    </button>
+                    <button
+                      onClick={startEditing}
+                      className="px-5 py-2.5 bg-primary text-white rounded-md font-semibold text-sm flex items-center gap-2 hover:bg-primarydull transition-colors shadow-md"
+                    >
+                      <Pencil size={16} />
+                      Edit Service Data
+                    </button>
+                  </div>
+                </>
+              ) : (
+                /* Edit Form */
+                <form onSubmit={handleEditSubmit} className="p-6 space-y-5">
+                  {/* KM Section */}
+                  <div className="bg-primarybg rounded-md p-5 space-y-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Gauge size={14} className="text-secondarytext" />
+                      <p className="text-xs font-bold text-secondarytext uppercase tracking-wider">
+                        KM Tracking
+                      </p>
                     </div>
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-secondarytext">
-                          Remaining KM
-                        </span>
-                        <span
-                          className={`text-sm font-bold px-2.5 py-1 rounded-md ${getKmStatusColor(selectedVehicle.remaining_km)}`}
-                        >
-                          {selectedVehicle.remaining_km <= 0
-                            ? `${Math.abs(selectedVehicle.remaining_km).toLocaleString()} km overdue`
-                            : `${selectedVehicle.remaining_km.toLocaleString()} km`}
-                        </span>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
+                          Serviced At (KM) <span className="text-red">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          value={editForm.last_serviced_km}
+                          onChange={(e) =>
+                            setEditForm({
+                              ...editForm,
+                              last_serviced_km: e.target.value,
+                            })
+                          }
+                          className="w-full bg-secondarybg border border-primarybg rounded-md px-3 py-2.5 text-sm text-primarytext focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                          min="0"
+                          required
+                        />
+                        <p className="text-[11px] text-secondarytext mt-1">
+                          KM when last serviced
+                        </p>
                       </div>
                       <div>
-                        <div className="w-full bg-gray-200 rounded-full h-2.5">
-                          <div
-                            className={`h-2.5 rounded-full transition-all ${STATUS_CONFIG[selectedVehicle.status]?.progressColor}`}
-                            style={{
-                              width: `${Math.min(100, getProgressPercent(selectedVehicle))}%`,
-                            }}
-                          />
-                        </div>
-                        <div className="flex justify-between mt-1">
-                          <span className="text-[11px] text-secondarytext">
-                            {selectedVehicle.last_serviced_km.toLocaleString()}{" "}
-                            km
-                          </span>
-                          <span className="text-[11px] text-secondarytext font-medium">
-                            {Math.round(getProgressPercent(selectedVehicle))}%
-                            used
-                          </span>
-                          <span className="text-[11px] text-secondarytext">
-                            {selectedVehicle.next_service_km.toLocaleString()}{" "}
-                            km
-                          </span>
-                        </div>
+                        <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
+                          To Be Serviced (KM){" "}
+                          <span className="text-red">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          value={editForm.next_service_km}
+                          onChange={(e) =>
+                            setEditForm({
+                              ...editForm,
+                              next_service_km: e.target.value,
+                            })
+                          }
+                          className="w-full bg-secondarybg border border-primarybg rounded-md px-3 py-2.5 text-sm text-primarytext focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                          min="1"
+                          required
+                        />
+                        <p className="text-[11px] text-secondarytext mt-1">
+                          KM at which next service is due
+                        </p>
                       </div>
                     </div>
                   </div>
 
                   {/* Dates Section */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-primarybg rounded-md p-4">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Calendar size={16} className="text-primary" />
-                        <h4 className="text-sm font-bold text-secondarytext uppercase tracking-wide">
-                          Service Dates
-                        </h4>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-secondarytext">
-                            Last Service
-                          </span>
-                          <span className="text-sm font-semibold text-primarytext">
-                            {selectedVehicle.last_service_date || "Not set"}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-secondarytext">
-                            Next Service
-                          </span>
-                          <span className="text-sm font-semibold text-primarytext">
-                            {selectedVehicle.next_service_date || "Not set"}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="bg-primarybg rounded-md p-4">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Clock size={16} className="text-primary" />
-                        <h4 className="text-sm font-bold text-secondarytext uppercase tracking-wide">
-                          Record Info
-                        </h4>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-secondarytext">
-                            Created
-                          </span>
-                          <span className="text-sm font-semibold text-primarytext">
-                            {selectedVehicle.created_at || "-"}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-secondarytext">
-                            Updated
-                          </span>
-                          <span className="text-sm font-semibold text-primarytext">
-                            {selectedVehicle.updated_at || "-"}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Notes */}
-                  {selectedVehicle.notes && (
-                    <div className="bg-primarybg rounded-md p-4">
-                      <div className="flex items-center gap-2 mb-3">
-                        <StickyNote size={16} className="text-primary" />
-                        <h4 className="text-sm font-bold text-secondarytext uppercase tracking-wide">
-                          Notes
-                        </h4>
-                      </div>
-                      <p className="text-sm text-primarytext whitespace-pre-wrap">
-                        {selectedVehicle.notes}
+                  <div className="bg-primarybg rounded-md p-5 space-y-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Calendar size={14} className="text-secondarytext" />
+                      <p className="text-xs font-bold text-secondarytext uppercase tracking-wider">
+                        Service Dates
                       </p>
                     </div>
-                  )}
-                </div>
-
-                {/* Footer Actions */}
-                <div className="px-6 py-4 border-t border-gray-100 flex justify-end items-center gap-3">
-                  <button
-                    onClick={closeDetail}
-                    className="px-5 py-2.5 text-secondarytext hover:bg-primarybg rounded-md font-semibold text-sm transition-colors"
-                  >
-                    Close
-                  </button>
-                  <button
-                    onClick={startEditing}
-                    className="px-5 py-2.5 bg-primary text-white rounded-md font-semibold text-sm flex items-center gap-2 hover:bg-primary/90 transition-all shadow-md hover:shadow-lg"
-                  >
-                    <Pencil size={16} />
-                    Edit Service Data
-                  </button>
-                </div>
-              </>
-            ) : (
-              /* Edit Form */
-              <form onSubmit={handleEditSubmit} className="p-6 space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                      Serviced At (KM)
-                    </label>
-                    <input
-                      type="number"
-                      value={editForm.last_serviced_km}
-                      onChange={(e) =>
-                        setEditForm({
-                          ...editForm,
-                          last_serviced_km: e.target.value,
-                        })
-                      }
-                      className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                      min="0"
-                      required
-                    />
-                    <p className="text-[11px] text-secondarytext mt-1">
-                      KM when last serviced
-                    </p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
+                          Last Service Date
+                        </label>
+                        <input
+                          type="date"
+                          value={editForm.last_service_date}
+                          onChange={(e) =>
+                            setEditForm({
+                              ...editForm,
+                              last_service_date: e.target.value,
+                            })
+                          }
+                          className="w-full bg-secondarybg border border-primarybg rounded-md px-3 py-2.5 text-sm text-primarytext focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
+                          Next Service Date
+                        </label>
+                        <input
+                          type="date"
+                          value={editForm.next_service_date}
+                          onChange={(e) =>
+                            setEditForm({
+                              ...editForm,
+                              next_service_date: e.target.value,
+                            })
+                          }
+                          className="w-full bg-secondarybg border border-primarybg rounded-md px-3 py-2.5 text-sm text-primarytext focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
+                        Notes
+                      </label>
+                      <textarea
+                        value={editForm.notes}
+                        onChange={(e) =>
+                          setEditForm({...editForm, notes: e.target.value})
+                        }
+                        className="w-full bg-secondarybg border border-primarybg rounded-md px-3 py-2.5 text-sm text-primarytext focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
+                        rows={3}
+                        placeholder="Service notes or remarks..."
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                      To Be Serviced (KM)
-                    </label>
-                    <input
-                      type="number"
-                      value={editForm.next_service_km}
-                      onChange={(e) =>
-                        setEditForm({
-                          ...editForm,
-                          next_service_km: e.target.value,
-                        })
-                      }
-                      className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                      min="1"
-                      required
-                    />
-                    <p className="text-[11px] text-secondarytext mt-1">
-                      KM at which next service is due
-                    </p>
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                      Last Service Date
-                    </label>
-                    <input
-                      type="date"
-                      value={editForm.last_service_date}
-                      onChange={(e) =>
-                        setEditForm({
-                          ...editForm,
-                          last_service_date: e.target.value,
-                        })
-                      }
-                      className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    />
+                  <div className="flex justify-end gap-3 pt-1">
+                    <button
+                      type="button"
+                      onClick={cancelEditing}
+                      className="px-5 py-2.5 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 rounded-md transition-colors font-semibold text-sm"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={saving}
+                      className="px-5 py-2.5 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors font-semibold text-sm flex items-center gap-2 disabled:opacity-50"
+                    >
+                      <Save size={16} />
+                      {saving ? "Saving..." : "Save Changes"}
+                    </button>
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                      Next Service Date
-                    </label>
-                    <input
-                      type="date"
-                      value={editForm.next_service_date}
-                      onChange={(e) =>
-                        setEditForm({
-                          ...editForm,
-                          next_service_date: e.target.value,
-                        })
-                      }
-                      className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                    Notes
-                  </label>
-                  <textarea
-                    value={editForm.notes}
-                    onChange={(e) =>
-                      setEditForm({...editForm, notes: e.target.value})
-                    }
-                    className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
-                    rows={3}
-                    placeholder="Service notes or remarks..."
-                  />
-                </div>
-
-                <div className="flex justify-end gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={cancelEditing}
-                    className="px-5 py-2.5 text-secondarytext hover:bg-primarybg rounded-md font-semibold text-sm transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="px-5 py-2.5 bg-primary text-white rounded-md font-semibold text-sm flex items-center gap-2 hover:bg-primary/90 transition-all shadow-md hover:shadow-lg disabled:opacity-50"
-                  >
-                    <Save size={16} />
-                    {saving ? "Saving..." : "Save Changes"}
-                  </button>
-                </div>
-              </form>
-            )}
+                </form>
+              )}
+            </div>
           </div>
         </div>
       )}

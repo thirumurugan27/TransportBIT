@@ -1,15 +1,16 @@
-import React, { useState, useRef, useEffect } from "react";
-import { ChevronDown, Check } from "lucide-react";
+import React, {useState, useRef, useEffect} from "react";
+import {ChevronDown, Check} from "lucide-react";
 
 /**
  * CustomDropdown - A professional dropdown select component
  *
  * @param {string} value - Current selected value
  * @param {function} onChange - Callback when value changes
- * @param {Array} options - Array of { value: string, label: string }
+ * @param {Array} options - Array of { value: string, label: string, icon?: React.Component, iconColor?: string }
  * @param {string} placeholder - Placeholder text when no value selected
  * @param {string} className - Additional CSS classes for the container
  * @param {string} width - Width of the dropdown (default: "w-48")
+ * @param {boolean} isWhite - Use white background instead of primarybg (default: false)
  */
 export default function CustomDropdown({
   value,
@@ -18,6 +19,7 @@ export default function CustomDropdown({
   placeholder = "Select...",
   className = "",
   width = "w-48",
+  isWhite = false,
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -33,17 +35,26 @@ export default function CustomDropdown({
   }, []);
 
   const selectedOption = options.find((opt) => opt.value === value);
+  const SelectedIcon = selectedOption?.icon;
+  const selectedIconColor = selectedOption?.iconColor || "text-primary";
+
+  const bgClass = isWhite ? "bg-white" : "bg-primarybg";
+  const dropdownBgClass = isWhite ? "bg-white" : "bg-primarybg";
+  const hoverBgClass = isWhite ? "hover:bg-gray-50" : "hover:bg-primarybg/70";
 
   return (
     <div ref={dropdownRef} className={`relative ${width} ${className}`}>
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full h-[42px] px-3 bg-primarybg border border-gray-200 rounded-md text-sm text-left flex items-center justify-between gap-2 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+        className={`w-full h-[42px] px-3 ${bgClass} border border-gray-200 rounded-md text-sm text-left flex items-center justify-between gap-2 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all`}
       >
         <span
-          className={selectedOption ? "text-primarytext" : "text-secondarytext"}
+          className={`flex items-center gap-2 ${selectedOption ? "text-primarytext" : "text-secondarytext"}`}
         >
+          {SelectedIcon && (
+            <SelectedIcon size={15} className={selectedIconColor} />
+          )}
           {selectedOption?.label || placeholder}
         </span>
         <ChevronDown
@@ -53,26 +64,38 @@ export default function CustomDropdown({
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg py-1 animate-in fade-in slide-in-from-top-1 duration-150">
-          {options.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => {
-                onChange(option.value);
-                setIsOpen(false);
-              }}
-              className={`w-full px-3 py-2 text-sm text-left flex items-center justify-between hover:bg-gray-50 transition-colors ${value === option.value
-                  ? "text-primary font-medium bg-primary/5"
-                  : "text-primarytext"
+        <div
+          className={`absolute z-50 mt-1 w-full ${dropdownBgClass} border border-gray-200 rounded-md shadow-lg py-1 animate-in fade-in slide-in-from-top-1 duration-150`}
+        >
+          {options.map((option) => {
+            const OptionIcon = option.icon;
+            const optionIconColor = option.iconColor || "text-primary";
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => {
+                  onChange(option.value);
+                  setIsOpen(false);
+                }}
+                className={`w-full px-3 py-2 text-sm text-left flex items-center justify-between ${hoverBgClass} transition-colors ${
+                  value === option.value
+                    ? "text-primary font-medium bg-primary/5"
+                    : "text-primarytext"
                 }`}
-            >
-              {option.label}
-              {value === option.value && (
-                <Check size={14} className="text-primary" />
-              )}
-            </button>
-          ))}
+              >
+                <span className="flex items-center gap-2">
+                  {OptionIcon && (
+                    <OptionIcon size={15} className={optionIconColor} />
+                  )}
+                  {option.label}
+                </span>
+                {value === option.value && (
+                  <Check size={14} className="text-primary" />
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

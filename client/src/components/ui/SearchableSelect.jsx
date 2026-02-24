@@ -11,6 +11,7 @@ import {Search, X, Check, ChevronDown} from "lucide-react";
  * @param {boolean} props.disabled - Disable the select
  * @param {string} props.emptyMessage - Message when no options match
  * @param {boolean} props.showAvailability - Whether to show availability indicators
+ * @param {boolean} isWhite - Use white background instead of primarybg (default: false)
  */
 export default function SearchableSelect({
   options = [],
@@ -20,6 +21,7 @@ export default function SearchableSelect({
   disabled = false,
   emptyMessage = "No options available",
   showAvailability = false,
+  isWhite = false,
 }) {
   const [inputValue, setInputValue] = useState("");
   const [isOpen, setIsOpen] = useState(false);
@@ -143,7 +145,7 @@ export default function SearchableSelect({
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           disabled={disabled}
-          className={`w-full h-[42px] pl-10 pr-20 border rounded-md bg-primarybg text-sm text-primarytext placeholder:text-gray-400 transition-all focus:outline-none ${
+          className={`w-full h-[42px] pl-10 pr-20 border rounded-md ${isWhite ? "bg-white" : "bg-primarybg"} text-sm text-primarytext placeholder:text-gray-400 transition-all focus:outline-none ${
             disabled
               ? "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed"
               : isOpen
@@ -179,7 +181,9 @@ export default function SearchableSelect({
 
       {/* Suggestions Dropdown */}
       {isOpen && !disabled && (
-        <div className="absolute z-50 mt-1 w-full bg-white border border-primary rounded-md shadow-lg max-h-64 overflow-y-auto">
+        <div
+          className={`absolute z-50 mt-1 w-full ${isWhite ? "bg-white" : "bg-primarybg"} border border-primary rounded-md shadow-lg max-h-64 overflow-y-auto`}
+        >
           {filteredOptions.length > 0 ? (
             <div className="py-1">
               {filteredOptions.map((option, index) => {

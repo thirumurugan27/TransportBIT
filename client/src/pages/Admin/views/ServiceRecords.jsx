@@ -6,10 +6,8 @@ import CustomSearch from "../../../components/ui/CustomSearch";
 import {
   Wrench,
   Plus,
-  Search,
   Edit2,
   Trash2,
-  Eye,
   CheckCircle,
   XCircle,
   Play,
@@ -17,29 +15,207 @@ import {
   DollarSign,
   X,
   FileText,
-  AlertTriangle,
   TrendingUp,
+  Calendar,
+  Gauge,
+  User,
+  MapPin,
+  AlertTriangle,
+  ChevronRight,
 } from "lucide-react";
 import {useToast} from "../../../context/ToastContext";
 import {apiGet, apiPost, apiDelete} from "../../../utils/api";
 import {showConfirm} from "../../../utils/swal";
 
-const SEVERITY_COLORS = {
-  low: "bg-green-100 text-green-700",
-  medium: "bg-yellow-100 text-yellow-700",
-  high: "bg-orange-100 text-orange-700",
-  critical: "bg-red-100 text-red-700",
+// ─── Color tokens ──────────────────────────────────────────────────────────────
+const C = {
+  primarybg: "#EEF1F9",
+  secondarybg: "#FFFFFF",
+  primary: "#7D53F6",
+  primarydull: "#9F74F7",
+  green: "#008000",
+  pending: "#F0B041",
+  red: "#FF5555",
+  primarytext: "#000000",
+  secondarytext: "#5F6388",
+  skyblue: "#0388FC",
 };
 
-const STATUS_COLORS = {
-  reported: "bg-blue-100 text-blue-700",
-  approved: "bg-indigo-100 text-indigo-700",
-  in_progress: "bg-yellow-100 text-yellow-700",
-  completed: "bg-green-100 text-green-700",
-  rejected: "bg-red-100 text-red-700",
-  cancelled: "bg-gray-100 text-gray-600",
+// ─── Badge helpers ─────────────────────────────────────────────────────────────
+const SEVERITY_STYLE = {
+  low: {bg: "#E8F5E9", text: "#2E7D32", dot: "#43A047"},
+  medium: {bg: "#FFF8E1", text: "#F57F17", dot: "#FBC02D"},
+  high: {bg: "#FFF3E0", text: "#E65100", dot: "#FB8C00"},
+  critical: {bg: "#FFEBEE", text: "#B71C1C", dot: "#E53935"},
 };
 
+const STATUS_STYLE = {
+  reported: {bg: "#E3F2FD", text: "#1565C0", dot: "#1E88E5"},
+  approved: {bg: "#EDE7F6", text: "#4527A0", dot: "#7E57C2"},
+  in_progress: {bg: "#FFF8E1", text: "#F57F17", dot: "#FBC02D"},
+  completed: {bg: "#E8F5E9", text: "#2E7D32", dot: "#43A047"},
+  rejected: {bg: "#FFEBEE", text: "#B71C1C", dot: "#E53935"},
+  cancelled: {bg: "#F5F5F5", text: "#616161", dot: "#9E9E9E"},
+};
+
+const Pill = ({label, style}) => (
+  <span
+    style={{
+      background: style?.bg || "#EEF1F9",
+      color: style?.text || C.primarytext,
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 5,
+      padding: "3px 10px",
+      borderRadius: 6,
+      fontSize: 11,
+      fontWeight: 700,
+      letterSpacing: "0.04em",
+      textTransform: "uppercase",
+    }}
+  >
+    <span
+      style={{
+        width: 6,
+        height: 6,
+        borderRadius: "50%",
+        background: style?.dot || C.primary,
+        flexShrink: 0,
+      }}
+    />
+    {label}
+  </span>
+);
+
+// ─── Form input helpers ────────────────────────────────────────────────────────
+const inputCls =
+  "w-full border border-[#D8DCF0] rounded-md p-2.5 bg-[#EEF1F9] text-sm focus:outline-none focus:ring-2 focus:ring-[#7D53F6]/20 focus:border-[#7D53F6] text-black placeholder-[#5F6388]";
+
+const Label = ({children}) => (
+  <label className="block text-[11px] font-bold text-[#5F6388] uppercase tracking-widest mb-1.5">
+    {children}
+  </label>
+);
+
+// ─── DataSection helper ────────────────────────────────────────────────────────
+const DataSection = ({icon, title, items, children}) => {
+  const validItems = (items || []).filter(
+    (i) => i.value && i.value !== "-" && i.value !== 0 && i.value !== "0",
+  );
+
+  // If no valid items and no extra children, hide section
+  if (validItems.length === 0 && !children) return null;
+
+  return (
+    <DetailSection icon={icon} title={title}>
+      {validItems.length > 0 && <DetailGrid items={validItems} />}
+      {children}
+    </DetailSection>
+  );
+};
+// ─── Section block used in Detail Modal ───────────────────────────────────────
+const DetailSection = ({icon: Icon, title, children}) => {
+  return (
+    <div
+      style={{
+        border: "1px solid #E4E8F4",
+        borderRadius: 12,
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{
+          background: "#EEF1F9",
+          padding: "10px 16px",
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          borderBottom: "1px solid #E4E8F4",
+        }}
+      >
+        <Icon size={15} color={C.primary} strokeWidth={2.5} />
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 800,
+            letterSpacing: "0.07em",
+            textTransform: "uppercase",
+            color: C.secondarytext,
+          }}
+        >
+          {title}
+        </span>
+      </div>
+      <div style={{background: C.secondarybg, padding: "16px"}}>{children}</div>
+    </div>
+  );
+};
+
+const DetailGrid = ({items}) => {
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: `repeat(${Math.min(items.length, 3)}, 1fr)`,
+        gap: "16px 24px",
+      }}
+    >
+      {items.map(({label, value}) => (
+        <div key={label}>
+          <p
+            style={{
+              fontSize: 10,
+              fontWeight: 800,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              color: C.secondarytext,
+              marginBottom: 4,
+            }}
+          >
+            {label}
+          </p>
+          <p
+            style={{
+              fontSize: 14,
+              fontWeight: 700,
+              color: C.primarytext,
+            }}
+          >
+            {value}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// ─── Action button ─────────────────────────────────────────────────────────────
+const ActionBtn = ({onClick, color, children, outline}) => (
+  <button
+    onClick={onClick}
+    style={{
+      display: "flex",
+      alignItems: "center",
+      gap: 7,
+      padding: "9px 20px",
+      borderRadius: 8,
+      fontSize: 13,
+      fontWeight: 700,
+      cursor: "pointer",
+      transition: "opacity 0.15s, transform 0.1s",
+      border: outline ? `2px solid ${color}` : "none",
+      background: outline ? "transparent" : color,
+      color: outline ? color : "#fff",
+      boxShadow: outline ? "none" : "0 2px 8px rgba(0,0,0,0.12)",
+    }}
+    onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.85")}
+    onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+  >
+    {children}
+  </button>
+);
+
+// ─── Constants ────────────────────────────────────────────────────────────────
 const STATUS_OPTIONS = [
   {value: "all", label: "All Status"},
   {value: "reported", label: "Reported"},
@@ -70,6 +246,42 @@ const initialForm = {
   labor_cost: 0,
 };
 
+// ─── Modal wrapper ─────────────────────────────────────────────────────────────
+const Modal = ({onClose, children, maxWidth = "max-w-lg"}) => (
+  <div
+    className={`fixed inset-0 flex items-center justify-center z-50 p-4`}
+    style={{background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)"}}
+    onClick={onClose}
+  >
+    <div
+      className={`bg-white rounded-md shadow-2xl ${maxWidth} w-full max-h-[92vh] overflow-y-auto`}
+      style={{animation: "scaleIn 0.18s ease"}}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {children}
+    </div>
+  </div>
+);
+
+const ModalHeader = ({title, onClose}) => (
+  <div
+    className="flex items-center justify-between px-6 py-4 border-b"
+    style={{borderColor: "#E4E8F4"}}
+  >
+    <h3 style={{fontSize: 17, fontWeight: 800, color: C.primarytext}}>
+      {title}
+    </h3>
+    <button
+      onClick={onClose}
+      className="p-1.5 rounded-md hover:bg-[#EEF1F9] transition-colors"
+      style={{color: C.secondarytext}}
+    >
+      <X size={18} />
+    </button>
+  </div>
+);
+
+// ══════════════════════════════════════════════════════════════════════════════
 export default function ServiceRecords() {
   const {showToast} = useToast();
   const [records, setRecords] = useState([]);
@@ -106,6 +318,9 @@ export default function ServiceRecords() {
   useEffect(() => {
     fetchAll();
   }, []);
+  useEffect(() => {
+    fetchRecords();
+  }, [statusFilter, severityFilter]);
 
   const fetchAll = () => {
     fetchRecords();
@@ -158,10 +373,6 @@ export default function ServiceRecords() {
     }
   };
 
-  useEffect(() => {
-    fetchRecords();
-  }, [statusFilter, severityFilter]);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -184,9 +395,7 @@ export default function ServiceRecords() {
         showToast(data.message || "Success", "success");
         closeCreateModal();
         fetchAll();
-      } else {
-        showToast(data.error || "Failed", "error");
-      }
+      } else showToast(data.error || "Failed", "error");
     } catch {
       showToast("Failed to save", "error");
     }
@@ -335,25 +544,29 @@ export default function ServiceRecords() {
           label: "Active Services",
           value: stats.active_services || 0,
           icon: Wrench,
-          color: "bg-primary/10 text-primary",
+          color: C.primary,
+          bg: "#F0EBFE",
         },
         {
           label: "Pending Requests",
           value: stats.pending_requests || 0,
           icon: Clock,
-          color: "bg-amber-50 text-amber-600",
+          color: C.pending,
+          bg: "#FFF8E7",
         },
         {
           label: "Completed (Month)",
           value: stats.completed_this_month || 0,
           icon: CheckCircle,
-          color: "bg-green-50 text-green-600",
+          color: C.green,
+          bg: "#E8F5E9",
         },
         {
           label: "Monthly Cost",
           value: `₹${(stats.total_cost_this_month || 0).toLocaleString()}`,
           icon: DollarSign,
-          color: "bg-purple-50 text-purple-600",
+          color: C.skyblue,
+          bg: "#E8F4FE",
         },
       ]
     : [];
@@ -361,26 +574,59 @@ export default function ServiceRecords() {
   if (loading && records.length === 0) return <Loading fullScreen={false} />;
 
   return (
-    <div className="space-y-6 pb-12 animate-fadeIn">
-      {/* Stats Cards */}
+    <div className="space-y-5 pb-12">
+      <style>{`
+        @keyframes scaleIn {
+          from { transform: scale(0.95); opacity: 0; }
+          to { transform: scale(1); opacity: 1; }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+
+      {/* ── Stats Cards ── */}
       {statsCards.length > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {statsCards.map((stat, i) => (
             <div
               key={i}
-              className="bg-secondarybg rounded-md p-5 border border-primarybg shadow-sm"
+              className="rounded-md p-5 border"
+              style={{
+                background: C.secondarybg,
+                borderColor: "#E4E8F4",
+                boxShadow: "0 1px 4px rgba(125,83,246,0.06)",
+                animation: `fadeIn 0.3s ease ${i * 0.05}s both`,
+              }}
             >
-              <div className="flex items-center justify-between">
+              <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-xs font-bold text-secondarytext uppercase tracking-wider mb-2">
+                  <p
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: C.secondarytext,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      marginBottom: 8,
+                    }}
+                  >
                     {stat.label}
                   </p>
-                  <h3 className="text-2xl font-extrabold text-primarytext">
+                  <p
+                    style={{
+                      fontSize: 26,
+                      fontWeight: 900,
+                      color: C.primarytext,
+                      lineHeight: 1,
+                    }}
+                  >
                     {stat.value}
-                  </h3>
+                  </p>
                 </div>
-                <div className={"p-3 rounded-md shadow-sm " + stat.color}>
-                  <stat.icon size={24} strokeWidth={2.5} />
+                <div className="p-2.5 rounded-md" style={{background: stat.bg}}>
+                  <stat.icon size={20} color={stat.color} strokeWidth={2.5} />
                 </div>
               </div>
             </div>
@@ -388,27 +634,30 @@ export default function ServiceRecords() {
         </div>
       )}
 
-      {/* Toolbar */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-secondarybg p-5 rounded-md border border-primarybg shadow-sm">
-        <div className="flex items-center gap-3 w-full sm:w-auto flex-wrap">
+      {/* ── Toolbar ── */}
+      <div
+        className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 p-4 rounded-md border"
+        style={{background: C.secondarybg, borderColor: "#E4E8F4"}}
+      >
+        <div className="flex items-center gap-2.5 flex-wrap w-full sm:w-auto">
           <CustomSearch
             value={searchQuery}
             onChange={setSearchQuery}
-            placeholder="Search by vehicle, title, workshop..."
+            placeholder="Search vehicle, title, workshop…"
           />
           <CustomDropdown
             value={statusFilter}
             onChange={setStatusFilter}
             options={STATUS_OPTIONS}
             placeholder="Status"
-            width="w-40"
+            width="w-38"
           />
           <CustomDropdown
             value={severityFilter}
             onChange={setSeverityFilter}
             options={SEVERITY_OPTIONS}
             placeholder="Severity"
-            width="w-40"
+            width="w-38"
           />
         </div>
         <button
@@ -417,103 +666,153 @@ export default function ServiceRecords() {
             setForm(initialForm);
             setShowCreateModal(true);
           }}
-          className="flex items-center gap-2 bg-primary text-white px-6 py-2.5 rounded-md hover:bg-primary/90 transition-all shadow-md hover:shadow-lg text-sm font-semibold whitespace-nowrap"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-md text-white text-sm font-bold whitespace-nowrap shadow-md hover:opacity-90 transition-opacity"
+          style={{background: C.primary}}
         >
-          <Plus size={18} strokeWidth={2.5} />
-          Add Service Record
+          <Plus size={16} strokeWidth={3} /> Add Service Record
         </button>
       </div>
 
-      {/* Service Records Table */}
-      <div className="bg-secondarybg rounded-md border border-primarybg shadow-sm overflow-hidden">
+      {/* ── Table ── */}
+      <div
+        className="rounded-md border overflow-hidden"
+        style={{
+          background: C.secondarybg,
+          borderColor: "#E4E8F4",
+          boxShadow: "0 1px 6px rgba(125,83,246,0.05)",
+        }}
+      >
         <div className="overflow-x-auto">
           {loading ? (
             <Loading fullScreen={false} />
           ) : filtered.length > 0 ? (
             <table className="w-full">
               <thead>
-                <tr className="border-b border-primarybg">
-                  <th className="text-left py-3 px-4 text-xs font-bold text-secondarytext uppercase tracking-wider">
-                    Vehicle
-                  </th>
-                  <th className="text-left py-3 px-4 text-xs font-bold text-secondarytext uppercase tracking-wider">
-                    Title
-                  </th>
-                  <th className="text-left py-3 px-4 text-xs font-bold text-secondarytext uppercase tracking-wider">
-                    Type
-                  </th>
-                  <th className="text-left py-3 px-4 text-xs font-bold text-secondarytext uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="text-left py-3 px-4 text-xs font-bold text-secondarytext uppercase tracking-wider">
-                    Severity
-                  </th>
-                  <th className="text-right py-3 px-4 text-xs font-bold text-secondarytext uppercase tracking-wider">
-                    Cost
-                  </th>
-                  <th className="text-left py-3 px-4 text-xs font-bold text-secondarytext uppercase tracking-wider">
-                    Date
-                  </th>
+                <tr
+                  style={{
+                    background: "#F8F9FD",
+                    borderBottom: "2px solid #E4E8F4",
+                  }}
+                >
+                  {[
+                    "Vehicle",
+                    "Title",
+                    "Type",
+                    "Status",
+                    "Severity",
+                    "Cost",
+                    "Date",
+                  ].map((h) => (
+                    <th
+                      key={h}
+                      className={`py-3 px-4 text-[11px] font-extrabold uppercase tracking-widest ${h === "Cost" ? "text-right" : "text-left"}`}
+                      style={{color: C.secondarytext}}
+                    >
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-primarybg">
-                {filtered.map((r) => (
+              <tbody>
+                {filtered.map((r, idx) => (
                   <tr
                     key={r.id}
                     onClick={() => openDetail(r)}
-                    className="hover:bg-primarybg transition-colors cursor-pointer"
+                    className="cursor-pointer transition-colors"
+                    style={{borderBottom: "1px solid #EEF1F9"}}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.background = "#F8F9FD")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.background = "")
+                    }
                   >
                     <td className="py-3 px-4">
-                      <div className="font-medium text-sm text-primarytext">
+                      <p
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 700,
+                          color: C.primarytext,
+                        }}
+                      >
                         {r.vehicle_name || r.vehicle_number}
-                      </div>
+                      </p>
                       {r.vehicle_name && (
-                        <div className="text-xs text-secondarytext">
+                        <p style={{fontSize: 11, color: C.secondarytext}}>
                           {r.vehicle_number}
-                        </div>
+                        </p>
                       )}
                     </td>
                     <td className="py-3 px-4">
-                      <p className="text-sm text-primarytext font-medium max-w-[250px] truncate">
+                      <p
+                        className="max-w-[220px] truncate"
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 600,
+                          color: C.primarytext,
+                        }}
+                      >
                         {r.title}
                       </p>
                     </td>
-                    <td className="py-3 px-4 text-sm text-secondarytext">
-                      {r.service_type_name || "-"}
+                    <td
+                      className="py-3 px-4"
+                      style={{fontSize: 13, color: C.secondarytext}}
+                    >
+                      {r.service_type_name || "—"}
                     </td>
                     <td className="py-3 px-4">
-                      <span
-                        className={`text-[11px] px-2.5 py-1 rounded-md font-semibold ${STATUS_COLORS[r.status] || ""}`}
-                      >
-                        {r.status?.replace("_", " ").toUpperCase()}
-                      </span>
+                      <Pill
+                        label={r.status?.replace("_", " ")}
+                        style={STATUS_STYLE[r.status]}
+                      />
                     </td>
                     <td className="py-3 px-4">
-                      <span
-                        className={`text-[11px] px-2.5 py-1 rounded-md font-semibold ${SEVERITY_COLORS[r.severity] || ""}`}
-                      >
-                        {r.severity?.toUpperCase()}
-                      </span>
+                      <Pill
+                        label={r.severity}
+                        style={SEVERITY_STYLE[r.severity]}
+                      />
                     </td>
                     <td className="py-3 px-4 text-right">
-                      <span className="text-sm font-semibold text-primary">
+                      <span
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 700,
+                          color: r.total_cost > 0 ? C.primary : C.secondarytext,
+                        }}
+                      >
                         {r.total_cost > 0
                           ? `₹${r.total_cost.toLocaleString()}`
-                          : "-"}
+                          : "—"}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-sm text-secondarytext">
-                      {r.scheduled_date || "-"}
+                    <td
+                      className="py-3 px-4"
+                      style={{fontSize: 13, color: C.secondarytext}}
+                    >
+                      {r.scheduled_date || "—"}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           ) : (
-            <div className="py-16 flex flex-col items-center text-secondarytext">
-              <FileText size={48} className="mb-3 opacity-20" />
-              <p className="font-medium">No service records found</p>
-              <p className="text-sm mt-1">
+            <div
+              className="py-20 flex flex-col items-center"
+              style={{color: C.secondarytext}}
+            >
+              <div
+                className="p-4 rounded-md mb-4"
+                style={{background: "#EEF1F9"}}
+              >
+                <FileText size={32} color={C.primary} strokeWidth={1.5} />
+              </div>
+              <p
+                style={{fontWeight: 700, color: C.primarytext, marginBottom: 4}}
+              >
+                No service records found
+              </p>
+              <p style={{fontSize: 13}}>
                 Try adjusting the filters or add a new service record
               </p>
             </div>
@@ -521,810 +820,725 @@ export default function ServiceRecords() {
         </div>
       </div>
 
-      {/* Create / Edit Modal */}
-      {showCreateModal && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn"
-          onClick={closeCreateModal}
-        >
-          <div
-            className="bg-secondarybg rounded-md shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto animate-scaleIn"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-primarytext">
-                {editingRecord
-                  ? "Edit Service Record"
-                  : "Create Service Record"}
-              </h3>
-              <button
-                onClick={closeCreateModal}
-                className="text-secondarytext hover:text-primarytext transition-colors"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                  Vehicle
-                </label>
-                <SearchableSelect
-                  value={form.vehicle_id}
-                  onChange={(val) => setForm({...form, vehicle_id: val})}
-                  placeholder="Select Vehicle"
-                  options={vehicles.map((v) => ({
-                    value: v.id,
-                    label: v.vehicle_name || v.vehicle_number,
-                    subtitle: v.vehicle_number,
-                  }))}
-                  emptyMessage="No vehicles available"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                  Service Type
-                </label>
-                <SearchableSelect
-                  value={form.service_type_id}
-                  onChange={(val) => setForm({...form, service_type_id: val})}
-                  placeholder="Select Service Type"
-                  options={serviceTypes
-                    .filter((t) => t.is_active)
-                    .map((t) => ({
-                      value: t.id,
-                      label: t.name,
-                      subtitle: t.description || "",
-                    }))}
-                  emptyMessage="No service types"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                  Title
-                </label>
-                <input
-                  type="text"
-                  value={form.title}
-                  onChange={(e) => setForm({...form, title: e.target.value})}
-                  className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  placeholder="Service title"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                  Description
-                </label>
-                <textarea
-                  value={form.description}
-                  onChange={(e) =>
-                    setForm({...form, description: e.target.value})
-                  }
-                  className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
-                  rows={3}
-                  placeholder="Describe the issue or service needed"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                    Severity
-                  </label>
-                  <SearchableSelect
-                    value={form.severity}
-                    onChange={(val) => setForm({...form, severity: val})}
-                    placeholder="Select Severity"
-                    options={[
-                      {value: "low", label: "Low"},
-                      {value: "medium", label: "Medium"},
-                      {value: "high", label: "High"},
-                      {value: "critical", label: "Critical"},
-                    ]}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                    Scheduled Date
-                  </label>
-                  <input
-                    type="date"
-                    value={form.scheduled_date}
-                    onChange={(e) =>
-                      setForm({...form, scheduled_date: e.target.value})
-                    }
-                    className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                    Odometer (km)
-                  </label>
-                  <input
-                    type="number"
-                    value={form.odometer_reading}
-                    onChange={(e) =>
-                      setForm({...form, odometer_reading: e.target.value})
-                    }
-                    className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    min="0"
-                    placeholder="Current km"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                    Labor Cost (₹)
-                  </label>
-                  <input
-                    type="number"
-                    value={form.labor_cost}
-                    onChange={(e) =>
-                      setForm({...form, labor_cost: e.target.value})
-                    }
-                    className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    step="0.01"
-                    min="0"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                    Workshop
-                  </label>
-                  <input
-                    type="text"
-                    value={form.workshop_name}
-                    onChange={(e) =>
-                      setForm({...form, workshop_name: e.target.value})
-                    }
-                    className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    placeholder="Workshop name"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                    Mechanic
-                  </label>
-                  <input
-                    type="text"
-                    value={form.mechanic_name}
-                    onChange={(e) =>
-                      setForm({...form, mechanic_name: e.target.value})
-                    }
-                    className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    placeholder="Mechanic name"
-                  />
-                </div>
-              </div>
-              <button
-                type="submit"
-                className="w-full bg-primary text-white rounded-md py-2.5 font-medium hover:bg-primary/90 transition-colors"
-              >
-                {editingRecord ? "Update Record" : "Create Service Record"}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Detail Modal */}
+      {/* ════════════════ Detail Modal ════════════════ */}
       {showDetailModal && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn"
-          onClick={() => setShowDetailModal(null)}
-        >
-          <div
-            className="bg-secondarybg rounded-md shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-scaleIn"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header with Vehicle Info */}
-            <div className="p-6 border-b border-gray-100">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 bg-primary/10 rounded-md flex items-center justify-center flex-shrink-0">
-                    <Wrench size={24} className="text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-primarytext">
-                      {showDetailModal.vehicle_name ||
-                        showDetailModal.vehicle_number}
-                    </h3>
-                    <p className="text-sm text-secondarytext mt-0.5">
-                      {showDetailModal.vehicle_number}
-                    </p>
-                  </div>
+        <Modal onClose={() => setShowDetailModal(null)} maxWidth="max-w-2xl">
+          {/* Header */}
+          <div className="px-6 py-5 border-b" style={{borderColor: "#E4E8F4"}}>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <Pill
+                    label={showDetailModal.status?.replace("_", " ")}
+                    style={STATUS_STYLE[showDetailModal.status]}
+                  />
+                  <Pill
+                    label={showDetailModal.severity}
+                    style={SEVERITY_STYLE[showDetailModal.severity]}
+                  />
                 </div>
-                <button
-                  onClick={() => setShowDetailModal(null)}
-                  className="text-secondarytext hover:text-primarytext transition-colors"
+                <h3
+                  className="mt-2"
+                  style={{
+                    fontSize: 20,
+                    fontWeight: 900,
+                    color: C.primarytext,
+                    lineHeight: 1.2,
+                  }}
                 >
-                  <X size={20} />
-                </button>
+                  {showDetailModal.title}
+                </h3>
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  <span
+                    style={{fontSize: 13, fontWeight: 700, color: C.primary}}
+                  >
+                    {showDetailModal.vehicle_name ||
+                      showDetailModal.vehicle_number}
+                  </span>
+                  {showDetailModal.vehicle_name && (
+                    <>
+                      <span style={{color: C.secondarytext, fontSize: 12}}>
+                        ·
+                      </span>
+                      <span style={{fontSize: 12, color: C.secondarytext}}>
+                        {showDetailModal.vehicle_number}
+                      </span>
+                    </>
+                  )}
+                </div>
               </div>
+              <button
+                onClick={() => setShowDetailModal(null)}
+                className="p-2 rounded-md hover:bg-[#EEF1F9] transition-colors flex-shrink-0"
+                style={{color: C.secondarytext}}
+              >
+                <X size={18} />
+              </button>
             </div>
+          </div>
 
-            <div className="p-6 space-y-4">
-              {/* Service Details Section */}
-              <div className="bg-primarybg/50 rounded-md p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Wrench size={16} className="text-secondarytext" />
-                  <h4 className="text-xs font-bold text-secondarytext uppercase tracking-wider">
-                    Service Details
-                  </h4>
-                </div>
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-sm font-bold text-primarytext">
-                      {showDetailModal.title}
-                    </p>
-                    {showDetailModal.description && (
-                      <p className="text-sm text-secondarytext mt-1">
-                        {showDetailModal.description}
-                      </p>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-xs text-secondarytext">Service Type</p>
-                      <p className="text-sm font-medium text-primarytext mt-0.5">
-                        {showDetailModal.service_type_name || "-"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-secondarytext">Status</p>
-                      <div className="mt-1">
-                        <span
-                          className={`text-[11px] px-2 py-0.5 rounded-md font-semibold ${STATUS_COLORS[showDetailModal.status]}`}
+          <div className="p-6 space-y-4">
+            {/* Description */}
+            {showDetailModal.description && (
+              <div
+                className="px-4 py-3 rounded-md"
+                style={{
+                  background: "#EEF1F9",
+                  borderLeft: `3px solid ${C.primary}`,
+                }}
+              >
+                <p
+                  style={{fontSize: 13, color: C.primarytext, lineHeight: 1.6}}
+                >
+                  {showDetailModal.description}
+                </p>
+              </div>
+            )}
+
+            {/* Service + Odometer */}
+            <DataSection
+              icon={Wrench}
+              title="Service Details"
+              items={[
+                {
+                  label: "Service Type",
+                  value: showDetailModal.service_type_name,
+                },
+                {
+                  label: "Odometer Reading",
+                  value: showDetailModal.odometer_reading
+                    ? `${showDetailModal.odometer_reading} km`
+                    : null,
+                },
+              ]}
+            />
+
+            {/* Timeline */}
+            <DataSection
+              icon={Calendar}
+              title="Timeline"
+              items={[
+                {
+                  label: "Scheduled Date",
+                  value: showDetailModal.scheduled_date,
+                },
+                {
+                  label: "Started At",
+                  value: showDetailModal.started_at,
+                },
+                {
+                  label: "Completed At",
+                  value: showDetailModal.completed_at,
+                },
+              ]}
+            />
+
+            {/* Workshop */}
+            <DataSection
+              icon={MapPin}
+              title="Workshop Information"
+              items={[
+                {
+                  label: "Workshop Name",
+                  value: showDetailModal.workshop_name,
+                },
+                {
+                  label: "Mechanic Name",
+                  value: showDetailModal.mechanic_name,
+                },
+                {
+                  label: "Mechanic Contact",
+                  value: showDetailModal.mechanic_contact,
+                },
+              ]}
+            />
+
+            {/* Cost */}
+            <DataSection
+              icon={DollarSign}
+              title="Cost Breakdown"
+              items={[
+                {
+                  label: "Labor Cost",
+                  value:
+                    showDetailModal.labor_cost > 0
+                      ? `₹${showDetailModal.labor_cost.toLocaleString()}`
+                      : null,
+                },
+                {
+                  label: "Parts Cost",
+                  value:
+                    showDetailModal.parts_cost > 0
+                      ? `₹${showDetailModal.parts_cost.toLocaleString()}`
+                      : null,
+                },
+                {
+                  label: "Total Cost",
+                  value:
+                    showDetailModal.total_cost > 0
+                      ? `₹${showDetailModal.total_cost.toLocaleString()}`
+                      : null,
+                },
+              ]}
+            />
+
+            {/* Parts */}
+            {detailParts.length > 0 && (
+              <DetailSection icon={FileText} title="Products Purchased">
+                <div className="space-y-2">
+                  {detailParts.map((p) => (
+                    <div
+                      key={p.id}
+                      className="flex items-center justify-between px-3 py-2.5 rounded-md"
+                      style={{background: "#EEF1F9"}}
+                    >
+                      <div>
+                        <p
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 700,
+                            color: C.primarytext,
+                          }}
                         >
-                          {showDetailModal.status
-                            ?.replace("_", " ")
-                            .toUpperCase()}
-                        </span>
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-xs text-secondarytext">Severity</p>
-                      <div className="mt-1">
-                        <span
-                          className={`text-[11px] px-2 py-0.5 rounded-md font-semibold ${SEVERITY_COLORS[showDetailModal.severity]}`}
+                          {p.part_name}
+                        </p>
+                        <p
+                          style={{
+                            fontSize: 11,
+                            color: C.secondarytext,
+                            marginTop: 2,
+                          }}
                         >
-                          {showDetailModal.severity?.toUpperCase()}
-                        </span>
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-xs text-secondarytext">
-                        Odometer Reading
-                      </p>
-                      <p className="text-sm font-medium text-primarytext mt-0.5">
-                        {showDetailModal.odometer_reading
-                          ? `${showDetailModal.odometer_reading} km`
-                          : "-"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Timeline Section */}
-              <div className="bg-primarybg/50 rounded-md p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Clock size={16} className="text-secondarytext" />
-                  <h4 className="text-xs font-bold text-secondarytext uppercase tracking-wider">
-                    Timeline
-                  </h4>
-                </div>
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <p className="text-xs text-secondarytext">Scheduled Date</p>
-                    <p className="text-sm font-medium text-primarytext mt-0.5">
-                      {showDetailModal.scheduled_date || "-"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-secondarytext">Started At</p>
-                    <p className="text-sm font-medium text-primarytext mt-0.5">
-                      {showDetailModal.started_at || "-"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-secondarytext">Completed At</p>
-                    <p className="text-sm font-medium text-primarytext mt-0.5">
-                      {showDetailModal.completed_at || "-"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Workshop & Mechanic Info */}
-              <div className="bg-primarybg/50 rounded-md p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Wrench size={16} className="text-secondarytext" />
-                  <h4 className="text-xs font-bold text-secondarytext uppercase tracking-wider">
-                    Workshop Information
-                  </h4>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs text-secondarytext">Workshop Name</p>
-                    <p className="text-sm font-medium text-primarytext mt-0.5">
-                      {showDetailModal.workshop_name || "-"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-secondarytext">Mechanic Name</p>
-                    <p className="text-sm font-medium text-primarytext mt-0.5">
-                      {showDetailModal.mechanic_name || "-"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-secondarytext">
-                      Mechanic Contact
-                    </p>
-                    <p className="text-sm font-medium text-primarytext mt-0.5">
-                      {showDetailModal.mechanic_contact || "-"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Cost Breakdown */}
-              <div className="bg-primarybg/50 rounded-md p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <DollarSign size={16} className="text-secondarytext" />
-                  <h4 className="text-xs font-bold text-secondarytext uppercase tracking-wider">
-                    Cost Breakdown
-                  </h4>
-                </div>
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <p className="text-xs text-secondarytext">Labor Cost</p>
-                    <p className="text-sm font-bold text-primarytext mt-0.5">
-                      {showDetailModal.labor_cost > 0
-                        ? `₹${showDetailModal.labor_cost.toLocaleString()}`
-                        : "-"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-secondarytext">Parts Cost</p>
-                    <p className="text-sm font-bold text-primarytext mt-0.5">
-                      {showDetailModal.parts_cost > 0
-                        ? `₹${showDetailModal.parts_cost.toLocaleString()}`
-                        : "-"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-secondarytext">Total Cost</p>
-                    <p className="text-lg font-bold text-primary mt-0.5">
-                      {showDetailModal.total_cost > 0
-                        ? `₹${showDetailModal.total_cost.toLocaleString()}`
-                        : "-"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Products Purchased */}
-              {detailParts.length > 0 && (
-                <div className="bg-primarybg/50 rounded-md p-4">
-                  <h4 className="text-xs font-bold text-secondarytext uppercase tracking-wider mb-3">
-                    Products Purchased
-                  </h4>
-                  <div className="space-y-2">
-                    {detailParts.map((p) => (
-                      <div
-                        key={p.id}
-                        className="flex items-center justify-between bg-secondarybg p-3 rounded-md border border-gray-100"
-                      >
-                        <div>
-                          <p className="text-sm font-medium text-primarytext">
-                            {p.part_name}
-                          </p>
-                          <p className="text-xs text-secondarytext">
-                            {p.vendor_name || "No vendor"} · Qty: {p.quantity}
-                          </p>
-                        </div>
-                        <p className="text-sm font-bold text-primary">
-                          ₹{p.total_price?.toLocaleString()}
+                          {p.vendor_name || "No vendor"} · Qty: {p.quantity}
                         </p>
                       </div>
-                    ))}
-                  </div>
+                      <span
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 800,
+                          color: C.primary,
+                        }}
+                      >
+                        ₹{p.total_price?.toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </DetailSection>
+            )}
+
+            {/* Additional Info */}
+            <DataSection
+              icon={User}
+              title="Additional Information"
+              items={[
+                {
+                  label: "Reported By",
+                  value: showDetailModal.reported_by_name,
+                },
+                {label: "Created At", value: showDetailModal.created_at},
+              ]}
+            >
+              {(showDetailModal.admin_remarks ||
+                showDetailModal.rejection_reason) && (
+                <div
+                  className="mt-4 space-y-3 pt-4 border-t"
+                  style={{borderColor: "#E4E8F4"}}
+                >
+                  {showDetailModal.admin_remarks && (
+                    <div>
+                      <p
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 800,
+                          color: C.secondarytext,
+                          letterSpacing: "0.08em",
+                          textTransform: "uppercase",
+                          marginBottom: 6,
+                        }}
+                      >
+                        Admin Remarks
+                      </p>
+                      <p
+                        className="px-3 py-2.5 rounded-md"
+                        style={{
+                          fontSize: 13,
+                          color: C.primarytext,
+                          background: "#EEF1F9",
+                          lineHeight: 1.6,
+                        }}
+                      >
+                        {showDetailModal.admin_remarks}
+                      </p>
+                    </div>
+                  )}
+                  {showDetailModal.rejection_reason && (
+                    <div>
+                      <p
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 800,
+                          color: C.red,
+                          letterSpacing: "0.08em",
+                          textTransform: "uppercase",
+                          marginBottom: 6,
+                        }}
+                      >
+                        Rejection Reason
+                      </p>
+                      <p
+                        className="px-3 py-2.5 rounded-md border"
+                        style={{
+                          fontSize: 13,
+                          color: C.red,
+                          background: "#FFF5F5",
+                          borderColor: "#FFCCCC",
+                          lineHeight: 1.6,
+                        }}
+                      >
+                        {showDetailModal.rejection_reason}
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
+            </DataSection>
 
-              {/* Reported By & Admin Info */}
-              <div className="bg-primarybg/50 rounded-md p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Clock size={16} className="text-secondarytext" />
-                  <h4 className="text-xs font-bold text-secondarytext uppercase tracking-wider">
-                    Additional Information
-                  </h4>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs text-secondarytext">Reported By</p>
-                    <p className="text-sm font-medium text-primarytext mt-0.5">
-                      {showDetailModal.reported_by_name || "-"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-secondarytext">Created At</p>
-                    <p className="text-sm font-medium text-primarytext mt-0.5">
-                      {showDetailModal.created_at}
-                    </p>
-                  </div>
-                </div>
-                {showDetailModal.admin_remarks && (
-                  <div className="mt-3">
-                    <p className="text-xs text-secondarytext mb-1">
-                      Admin Remarks
-                    </p>
-                    <p className="text-sm text-primarytext bg-secondarybg p-3 rounded-md">
-                      {showDetailModal.admin_remarks}
-                    </p>
-                  </div>
-                )}
-                {showDetailModal.rejection_reason && (
-                  <div className="mt-3">
-                    <p className="text-xs text-secondarytext mb-1">
-                      Rejection Reason
-                    </p>
-                    <p className="text-sm text-red-600 bg-red-50 p-3 rounded-md">
-                      {showDetailModal.rejection_reason}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
-                {showDetailModal.status === "reported" && (
-                  <>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setApproveForm({
-                          scheduled_date: "",
-                          admin_remarks: "",
-                        });
-                        setShowApproveModal(showDetailModal);
-                        setShowDetailModal(null);
-                      }}
-                      className="flex-1 flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-2.5 rounded-md hover:bg-green-700 transition-colors text-sm font-medium"
-                    >
-                      <CheckCircle size={16} />
-                      Approve
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setRejectReason("");
-                        setShowRejectModal(showDetailModal);
-                        setShowDetailModal(null);
-                      }}
-                      className="flex-1 flex items-center justify-center gap-2 bg-red-600 text-white px-4 py-2.5 rounded-md hover:bg-red-700 transition-colors text-sm font-medium"
-                    >
-                      <XCircle size={16} />
-                      Reject
-                    </button>
-                  </>
-                )}
-                {showDetailModal.status === "approved" && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleStart(showDetailModal.id);
+            {/* ── Action Buttons ── */}
+            <div className="flex items-center justify-end gap-2.5 pt-2 flex-wrap">
+              {showDetailModal.status === "reported" && (
+                <>
+                  <ActionBtn
+                    color={C.green}
+                    onClick={() => {
+                      setApproveForm({scheduled_date: "", admin_remarks: ""});
+                      setShowApproveModal(showDetailModal);
                       setShowDetailModal(null);
                     }}
-                    className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
                   >
-                    <Play size={16} />
-                    Start Service
-                  </button>
-                )}
-                {showDetailModal.status === "in_progress" && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setCompleteForm({
-                        labor_cost: showDetailModal.labor_cost || 0,
-                        admin_remarks: "",
-                        next_service_date: "",
-                        next_service_km: 0,
-                      });
-                      setShowCompleteModal(showDetailModal);
+                    <CheckCircle size={15} /> Approve
+                  </ActionBtn>
+                  <ActionBtn
+                    color={C.red}
+                    onClick={() => {
+                      setRejectReason("");
+                      setShowRejectModal(showDetailModal);
                       setShowDetailModal(null);
                     }}
-                    className="flex-1 flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-2.5 rounded-md hover:bg-green-700 transition-colors text-sm font-medium"
                   >
-                    <CheckCircle size={16} />
-                    Mark Complete
-                  </button>
-                )}
-                {["reported", "approved"].includes(showDetailModal.status) && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openEdit(showDetailModal);
-                      setShowDetailModal(null);
-                    }}
-                    className="flex items-center justify-center gap-2 bg-primary text-white px-4 py-2.5 rounded-md hover:bg-primary/90 transition-colors text-sm font-medium"
-                  >
-                    <Edit2 size={16} />
-                    Edit
-                  </button>
-                )}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete(showDetailModal.id);
+                    <XCircle size={15} /> Reject
+                  </ActionBtn>
+                </>
+              )}
+              {showDetailModal.status === "approved" && (
+                <ActionBtn
+                  color={C.skyblue}
+                  onClick={() => {
+                    const id = showDetailModal.id;
+                    setShowDetailModal(null);
+                    handleStart(id);
+                  }}
+                >
+                  <Play size={15} fill="white" /> Start Service
+                </ActionBtn>
+              )}
+              {showDetailModal.status === "in_progress" && (
+                <ActionBtn
+                  color={C.green}
+                  onClick={() => {
+                    setCompleteForm({
+                      labor_cost: showDetailModal.labor_cost || 0,
+                      admin_remarks: "",
+                      next_service_date: "",
+                      next_service_km: 0,
+                    });
+                    setShowCompleteModal(showDetailModal);
                     setShowDetailModal(null);
                   }}
-                  className="flex items-center justify-center gap-2 bg-red-600 text-white px-4 py-2.5 rounded-md hover:bg-red-700 transition-colors text-sm font-medium"
                 >
-                  <Trash2 size={16} />
-                  Delete
-                </button>
-                <button
-                  onClick={() => setShowDetailModal(null)}
-                  className="px-4 py-2.5 bg-secondarybg border border-gray-200 text-secondarytext rounded-md hover:bg-primarybg transition-colors text-sm font-medium"
+                  <CheckCircle size={15} /> Mark Complete
+                </ActionBtn>
+              )}
+              {["reported", "approved"].includes(showDetailModal.status) && (
+                <ActionBtn
+                  color={C.primary}
+                  onClick={() => {
+                    openEdit(showDetailModal);
+                    setShowDetailModal(null);
+                  }}
                 >
-                  Close
-                </button>
-              </div>
+                  <Edit2 size={15} /> Edit
+                </ActionBtn>
+              )}
+              <ActionBtn
+                color={C.red}
+                onClick={() => {
+                  const id = showDetailModal.id;
+                  setShowDetailModal(null);
+                  handleDelete(id);
+                }}
+              >
+                <Trash2 size={15} /> Delete
+              </ActionBtn>
+              <ActionBtn
+                color={C.secondarytext}
+                outline
+                onClick={() => setShowDetailModal(null)}
+              >
+                Close
+              </ActionBtn>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
 
-      {/* Approve Modal */}
-      {showApproveModal && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn"
-          onClick={() => setShowApproveModal(null)}
-        >
-          <div
-            className="bg-secondarybg rounded-md shadow-xl max-w-md w-full animate-scaleIn"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-primarytext">
-                Approve Service Request
-              </h3>
-              <button
-                onClick={() => setShowApproveModal(null)}
-                className="text-secondarytext hover:text-primarytext transition-colors"
-              >
-                <X size={20} />
-              </button>
+      {/* ════════════════ Create / Edit Modal ════════════════ */}
+      {showCreateModal && (
+        <Modal onClose={closeCreateModal}>
+          <ModalHeader
+            title={editingRecord ? "Edit Service Record" : "New Service Record"}
+            onClose={closeCreateModal}
+          />
+          <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <div>
+              <Label>Vehicle</Label>
+              <SearchableSelect
+                value={form.vehicle_id}
+                onChange={(val) => setForm({...form, vehicle_id: val})}
+                placeholder="Select Vehicle"
+                options={vehicles.map((v) => ({
+                  value: v.id,
+                  label: v.vehicle_name || v.vehicle_number,
+                  subtitle: v.vehicle_number,
+                }))}
+                emptyMessage="No vehicles available"
+              />
             </div>
-            <div className="p-6 space-y-4">
-              <div className="bg-green-50 border border-green-200 rounded-md p-3">
-                <p className="text-sm text-green-700 font-medium">
-                  Approving: {showApproveModal.title}
-                </p>
-                <p className="text-xs text-green-600 mt-0.5">
-                  {showApproveModal.vehicle_name
-                    ? `${showApproveModal.vehicle_name} (${showApproveModal.vehicle_number})`
-                    : showApproveModal.vehicle_number}
-                </p>
+            <div>
+              <Label>Service Type</Label>
+              <SearchableSelect
+                value={form.service_type_id}
+                onChange={(val) => setForm({...form, service_type_id: val})}
+                placeholder="Select Service Type"
+                options={serviceTypes
+                  .filter((t) => t.is_active)
+                  .map((t) => ({
+                    value: t.id,
+                    label: t.name,
+                    subtitle: t.description || "",
+                  }))}
+                emptyMessage="No service types"
+              />
+            </div>
+            <div>
+              <Label>Title</Label>
+              <input
+                type="text"
+                value={form.title}
+                onChange={(e) => setForm({...form, title: e.target.value})}
+                className={inputCls}
+                placeholder="Service title"
+                required
+              />
+            </div>
+            <div>
+              <Label>Description</Label>
+              <textarea
+                value={form.description}
+                onChange={(e) =>
+                  setForm({...form, description: e.target.value})
+                }
+                className={inputCls + " resize-none"}
+                rows={3}
+                placeholder="Describe the issue or service needed"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Severity</Label>
+                <SearchableSelect
+                  value={form.severity}
+                  onChange={(val) => setForm({...form, severity: val})}
+                  placeholder="Select Severity"
+                  options={[
+                    {value: "low", label: "Low"},
+                    {value: "medium", label: "Medium"},
+                    {value: "high", label: "High"},
+                    {value: "critical", label: "Critical"},
+                  ]}
+                />
               </div>
               <div>
-                <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                  Scheduled Date
-                </label>
+                <Label>Scheduled Date</Label>
                 <input
                   type="date"
-                  value={approveForm.scheduled_date}
+                  value={form.scheduled_date}
                   onChange={(e) =>
-                    setApproveForm({
-                      ...approveForm,
-                      scheduled_date: e.target.value,
-                    })
+                    setForm({...form, scheduled_date: e.target.value})
                   }
-                  className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  className={inputCls}
                 />
               </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                  Remarks
-                </label>
-                <textarea
-                  value={approveForm.admin_remarks}
-                  onChange={(e) =>
-                    setApproveForm({
-                      ...approveForm,
-                      admin_remarks: e.target.value,
-                    })
-                  }
-                  className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
-                  rows={2}
-                  placeholder="Optional remarks"
-                />
-              </div>
-              <button
-                onClick={handleApprove}
-                className="w-full bg-green-600 text-white rounded-md py-2.5 font-medium hover:bg-green-700 transition-colors"
-              >
-                Approve Request
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Reject Modal */}
-      {showRejectModal && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn"
-          onClick={() => setShowRejectModal(null)}
-        >
-          <div
-            className="bg-secondarybg rounded-md shadow-xl max-w-md w-full animate-scaleIn"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-primarytext">
-                Reject Service Request
-              </h3>
-              <button
-                onClick={() => setShowRejectModal(null)}
-                className="text-secondarytext hover:text-primarytext transition-colors"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div className="bg-red-50 border border-red-200 rounded-md p-3">
-                <p className="text-sm text-red-700 font-medium">
-                  Rejecting: {showRejectModal.title}
-                </p>
-                <p className="text-xs text-red-600 mt-0.5">
-                  {showRejectModal.vehicle_name
-                    ? `${showRejectModal.vehicle_name} (${showRejectModal.vehicle_number})`
-                    : showRejectModal.vehicle_number}
-                </p>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                  Reason
-                </label>
-                <textarea
-                  value={rejectReason}
-                  onChange={(e) => setRejectReason(e.target.value)}
-                  className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
-                  rows={3}
-                  placeholder="Provide reason for rejection"
-                  required
-                />
-              </div>
-              <button
-                onClick={handleReject}
-                className="w-full bg-red-600 text-white rounded-md py-2.5 font-medium hover:bg-red-700 transition-colors"
-              >
-                Reject Request
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Complete Modal */}
-      {showCompleteModal && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn"
-          onClick={() => setShowCompleteModal(null)}
-        >
-          <div
-            className="bg-secondarybg rounded-md shadow-xl max-w-md w-full animate-scaleIn"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-primarytext">
-                Complete Service
-              </h3>
-              <button
-                onClick={() => setShowCompleteModal(null)}
-                className="text-secondarytext hover:text-primarytext transition-colors"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div className="bg-primary/5 border border-primary/20 rounded-md p-3">
-                <p className="text-sm text-primary font-medium">
-                  Completing: {showCompleteModal.title}
-                </p>
-                <p className="text-xs text-secondarytext mt-0.5">
-                  {showCompleteModal.vehicle_name
-                    ? `${showCompleteModal.vehicle_name} (${showCompleteModal.vehicle_number})`
-                    : showCompleteModal.vehicle_number}{" "}
-                  — Vehicle will be restored to active
-                </p>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                  Final Labor Cost (₹)
-                </label>
+                <Label>Odometer (km)</Label>
                 <input
                   type="number"
-                  value={completeForm.labor_cost}
+                  value={form.odometer_reading}
                   onChange={(e) =>
-                    setCompleteForm({
-                      ...completeForm,
-                      labor_cost: e.target.value,
-                    })
+                    setForm({...form, odometer_reading: e.target.value})
                   }
-                  className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  className={inputCls}
+                  min="0"
+                  placeholder="Current km"
+                />
+              </div>
+              <div>
+                <Label>Labor Cost (₹)</Label>
+                <input
+                  type="number"
+                  value={form.labor_cost}
+                  onChange={(e) =>
+                    setForm({...form, labor_cost: e.target.value})
+                  }
+                  className={inputCls}
                   step="0.01"
                   min="0"
                 />
               </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                  Remarks
-                </label>
-                <textarea
-                  value={completeForm.admin_remarks}
+                <Label>Workshop</Label>
+                <input
+                  type="text"
+                  value={form.workshop_name}
+                  onChange={(e) =>
+                    setForm({...form, workshop_name: e.target.value})
+                  }
+                  className={inputCls}
+                  placeholder="Workshop name"
+                />
+              </div>
+              <div>
+                <Label>Mechanic</Label>
+                <input
+                  type="text"
+                  value={form.mechanic_name}
+                  onChange={(e) =>
+                    setForm({...form, mechanic_name: e.target.value})
+                  }
+                  className={inputCls}
+                  placeholder="Mechanic name"
+                />
+              </div>
+            </div>
+            <button
+              type="submit"
+              className="w-full py-2.5 rounded-md text-white font-bold text-sm hover:opacity-90 transition-opacity"
+              style={{background: C.primary}}
+            >
+              {editingRecord ? "Update Record" : "Create Service Record"}
+            </button>
+          </form>
+        </Modal>
+      )}
+
+      {/* ════════════════ Approve Modal ════════════════ */}
+      {showApproveModal && (
+        <Modal onClose={() => setShowApproveModal(null)}>
+          <ModalHeader
+            title="Approve Service Request"
+            onClose={() => setShowApproveModal(null)}
+          />
+          <div className="p-6 space-y-4">
+            <div
+              className="px-4 py-3 rounded-md border"
+              style={{background: "#F0FBF0", borderColor: "#B2DFDB"}}
+            >
+              <p style={{fontSize: 13, fontWeight: 700, color: C.green}}>
+                {showApproveModal.title}
+              </p>
+              <p style={{fontSize: 12, color: "#388E3C", marginTop: 2}}>
+                {showApproveModal.vehicle_name
+                  ? `${showApproveModal.vehicle_name} (${showApproveModal.vehicle_number})`
+                  : showApproveModal.vehicle_number}
+              </p>
+            </div>
+            <div>
+              <Label>Scheduled Date</Label>
+              <input
+                type="date"
+                value={approveForm.scheduled_date}
+                onChange={(e) =>
+                  setApproveForm({
+                    ...approveForm,
+                    scheduled_date: e.target.value,
+                  })
+                }
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <Label>Remarks (Optional)</Label>
+              <textarea
+                value={approveForm.admin_remarks}
+                onChange={(e) =>
+                  setApproveForm({
+                    ...approveForm,
+                    admin_remarks: e.target.value,
+                  })
+                }
+                className={inputCls + " resize-none"}
+                rows={2}
+                placeholder="Optional remarks"
+              />
+            </div>
+            <button
+              onClick={handleApprove}
+              className="w-full py-2.5 rounded-md text-white font-bold text-sm hover:opacity-90 transition-opacity"
+              style={{background: C.green}}
+            >
+              Approve Request
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {/* ════════════════ Reject Modal ════════════════ */}
+      {showRejectModal && (
+        <Modal onClose={() => setShowRejectModal(null)}>
+          <ModalHeader
+            title="Reject Service Request"
+            onClose={() => setShowRejectModal(null)}
+          />
+          <div className="p-6 space-y-4">
+            <div
+              className="px-4 py-3 rounded-md border"
+              style={{background: "#FFF5F5", borderColor: "#FFCCCC"}}
+            >
+              <p style={{fontSize: 13, fontWeight: 700, color: C.red}}>
+                {showRejectModal.title}
+              </p>
+              <p style={{fontSize: 12, color: "#E57373", marginTop: 2}}>
+                {showRejectModal.vehicle_name
+                  ? `${showRejectModal.vehicle_name} (${showRejectModal.vehicle_number})`
+                  : showRejectModal.vehicle_number}
+              </p>
+            </div>
+            <div>
+              <Label>Reason for Rejection</Label>
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                className={inputCls + " resize-none"}
+                rows={3}
+                placeholder="Provide a reason for rejection"
+                required
+              />
+            </div>
+            <button
+              onClick={handleReject}
+              className="w-full py-2.5 rounded-md text-white font-bold text-sm hover:opacity-90 transition-opacity"
+              style={{background: C.red}}
+            >
+              Reject Request
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {/* ════════════════ Complete Modal ════════════════ */}
+      {showCompleteModal && (
+        <Modal onClose={() => setShowCompleteModal(null)}>
+          <ModalHeader
+            title="Complete Service"
+            onClose={() => setShowCompleteModal(null)}
+          />
+          <div className="p-6 space-y-4">
+            <div
+              className="px-4 py-3 rounded-md border"
+              style={{background: "#F3EFFE", borderColor: "#C9B8FB"}}
+            >
+              <p style={{fontSize: 13, fontWeight: 700, color: C.primary}}>
+                {showCompleteModal.title}
+              </p>
+              <p style={{fontSize: 12, color: C.primarydull, marginTop: 2}}>
+                {showCompleteModal.vehicle_name
+                  ? `${showCompleteModal.vehicle_name} (${showCompleteModal.vehicle_number})`
+                  : showCompleteModal.vehicle_number}{" "}
+                &mdash; Vehicle will be restored to active
+              </p>
+            </div>
+            <div>
+              <Label>Final Labor Cost (₹)</Label>
+              <input
+                type="number"
+                value={completeForm.labor_cost}
+                onChange={(e) =>
+                  setCompleteForm({...completeForm, labor_cost: e.target.value})
+                }
+                className={inputCls}
+                step="0.01"
+                min="0"
+              />
+            </div>
+            <div>
+              <Label>Completion Remarks</Label>
+              <textarea
+                value={completeForm.admin_remarks}
+                onChange={(e) =>
+                  setCompleteForm({
+                    ...completeForm,
+                    admin_remarks: e.target.value,
+                  })
+                }
+                className={inputCls + " resize-none"}
+                rows={2}
+                placeholder="Completion notes"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Next Service Date</Label>
+                <input
+                  type="date"
+                  value={completeForm.next_service_date}
                   onChange={(e) =>
                     setCompleteForm({
                       ...completeForm,
-                      admin_remarks: e.target.value,
+                      next_service_date: e.target.value,
                     })
                   }
-                  className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
-                  rows={2}
-                  placeholder="Completion remarks"
+                  className={inputCls}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                    Next Service Date
-                  </label>
-                  <input
-                    type="date"
-                    value={completeForm.next_service_date}
-                    onChange={(e) =>
-                      setCompleteForm({
-                        ...completeForm,
-                        next_service_date: e.target.value,
-                      })
-                    }
-                    className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                    Next Service KM
-                  </label>
-                  <input
-                    type="number"
-                    value={completeForm.next_service_km}
-                    onChange={(e) =>
-                      setCompleteForm({
-                        ...completeForm,
-                        next_service_km: e.target.value,
-                      })
-                    }
-                    className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    min="0"
-                  />
-                </div>
+              <div>
+                <Label>Next Service KM</Label>
+                <input
+                  type="number"
+                  value={completeForm.next_service_km}
+                  onChange={(e) =>
+                    setCompleteForm({
+                      ...completeForm,
+                      next_service_km: e.target.value,
+                    })
+                  }
+                  className={inputCls}
+                  min="0"
+                />
               </div>
-              <button
-                onClick={handleComplete}
-                className="w-full bg-green-600 text-white rounded-md py-2.5 font-medium hover:bg-green-700 transition-colors"
-              >
-                Mark Completed
-              </button>
             </div>
+            <button
+              onClick={handleComplete}
+              className="w-full py-2.5 rounded-md text-white font-bold text-sm hover:opacity-90 transition-opacity"
+              style={{background: C.green}}
+            >
+              Mark Completed
+            </button>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

@@ -14,7 +14,10 @@ export default function CustomSearch({
   onChange,
   placeholder = "Search...",
   className = "",
+  isWhite = false,
 }) {
+  const bgClass = isWhite ? "bg-white" : "bg-primarybg";
+
   return (
     <div className={`relative ${className}`}>
       <Search
@@ -26,7 +29,7 @@ export default function CustomSearch({
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full h-[42px] pl-10 pr-4 border border-gray-200 rounded-md bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm text-primarytext placeholder:text-gray-400"
+        className={`w-full h-[42px] pl-10 pr-4 border border-gray-200 rounded-md ${bgClass} focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm text-primarytext placeholder:text-gray-400`}
       />
     </div>
   );

@@ -2,6 +2,7 @@ import React, {useState, useEffect, useCallback, useRef} from "react";
 import Loading from "../../../components/ui/Loading";
 import SearchableSelect from "../../../components/ui/SearchableSelect";
 import CustomSearch from "../../../components/ui/CustomSearch";
+import CustomDropdown from "../../../components/ui/CustomDropdown";
 import {
   Package,
   Plus,
@@ -72,6 +73,28 @@ const STATUS_OPTIONS = [
     color: "bg-red-100 text-red-700 border-red-200",
     dotColor: "bg-red-500",
     icon: XCircle,
+  },
+];
+
+const STATUS_DROPDOWN_OPTIONS = [
+  {value: "pending", label: "Pending", icon: Clock, iconColor: "text-pending"},
+  {
+    value: "received",
+    label: "Received",
+    icon: PackageCheck,
+    iconColor: "text-green",
+  },
+  {
+    value: "returned",
+    label: "Returned",
+    icon: Undo2,
+    iconColor: "text-primarydull",
+  },
+  {
+    value: "cancelled",
+    label: "Cancelled",
+    icon: XCircle,
+    iconColor: "text-red",
   },
 ];
 
@@ -160,6 +183,7 @@ export default function PartsPurchases() {
 
   // Add product to order modal
   const [showAddProductModal, setShowAddProductModal] = useState(false);
+  const [addProductLoading, setAddProductLoading] = useState(false);
   const [addProductForm, setAddProductForm] = useState({
     purchase_order_id: "",
     part_name: "",
@@ -444,6 +468,7 @@ export default function PartsPurchases() {
       showToast("Product name is required", "error");
       return;
     }
+    setAddProductLoading(true);
     try {
       const body = {
         purchase_order_id: addProductForm.purchase_order_id,
@@ -465,6 +490,8 @@ export default function PartsPurchases() {
       }
     } catch {
       showToast("Failed to add product", "error");
+    } finally {
+      setAddProductLoading(false);
     }
   };
 
@@ -981,31 +1008,27 @@ export default function PartsPurchases() {
                     placeholder="Search invoice, vendor, vehicle..."
                   />
                   {vendors.length > 0 && (
-                    <select
+                    <CustomDropdown
                       value={vendorFilter}
-                      onChange={(e) => setVendorFilter(e.target.value)}
-                      className="border border-gray-200 rounded-md px-3 py-2 bg-primarybg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-primarytext"
-                    >
-                      <option value="">All Vendors</option>
-                      {vendors.map((v) => (
-                        <option key={v.id} value={v.id}>
-                          {v.name}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={setVendorFilter}
+                      options={[
+                        {value: "", label: "All Vendors"},
+                        ...vendors.map((v) => ({value: v.id, label: v.name})),
+                      ]}
+                      placeholder="All Vendors"
+                      width="w-44"
+                    />
                   )}
-                  <select
+                  <CustomDropdown
                     value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="border border-gray-200 rounded-md px-3 py-2 bg-primarybg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-primarytext"
-                  >
-                    <option value="">All Status</option>
-                    {STATUS_OPTIONS.map((s) => (
-                      <option key={s.value} value={s.value}>
-                        {s.label}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={setStatusFilter}
+                    options={[
+                      {value: "", label: "All Status"},
+                      ...STATUS_DROPDOWN_OPTIONS,
+                    ]}
+                    placeholder="All Status"
+                    width="w-40"
+                  />
                 </div>
                 <button
                   onClick={() => setShowCreateModal(true)}
@@ -1638,19 +1661,14 @@ export default function PartsPurchases() {
                           )}
                         </td>
                         <td className="px-3 py-2.5">
-                          <select
+                          <CustomDropdown
                             value={p.status}
-                            onChange={(e) =>
-                              handleProductStatusChange(p.id, e.target.value)
+                            onChange={(val) =>
+                              handleProductStatusChange(p.id, val)
                             }
-                            className="text-xs border border-gray-200 rounded px-1.5 py-1 bg-primarybg focus:outline-none focus:ring-1 focus:ring-primary/30"
-                          >
-                            {STATUS_OPTIONS.map((s) => (
-                              <option key={s.value} value={s.value}>
-                                {s.label}
-                              </option>
-                            ))}
-                          </select>
+                            options={STATUS_DROPDOWN_OPTIONS}
+                            width="w-36"
+                          />
                         </td>
                         <td className="px-3 py-2.5">
                           <div className="flex items-center gap-1">
@@ -1693,11 +1711,11 @@ export default function PartsPurchases() {
 
             {/* Status Timeline */}
             <div className="px-6 py-3">
-              <div className="bg-primarybg rounded-md p-4">
-                <h4 className="text-xs text-secondarytext uppercase tracking-wider mb-4 font-bold flex items-center gap-2">
+              <div className="bg-primarybg rounded-md p-5">
+                <h4 className="text-xs text-secondarytext uppercase tracking-wider mb-5 font-bold flex items-center gap-2">
                   <ArrowRight size={14} /> Order Status
                 </h4>
-                <div className="flex items-center gap-0">
+                <div className="flex items-start justify-between gap-0">
                   {STATUS_OPTIONS.map((opt, i) => {
                     const isActive = selectedOrder.status === opt.value;
                     const dateKey =
@@ -1706,44 +1724,71 @@ export default function PartsPurchases() {
                         : `${opt.value}_date`;
                     const dateVal = selectedOrder[dateKey];
                     const Icon = opt.icon;
+                    const statusIdx = STATUS_OPTIONS.findIndex(
+                      (s) => s.value === selectedOrder.status,
+                    );
+                    const isDone = i <= statusIdx;
+                    const isLast = i === STATUS_OPTIONS.length - 1;
                     return (
                       <React.Fragment key={opt.value}>
-                        {i > 0 && (
-                          <div className="flex-1 h-px bg-gray-200 mx-1" />
-                        )}
-                        <div className="flex flex-col items-center gap-1.5 min-w-17.5">
+                        <div className="flex flex-col items-center min-w-0 flex-1">
                           <div
-                            className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
+                            className={`relative w-10 h-10 rounded-full flex items-center justify-center transition-all duration-500 ${
                               isActive
-                                ? `${opt.color} border shadow-sm`
-                                : dateVal
-                                  ? "bg-gray-100 text-gray-500 border border-gray-200"
-                                  : "bg-gray-50 text-gray-300 border border-gray-100"
+                                ? `${opt.color} border shadow-lg scale-110 ring-4 ring-opacity-15`
+                                : isDone
+                                  ? `${opt.color} border shadow-sm`
+                                  : "bg-gray-50 text-gray-300 border-2 border-gray-200"
                             }`}
                           >
-                            <Icon size={16} />
+                            <Icon size={17} strokeWidth={isActive ? 2.5 : 2} />
+                            {isActive && (
+                              <span
+                                className={`absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full animate-ping ${opt.dotColor}`}
+                              />
+                            )}
                           </div>
                           <span
-                            className={`text-[10px] font-semibold ${isActive ? "text-primarytext" : "text-secondarytext"}`}
+                            className={`mt-2 text-[11px] font-bold tracking-wide text-center ${
+                              isActive
+                                ? "text-primarytext"
+                                : isDone
+                                  ? "text-secondarytext"
+                                  : "text-secondarytext/40"
+                            }`}
                           >
                             {opt.label}
                           </span>
                           {dateVal ? (
-                            <span className="text-[10px] text-secondarytext">
+                            <span className="mt-0.5 text-[10px] text-secondarytext leading-tight">
                               {dateVal}
                             </span>
                           ) : (
-                            <span className="text-[10px] text-gray-300">-</span>
+                            <span className="mt-0.5 text-[10px] text-gray-300">
+                              -
+                            </span>
                           )}
                         </div>
+                        {!isLast && (
+                          <div
+                            className="flex items-center pt-5 shrink-0"
+                            style={{minWidth: 24}}
+                          >
+                            <div
+                              className={`h-0.5 w-full rounded transition-all duration-500 ${
+                                i < statusIdx ? opt.dotColor : "bg-gray-200"
+                              }`}
+                            />
+                          </div>
+                        )}
                       </React.Fragment>
                     );
                   })}
                 </div>
 
                 {/* Status Change Buttons */}
-                <div className="mt-4 pt-3 border-t border-gray-200">
-                  <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider mb-2">
+                <div className="mt-5 pt-4 border-t border-gray-200">
+                  <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider mb-2.5">
                     Change Order Status (applies to all products)
                   </p>
                   <div className="flex flex-wrap gap-2">
@@ -1761,7 +1806,7 @@ export default function PartsPurchases() {
                               true,
                             )
                           }
-                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold border transition-all hover:shadow-sm ${opt.color}`}
+                          className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-xs font-semibold border transition-all hover:shadow-sm ${opt.color}`}
                         >
                           <Icon size={13} />
                           {opt.label}
@@ -1844,6 +1889,7 @@ export default function PartsPurchases() {
                       Service Record *
                     </label>
                     <SearchableSelect
+                      isWhite
                       value={bulkForm.service_record_id}
                       onChange={(val) =>
                         setBulkForm({...bulkForm, service_record_id: val})
@@ -1869,6 +1915,7 @@ export default function PartsPurchases() {
                     <div className="flex gap-2">
                       <div className="flex-1">
                         <SearchableSelect
+                          isWhite
                           value={bulkForm.vendor_id}
                           onChange={(val) =>
                             setBulkForm({...bulkForm, vendor_id: val})
@@ -2324,6 +2371,7 @@ export default function PartsPurchases() {
                   Vendor
                 </label>
                 <SearchableSelect
+                  isWhite
                   value={editOrderForm.vendor_id}
                   onChange={(val) =>
                     setEditOrderForm({...editOrderForm, vendor_id: val})
@@ -2513,22 +2561,15 @@ export default function PartsPurchases() {
                   <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
                     Status
                   </label>
-                  <select
+                  <CustomDropdown
+                    isWhite
                     value={editProductForm.status}
-                    onChange={(e) =>
-                      setEditProductForm({
-                        ...editProductForm,
-                        status: e.target.value,
-                      })
+                    onChange={(val) =>
+                      setEditProductForm({...editProductForm, status: val})
                     }
-                    className="w-full border border-gray-200 rounded-md p-2.5 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  >
-                    {STATUS_OPTIONS.map((s) => (
-                      <option key={s.value} value={s.value}>
-                        {s.label}
-                      </option>
-                    ))}
-                  </select>
+                    options={STATUS_DROPDOWN_OPTIONS}
+                    width="w-full"
+                  />
                 </div>
               </div>
               <button
@@ -2545,116 +2586,175 @@ export default function PartsPurchases() {
       {/* ========== ADD PRODUCT TO ORDER MODAL ========== */}
       {showAddProductModal && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn"
+          className="fixed inset-0 bg-black/60 overflow-y-auto z-50 animate-overlayFadeIn"
           onClick={() => setShowAddProductModal(false)}
         >
-          <div
-            className="bg-secondarybg rounded-md shadow-xl max-w-lg w-full animate-scaleIn"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-6 border-b border-primarybg flex justify-between items-center">
-              <h3 className="text-lg font-bold text-primarytext">
-                Add Product to Order
-              </h3>
-              <button
-                onClick={() => setShowAddProductModal(false)}
-                className="text-secondarytext hover:text-primarytext transition-colors"
+          <div className="flex items-start justify-center min-h-full p-6">
+            <div
+              className="bg-secondarybg rounded-md shadow-2xl w-full max-w-lg my-8 animate-modalSlideIn overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Top accent */}
+              <div className="h-1 bg-primary" />
+
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 bg-primary rounded-md flex items-center justify-center shadow-md shadow-primary/25">
+                    <ShoppingCart size={20} className="text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-primarytext">
+                      Add Product to Order
+                    </h3>
+                    <p className="text-xs text-secondarytext mt-0.5">
+                      New product will inherit order settings
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowAddProductModal(false)}
+                  className="p-2 hover:bg-primarybg rounded-md transition-colors text-secondarytext hover:text-primarytext"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <form
+                onSubmit={handleAddProductSubmit}
+                className="px-6 pb-6 space-y-5"
               >
-                <X size={20} />
-              </button>
+                {/* Product Name */}
+                <div className="bg-primarybg rounded-md p-5 space-y-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Package size={14} className="text-secondarytext" />
+                    <p className="text-xs font-bold text-secondarytext uppercase tracking-wider">
+                      Product Information
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
+                      Product Name <span className="text-red">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={addProductForm.part_name}
+                      onChange={(e) =>
+                        setAddProductForm({
+                          ...addProductForm,
+                          part_name: e.target.value,
+                        })
+                      }
+                      className="w-full bg-secondarybg border border-primarybg rounded-md px-3.5 py-2.5 text-sm text-primarytext focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary placeholder:text-secondarytext/50"
+                      placeholder="e.g. Brake Pad, Oil Filter, Grease..."
+                      required
+                      autoFocus
+                    />
+                  </div>
+                </div>
+
+                {/* Quantity, Price, Warranty */}
+                <div className="bg-primarybg rounded-md p-5 space-y-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <IndianRupee size={14} className="text-secondarytext" />
+                    <p className="text-xs font-bold text-secondarytext uppercase tracking-wider">
+                      Pricing &amp; Warranty
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
+                        Quantity
+                      </label>
+                      <input
+                        type="number"
+                        value={addProductForm.quantity}
+                        onChange={(e) =>
+                          setAddProductForm({
+                            ...addProductForm,
+                            quantity: e.target.value,
+                          })
+                        }
+                        className="w-full bg-secondarybg border border-primarybg rounded-md px-3.5 py-2.5 text-sm text-primarytext focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        min="1"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
+                        Unit Price (₹)
+                      </label>
+                      <input
+                        type="number"
+                        value={addProductForm.unit_price}
+                        onChange={(e) =>
+                          setAddProductForm({
+                            ...addProductForm,
+                            unit_price: e.target.value,
+                          })
+                        }
+                        className="w-full bg-secondarybg border border-primarybg rounded-md px-3.5 py-2.5 text-sm text-primarytext focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        step="0.01"
+                        min="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
+                        Warranty (Mo)
+                      </label>
+                      <input
+                        type="number"
+                        value={addProductForm.warranty_months}
+                        onChange={(e) =>
+                          setAddProductForm({
+                            ...addProductForm,
+                            warranty_months: e.target.value,
+                          })
+                        }
+                        className="w-full bg-secondarybg border border-primarybg rounded-md px-3.5 py-2.5 text-sm text-primarytext focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        min="0"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Live Total */}
+                  <div className="flex items-center justify-between bg-secondarybg rounded-md px-4 py-3 border border-primarybg">
+                    <span className="text-xs font-bold text-secondarytext uppercase tracking-wider">
+                      Subtotal
+                    </span>
+                    <span className="text-lg font-bold text-primary">
+                      ₹
+                      {(
+                        (parseInt(addProductForm.quantity) || 1) *
+                        (parseFloat(addProductForm.unit_price) || 0)
+                      ).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddProductModal(false)}
+                    className="flex-1 px-4 py-3 bg-primarybg text-secondarytext hover:bg-gray-200 rounded-md transition-all font-semibold text-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={addProductLoading}
+                    className="flex-2 flex items-center justify-center gap-2 bg-primary text-white px-4 py-3 rounded-md hover:bg-primary/90 transition-all font-bold text-sm shadow-md shadow-primary/25 disabled:opacity-60"
+                  >
+                    {addProductLoading ? (
+                      <Loader2 size={17} className="animate-spin" />
+                    ) : (
+                      <Plus size={17} strokeWidth={2.5} />
+                    )}
+                    {addProductLoading ? "Adding..." : "Add Product"}
+                  </button>
+                </div>
+              </form>
             </div>
-            <form onSubmit={handleAddProductSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                  Product Name *
-                </label>
-                <input
-                  type="text"
-                  value={addProductForm.part_name}
-                  onChange={(e) =>
-                    setAddProductForm({
-                      ...addProductForm,
-                      part_name: e.target.value,
-                    })
-                  }
-                  className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  placeholder="Enter product name"
-                  required
-                />
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                    Quantity
-                  </label>
-                  <input
-                    type="number"
-                    value={addProductForm.quantity}
-                    onChange={(e) =>
-                      setAddProductForm({
-                        ...addProductForm,
-                        quantity: e.target.value,
-                      })
-                    }
-                    className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    min="1"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                    Unit Price (₹)
-                  </label>
-                  <input
-                    type="number"
-                    value={addProductForm.unit_price}
-                    onChange={(e) =>
-                      setAddProductForm({
-                        ...addProductForm,
-                        unit_price: e.target.value,
-                      })
-                    }
-                    className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    step="0.01"
-                    min="0"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                    Warranty (Mo)
-                  </label>
-                  <input
-                    type="number"
-                    value={addProductForm.warranty_months}
-                    onChange={(e) =>
-                      setAddProductForm({
-                        ...addProductForm,
-                        warranty_months: e.target.value,
-                      })
-                    }
-                    className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    min="0"
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end">
-                <span className="text-sm text-secondarytext">
-                  Total:{" "}
-                  <span className="font-bold text-primary text-base">
-                    ₹
-                    {(
-                      (parseInt(addProductForm.quantity) || 1) *
-                      (parseFloat(addProductForm.unit_price) || 0)
-                    ).toLocaleString()}
-                  </span>
-                </span>
-              </div>
-              <button
-                type="submit"
-                className="w-full bg-primary text-white rounded-md py-2.5 font-semibold hover:bg-primary/90 transition-all shadow-md hover:shadow-lg"
-              >
-                Add Product
-              </button>
-            </form>
           </div>
         </div>
       )}

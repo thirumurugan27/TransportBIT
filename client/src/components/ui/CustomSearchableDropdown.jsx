@@ -12,6 +12,7 @@ import {ChevronDown, Check, Search, X} from "lucide-react";
  * @param {string} className - Additional CSS classes for the container
  * @param {string} width - Width of the dropdown (default: "w-48")
  * @param {number} maxHeight - Max height of dropdown list (default: 280)
+ * @param {boolean} isWhite - Use white background instead of primarybg (default: false)
  */
 export default function CustomSearchableDropdown({
   value,
@@ -22,6 +23,7 @@ export default function CustomSearchableDropdown({
   className = "",
   width = "w-48",
   maxHeight = 280,
+  isWhite = false,
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -65,12 +67,16 @@ export default function CustomSearchableDropdown({
     setSearchQuery("");
   };
 
+  const bgClass = isWhite ? "bg-white" : "bg-primarybg";
+  const dropdownBgClass = isWhite ? "bg-white" : "bg-primarybg";
+  const hoverBgClass = isWhite ? "hover:bg-gray-50" : "hover:bg-primarybg/70";
+
   return (
     <div ref={dropdownRef} className={`relative ${width} ${className}`}>
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full h-[42px] px-3 bg-primarybg border border-gray-200 rounded-md text-sm text-left flex items-center justify-between gap-2 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+        className={`w-full h-[42px] px-3 ${bgClass} border border-gray-200 rounded-md text-sm text-left flex items-center justify-between gap-2 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all`}
       >
         <span
           className={`flex-1 truncate ${
@@ -97,7 +103,9 @@ export default function CustomSearchableDropdown({
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg animate-in fade-in slide-in-from-top-1 duration-150">
+        <div
+          className={`absolute z-50 mt-1 w-full ${dropdownBgClass} border border-gray-200 rounded-md shadow-lg animate-in fade-in slide-in-from-top-1 duration-150`}
+        >
           {/* Search Input */}
           <div className="p-2 border-b border-gray-100">
             <div className="relative">
@@ -111,7 +119,7 @@ export default function CustomSearchableDropdown({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={searchPlaceholder}
-                className="w-full h-9 pl-9 pr-3 bg-primarybg border border-gray-200 rounded-md text-sm text-primarytext placeholder:text-secondarytext focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                className={`w-full h-9 pl-9 pr-3 ${bgClass} border border-gray-200 rounded-md text-sm text-primarytext placeholder:text-secondarytext focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all`}
               />
             </div>
           </div>
@@ -127,7 +135,7 @@ export default function CustomSearchableDropdown({
                   key={option.value}
                   type="button"
                   onClick={() => handleSelect(option.value)}
-                  className={`w-full px-3 py-2.5 text-sm text-left flex items-center justify-between hover:bg-gray-50 transition-colors ${
+                  className={`w-full px-3 py-2.5 text-sm text-left flex items-center justify-between ${hoverBgClass} transition-colors ${
                     value === option.value
                       ? "text-primary font-medium bg-primary/5"
                       : "text-primarytext"

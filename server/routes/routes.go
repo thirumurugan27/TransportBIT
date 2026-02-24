@@ -274,6 +274,7 @@ func registerAdminRoutes(adm *gin.RouterGroup) {
 	adm.POST("/services/:id/reject", admin.RejectServiceRequest)
 	adm.POST("/services/:id/start", admin.StartServiceRecord)
 	adm.POST("/services/:id/complete", admin.CompleteServiceRecord)
+	adm.POST("/services/:id/cancel", admin.CancelServiceRecord)
 
 	adm.GET("/services/:id/parts", admin.GetPartsByServiceRecord)
 	adm.POST("/services/parts/add", admin.AddPart)
