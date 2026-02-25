@@ -1,5 +1,6 @@
 import React, {useState, useEffect} from "react";
 import TemporaryAssignments from "./TemporaryAssignments";
+import VehicleReplacements from "./VehicleReplacements";
 import Loading from "../../../components/ui/Loading";
 import {
   Bus,
@@ -55,7 +56,7 @@ const formatTimeAMPM = (time24) => {
 export default function Assignments() {
   const {showToast} = useToast();
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("bus"); // bus, car, ev, other, temporary
+  const [activeTab, setActiveTab] = useState("bus"); // bus, car, ev, other, temporary, replacements
   const [openTempModal, setOpenTempModal] = useState(false);
 
   // Data
@@ -807,6 +808,16 @@ export default function Assignments() {
           >
             <Clock size={16} /> Temporary
           </button>
+          <button
+            onClick={() => setActiveTab("replacements")}
+            className={`px-4 py-2 rounded-md font-medium transition-all flex items-center gap-2 ${
+              activeTab === "replacements"
+                ? "bg-primary text-white shadow-sm"
+                : "text-secondarytext hover:text-primary"
+            }`}
+          >
+            <RefreshCw size={16} /> Replacements
+          </button>
         </div>
         <div>
           {activeTab === "bus" && (
@@ -856,7 +867,7 @@ export default function Assignments() {
       </div>
 
       {/* Search, Sort, and Filter Bar */}
-      {activeTab !== "temporary" && (
+      {activeTab !== "temporary" && activeTab !== "replacements" && (
         <div className="bg-white rounded-md border border-gray-100 shadow-sm p-5 mb-6">
           <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
             {/* Search */}
@@ -996,6 +1007,9 @@ export default function Assignments() {
       )}
 
       {/* Content */}
+      {activeTab === "replacements" ? (
+        <VehicleReplacements />
+      ) : (
       <div className="bg-secondarybg rounded-md border border-gray-100 shadow-sm overflow-hidden min-h-[400px]">
         {activeTab === "temporary" ? (
           <TemporaryAssignments openModal={openTempModal} />
@@ -1220,6 +1234,7 @@ export default function Assignments() {
           </div>
         )}
       </div>
+      )}
 
       {/* Create Modal */}
       {showCreateModal && (

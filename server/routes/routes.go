@@ -217,6 +217,8 @@ func registerAdminRoutes(adm *gin.RouterGroup) {
 	adm.POST("/vehicle-replacements/check-expired", admin.CheckExpiredVehicleReplacements)
 	adm.GET("/vehicle-replacements/vehicle-drivers", admin.GetVehicleDriversNew)
 	adm.GET("/vehicle-replacements/stats", admin.GetVehicleReplacementStats)
+	adm.GET("/vehicle-replacements/available-drivers", admin.GetAvailableReplacementDrivers)
+	adm.GET("/vehicle-replacements/driver-vehicle", admin.GetDriverVehicle)
 
 	// Legacy FC replacement routes (redirect to new system)
 	adm.GET("/fc-replacements", admin.GetVehicleReplacements)

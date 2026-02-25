@@ -29,6 +29,8 @@ type VehicleReplacementRequest struct {
 	Notes                string `json:"notes"`
 	RequestedByRole      string `json:"requested_by_role"`
 	RequestedByID        int    `json:"requested_by_id"`
+	ReplacementType      string `json:"replacement_type"`
+	ReplacementDriverID  *int   `json:"replacement_driver_id"`
 }
 
 // VehicleReplacementResponse - full response with joined details
@@ -40,8 +42,8 @@ type VehicleReplacementResponse struct {
 	VehicleName           string  `json:"vehicle_name"`
 	ReplacementVehicleID  *int    `json:"replacement_vehicle_id"`
 	ReplacementVehicleNum *string `json:"replacement_vehicle_number"`
-	DriverID              int     `json:"driver_id"`
-	DriverName            string  `json:"driver_name"`
+	DriverID              *int    `json:"driver_id"`
+	DriverName            *string `json:"driver_name"`
 	Reason                string  `json:"reason"`
 	ServiceRecordID       *int    `json:"service_record_id"`
 	ServiceTitle          *string `json:"service_title"`
@@ -55,6 +57,9 @@ type VehicleReplacementResponse struct {
 	DriverNotified        bool    `json:"driver_notified"`
 	CreatedAt             string  `json:"created_at"`
 	DaysRemaining         int     `json:"days_remaining"`
+	ReplacementType       string  `json:"replacement_type"`
+	ReplacementDriverID   *int    `json:"replacement_driver_id"`
+	ReplacementDriverName *string `json:"replacement_driver_name"`
 }
 
 // GET /api/admin/vehicle-replacements - Get all vehicle replacement requests
@@ -72,13 +77,16 @@ func GetVehicleReplacements(c *gin.Context) {
 			r.status, r.notes, r.requested_by_role, r.requested_by_id,
 			r.approved_by_id, r.driver_notified,
 			DATE_FORMAT(r.created_at, '%d-%m-%Y %h:%i %p'),
-			DATEDIFF(r.end_date, CURDATE())
+			DATEDIFF(r.end_date, CURDATE()),
+			r.replacement_type, r.replacement_driver_id, ru.full_name
 		FROM vehicle_replacements r
 		JOIN vehicles v ON r.vehicle_id = v.id
 		LEFT JOIN vehicles rv ON r.replacement_vehicle_id = rv.id
-		JOIN drivers d ON r.driver_id = d.id
-		JOIN users u ON d.user_id = u.id
+		LEFT JOIN drivers d ON r.driver_id = d.id
+		LEFT JOIN users u ON d.user_id = u.id
 		LEFT JOIN service_records sr ON r.service_record_id = sr.id
+		LEFT JOIN drivers rd ON r.replacement_driver_id = rd.id
+		LEFT JOIN users ru ON rd.user_id = ru.id
 	`
 
 	if status != "" && status != "all" {
@@ -107,6 +115,7 @@ func GetVehicleReplacements(c *gin.Context) {
 			&r.Status, &r.Notes, &r.RequestedByRole, &r.RequestedByID,
 			&r.ApprovedByID, &r.DriverNotified,
 			&r.CreatedAt, &r.DaysRemaining,
+			&r.ReplacementType, &r.ReplacementDriverID, &r.ReplacementDriverName,
 		)
 		if err != nil {
 			log.Printf("Scan error: %v", err)
@@ -151,12 +160,18 @@ func CreateVehicleReplacement(c *gin.Context) {
 		status = "approved"
 	}
 
+	// Default replacement_type to "vehicle" if empty
+	if req.ReplacementType == "" {
+		req.ReplacementType = "vehicle"
+	}
+
 	result, err := config.DB.Exec(`
 		INSERT INTO vehicle_replacements 
-		(vehicle_id, replacement_vehicle_id, driver_id, reason, service_record_id, start_date, end_date, status, notes, requested_by_role, requested_by_id)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		(vehicle_id, replacement_vehicle_id, driver_id, reason, service_record_id, start_date, end_date, status, notes, requested_by_role, requested_by_id, replacement_type, replacement_driver_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, req.VehicleID, req.ReplacementVehicleID, req.DriverID, req.Reason, req.ServiceRecordID,
-		req.StartDate, req.EndDate, status, req.Notes, req.RequestedByRole, req.RequestedByID)
+		req.StartDate, req.EndDate, status, req.Notes, req.RequestedByRole, req.RequestedByID,
+		req.ReplacementType, req.ReplacementDriverID)
 
 	if err != nil {
 		log.Printf("Create vehicle replacement error: %v", err)
@@ -166,9 +181,13 @@ func CreateVehicleReplacement(c *gin.Context) {
 
 	requestID, _ := result.LastInsertId()
 
-	// If admin created and replacement vehicle is selected, activate immediately
-	if req.RequestedByRole == "admin" && req.ReplacementVehicleID != nil {
-		activateVehicleReplacement(int(requestID), req)
+	// If admin created, activate immediately based on replacement type
+	if req.RequestedByRole == "admin" {
+		if req.ReplacementType == "driver" && req.ReplacementDriverID != nil {
+			activateDriverReplacement(int(requestID), req)
+		} else if req.ReplacementType == "vehicle" && req.ReplacementVehicleID != nil {
+			activateVehicleReplacement(int(requestID), req)
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -181,9 +200,10 @@ func CreateVehicleReplacement(c *gin.Context) {
 // POST /api/admin/vehicle-replacements/approve - Approve replacement request
 func ApproveVehicleReplacement(c *gin.Context) {
 	var req struct {
-		RequestID            int `json:"request_id"`
-		ReplacementVehicleID int `json:"replacement_vehicle_id"`
-		ApprovedByID         int `json:"approved_by_id"`
+		RequestID            int  `json:"request_id"`
+		ReplacementVehicleID int  `json:"replacement_vehicle_id"`
+		ReplacementDriverID  *int `json:"replacement_driver_id"`
+		ApprovedByID         int  `json:"approved_by_id"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
@@ -191,26 +211,15 @@ func ApproveVehicleReplacement(c *gin.Context) {
 	}
 
 	var vehicleID, driverID int
-	var startDate, endDate, reason string
+	var startDate, endDate, reason, replacementType string
 	var serviceRecordID sql.NullInt64
 	err := config.DB.QueryRow(`
-		SELECT vehicle_id, driver_id, start_date, end_date, reason, service_record_id
+		SELECT vehicle_id, driver_id, start_date, end_date, reason, service_record_id, replacement_type
 		FROM vehicle_replacements WHERE id = ?
-	`, req.RequestID).Scan(&vehicleID, &driverID, &startDate, &endDate, &reason, &serviceRecordID)
+	`, req.RequestID).Scan(&vehicleID, &driverID, &startDate, &endDate, &reason, &serviceRecordID, &replacementType)
 
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Request not found"})
-		return
-	}
-
-	_, err = config.DB.Exec(`
-		UPDATE vehicle_replacements 
-		SET status = 'approved', replacement_vehicle_id = ?, approved_by_id = ?
-		WHERE id = ?
-	`, req.ReplacementVehicleID, req.ApprovedByID, req.RequestID)
-
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -220,17 +229,59 @@ func ApproveVehicleReplacement(c *gin.Context) {
 		srid = &v
 	}
 
-	activateVehicleReplacement(req.RequestID, VehicleReplacementRequest{
-		VehicleID:            vehicleID,
-		ReplacementVehicleID: &req.ReplacementVehicleID,
-		DriverID:             driverID,
-		StartDate:            startDate,
-		EndDate:              endDate,
-		Reason:               reason,
-		ServiceRecordID:      srid,
-	})
+	if replacementType == "driver" {
+		// Driver replacement: update replacement_driver_id
+		if req.ReplacementDriverID == nil || *req.ReplacementDriverID == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Replacement driver is required"})
+			return
+		}
+		_, err = config.DB.Exec(`
+			UPDATE vehicle_replacements 
+			SET status = 'approved', replacement_driver_id = ?, approved_by_id = ?
+			WHERE id = ?
+		`, *req.ReplacementDriverID, req.ApprovedByID, req.RequestID)
 
-	c.JSON(http.StatusOK, gin.H{"message": "Vehicle replacement approved and activated"})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		activateDriverReplacement(req.RequestID, VehicleReplacementRequest{
+			VehicleID:           vehicleID,
+			DriverID:            driverID,
+			ReplacementDriverID: req.ReplacementDriverID,
+			StartDate:           startDate,
+			EndDate:             endDate,
+			Reason:              reason,
+			ServiceRecordID:     srid,
+			ReplacementType:     "driver",
+		})
+	} else {
+		// Vehicle replacement: update replacement_vehicle_id
+		_, err = config.DB.Exec(`
+			UPDATE vehicle_replacements 
+			SET status = 'approved', replacement_vehicle_id = ?, approved_by_id = ?
+			WHERE id = ?
+		`, req.ReplacementVehicleID, req.ApprovedByID, req.RequestID)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		activateVehicleReplacement(req.RequestID, VehicleReplacementRequest{
+			VehicleID:            vehicleID,
+			ReplacementVehicleID: &req.ReplacementVehicleID,
+			DriverID:             driverID,
+			StartDate:            startDate,
+			EndDate:              endDate,
+			Reason:               reason,
+			ServiceRecordID:      srid,
+			ReplacementType:      "vehicle",
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Replacement approved and activated"})
 }
 
 // activateVehicleReplacement - Internal: handles vehicle swap, temp assignment, group updates, notifications
@@ -351,6 +402,107 @@ func activateVehicleReplacement(requestID int, req VehicleReplacementRequest) {
 	}
 }
 
+// activateDriverReplacement - Internal: handles driver swap on the same vehicle, temp assignment, notifications
+func activateDriverReplacement(requestID int, req VehicleReplacementRequest) {
+	// NOTE: Vehicle stays active - do NOT set to under_maintenance
+
+	// 1. Find original driver's shift
+	var shiftID int
+	err := config.DB.QueryRow(`
+		SELECT id FROM (
+			SELECT a.shift_id as id FROM assignments a
+			WHERE a.driver_id = ? AND a.vehicle_id = ?
+			AND CURDATE() BETWEEN a.start_date AND a.end_date
+			LIMIT 1
+		) sub
+	`, req.DriverID, req.VehicleID).Scan(&shiftID)
+
+	if err == sql.ErrNoRows {
+		config.DB.QueryRow(`
+			SELECT COALESCE(ev.shift_id, 0)
+			FROM ev_assignments ev
+			JOIN driver_clusters dc ON ev.cluster_id = dc.id
+			JOIN driver_cluster_members dcm ON dcm.cluster_id = dc.id
+			WHERE ev.vehicle_id = ? AND dcm.driver_id = ?
+			AND CURDATE() BETWEEN ev.start_date AND ev.end_date
+			AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to
+			LIMIT 1
+		`, req.VehicleID, req.DriverID).Scan(&shiftID)
+	}
+
+	if shiftID == 0 {
+		config.DB.QueryRow("SELECT id FROM shifts LIMIT 1").Scan(&shiftID)
+	}
+
+	// 2. Create temporary assignment: replacement driver takes over the vehicle
+	if req.ReplacementDriverID != nil && shiftID > 0 {
+		_, err = config.DB.Exec(`
+			INSERT INTO temporary_assignments 
+			(original_driver_id, replacement_driver_id, vehicle_id, shift_id, start_date, end_date, reason, status)
+			VALUES (?, ?, ?, ?, ?, ?, ?, 'active')
+		`, req.DriverID, *req.ReplacementDriverID, req.VehicleID, shiftID, req.StartDate, req.EndDate,
+			"Driver Replacement: "+req.Reason)
+		if err != nil {
+			log.Printf("Error creating temp assignment for driver replacement: %v", err)
+		}
+	}
+
+	// 3. Notifications
+	var vehicleNumber, driverName, replacementDriverName string
+	config.DB.QueryRow("SELECT vehicle_number FROM vehicles WHERE id = ?", req.VehicleID).Scan(&vehicleNumber)
+	config.DB.QueryRow(`
+		SELECT u.full_name FROM drivers d JOIN users u ON d.user_id = u.id WHERE d.id = ?
+	`, req.DriverID).Scan(&driverName)
+	if req.ReplacementDriverID != nil {
+		config.DB.QueryRow(`
+			SELECT u.full_name FROM drivers d JOIN users u ON d.user_id = u.id WHERE d.id = ?
+		`, *req.ReplacementDriverID).Scan(&replacementDriverName)
+	}
+
+	startDate, _ := time.Parse("2006-01-02", req.StartDate)
+	endDate, _ := time.Parse("2006-01-02", req.EndDate)
+	days := int(endDate.Sub(startDate).Hours()/24) + 1
+
+	// Notify original driver
+	origMsg := fmt.Sprintf("You have been replaced by %s on vehicle %s for %d days (%s to %s). Reason: %s",
+		replacementDriverName, vehicleNumber, days, req.StartDate, req.EndDate, req.Reason)
+	config.DB.Exec(`
+		INSERT INTO notifications (recipient_role, recipient_id, title, message, type, reference_id)
+		VALUES ('DRIVER', ?, ?, ?, 'vehicle_change', ?)
+	`, req.DriverID, "Driver Replacement", origMsg, requestID)
+
+	// Notify replacement driver
+	if req.ReplacementDriverID != nil {
+		replMsg := fmt.Sprintf("You have been assigned to vehicle %s replacing driver %s for %d days (%s to %s). Reason: %s",
+			vehicleNumber, driverName, days, req.StartDate, req.EndDate, req.Reason)
+		config.DB.Exec(`
+			INSERT INTO notifications (recipient_role, recipient_id, title, message, type, reference_id)
+			VALUES ('DRIVER', ?, ?, ?, 'vehicle_change', ?)
+		`, *req.ReplacementDriverID, "Driver Replacement Assignment", replMsg, requestID)
+	}
+
+	config.DB.Exec("UPDATE vehicle_replacements SET driver_notified = TRUE WHERE id = ?", requestID)
+
+	// Notify incharge
+	var inchargeID int
+	config.DB.QueryRow(`
+		SELECT d2.id FROM driver_cluster_members dcm1
+		JOIN driver_cluster_members dcm2 ON dcm1.cluster_id = dcm2.cluster_id
+		JOIN drivers d2 ON d2.id = dcm2.driver_id AND d2.is_incharge = 1
+		WHERE dcm1.driver_id = ? AND CURDATE() BETWEEN dcm1.valid_from AND dcm1.valid_to
+		AND CURDATE() BETWEEN dcm2.valid_from AND dcm2.valid_to
+	`, req.DriverID).Scan(&inchargeID)
+
+	if inchargeID > 0 {
+		inchargeMsg := fmt.Sprintf("Driver %s replaced by %s on vehicle %s. Reason: %s. Period: %s to %s",
+			driverName, replacementDriverName, vehicleNumber, req.Reason, req.StartDate, req.EndDate)
+		config.DB.Exec(`
+			INSERT INTO notifications (recipient_role, recipient_id, title, message, type, reference_id)
+			VALUES ('DRIVER', ?, ?, ?, 'info', ?)
+		`, inchargeID, "Driver Replacement Activated", inchargeMsg, requestID)
+	}
+}
+
 // POST /api/admin/vehicle-replacements/complete - Complete a replacement (return to original)
 func CompleteVehicleReplacement(c *gin.Context) {
 	var req struct {
@@ -362,12 +514,12 @@ func CompleteVehicleReplacement(c *gin.Context) {
 	}
 
 	var vehicleID, driverID int
-	var replacementVehicleID sql.NullInt64
-	var reason string
+	var replacementVehicleID, replacementDriverID sql.NullInt64
+	var reason, replacementType string
 	err := config.DB.QueryRow(`
-		SELECT vehicle_id, driver_id, replacement_vehicle_id, reason 
+		SELECT vehicle_id, driver_id, replacement_vehicle_id, reason, replacement_type, replacement_driver_id
 		FROM vehicle_replacements WHERE id = ?
-	`, req.RequestID).Scan(&vehicleID, &driverID, &replacementVehicleID, &reason)
+	`, req.RequestID).Scan(&vehicleID, &driverID, &replacementVehicleID, &reason, &replacementType, &replacementDriverID)
 
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Request not found"})
@@ -377,46 +529,77 @@ func CompleteVehicleReplacement(c *gin.Context) {
 	// Mark request as completed
 	config.DB.Exec("UPDATE vehicle_replacements SET status = 'completed' WHERE id = ?", req.RequestID)
 
-	// Restore original vehicle
-	config.DB.Exec("UPDATE vehicles SET status = 'available' WHERE id = ?", vehicleID)
-
-	// Complete temporary assignment
-	if replacementVehicleID.Valid {
-		config.DB.Exec(`
-			UPDATE temporary_assignments SET status = 'completed' 
-			WHERE original_driver_id = ? AND vehicle_id = ? AND status = 'active'
-		`, driverID, replacementVehicleID.Int64)
-
-		// Remove replacement vehicle from temp group memberships
-		config.DB.Exec(`
-			DELETE FROM vehicle_group_members 
-			WHERE vehicle_id = ? AND valid_to <= CURDATE()
-		`, replacementVehicleID.Int64)
-	}
-
-	// Notifications
 	var vehicleNumber, driverName string
 	config.DB.QueryRow("SELECT vehicle_number FROM vehicles WHERE id = ?", vehicleID).Scan(&vehicleNumber)
 	config.DB.QueryRow(`
 		SELECT u.full_name FROM drivers d JOIN users u ON d.user_id = u.id WHERE d.id = ?
 	`, driverID).Scan(&driverName)
 
-	driverMessage := "Your original vehicle " + vehicleNumber + " is back from " + reason + ". The temporary replacement has ended."
-	config.DB.Exec(`
-		INSERT INTO notifications (recipient_role, recipient_id, title, message, type, reference_id)
-		VALUES ('DRIVER', ?, ?, ?, 'vehicle_change', ?)
-	`, driverID, "Vehicle Back - Replacement Ended", driverMessage, req.RequestID)
+	if replacementType == "driver" {
+		// Driver replacement: complete temp assignment on this vehicle (original driver comes back)
+		config.DB.Exec(`
+			UPDATE temporary_assignments SET status = 'completed' 
+			WHERE original_driver_id = ? AND vehicle_id = ? AND status = 'active'
+		`, driverID, vehicleID)
 
-	adminMessage := fmt.Sprintf("Vehicle %s is back from %s. Driver %s reassigned to original vehicle.", vehicleNumber, reason, driverName)
-	CreateAdminNotification("replacement_completed", "Vehicle Replacement Completed", adminMessage)
+		driverMessage := "Your replacement period on vehicle " + vehicleNumber + " has ended. You are back on duty. Reason: " + reason
+		config.DB.Exec(`
+			INSERT INTO notifications (recipient_role, recipient_id, title, message, type, reference_id)
+			VALUES ('DRIVER', ?, ?, ?, 'vehicle_change', ?)
+		`, driverID, "Driver Replacement Ended", driverMessage, req.RequestID)
 
-	c.JSON(http.StatusOK, gin.H{"message": "Replacement completed, driver reassigned to original vehicle"})
+		// Notify replacement driver too
+		if replacementDriverID.Valid {
+			var replDriverName string
+			config.DB.QueryRow(`
+				SELECT u.full_name FROM drivers d JOIN users u ON d.user_id = u.id WHERE d.id = ?
+			`, replacementDriverID.Int64).Scan(&replDriverName)
+
+			replMsg := "Your temporary assignment on vehicle " + vehicleNumber + " has ended. Original driver " + driverName + " is back."
+			config.DB.Exec(`
+				INSERT INTO notifications (recipient_role, recipient_id, title, message, type, reference_id)
+				VALUES ('DRIVER', ?, ?, ?, 'vehicle_change', ?)
+			`, replacementDriverID.Int64, "Temporary Assignment Ended", replMsg, req.RequestID)
+		}
+
+		adminMessage := fmt.Sprintf("Driver replacement completed. Driver %s is back on vehicle %s.", driverName, vehicleNumber)
+		CreateAdminNotification("replacement_completed", "Driver Replacement Completed", adminMessage)
+
+	} else {
+		// Vehicle replacement: restore original vehicle status
+		config.DB.Exec("UPDATE vehicles SET status = 'available' WHERE id = ?", vehicleID)
+
+		// Complete temporary assignment
+		if replacementVehicleID.Valid {
+			config.DB.Exec(`
+				UPDATE temporary_assignments SET status = 'completed' 
+				WHERE original_driver_id = ? AND vehicle_id = ? AND status = 'active'
+			`, driverID, replacementVehicleID.Int64)
+
+			// Remove replacement vehicle from temp group memberships
+			config.DB.Exec(`
+				DELETE FROM vehicle_group_members 
+				WHERE vehicle_id = ? AND valid_to <= CURDATE()
+			`, replacementVehicleID.Int64)
+		}
+
+		driverMessage := "Your original vehicle " + vehicleNumber + " is back from " + reason + ". The temporary replacement has ended."
+		config.DB.Exec(`
+			INSERT INTO notifications (recipient_role, recipient_id, title, message, type, reference_id)
+			VALUES ('DRIVER', ?, ?, ?, 'vehicle_change', ?)
+		`, driverID, "Vehicle Back - Replacement Ended", driverMessage, req.RequestID)
+
+		adminMessage := fmt.Sprintf("Vehicle %s is back from %s. Driver %s reassigned to original vehicle.", vehicleNumber, reason, driverName)
+		CreateAdminNotification("replacement_completed", "Vehicle Replacement Completed", adminMessage)
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Replacement completed successfully"})
 }
 
 // AutoCompleteExpiredVehicleReplacements - Scheduled job to complete expired replacements
 func AutoCompleteExpiredVehicleReplacements() {
 	rows, err := config.DB.Query(`
-		SELECT id, vehicle_id, driver_id, replacement_vehicle_id, reason 
+		SELECT id, vehicle_id, driver_id, replacement_vehicle_id, reason, replacement_type, replacement_driver_id
 		FROM vehicle_replacements 
 		WHERE status = 'approved' AND end_date < CURDATE()
 	`)
@@ -428,18 +611,27 @@ func AutoCompleteExpiredVehicleReplacements() {
 
 	for rows.Next() {
 		var id, vehicleID, driverID int
-		var replacementVehicleID sql.NullInt64
-		var reason string
-		rows.Scan(&id, &vehicleID, &driverID, &replacementVehicleID, &reason)
+		var replacementVehicleID, replacementDriverID sql.NullInt64
+		var reason, replacementType string
+		rows.Scan(&id, &vehicleID, &driverID, &replacementVehicleID, &reason, &replacementType, &replacementDriverID)
 
 		config.DB.Exec("UPDATE vehicle_replacements SET status = 'completed' WHERE id = ?", id)
-		config.DB.Exec("UPDATE vehicles SET status = 'available' WHERE id = ?", vehicleID)
 
-		if replacementVehicleID.Valid {
+		if replacementType == "driver" {
+			// Driver replacement: complete temp assignment, vehicle stays active
 			config.DB.Exec(`
 				UPDATE temporary_assignments SET status = 'completed' 
 				WHERE original_driver_id = ? AND vehicle_id = ? AND status = 'active'
-			`, driverID, replacementVehicleID.Int64)
+			`, driverID, vehicleID)
+		} else {
+			// Vehicle replacement: restore original vehicle
+			config.DB.Exec("UPDATE vehicles SET status = 'available' WHERE id = ?", vehicleID)
+			if replacementVehicleID.Valid {
+				config.DB.Exec(`
+					UPDATE temporary_assignments SET status = 'completed' 
+					WHERE original_driver_id = ? AND vehicle_id = ? AND status = 'active'
+				`, driverID, replacementVehicleID.Int64)
+			}
 		}
 
 		var vehicleNumber, driverName string
@@ -448,16 +640,27 @@ func AutoCompleteExpiredVehicleReplacements() {
 			SELECT u.full_name FROM drivers d JOIN users u ON d.user_id = u.id WHERE d.id = ?
 		`, driverID).Scan(&driverName)
 
-		driverMessage := "Your original vehicle " + vehicleNumber + " is back from " + reason + ". The temporary replacement has ended."
-		config.DB.Exec(`
-			INSERT INTO notifications (recipient_role, recipient_id, title, message, type, reference_id)
-			VALUES ('DRIVER', ?, ?, ?, 'vehicle_change', ?)
-		`, driverID, "Vehicle Back - Replacement Ended", driverMessage, id)
+		if replacementType == "driver" {
+			driverMessage := "Your driver replacement period on vehicle " + vehicleNumber + " has ended."
+			config.DB.Exec(`
+				INSERT INTO notifications (recipient_role, recipient_id, title, message, type, reference_id)
+				VALUES ('DRIVER', ?, ?, ?, 'vehicle_change', ?)
+			`, driverID, "Driver Replacement Ended", driverMessage, id)
 
-		adminMessage := fmt.Sprintf("Vehicle %s auto-completed from %s. Driver %s reassigned.", vehicleNumber, reason, driverName)
-		CreateAdminNotification("replacement_completed", "Replacement Auto-Completed", adminMessage)
+			adminMessage := fmt.Sprintf("Driver replacement auto-completed. Driver %s back on vehicle %s.", driverName, vehicleNumber)
+			CreateAdminNotification("replacement_completed", "Driver Replacement Auto-Completed", adminMessage)
+		} else {
+			driverMessage := "Your original vehicle " + vehicleNumber + " is back from " + reason + ". The temporary replacement has ended."
+			config.DB.Exec(`
+				INSERT INTO notifications (recipient_role, recipient_id, title, message, type, reference_id)
+				VALUES ('DRIVER', ?, ?, ?, 'vehicle_change', ?)
+			`, driverID, "Vehicle Back - Replacement Ended", driverMessage, id)
 
-		log.Printf("Vehicle Replacement Auto-Completed: %s", adminMessage)
+			adminMessage := fmt.Sprintf("Vehicle %s auto-completed from %s. Driver %s reassigned.", vehicleNumber, reason, driverName)
+			CreateAdminNotification("replacement_completed", "Replacement Auto-Completed", adminMessage)
+		}
+
+		log.Printf("Replacement Auto-Completed: type=%s, id=%d", replacementType, id)
 	}
 }
 
@@ -479,13 +682,10 @@ func GetAvailableReplacementVehiclesNew(c *gin.Context) {
 		FROM vehicles v
 		WHERE v.status IN ('active', 'available')
 		AND v.id NOT IN (
-			SELECT DISTINCT a.vehicle_id FROM assignments a
-			WHERE a.start_date <= ? AND a.end_date >= ?
-		)
-		AND v.id NOT IN (
-			SELECT DISTINCT ta.vehicle_id FROM temporary_assignments ta
-			WHERE ta.status = 'active'
-			AND ta.start_date <= ? AND ta.end_date >= ?
+			SELECT DISTINCT vr.replacement_vehicle_id FROM vehicle_replacements vr
+			WHERE vr.replacement_vehicle_id IS NOT NULL
+			AND vr.status IN ('approved')
+			AND vr.start_date <= ? AND vr.end_date >= ?
 		)
 		AND v.id NOT IN (
 			SELECT DISTINCT vr.vehicle_id FROM vehicle_replacements vr
@@ -494,7 +694,7 @@ func GetAvailableReplacementVehiclesNew(c *gin.Context) {
 		)
 	`
 
-	args := []interface{}{endDate, startDate, endDate, startDate, endDate, startDate}
+	args := []interface{}{endDate, startDate, endDate, startDate}
 
 	if excludeVehicleID != "" {
 		query += " AND v.id != ?"
@@ -702,14 +902,14 @@ func DeleteVehicleReplacement(c *gin.Context) {
 		return
 	}
 
-	var status string
+	var status, replacementType string
 	var vehicleID int
 	var replacementVehicleID sql.NullInt64
 	var driverID int
 	err := config.DB.QueryRow(`
-		SELECT status, vehicle_id, replacement_vehicle_id, driver_id 
+		SELECT status, vehicle_id, replacement_vehicle_id, driver_id, replacement_type
 		FROM vehicle_replacements WHERE id = ?
-	`, req.RequestID).Scan(&status, &vehicleID, &replacementVehicleID, &driverID)
+	`, req.RequestID).Scan(&status, &vehicleID, &replacementVehicleID, &driverID, &replacementType)
 
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Request not found"})
@@ -718,12 +918,21 @@ func DeleteVehicleReplacement(c *gin.Context) {
 
 	// Cleanup if approved
 	if status == "approved" {
-		config.DB.Exec("UPDATE vehicles SET status = 'available' WHERE id = ?", vehicleID)
-		if replacementVehicleID.Valid {
+		if replacementType == "driver" {
+			// Driver replacement: remove temp assignment on same vehicle
 			config.DB.Exec(`
 				DELETE FROM temporary_assignments 
 				WHERE original_driver_id = ? AND vehicle_id = ? AND status = 'active'
-			`, driverID, replacementVehicleID.Int64)
+			`, driverID, vehicleID)
+		} else {
+			// Vehicle replacement: restore vehicle and remove temp assignment
+			config.DB.Exec("UPDATE vehicles SET status = 'available' WHERE id = ?", vehicleID)
+			if replacementVehicleID.Valid {
+				config.DB.Exec(`
+					DELETE FROM temporary_assignments 
+					WHERE original_driver_id = ? AND vehicle_id = ? AND status = 'active'
+				`, driverID, replacementVehicleID.Int64)
+			}
 		}
 
 		// Notify driver
@@ -733,7 +942,7 @@ func DeleteVehicleReplacement(c *gin.Context) {
 			INSERT INTO notifications (recipient_role, recipient_id, title, message, type)
 			VALUES ('DRIVER', ?, ?, ?, 'info')
 		`, driverID, "Replacement Cancelled",
-			"The vehicle replacement for "+vehicleNumber+" has been cancelled by admin.")
+			"The replacement for "+vehicleNumber+" has been cancelled by admin.")
 	}
 
 	_, err = config.DB.Exec("DELETE FROM vehicle_replacements WHERE id = ?", req.RequestID)
@@ -742,7 +951,7 @@ func DeleteVehicleReplacement(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Vehicle replacement deleted successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "Replacement deleted successfully"})
 }
 
 // GET /api/admin/vehicle-replacements/pending-count
@@ -761,11 +970,11 @@ func CheckExpiredVehicleReplacements(c *gin.Context) {
 // GET /api/admin/vehicle-replacements/stats - Replacement statistics
 func GetVehicleReplacementStats(c *gin.Context) {
 	type Stats struct {
-		Total       int `json:"total"`
-		Active      int `json:"active"`
-		Pending     int `json:"pending"`
-		Completed   int `json:"completed"`
-		ThisMonth   int `json:"this_month"`
+		Total     int `json:"total"`
+		Active    int `json:"active"`
+		Pending   int `json:"pending"`
+		Completed int `json:"completed"`
+		ThisMonth int `json:"this_month"`
 	}
 
 	var stats Stats
@@ -779,4 +988,141 @@ func GetVehicleReplacementStats(c *gin.Context) {
 	`).Scan(&stats.ThisMonth)
 
 	c.JSON(http.StatusOK, stats)
+}
+
+// GET /api/admin/vehicle-replacements/available-drivers - Get drivers available for replacement
+func GetAvailableReplacementDrivers(c *gin.Context) {
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
+	excludeDriverID := c.Query("exclude_driver_id")
+
+	if startDate == "" || endDate == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "start_date and end_date required"})
+		return
+	}
+
+	query := `
+		SELECT d.id, u.full_name, u.phone, d.license_type
+		FROM drivers d
+		JOIN users u ON d.user_id = u.id
+		WHERE d.status = 'active'
+		AND d.id NOT IN (
+			SELECT lr.driver_id FROM leave_requests lr
+			WHERE lr.status = 'admin_approved'
+			AND lr.start_date <= ? AND lr.end_date >= ?
+		)
+		AND d.id NOT IN (
+			SELECT ta.replacement_driver_id FROM temporary_assignments ta
+			WHERE ta.status = 'active'
+			AND ta.start_date <= ? AND ta.end_date >= ?
+		)
+		AND d.id NOT IN (
+			SELECT vr.replacement_driver_id FROM vehicle_replacements vr
+			WHERE vr.status IN ('pending', 'approved')
+			AND vr.replacement_type = 'driver'
+			AND vr.replacement_driver_id IS NOT NULL
+			AND vr.start_date <= ? AND vr.end_date >= ?
+		)
+	`
+
+	args := []interface{}{endDate, startDate, endDate, startDate, endDate, startDate}
+
+	if excludeDriverID != "" {
+		query += " AND d.id != ?"
+		args = append(args, excludeDriverID)
+	}
+
+	query += " ORDER BY u.full_name"
+
+	rows, err := config.DB.Query(query, args...)
+	if err != nil {
+		log.Printf("Get available replacement drivers error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer rows.Close()
+
+	type AvailableDriver struct {
+		ID          int    `json:"id"`
+		FullName    string `json:"full_name"`
+		Phone       string `json:"phone"`
+		LicenseType string `json:"license_type"`
+	}
+
+	var drivers []AvailableDriver
+	for rows.Next() {
+		var d AvailableDriver
+		rows.Scan(&d.ID, &d.FullName, &d.Phone, &d.LicenseType)
+		drivers = append(drivers, d)
+	}
+
+	if drivers == nil {
+		drivers = []AvailableDriver{}
+	}
+	c.JSON(http.StatusOK, drivers)
+}
+
+// GET /api/admin/vehicle-replacements/driver-vehicle - Get vehicle assigned to a driver
+func GetDriverVehicle(c *gin.Context) {
+	driverID := c.Query("driver_id")
+	if driverID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "driver_id required"})
+		return
+	}
+
+	type VehicleInfo struct {
+		ID            int    `json:"id"`
+		VehicleNumber string `json:"vehicle_number"`
+		VehicleType   string `json:"vehicle_type"`
+		VehicleName   string `json:"vehicle_name"`
+		ShiftID       *int   `json:"shift_id"`
+		ShiftName     string `json:"shift_name"`
+		IsEV          bool   `json:"is_ev"`
+	}
+
+	var vehicles []VehicleInfo
+
+	// Regular assignments
+	rows, err := config.DB.Query(`
+		SELECT DISTINCT v.id, v.vehicle_number, v.vehicle_type, COALESCE(v.vehicle_name, v.vehicle_number),
+			   a.shift_id, COALESCE(s.name, ''), FALSE
+		FROM assignments a
+		JOIN vehicles v ON a.vehicle_id = v.id
+		LEFT JOIN shifts s ON a.shift_id = s.id
+		WHERE a.driver_id = ? AND CURDATE() BETWEEN a.start_date AND a.end_date
+	`, driverID)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var vi VehicleInfo
+			rows.Scan(&vi.ID, &vi.VehicleNumber, &vi.VehicleType, &vi.VehicleName, &vi.ShiftID, &vi.ShiftName, &vi.IsEV)
+			vehicles = append(vehicles, vi)
+		}
+	}
+
+	// EV cluster assignments
+	evRows, err := config.DB.Query(`
+		SELECT DISTINCT v.id, v.vehicle_number, v.vehicle_type, COALESCE(v.vehicle_name, v.vehicle_number),
+			   ev.shift_id, COALESCE(s.name, 'EV Duty'), TRUE
+		FROM ev_assignments ev
+		JOIN vehicles v ON ev.vehicle_id = v.id
+		JOIN driver_clusters dc ON ev.cluster_id = dc.id
+		JOIN driver_cluster_members dcm ON dcm.cluster_id = dc.id AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to
+		LEFT JOIN shifts s ON ev.shift_id = s.id
+		WHERE dcm.driver_id = ? AND CURDATE() BETWEEN ev.start_date AND ev.end_date AND ev.status = 'active'
+	`, driverID)
+	if err == nil {
+		defer evRows.Close()
+		for evRows.Next() {
+			var vi VehicleInfo
+			evRows.Scan(&vi.ID, &vi.VehicleNumber, &vi.VehicleType, &vi.VehicleName, &vi.ShiftID, &vi.ShiftName, &vi.IsEV)
+			vi.IsEV = true
+			vehicles = append(vehicles, vi)
+		}
+	}
+
+	if vehicles == nil {
+		vehicles = []VehicleInfo{}
+	}
+	c.JSON(http.StatusOK, vehicles)
 }

@@ -184,12 +184,12 @@ type Assignment struct {
 	CreatedAt              string `json:"created_at,omitempty"`
 	Description            string `json:"description,omitempty"`
 	// Joined fields
-	ShiftName          string `json:"shift_name"`
-	StartTime          string `json:"start_time"`
-	EndTime            string `json:"end_time"`
-	VehicleNumber      string `json:"vehicle_number"`
-	VehicleType        string `json:"vehicle_type"`
-	VehicleName        string `json:"vehicle_name"`
+	ShiftName                string `json:"shift_name"`
+	StartTime                string `json:"start_time"`
+	EndTime                  string `json:"end_time"`
+	VehicleNumber            string `json:"vehicle_number"`
+	VehicleType              string `json:"vehicle_type"`
+	VehicleName              string `json:"vehicle_name"`
 	DriverName               string `json:"driver_name"`
 	OriginalDriverName       string `json:"original_driver_name"`
 	DriverStatus             string `json:"driver_status"`
@@ -289,10 +289,10 @@ type Attendance struct {
 }
 
 type MarkAttendanceRequest struct {
-	UserID      int    `json:"user_id"`
-	Date        string `json:"date"`
-	Status      string `json:"status"`
-	CheckinTime string `json:"checkin_time"`
+	UserID      int     `json:"user_id"`
+	Date        string  `json:"date"`
+	Status      string  `json:"status"`
+	CheckinTime *string `json:"checkin_time"`
 }
 
 // Buse Fleet
@@ -812,31 +812,31 @@ type UpdateServiceTypeRequest struct {
 
 // ServiceRecord - Core service/repair record
 type ServiceRecord struct {
-	ID               int     `json:"id"`
-	VehicleID        int     `json:"vehicle_id"`
-	ServiceTypeID    *int    `json:"service_type_id"`
-	ReportedBy       *int    `json:"reported_by"`
-	AssignedToAdmin  *int    `json:"assigned_to_admin"`
-	Title            string  `json:"title"`
-	Description      string  `json:"description"`
-	Severity         string  `json:"severity"`
-	Status           string  `json:"status"`
-	OdometerAtService *int   `json:"odometer_at_service"`
-	ScheduledDate    *string `json:"scheduled_date"`
-	StartedAt        *string `json:"started_at"`
-	CompletedAt      *string `json:"completed_at"`
-	WorkshopName     string  `json:"workshop_name"`
-	MechanicName     string  `json:"mechanic_name"`
-	MechanicContact  string  `json:"mechanic_contact"`
-	LaborCost        float64 `json:"labor_cost"`
-	PartsCost        float64 `json:"parts_cost"`
-	TotalCost        float64 `json:"total_cost"`
-	NextServiceDate  *string `json:"next_service_date"`
-	NextServiceKm    *int    `json:"next_service_km"`
-	AdminRemarks     string  `json:"admin_remarks"`
-	RejectionReason  string  `json:"rejection_reason"`
-	CreatedAt        string  `json:"created_at"`
-	UpdatedAt        string  `json:"updated_at"`
+	ID                int     `json:"id"`
+	VehicleID         int     `json:"vehicle_id"`
+	ServiceTypeID     *int    `json:"service_type_id"`
+	ReportedBy        *int    `json:"reported_by"`
+	AssignedToAdmin   *int    `json:"assigned_to_admin"`
+	Title             string  `json:"title"`
+	Description       string  `json:"description"`
+	Severity          string  `json:"severity"`
+	Status            string  `json:"status"`
+	OdometerAtService *int    `json:"odometer_at_service"`
+	ScheduledDate     *string `json:"scheduled_date"`
+	StartedAt         *string `json:"started_at"`
+	CompletedAt       *string `json:"completed_at"`
+	WorkshopName      string  `json:"workshop_name"`
+	MechanicName      string  `json:"mechanic_name"`
+	MechanicContact   string  `json:"mechanic_contact"`
+	LaborCost         float64 `json:"labor_cost"`
+	PartsCost         float64 `json:"parts_cost"`
+	TotalCost         float64 `json:"total_cost"`
+	NextServiceDate   *string `json:"next_service_date"`
+	NextServiceKm     *int    `json:"next_service_km"`
+	AdminRemarks      string  `json:"admin_remarks"`
+	RejectionReason   string  `json:"rejection_reason"`
+	CreatedAt         string  `json:"created_at"`
+	UpdatedAt         string  `json:"updated_at"`
 	// Joined fields
 	VehicleNumber   string `json:"vehicle_number"`
 	VehicleName     string `json:"vehicle_name"`
@@ -861,18 +861,18 @@ type CreateServiceRecordRequest struct {
 }
 
 type UpdateServiceRecordRequest struct {
-	ID               int     `json:"id"`
-	ServiceTypeID    *int    `json:"service_type_id"`
-	Title            string  `json:"title"`
-	Description      string  `json:"description"`
-	Severity         string  `json:"severity"`
-	OdometerAtService *int   `json:"odometer_at_service"`
-	ScheduledDate    *string `json:"scheduled_date"`
-	WorkshopName     string  `json:"workshop_name"`
-	MechanicName     string  `json:"mechanic_name"`
-	MechanicContact  string  `json:"mechanic_contact"`
-	LaborCost        float64 `json:"labor_cost"`
-	AdminRemarks     string  `json:"admin_remarks"`
+	ID                int     `json:"id"`
+	ServiceTypeID     *int    `json:"service_type_id"`
+	Title             string  `json:"title"`
+	Description       string  `json:"description"`
+	Severity          string  `json:"severity"`
+	OdometerAtService *int    `json:"odometer_at_service"`
+	ScheduledDate     *string `json:"scheduled_date"`
+	WorkshopName      string  `json:"workshop_name"`
+	MechanicName      string  `json:"mechanic_name"`
+	MechanicContact   string  `json:"mechanic_contact"`
+	LaborCost         float64 `json:"labor_cost"`
+	AdminRemarks      string  `json:"admin_remarks"`
 }
 
 // Product purchase status constants
@@ -1001,27 +1001,27 @@ type BulkCreatePartsRequest struct {
 
 // PurchaseOrder - Groups multiple parts into a single bill/order
 type PurchaseOrder struct {
-	ID              int     `json:"id"`
-	Category        string  `json:"category"`
-	VehicleID       *int    `json:"vehicle_id"`
-	ServiceRecordID *int    `json:"service_record_id"`
-	VendorID        *int    `json:"vendor_id"`
-	VendorName      string  `json:"vendor_name"`
-	VendorContact   string  `json:"vendor_contact"`
-	VendorAddress   string  `json:"vendor_address"`
-	VendorGST       string  `json:"vendor_gst"`
-	InvoiceNumber   string  `json:"invoice_number"`
-	PurchasedDate   string  `json:"purchased_date"`
-	Status          string  `json:"status"`
-	OrderedDate     string  `json:"ordered_date"`
-	ReceivedDate    string  `json:"received_date"`
-	ReturnedDate    string  `json:"returned_date"`
-	CancelledDate   string  `json:"cancelled_date"`
-	Notes           string  `json:"notes"`
-	AddedBy         *int    `json:"added_by"`
-	AddedByName     string  `json:"added_by_name"`
-	CreatedAt       string  `json:"created_at"`
-	UpdatedAt       string  `json:"updated_at"`
+	ID              int    `json:"id"`
+	Category        string `json:"category"`
+	VehicleID       *int   `json:"vehicle_id"`
+	ServiceRecordID *int   `json:"service_record_id"`
+	VendorID        *int   `json:"vendor_id"`
+	VendorName      string `json:"vendor_name"`
+	VendorContact   string `json:"vendor_contact"`
+	VendorAddress   string `json:"vendor_address"`
+	VendorGST       string `json:"vendor_gst"`
+	InvoiceNumber   string `json:"invoice_number"`
+	PurchasedDate   string `json:"purchased_date"`
+	Status          string `json:"status"`
+	OrderedDate     string `json:"ordered_date"`
+	ReceivedDate    string `json:"received_date"`
+	ReturnedDate    string `json:"returned_date"`
+	CancelledDate   string `json:"cancelled_date"`
+	Notes           string `json:"notes"`
+	AddedBy         *int   `json:"added_by"`
+	AddedByName     string `json:"added_by_name"`
+	CreatedAt       string `json:"created_at"`
+	UpdatedAt       string `json:"updated_at"`
 	// Joined fields
 	VehicleNumber string `json:"vehicle_number"`
 	VehicleName   string `json:"vehicle_name"`
@@ -1082,15 +1082,15 @@ type AddProductToOrderRequest struct {
 
 // VehicleServiceTracking - KM-based service tracking per vehicle
 type VehicleServiceTracking struct {
-	ID               int    `json:"id"`
-	VehicleID        int    `json:"vehicle_id"`
-	LastServicedKm   int    `json:"last_serviced_km"`
-	NextServiceKm    int    `json:"next_service_km"`
-	LastServiceDate  string `json:"last_service_date"`
-	NextServiceDate  string `json:"next_service_date"`
-	Notes            string `json:"notes"`
-	CreatedAt        string `json:"created_at"`
-	UpdatedAt        string `json:"updated_at"`
+	ID              int    `json:"id"`
+	VehicleID       int    `json:"vehicle_id"`
+	LastServicedKm  int    `json:"last_serviced_km"`
+	NextServiceKm   int    `json:"next_service_km"`
+	LastServiceDate string `json:"last_service_date"`
+	NextServiceDate string `json:"next_service_date"`
+	Notes           string `json:"notes"`
+	CreatedAt       string `json:"created_at"`
+	UpdatedAt       string `json:"updated_at"`
 	// Computed/Joined fields
 	VehicleNumber string `json:"vehicle_number"`
 	VehicleName   string `json:"vehicle_name"`

@@ -318,13 +318,16 @@ func initVehicleReplacementsTable() {
 			requested_by_id INT NULL,
 			approved_by_id INT NULL,
 			driver_notified TINYINT DEFAULT 0,
+			replacement_type VARCHAR(50) NOT NULL DEFAULT 'vehicle',
+			replacement_driver_id INT NULL,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			INDEX idx_vr_vehicle (vehicle_id),
 			INDEX idx_vr_replacement (replacement_vehicle_id),
 			INDEX idx_vr_driver (driver_id),
 			INDEX idx_vr_status (status),
-			INDEX idx_vr_service (service_record_id)
+			INDEX idx_vr_service (service_record_id),
+			INDEX idx_vr_replacement_driver (replacement_driver_id)
 		)
 	`)
 	if err != nil {
@@ -332,6 +335,11 @@ func initVehicleReplacementsTable() {
 	} else {
 		log.Println("Vehicle replacements table created/verified")
 	}
+
+	// Add replacement_type and replacement_driver_id columns if they don't exist (migration for existing tables)
+	config.DB.Exec("ALTER TABLE vehicle_replacements ADD COLUMN replacement_type VARCHAR(50) NOT NULL DEFAULT 'vehicle' AFTER driver_notified")
+	config.DB.Exec("ALTER TABLE vehicle_replacements ADD COLUMN replacement_driver_id INT NULL AFTER replacement_type")
+	config.DB.Exec("ALTER TABLE vehicle_replacements ADD INDEX idx_vr_replacement_driver (replacement_driver_id)")
 
 	// Migrate existing fc_replacement_requests data if table exists and vehicle_replacements is empty
 	var count int

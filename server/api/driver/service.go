@@ -28,8 +28,6 @@ type DriverServiceRecord struct {
 	RejectionReason   string  `json:"rejection_reason"`
 	TotalCost         float64 `json:"total_cost"`
 	OdometerAtService *int    `json:"odometer_at_service"`
-	WorkshopName      string  `json:"workshop_name"`
-	MechanicName      string  `json:"mechanic_name"`
 	CreatedAt         string  `json:"created_at"`
 }
 
@@ -107,9 +105,7 @@ func GetMyServiceRequests(c *gin.Context) {
 			sr.title, COALESCE(sr.description, ''), sr.severity, sr.status,
 			COALESCE(st.name, ''), COALESCE(DATE_FORMAT(sr.scheduled_date, '%d-%m-%Y'), ''), COALESCE(DATE_FORMAT(sr.completed_at, '%d-%m-%Y %h:%i %p'), ''),
 			COALESCE(sr.admin_remarks, ''), COALESCE(sr.rejection_reason, ''),
-			sr.total_cost, sr.odometer_at_service,
-			COALESCE(sr.workshop_name, ''), COALESCE(sr.mechanic_name, ''),
-			DATE_FORMAT(sr.created_at, '%d-%m-%Y %h:%i %p')
+			sr.total_cost, sr.odometer_at_service, DATE_FORMAT(sr.created_at, '%d-%m-%Y %h:%i %p')
 		FROM service_records sr
 		LEFT JOIN vehicles v ON sr.vehicle_id = v.id
 		LEFT JOIN service_types st ON sr.service_type_id = st.id
@@ -140,13 +136,11 @@ func GetVehicleServiceHistory(c *gin.Context) {
 			sr.title, COALESCE(sr.description, ''), sr.severity, sr.status,
 			COALESCE(st.name, ''), COALESCE(DATE_FORMAT(sr.scheduled_date, '%d-%m-%Y'), ''), COALESCE(DATE_FORMAT(sr.completed_at, '%d-%m-%Y %h:%i %p'), ''),
 			COALESCE(sr.admin_remarks, ''), COALESCE(sr.rejection_reason, ''),
-			sr.total_cost, sr.odometer_at_service,
-			COALESCE(sr.workshop_name, ''), COALESCE(sr.mechanic_name, ''),
-			DATE_FORMAT(sr.created_at, '%d-%m-%Y %h:%i %p')
+			sr.total_cost, sr.odometer_at_service, DATE_FORMAT(sr.created_at, '%d-%m-%Y %h:%i %p')
 		FROM service_records sr
 		LEFT JOIN vehicles v ON sr.vehicle_id = v.id
 		LEFT JOIN service_types st ON sr.service_type_id = st.id
-		WHERE sr.vehicle_id = ?
+		WHERE sr.vehicle_id = ? AND sr.status IN ('completed', 'in_progress', 'approved')
 		ORDER BY sr.created_at DESC
 	`, vehicleID)
 	if err != nil {
@@ -172,9 +166,7 @@ func scanDriverServiceRecords(rows *sql.Rows) []DriverServiceRecord {
 			&r.Title, &r.Description, &r.Severity, &r.Status,
 			&r.ServiceTypeName, &scheduledDate, &completedAt,
 			&r.AdminRemarks, &r.RejectionReason,
-			&r.TotalCost, &odometerAtService,
-			&r.WorkshopName, &r.MechanicName,
-			&r.CreatedAt,
+			&r.TotalCost, &odometerAtService, &r.CreatedAt,
 		); err != nil {
 			continue
 		}

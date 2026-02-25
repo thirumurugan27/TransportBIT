@@ -274,12 +274,7 @@ export default function VehicleReplacements() {
 
   // Create
   const handleCreate = async () => {
-    if (
-      !form.vehicle_id ||
-      !form.driver_id ||
-      !form.start_date ||
-      !form.end_date
-    ) {
+    if (!form.vehicle_id || !form.start_date || !form.end_date) {
       showToast("Please fill all required fields", "error");
       return;
     }
@@ -287,7 +282,7 @@ export default function VehicleReplacements() {
     try {
       const body = {
         vehicle_id: parseInt(form.vehicle_id),
-        driver_id: parseInt(form.driver_id),
+        driver_id: form.driver_id ? parseInt(form.driver_id) : 0,
         replacement_vehicle_id: form.replacement_vehicle_id
           ? parseInt(form.replacement_vehicle_id)
           : null,
@@ -297,6 +292,7 @@ export default function VehicleReplacements() {
         notes: form.notes,
         requested_by_role: "admin",
         requested_by_id: 0,
+        replacement_type: "vehicle",
       };
       const res = await apiPost("/api/admin/vehicle-replacements/create", body);
       const data = await res.json();
@@ -315,17 +311,19 @@ export default function VehicleReplacements() {
 
   // Approve
   const handleApprove = async () => {
-    if (!showApproveModal || !approveReplacementId) {
+    if (!showApproveModal) return;
+    if (!approveReplacementId) {
       showToast("Select a replacement vehicle", "error");
       return;
     }
     setSubmitting(true);
     try {
-      const res = await apiPost("/api/admin/vehicle-replacements/approve", {
+      const body = {
         request_id: showApproveModal.id,
         replacement_vehicle_id: parseInt(approveReplacementId),
         approved_by_id: 0,
-      });
+      };
+      const res = await apiPost("/api/admin/vehicle-replacements/approve", body);
       const data = await res.json();
       if (res.ok) {
         showToast(data.message, "success");
@@ -649,12 +647,14 @@ export default function VehicleReplacements() {
           />
           <div className="p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <span
-                className="text-xs font-bold"
-                style={{color: C.secondarytext}}
-              >
-                #{showDetailModal.id}
-              </span>
+              <div className="flex items-center gap-2">
+                <span
+                  className="text-xs font-bold"
+                  style={{color: C.secondarytext}}
+                >
+                  #{showDetailModal.id}
+                </span>
+              </div>
               <Pill
                 label={showDetailModal.status}
                 style={STATUS_STYLE[showDetailModal.status]}
@@ -664,7 +664,7 @@ export default function VehicleReplacements() {
             <div className="space-y-3">
               <DetailRow
                 icon={<Car size={14} />}
-                label="Original Vehicle"
+                label="Vehicle"
                 value={showDetailModal.vehicle_number}
               />
               {showDetailModal.replacement_vehicle_number && (
@@ -723,11 +723,10 @@ export default function VehicleReplacements() {
                       setApproveReplacementId(null);
                       setShowApproveModal(showDetailModal);
                       setShowDetailModal(null);
-                      fetchAvailableVehicles(
-                        showDetailModal.start_date,
-                        showDetailModal.end_date,
-                        showDetailModal.vehicle_id,
-                      );
+                      // Convert dd-mm-yyyy to yyyy-mm-dd for API
+                      const sd = showDetailModal.start_date?.split("-").reverse().join("-");
+                      const ed = showDetailModal.end_date?.split("-").reverse().join("-");
+                      fetchAvailableVehicles(sd, ed, showDetailModal.vehicle_id);
                     }}
                   >
                     <CheckCircle size={15} /> Approve
@@ -800,10 +799,11 @@ export default function VehicleReplacements() {
       {showCreateModal && (
         <Modal onClose={() => setShowCreateModal(false)} maxWidth="max-w-lg">
           <ModalHeader
-            title="New Vehicle Replacement"
+            title="New Replacement"
             onClose={() => setShowCreateModal(false)}
           />
           <div className="p-6 space-y-4">
+            {/* Vehicle Replacement Flow: Vehicle → Driver → Reason → Dates → Replacement Vehicle → Notes */}
             <div>
               <Label>Vehicle *</Label>
               <SearchableSelect
@@ -854,11 +854,7 @@ export default function VehicleReplacements() {
                   onChange={(e) => {
                     setForm({...form, start_date: e.target.value});
                     if (form.end_date && form.vehicle_id)
-                      fetchAvailableVehicles(
-                        e.target.value,
-                        form.end_date,
-                        form.vehicle_id,
-                      );
+                      fetchAvailableVehicles(e.target.value, form.end_date, form.vehicle_id);
                   }}
                   className={inputCls}
                 />
@@ -871,11 +867,7 @@ export default function VehicleReplacements() {
                   onChange={(e) => {
                     setForm({...form, end_date: e.target.value});
                     if (form.start_date && form.vehicle_id)
-                      fetchAvailableVehicles(
-                        form.start_date,
-                        e.target.value,
-                        form.vehicle_id,
-                      );
+                      fetchAvailableVehicles(form.start_date, e.target.value, form.vehicle_id);
                   }}
                   className={inputCls}
                 />
@@ -884,12 +876,10 @@ export default function VehicleReplacements() {
 
             {form.start_date && form.end_date && (
               <div>
-                <Label>Replacement Vehicle (Optional)</Label>
+                <Label>Replacement Vehicle *</Label>
                 <SearchableSelect
                   value={form.replacement_vehicle_id}
-                  onChange={(val) =>
-                    setForm({...form, replacement_vehicle_id: val})
-                  }
+                  onChange={(val) => setForm({...form, replacement_vehicle_id: val})}
                   options={availableVehicles.map((v) => ({
                     value: v.id,
                     label: `${v.vehicle_number} – ${v.vehicle_name || v.vehicle_type}`,
@@ -897,12 +887,8 @@ export default function VehicleReplacements() {
                   placeholder="Select replacement vehicle..."
                 />
                 {form.replacement_vehicle_id && (
-                  <p
-                    className="text-xs mt-1 flex items-center gap-1"
-                    style={{color: C.green}}
-                  >
-                    <RefreshCw size={12} /> Driver will be temporarily assigned
-                    to this vehicle
+                  <p className="text-xs mt-1 flex items-center gap-1" style={{color: C.green}}>
+                    <RefreshCw size={12} /> Driver will be temporarily assigned to this vehicle
                   </p>
                 )}
               </div>
@@ -935,13 +921,13 @@ export default function VehicleReplacements() {
       {showApproveModal && (
         <Modal onClose={() => setShowApproveModal(null)}>
           <ModalHeader
-            title="Approve & Assign Replacement"
+            title="Approve & Assign Vehicle"
             onClose={() => setShowApproveModal(null)}
           />
           <div className="p-6 space-y-4">
             <div className="p-3 rounded-lg" style={{background: C.primarybg}}>
               <div className="text-sm font-bold" style={{color: C.primarytext}}>
-                {showApproveModal.vehicle_number} → Driver:{" "}
+                {showApproveModal.vehicle_number} • Driver:{" "}
                 {showApproveModal.driver_name}
               </div>
               <div className="text-xs mt-1" style={{color: C.secondarytext}}>

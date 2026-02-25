@@ -155,11 +155,16 @@ func MarkAttendance(c *gin.Context) {
 	}
 
 	// Upsert attendance
+	var checkinTime interface{}
+	if req.CheckinTime != nil && *req.CheckinTime != "" {
+		checkinTime = *req.CheckinTime
+	}
+
 	_, err := config.DB.Exec(`
 		INSERT INTO attendance (user_id, date, status, checkin_time)
 		VALUES (?, ?, ?, ?)
 		ON DUPLICATE KEY UPDATE status=VALUES(status), checkin_time=VALUES(checkin_time)
-	`, req.UserID, req.Date, req.Status, req.CheckinTime)
+	`, req.UserID, req.Date, req.Status, checkinTime)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
