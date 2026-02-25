@@ -23,6 +23,7 @@ import {
   Save,
   ChevronDown,
   Wrench,
+  RefreshCw,
 } from "lucide-react";
 
 import {apiGet, apiPost, apiDelete} from "../../../utils/api";
@@ -1133,29 +1134,38 @@ export default function Vehicles() {
                           </td>
                         )}
                         <td className="px-6 py-5 text-center">
-                          <span
-                            className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-md min-w-24 ${
-                              normalizeStatus(v.status) === "available"
-                                ? "bg-green/10 text-green"
+                          <div className="flex flex-col items-center gap-1.5">
+                            <span
+                              className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-md min-w-24 ${
+                                normalizeStatus(v.status) === "available"
+                                  ? "bg-green/10 text-green"
+                                  : normalizeStatus(v.status) ===
+                                      "not_available"
+                                    ? "bg-red/10 text-red"
+                                    : "bg-pending/10 text-pending"
+                              }`}
+                            >
+                              {normalizeStatus(v.status) === "available" ? (
+                                <CheckCircle size={14} />
+                              ) : normalizeStatus(v.status) ===
+                                "not_available" ? (
+                                <AlertCircle size={14} />
+                              ) : (
+                                <AlertCircle size={14} />
+                              )}
+                              {normalizeStatus(v.status) === "available"
+                                ? "Available"
                                 : normalizeStatus(v.status) === "not_available"
-                                  ? "bg-red/10 text-red"
-                                  : "bg-pending/10 text-pending"
-                            }`}
-                          >
-                            {normalizeStatus(v.status) === "available" ? (
-                              <CheckCircle size={14} />
-                            ) : normalizeStatus(v.status) ===
-                              "not_available" ? (
-                              <AlertCircle size={14} />
-                            ) : (
-                              <AlertCircle size={14} />
+                                  ? "Not Available"
+                                  : "In Service"}
+                            </span>
+                            {v.replacement_vehicle_number && (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded-md bg-skyblue/10 text-skyblue">
+                                <RefreshCw size={10} />
+                                Replaced: {v.replacement_vehicle_number}
+                              </span>
                             )}
-                            {normalizeStatus(v.status) === "available"
-                              ? "Available"
-                              : normalizeStatus(v.status) === "not_available"
-                                ? "Not Available"
-                                : "In Service"}
-                          </span>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -1371,6 +1381,43 @@ export default function Vehicles() {
                               : "In Service"}
                         </span>
                       </div>
+                      {selectedVehicle.replacement_vehicle_number && (
+                        <>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-secondarytext">
+                              Replacement Vehicle
+                            </span>
+                            <span className="px-3 py-1 rounded-md text-xs font-semibold bg-skyblue/20 text-skyblue">
+                              {selectedVehicle.replacement_vehicle_number}
+                            </span>
+                          </div>
+                          {selectedVehicle.replacement_reason && (
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm text-secondarytext">
+                                Reason
+                              </span>
+                              <span className="text-sm font-medium text-primarytext capitalize">
+                                {selectedVehicle.replacement_reason.replace(
+                                  /_/g,
+                                  " ",
+                                )}
+                              </span>
+                            </div>
+                          )}
+                          {selectedVehicle.replacement_start_date && (
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm text-secondarytext">
+                                Replacement Period
+                              </span>
+                              <span className="text-sm font-medium text-primarytext">
+                                {selectedVehicle.replacement_start_date} -{" "}
+                                {selectedVehicle.replacement_end_date ||
+                                  "Ongoing"}
+                              </span>
+                            </div>
+                          )}
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>

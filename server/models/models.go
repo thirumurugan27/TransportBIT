@@ -190,10 +190,12 @@ type Assignment struct {
 	VehicleNumber      string `json:"vehicle_number"`
 	VehicleType        string `json:"vehicle_type"`
 	VehicleName        string `json:"vehicle_name"`
-	DriverName         string `json:"driver_name"`
-	OriginalDriverName string `json:"original_driver_name"`
-	DriverStatus       string `json:"driver_status"`
-	CreatedByName      string `json:"created_by_name"`
+	DriverName               string `json:"driver_name"`
+	OriginalDriverName       string `json:"original_driver_name"`
+	DriverStatus             string `json:"driver_status"`
+	CreatedByName            string `json:"created_by_name"`
+	VehicleStatus            string `json:"vehicle_status"`
+	ReplacementVehicleNumber string `json:"replacement_vehicle_number"`
 }
 
 type CreateAssignmentRequest struct {
@@ -897,11 +899,25 @@ func IsValidProductStatus(status string) bool {
 	return false
 }
 
-// PartPurchased - Products bought for a service
+// Purchase category constants
+const (
+	PurchaseCategoryGeneral       = "general"
+	PurchaseCategoryVehicle       = "vehicle"
+	PurchaseCategoryRepairService = "repair_service"
+)
+
+// IsValidPurchaseCategory checks if a category value is valid
+func IsValidPurchaseCategory(cat string) bool {
+	return cat == PurchaseCategoryGeneral || cat == PurchaseCategoryVehicle || cat == PurchaseCategoryRepairService
+}
+
+// PartPurchased - Products bought for a purchase order
 type PartPurchased struct {
 	ID              int     `json:"id"`
 	PurchaseOrderID *int    `json:"purchase_order_id"`
-	ServiceRecordID int     `json:"service_record_id"`
+	Category        string  `json:"category"`
+	VehicleID       *int    `json:"vehicle_id"`
+	ServiceRecordID *int    `json:"service_record_id"`
 	PartName        string  `json:"part_name"`
 	VendorID        *int    `json:"vendor_id"`
 	VendorName      string  `json:"vendor_name"`
@@ -929,7 +945,9 @@ type PartPurchased struct {
 }
 
 type CreatePartRequest struct {
-	ServiceRecordID int     `json:"service_record_id"`
+	Category        string  `json:"category"`
+	VehicleID       *int    `json:"vehicle_id"`
+	ServiceRecordID *int    `json:"service_record_id"`
 	PartName        string  `json:"part_name"`
 	VendorID        *int    `json:"vendor_id"`
 	Quantity        int     `json:"quantity"`
@@ -967,7 +985,9 @@ type BulkPartItem struct {
 
 // BulkCreatePartsRequest - Multiple parts from same vendor in one purchase
 type BulkCreatePartsRequest struct {
-	ServiceRecordID int            `json:"service_record_id"`
+	Category        string         `json:"category"`
+	VehicleID       *int           `json:"vehicle_id"`
+	ServiceRecordID *int           `json:"service_record_id"`
 	VendorID        *int           `json:"vendor_id"`
 	InvoiceNumber   string         `json:"invoice_number"`
 	PurchasedDate   string         `json:"purchased_date"`
@@ -982,7 +1002,9 @@ type BulkCreatePartsRequest struct {
 // PurchaseOrder - Groups multiple parts into a single bill/order
 type PurchaseOrder struct {
 	ID              int     `json:"id"`
-	ServiceRecordID int     `json:"service_record_id"`
+	Category        string  `json:"category"`
+	VehicleID       *int    `json:"vehicle_id"`
+	ServiceRecordID *int    `json:"service_record_id"`
 	VendorID        *int    `json:"vendor_id"`
 	VendorName      string  `json:"vendor_name"`
 	VendorContact   string  `json:"vendor_contact"`
@@ -1028,7 +1050,9 @@ type PurchaseInvoice struct {
 
 // CreatePurchaseOrderRequest - Request to create a purchase order with products
 type CreatePurchaseOrderRequest struct {
-	ServiceRecordID int            `json:"service_record_id"`
+	Category        string         `json:"category"`
+	VehicleID       *int           `json:"vehicle_id"`
+	ServiceRecordID *int           `json:"service_record_id"`
 	VendorID        *int           `json:"vendor_id"`
 	InvoiceNumber   string         `json:"invoice_number"`
 	PurchasedDate   string         `json:"purchased_date"`
@@ -1040,6 +1064,7 @@ type CreatePurchaseOrderRequest struct {
 // UpdatePurchaseOrderRequest - Request to update order-level fields
 type UpdatePurchaseOrderRequest struct {
 	ID            int    `json:"id"`
+	VehicleID     *int   `json:"vehicle_id"`
 	VendorID      *int   `json:"vendor_id"`
 	InvoiceNumber string `json:"invoice_number"`
 	PurchasedDate string `json:"purchased_date"`

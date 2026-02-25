@@ -481,6 +481,13 @@ func StartServiceRecord(c *gin.Context) {
 		return
 	}
 
+	// Accept optional replacement vehicle
+	var body struct {
+		ReplacementVehicleID *int   `json:"replacement_vehicle_id"`
+		ReplacementEndDate   string `json:"replacement_end_date"`
+	}
+	c.ShouldBindJSON(&body)
+
 	now := time.Now().Format("2006-01-02 15:04:05")
 
 	// Start the service and set vehicle to under_maintenance
@@ -512,6 +519,62 @@ func StartServiceRecord(c *gin.Context) {
 	if err := tx.Commit(); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit: " + err.Error()})
 		return
+	}
+
+	// If a replacement vehicle was selected, create a vehicle replacement record
+	if body.ReplacementVehicleID != nil && *body.ReplacementVehicleID > 0 {
+		endDate := body.ReplacementEndDate
+		if endDate == "" {
+			// Default: 30 days from now
+			endDate = time.Now().AddDate(0, 0, 30).Format("2006-01-02")
+		}
+		startDate := time.Now().Format("2006-01-02")
+
+		// Find the driver assigned to this vehicle
+		var driverID int
+		err := config.DB.QueryRow(`
+			SELECT d.id FROM assignments a 
+			JOIN drivers d ON a.driver_id = d.id
+			WHERE a.vehicle_id = ? AND CURDATE() BETWEEN a.start_date AND a.end_date
+			LIMIT 1
+		`, vehicleID).Scan(&driverID)
+
+		if err != nil {
+			// Try EV cluster
+			config.DB.QueryRow(`
+				SELECT dcm.driver_id FROM ev_assignments ev
+				JOIN driver_clusters dc ON ev.cluster_id = dc.id
+				JOIN driver_cluster_members dcm ON dcm.cluster_id = dc.id
+				WHERE ev.vehicle_id = ? AND CURDATE() BETWEEN ev.start_date AND ev.end_date
+				AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to
+				LIMIT 1
+			`, vehicleID).Scan(&driverID)
+		}
+
+		if driverID > 0 {
+			adminID, _ := c.Get("user_id")
+			adminIDInt, _ := adminID.(int)
+
+			result, _ := config.DB.Exec(`
+				INSERT INTO vehicle_replacements 
+				(vehicle_id, replacement_vehicle_id, driver_id, reason, service_record_id, start_date, end_date, status, requested_by_role, requested_by_id)
+				VALUES (?, ?, ?, 'service_repair', ?, ?, ?, 'approved', 'admin', ?)
+			`, vehicleID, *body.ReplacementVehicleID, driverID, idInt, startDate, endDate, adminIDInt)
+
+			if result != nil {
+				replacementID, _ := result.LastInsertId()
+				// Activate the replacement (temp assignment, group updates, notifications)
+				go activateVehicleReplacement(int(replacementID), VehicleReplacementRequest{
+					VehicleID:            vehicleID,
+					ReplacementVehicleID: body.ReplacementVehicleID,
+					DriverID:             driverID,
+					StartDate:            startDate,
+					EndDate:              endDate,
+					Reason:               "service_repair",
+					ServiceRecordID:      &idInt,
+				})
+			}
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Service started, vehicle marked under maintenance"})
@@ -603,6 +666,37 @@ func CompleteServiceRecord(c *gin.Context) {
 	config.DB.QueryRow(`SELECT title FROM service_records WHERE id = ?`, idInt).Scan(&title)
 	go notifyDriversOfService(idInt, vehicleID, title, "service_completed")
 
+	// Auto-complete any linked vehicle replacements
+	go func() {
+		rows, err := config.DB.Query(`
+			SELECT id FROM vehicle_replacements 
+			WHERE service_record_id = ? AND status IN ('approved', 'pending')
+		`, idInt)
+		if err != nil {
+			return
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var vrID int
+			rows.Scan(&vrID)
+			// Reuse the complete logic
+			var vID, dID int
+			var rvID sql.NullInt64
+			var reason string
+			config.DB.QueryRow(`
+				SELECT vehicle_id, driver_id, replacement_vehicle_id, reason 
+				FROM vehicle_replacements WHERE id = ?
+			`, vrID).Scan(&vID, &dID, &rvID, &reason)
+			config.DB.Exec("UPDATE vehicle_replacements SET status = 'completed' WHERE id = ?", vrID)
+			if rvID.Valid {
+				config.DB.Exec(`
+					UPDATE temporary_assignments SET status = 'completed' 
+					WHERE original_driver_id = ? AND vehicle_id = ? AND status = 'active'
+				`, dID, rvID.Int64)
+			}
+		}
+	}()
+
 	c.JSON(http.StatusOK, gin.H{"message": "Service completed, vehicle status set to available"})
 }
 
@@ -666,7 +760,67 @@ func CancelServiceRecord(c *gin.Context) {
 		return
 	}
 
+	// Cleanup linked vehicle replacements
+	go func() {
+		rows, err := config.DB.Query(`
+			SELECT id, driver_id, replacement_vehicle_id FROM vehicle_replacements 
+			WHERE service_record_id = ? AND status IN ('approved', 'pending')
+		`, idInt)
+		if err != nil {
+			return
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var vrID, dID int
+			var rvID sql.NullInt64
+			rows.Scan(&vrID, &dID, &rvID)
+			config.DB.Exec("UPDATE vehicle_replacements SET status = 'completed' WHERE id = ?", vrID)
+			if rvID.Valid {
+				config.DB.Exec(`
+					UPDATE temporary_assignments SET status = 'completed' 
+					WHERE original_driver_id = ? AND vehicle_id = ? AND status = 'active'
+				`, dID, rvID.Int64)
+			}
+		}
+	}()
+
 	c.JSON(http.StatusOK, gin.H{"message": "Service cancelled successfully"})
+}
+
+// GetLinkedPurchases returns purchase orders linked to a service record
+func GetLinkedPurchases(c *gin.Context) {
+	id := c.Param("id")
+
+	type LinkedOrder struct {
+		ID            int     `json:"id"`
+		InvoiceNumber string  `json:"invoice_number"`
+		Total         float64 `json:"total"`
+		ProductCount  int     `json:"product_count"`
+	}
+
+	rows, err := config.DB.Query(`
+		SELECT po.id, COALESCE(po.invoice_number, ''),
+		       COALESCE(SUM(p.total_price), 0), COUNT(p.id)
+		FROM purchase_orders po
+		LEFT JOIN parts_purchased p ON p.purchase_order_id = po.id
+		WHERE po.service_record_id = ?
+		GROUP BY po.id, po.invoice_number
+	`, id)
+
+	var orders []LinkedOrder
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var o LinkedOrder
+			rows.Scan(&o.ID, &o.InvoiceNumber, &o.Total, &o.ProductCount)
+			orders = append(orders, o)
+		}
+	}
+	if orders == nil {
+		orders = []LinkedOrder{}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"count": len(orders), "orders": orders})
 }
 
 // DeleteServiceRecord deletes a service record
@@ -677,12 +831,37 @@ func DeleteServiceRecord(c *gin.Context) {
 		return
 	}
 
+	deletePurchases := c.Query("delete_purchases") == "true"
+
 	// Check if vehicle needs status restore
 	var status string
 	var vehicleID int
 	config.DB.QueryRow(`SELECT status, vehicle_id FROM service_records WHERE id = ?`, id).Scan(&status, &vehicleID)
 	if status == "in_progress" {
 		config.DB.Exec(`UPDATE vehicles SET status = 'available' WHERE id = ?`, vehicleID)
+	}
+
+	if deletePurchases {
+		// Delete invoices for linked purchase orders
+		config.DB.Exec(`
+			DELETE pi FROM purchase_invoices pi
+			INNER JOIN purchase_orders po ON pi.purchase_order_id = po.id
+			WHERE po.service_record_id = ?
+		`, id)
+		// Delete parts linked to purchase orders for this service
+		config.DB.Exec(`
+			DELETE p FROM parts_purchased p
+			INNER JOIN purchase_orders po ON p.purchase_order_id = po.id
+			WHERE po.service_record_id = ?
+		`, id)
+		// Delete standalone parts linked directly to this service
+		config.DB.Exec(`DELETE FROM parts_purchased WHERE service_record_id = ?`, id)
+		// Delete purchase orders
+		config.DB.Exec(`DELETE FROM purchase_orders WHERE service_record_id = ?`, id)
+	} else {
+		// Nullify — keep purchases but unlink them from this service record
+		config.DB.Exec(`UPDATE purchase_orders SET service_record_id = NULL WHERE service_record_id = ?`, id)
+		config.DB.Exec(`UPDATE parts_purchased SET service_record_id = NULL WHERE service_record_id = ?`, id)
 	}
 
 	_, err := config.DB.Exec(`DELETE FROM service_records WHERE id = ?`, id)
@@ -865,6 +1044,10 @@ func UpdateServiceTracking(c *gin.Context) {
 
 // recalcServiceCost recalculates parts_cost and total_cost for a service record
 func recalcServiceCost(serviceRecordID int) {
+	if serviceRecordID <= 0 {
+		return
+	}
+
 	var partsCost float64
 	config.DB.QueryRow(`SELECT COALESCE(SUM(total_price), 0) FROM parts_purchased WHERE service_record_id = ?`, serviceRecordID).Scan(&partsCost)
 

@@ -24,19 +24,19 @@ func GetAllVehicles(c *gin.Context) {
 		       COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name,
 		       COALESCE(b.start_point, ''),
 		       COALESCE(b.end_point, ''),
-		       fcr.id as fc_replacement_id,
-		       fcr.status as fc_replacement_status,
-		       DATE_FORMAT(fcr.start_date, '%d-%m-%Y') as fc_start_date,
-		       DATE_FORMAT(fcr.end_date, '%d-%m-%Y') as fc_end_date,
-		       fcr.reason as fc_reason,
+		       vr.id as replacement_id,
+		       vr.status as replacement_status,
+		       DATE_FORMAT(vr.start_date, '%d-%m-%Y') as replacement_start_date,
+		       DATE_FORMAT(vr.end_date, '%d-%m-%Y') as replacement_end_date,
+		       vr.reason as replacement_reason,
 		       rv.vehicle_number as replacement_vehicle_number,
 		       vgm.group_id as vehicle_group_id,
 		       COALESCE(vg.name, '') as vehicle_group_name
 		FROM vehicles v
 		LEFT JOIN buses b ON v.id = b.vehicle_id
-		LEFT JOIN fc_replacement_requests fcr ON v.id = fcr.vehicle_id 
-		    AND fcr.status IN ('approved', 'active', 'pending')
-		LEFT JOIN vehicles rv ON fcr.replacement_vehicle_id = rv.id
+		LEFT JOIN vehicle_replacements vr ON v.id = vr.vehicle_id 
+		    AND vr.status IN ('approved', 'pending')
+		LEFT JOIN vehicles rv ON vr.replacement_vehicle_id = rv.id
 		LEFT JOIN vehicle_group_members vgm ON vgm.vehicle_id = v.id AND CURDATE() BETWEEN vgm.valid_from AND vgm.valid_to
 		LEFT JOIN vehicle_groups vg ON vg.id = vgm.group_id
 		ORDER BY v.id DESC
@@ -62,11 +62,11 @@ func GetAllVehicles(c *gin.Context) {
 		VehicleName              string  `json:"vehicle_name"`
 		StartPoint               string  `json:"start_point"`
 		EndPoint                 string  `json:"end_point"`
-		FCReplacementID          *int    `json:"fc_replacement_id"`
-		FCReplacementStatus      *string `json:"fc_replacement_status"`
-		FCStartDate              *string `json:"fc_start_date"`
-		FCEndDate                *string `json:"fc_end_date"`
-		FCReason                 *string `json:"fc_reason"`
+		ReplacementID            *int    `json:"replacement_id"`
+		ReplacementStatus        *string `json:"replacement_status"`
+		ReplacementStartDate     *string `json:"replacement_start_date"`
+		ReplacementEndDate       *string `json:"replacement_end_date"`
+		ReplacementReason        *string `json:"replacement_reason"`
 		ReplacementVehicleNumber *string `json:"replacement_vehicle_number"`
 		VehicleGroupID           *int    `json:"vehicle_group_id"`
 		VehicleGroupName         string  `json:"vehicle_group_name"`
@@ -78,8 +78,8 @@ func GetAllVehicles(c *gin.Context) {
 		rows.Scan(&v.ID, &v.VehicleNumber, &v.VehicleType, &v.FuelType, &v.SeatingCapacity, &v.Status,
 			&v.InsuranceExpireDate, &v.FCExpireDate, &v.PermitExpireDate,
 			&v.VehicleName, &v.StartPoint, &v.EndPoint,
-			&v.FCReplacementID, &v.FCReplacementStatus, &v.FCStartDate, &v.FCEndDate,
-			&v.FCReason, &v.ReplacementVehicleNumber,
+			&v.ReplacementID, &v.ReplacementStatus, &v.ReplacementStartDate, &v.ReplacementEndDate,
+			&v.ReplacementReason, &v.ReplacementVehicleNumber,
 			&v.VehicleGroupID, &v.VehicleGroupName)
 		vehicles = append(vehicles, v)
 	}

@@ -60,12 +60,12 @@ func main() {
 	routes.RegisterRoutes(r)
 	// 6. Initialize Cron Jobs
 	c := cron.New(cron.WithSeconds())
-	// Run auto-complete for expired FC replacements daily at midnight
-	_, _ = c.AddFunc("0 0 0 * * *", admin.AutoCompleteExpiredFCReplacements)
+	// Run auto-complete for expired vehicle replacements daily at midnight
+	_, _ = c.AddFunc("0 0 0 * * *", admin.AutoCompleteExpiredVehicleReplacements)
 	c.Start()
 
 	// Run auto-complete check on startup
-	go admin.AutoCompleteExpiredFCReplacements()
+	go admin.AutoCompleteExpiredVehicleReplacements()
 
 	// 7. Start Server
 	port := os.Getenv("PORT")

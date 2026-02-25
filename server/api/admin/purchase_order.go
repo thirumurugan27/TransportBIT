@@ -17,7 +17,7 @@ import (
 
 // purchaseOrderSelectColumns is the shared SELECT clause for purchase order queries
 const purchaseOrderSelectColumns = `
-	po.id, po.service_record_id,
+	po.id, po.category, po.vehicle_id, po.service_record_id,
 	po.vendor_id,
 	COALESCE(vdr.name, ''),
 	COALESCE(vdr.contact, ''),
@@ -35,8 +35,8 @@ const purchaseOrderSelectColumns = `
 	COALESCE(u.full_name, ''),
 	DATE_FORMAT(po.created_at, '%d-%m-%Y %h:%i %p'),
 	COALESCE(DATE_FORMAT(po.updated_at, '%d-%m-%Y %h:%i %p'), ''),
-	COALESCE(v.vehicle_number, ''),
-	COALESCE(v.vehicle_name, ''),
+	COALESCE(COALESCE(v.vehicle_number, dv.vehicle_number), ''),
+	COALESCE(COALESCE(v.vehicle_name, dv.vehicle_name), ''),
 	COALESCE(sr.title, ''),
 	COALESCE(SUM(p.total_price), 0),
 	COUNT(p.id)
@@ -46,16 +46,18 @@ const purchaseOrderFromJoins = `
 	FROM purchase_orders po
 	LEFT JOIN service_records sr ON po.service_record_id = sr.id
 	LEFT JOIN vehicles v ON sr.vehicle_id = v.id
+	LEFT JOIN vehicles dv ON po.vehicle_id = dv.id
 	LEFT JOIN users u ON po.added_by = u.id
 	LEFT JOIN vendors vdr ON po.vendor_id = vdr.id
 	LEFT JOIN parts_purchased p ON p.purchase_order_id = po.id
 `
 
 const purchaseOrderGroupBy = `
-	GROUP BY po.id, po.service_record_id, po.vendor_id, vdr.name, vdr.contact, vdr.address, vdr.gst_number,
+	GROUP BY po.id, po.category, po.vehicle_id, po.service_record_id,
+		po.vendor_id, vdr.name, vdr.contact, vdr.address, vdr.gst_number,
 		po.invoice_number, po.purchased_date, po.status, po.ordered_date, po.received_date,
 		po.returned_date, po.cancelled_date, po.notes, po.added_by, u.full_name,
-		po.created_at, po.updated_at, v.vehicle_number, v.vehicle_name, sr.title
+		po.created_at, po.updated_at, v.vehicle_number, v.vehicle_name, dv.vehicle_number, dv.vehicle_name, sr.title
 `
 
 // GetAllPurchaseOrders returns all purchase orders with aggregated totals and nested products
@@ -63,6 +65,7 @@ func GetAllPurchaseOrders(c *gin.Context) {
 	vendorFilter := c.Query("vendor_id")
 	vehicleFilter := c.Query("vehicle_id")
 	statusFilter := c.Query("status")
+	categoryFilter := c.Query("category")
 	dateFrom := c.Query("date_from")
 	dateTo := c.Query("date_to")
 	search := c.Query("search")
@@ -70,13 +73,17 @@ func GetAllPurchaseOrders(c *gin.Context) {
 	query := "SELECT " + purchaseOrderSelectColumns + purchaseOrderFromJoins + " WHERE 1=1"
 	var args []interface{}
 
+	if categoryFilter != "" {
+		query += " AND po.category = ?"
+		args = append(args, categoryFilter)
+	}
 	if vendorFilter != "" {
 		query += " AND po.vendor_id = ?"
 		args = append(args, vendorFilter)
 	}
 	if vehicleFilter != "" {
-		query += " AND sr.vehicle_id = ?"
-		args = append(args, vehicleFilter)
+		query += " AND (sr.vehicle_id = ? OR po.vehicle_id = ?)"
+		args = append(args, vehicleFilter, vehicleFilter)
 	}
 	if statusFilter != "" {
 		query += " AND po.status = ?"
@@ -91,7 +98,7 @@ func GetAllPurchaseOrders(c *gin.Context) {
 		args = append(args, dateTo)
 	}
 	if search != "" {
-		query += " AND (po.invoice_number LIKE ? OR vdr.name LIKE ? OR v.vehicle_number LIKE ? OR EXISTS(SELECT 1 FROM parts_purchased pp WHERE pp.purchase_order_id = po.id AND pp.part_name LIKE ?))"
+		query += " AND (po.invoice_number LIKE ? OR vdr.name LIKE ? OR COALESCE(v.vehicle_number, dv.vehicle_number, '') LIKE ? OR EXISTS(SELECT 1 FROM parts_purchased pp WHERE pp.purchase_order_id = po.id AND pp.part_name LIKE ?))"
 		searchTerm := "%" + search + "%"
 		args = append(args, searchTerm, searchTerm, searchTerm, searchTerm)
 	}
@@ -156,10 +163,28 @@ func CreatePurchaseOrder(c *gin.Context) {
 		return
 	}
 
-	if req.ServiceRecordID == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Service record is required"})
+	// Default category
+	if req.Category == "" {
+		req.Category = models.PurchaseCategoryRepairService
+	}
+	if !models.IsValidPurchaseCategory(req.Category) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid category. Must be: general, vehicle, or repair_service"})
 		return
 	}
+
+	// Validate per category
+	switch req.Category {
+	case models.PurchaseCategoryRepairService:
+		if req.ServiceRecordID == nil || *req.ServiceRecordID == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Service record is required for repair & service purchases"})
+			return
+		}
+	case models.PurchaseCategoryVehicle:
+		// vehicle_id is optional
+	case models.PurchaseCategoryGeneral:
+		// no extra context needed
+	}
+
 	if len(req.Parts) == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "At least one product is required"})
 		return
@@ -170,6 +195,16 @@ func CreatePurchaseOrder(c *gin.Context) {
 	} else if !models.IsValidProductStatus(req.Status) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid status"})
 		return
+	}
+
+	// For repair_service, auto-resolve vehicle_id from service record
+	if req.Category == models.PurchaseCategoryRepairService && req.ServiceRecordID != nil {
+		var srvVehicleID sql.NullInt64
+		config.DB.QueryRow(`SELECT vehicle_id FROM service_records WHERE id = ?`, *req.ServiceRecordID).Scan(&srvVehicleID)
+		if srvVehicleID.Valid {
+			v := int(srvVehicleID.Int64)
+			req.VehicleID = &v
+		}
 	}
 
 	adminID, _ := c.Get("user_id")
@@ -183,9 +218,9 @@ func CreatePurchaseOrder(c *gin.Context) {
 	// Create the purchase order
 	orderResult, err := tx.Exec(`
 		INSERT INTO purchase_orders 
-		(service_record_id, vendor_id, invoice_number, purchased_date, status, ordered_date, notes, added_by)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-	`, req.ServiceRecordID, req.VendorID, req.InvoiceNumber, nilIfEmpty(req.PurchasedDate),
+		(category, vehicle_id, service_record_id, vendor_id, invoice_number, purchased_date, status, ordered_date, notes, added_by)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, req.Category, req.VehicleID, req.ServiceRecordID, req.VendorID, req.InvoiceNumber, nilIfEmpty(req.PurchasedDate),
 		req.Status, nilIfEmpty(req.PurchasedDate), nilIfEmpty(req.Notes), adminID)
 	if err != nil {
 		tx.Rollback()
@@ -210,11 +245,11 @@ func CreatePurchaseOrder(c *gin.Context) {
 
 		result, err := tx.Exec(`
 			INSERT INTO parts_purchased 
-			(purchase_order_id, service_record_id, part_name, vendor_id,
+			(purchase_order_id, category, vehicle_id, service_record_id, part_name, vendor_id,
 			 quantity, unit_price, total_price, warranty_months, invoice_number, purchased_date, 
 			 status, ordered_date, added_by)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		`, orderID, req.ServiceRecordID, part.PartName, req.VendorID,
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`, orderID, req.Category, req.VehicleID, req.ServiceRecordID, part.PartName, req.VendorID,
 			part.Quantity, part.UnitPrice, totalPrice, part.WarrantyMonths,
 			req.InvoiceNumber, nilIfEmpty(req.PurchasedDate),
 			req.Status, nilIfEmpty(req.PurchasedDate), adminID)
@@ -232,7 +267,10 @@ func CreatePurchaseOrder(c *gin.Context) {
 		return
 	}
 
-	recalcServiceCost(req.ServiceRecordID)
+	// Only recalc service cost for repair_service orders
+	if req.Category == models.PurchaseCategoryRepairService && req.ServiceRecordID != nil {
+		recalcServiceCost(*req.ServiceRecordID)
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"message":  fmt.Sprintf("Order created with %d products", len(insertedIDs)),
@@ -345,7 +383,7 @@ func DeletePurchaseOrder(c *gin.Context) {
 	}
 
 	// Get service record ID before deleting
-	var serviceRecordID int
+	var serviceRecordID sql.NullInt64
 	config.DB.QueryRow(`SELECT service_record_id FROM purchase_orders WHERE id = ?`, id).Scan(&serviceRecordID)
 
 	// Products will be cascade-deleted due to FK constraint
@@ -355,8 +393,8 @@ func DeletePurchaseOrder(c *gin.Context) {
 		return
 	}
 
-	if serviceRecordID > 0 {
-		recalcServiceCost(serviceRecordID)
+	if serviceRecordID.Valid && serviceRecordID.Int64 > 0 {
+		recalcServiceCost(int(serviceRecordID.Int64))
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Order and all products deleted successfully"})
@@ -380,15 +418,17 @@ func AddProductToOrder(c *gin.Context) {
 	}
 
 	// Get order details to inherit shared fields
-	var serviceRecordID int
+	var category string
+	var serviceRecordID sql.NullInt64
+	var vehicleID sql.NullInt64
 	var vendorID sql.NullInt64
 	var invoiceNumber, status string
 	var purchasedDate sql.NullString
 	err := config.DB.QueryRow(`
-		SELECT service_record_id, vendor_id, COALESCE(invoice_number, ''), 
+		SELECT category, service_record_id, vehicle_id, vendor_id, COALESCE(invoice_number, ''), 
 			   purchased_date, status
 		FROM purchase_orders WHERE id = ?
-	`, req.PurchaseOrderID).Scan(&serviceRecordID, &vendorID, &invoiceNumber, &purchasedDate, &status)
+	`, req.PurchaseOrderID).Scan(&category, &serviceRecordID, &vehicleID, &vendorID, &invoiceNumber, &purchasedDate, &status)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
 		return
@@ -402,6 +442,16 @@ func AddProductToOrder(c *gin.Context) {
 		vendorIDVal = vendorID.Int64
 	}
 
+	var vehicleIDVal interface{}
+	if vehicleID.Valid {
+		vehicleIDVal = vehicleID.Int64
+	}
+
+	var serviceRecordIDVal interface{}
+	if serviceRecordID.Valid {
+		serviceRecordIDVal = serviceRecordID.Int64
+	}
+
 	var purchasedDateVal interface{}
 	if purchasedDate.Valid && purchasedDate.String != "" {
 		purchasedDateVal = purchasedDate.String
@@ -409,11 +459,11 @@ func AddProductToOrder(c *gin.Context) {
 
 	result, err := config.DB.Exec(`
 		INSERT INTO parts_purchased 
-		(purchase_order_id, service_record_id, part_name, vendor_id,
+		(purchase_order_id, category, vehicle_id, service_record_id, part_name, vendor_id,
 		 quantity, unit_price, total_price, warranty_months, invoice_number, purchased_date, 
 		 status, ordered_date, added_by)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, req.PurchaseOrderID, serviceRecordID, req.PartName, vendorIDVal,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, req.PurchaseOrderID, category, vehicleIDVal, serviceRecordIDVal, req.PartName, vendorIDVal,
 		req.Quantity, req.UnitPrice, totalPrice, req.WarrantyMonths,
 		invoiceNumber, purchasedDateVal,
 		status, purchasedDateVal, adminID)
@@ -423,7 +473,9 @@ func AddProductToOrder(c *gin.Context) {
 	}
 
 	id, _ := result.LastInsertId()
-	recalcServiceCost(serviceRecordID)
+	if serviceRecordID.Valid && serviceRecordID.Int64 > 0 {
+		recalcServiceCost(int(serviceRecordID.Int64))
+	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Product added to order", "id": id})
 }
@@ -437,7 +489,7 @@ func RemoveProductFromOrder(c *gin.Context) {
 	}
 
 	// Get service record ID and order ID before deleting
-	var serviceRecordID int
+	var serviceRecordID sql.NullInt64
 	var orderID int
 	config.DB.QueryRow(`SELECT service_record_id, COALESCE(purchase_order_id, 0) FROM parts_purchased WHERE id = ?`, id).Scan(&serviceRecordID, &orderID)
 
@@ -456,8 +508,8 @@ func RemoveProductFromOrder(c *gin.Context) {
 		}
 	}
 
-	if serviceRecordID > 0 {
-		recalcServiceCost(serviceRecordID)
+	if serviceRecordID.Valid && serviceRecordID.Int64 > 0 {
+		recalcServiceCost(int(serviceRecordID.Int64))
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Product removed from order"})
@@ -470,9 +522,11 @@ func scanPurchaseOrders(rows *sql.Rows) []models.PurchaseOrder {
 		var po models.PurchaseOrder
 		var addedBy sql.NullInt64
 		var vendorID sql.NullInt64
+		var vehicleID sql.NullInt64
+		var serviceRecordID sql.NullInt64
 
 		if err := rows.Scan(
-			&po.ID, &po.ServiceRecordID,
+			&po.ID, &po.Category, &vehicleID, &serviceRecordID,
 			&vendorID,
 			&po.VendorName, &po.VendorContact, &po.VendorAddress, &po.VendorGST,
 			&po.InvoiceNumber, &po.PurchasedDate,
@@ -487,6 +541,14 @@ func scanPurchaseOrders(rows *sql.Rows) []models.PurchaseOrder {
 			continue
 		}
 
+		if vehicleID.Valid {
+			v := int(vehicleID.Int64)
+			po.VehicleID = &v
+		}
+		if serviceRecordID.Valid {
+			v := int(serviceRecordID.Int64)
+			po.ServiceRecordID = &v
+		}
 		if vendorID.Valid {
 			v := int(vendorID.Int64)
 			po.VendorID = &v
@@ -494,6 +556,10 @@ func scanPurchaseOrders(rows *sql.Rows) []models.PurchaseOrder {
 		if addedBy.Valid {
 			v := int(addedBy.Int64)
 			po.AddedBy = &v
+		}
+
+		if po.Category == "" {
+			po.Category = models.PurchaseCategoryRepairService
 		}
 
 		po.Products = []models.PartPurchased{}

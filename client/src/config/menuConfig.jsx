@@ -150,10 +150,10 @@ export const adminMenuConfig = {
       path: "/km-management",
     },
     {
-      key: "fcReplacement",
-      label: "FC Replacement",
+      key: "vehicleReplacements",
+      label: "Vehicle Replacements",
       icon: <AssignmentIcon />,
-      path: "/fc-replacement",
+      path: "/vehicle-replacements",
     },
     {
       key: "studentTransport",

@@ -14,6 +14,7 @@ import {
   Filter,
   UserPlus,
   Car,
+  AlertTriangle,
 } from "lucide-react";
 import {showError, showSuccess, showConfirm} from "../../../utils/swal";
 import {getAuthHeaders} from "../../../utils/auth";
@@ -2203,10 +2204,18 @@ export default function ScheduleManagement() {
                             )}
                           </div>
                           <div>
-                            <p className="text-sm font-semibold text-primarytext">
+                            <p className="text-sm font-semibold text-primarytext flex items-center gap-2">
                               {memberModalType === "cluster"
                                 ? member.driver_name
                                 : member.vehicle_number}
+                              {memberModalType !== "cluster" &&
+                                member.vehicle_status ===
+                                  "under_maintenance" && (
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-bold rounded bg-pending/10 text-pending">
+                                    <AlertTriangle size={9} />
+                                    In Service
+                                  </span>
+                                )}
                             </p>
                             <p className="text-xs text-secondarytext">
                               {member.valid_from} - {member.valid_to}

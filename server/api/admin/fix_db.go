@@ -161,8 +161,70 @@ func FixDatabaseSchema() {
 		}
 	}
 
+	// 12. Add category and vehicle_id to purchase_orders and parts_purchased
+	migratePurchaseCategories()
+
+	// 13. Create unified vehicle_replacements table
+	initVehicleReplacementsTable()
+
 	// 10. Mark attendance as absent for all approved leaves that haven't been marked yet
 	fixApprovedLeaveAttendance()
+}
+
+// migratePurchaseCategories adds the category and vehicle_id columns to purchase tables
+// and back-fills existing rows as 'repair_service'.
+func migratePurchaseCategories() {
+	log.Println("Running purchase category migration...")
+
+	// -- purchase_orders --
+	poAlters := []string{
+		"ALTER TABLE purchase_orders ADD COLUMN category VARCHAR(30) NOT NULL DEFAULT 'repair_service'",
+		"ALTER TABLE purchase_orders ADD COLUMN vehicle_id INT NULL",
+		"ALTER TABLE purchase_orders MODIFY COLUMN service_record_id INT NULL",
+	}
+	for _, q := range poAlters {
+		_, err := config.DB.Exec(q)
+		if err != nil {
+			log.Printf("Purchase migration (purchase_orders): %v (may already exist)", err)
+		}
+	}
+
+	// Back-fill vehicle_id from service_records for existing rows that have a service_record_id
+	_, err := config.DB.Exec(`
+		UPDATE purchase_orders po
+		JOIN service_records sr ON po.service_record_id = sr.id
+		SET po.vehicle_id = sr.vehicle_id
+		WHERE po.vehicle_id IS NULL AND po.service_record_id IS NOT NULL
+	`)
+	if err != nil {
+		log.Printf("Purchase migration (backfill po vehicle_id): %v", err)
+	}
+
+	// -- parts_purchased --
+	ppAlters := []string{
+		"ALTER TABLE parts_purchased ADD COLUMN category VARCHAR(30) NOT NULL DEFAULT 'repair_service'",
+		"ALTER TABLE parts_purchased ADD COLUMN vehicle_id INT NULL",
+		"ALTER TABLE parts_purchased MODIFY COLUMN service_record_id INT NULL",
+	}
+	for _, q := range ppAlters {
+		_, err := config.DB.Exec(q)
+		if err != nil {
+			log.Printf("Purchase migration (parts_purchased): %v (may already exist)", err)
+		}
+	}
+
+	// Back-fill vehicle_id from service_records for existing parts
+	_, err = config.DB.Exec(`
+		UPDATE parts_purchased pp
+		JOIN service_records sr ON pp.service_record_id = sr.id
+		SET pp.vehicle_id = sr.vehicle_id
+		WHERE pp.vehicle_id IS NULL AND pp.service_record_id IS NOT NULL
+	`)
+	if err != nil {
+		log.Printf("Purchase migration (backfill pp vehicle_id): %v", err)
+	}
+
+	log.Println("Purchase category migration complete")
 }
 
 // fixApprovedLeaveAttendance marks attendance as absent for all approved leaves
@@ -233,4 +295,68 @@ func fixApprovedLeaveAttendance() {
 	}
 
 	log.Println("Approved leave attendance check complete")
+}
+
+// initVehicleReplacementsTable creates the unified vehicle_replacements table
+// and migrates existing data from fc_replacement_requests.
+func initVehicleReplacementsTable() {
+	log.Println("Initializing vehicle_replacements table...")
+
+	_, err := config.DB.Exec(`
+		CREATE TABLE IF NOT EXISTS vehicle_replacements (
+			id INT AUTO_INCREMENT PRIMARY KEY,
+			vehicle_id INT NOT NULL,
+			replacement_vehicle_id INT NULL,
+			driver_id INT NOT NULL,
+			reason VARCHAR(100) NOT NULL DEFAULT 'maintenance',
+			service_record_id INT NULL,
+			start_date DATE NOT NULL,
+			end_date DATE NOT NULL,
+			status VARCHAR(50) NOT NULL DEFAULT 'pending',
+			notes TEXT,
+			requested_by_role VARCHAR(50) DEFAULT 'admin',
+			requested_by_id INT NULL,
+			approved_by_id INT NULL,
+			driver_notified TINYINT DEFAULT 0,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			INDEX idx_vr_vehicle (vehicle_id),
+			INDEX idx_vr_replacement (replacement_vehicle_id),
+			INDEX idx_vr_driver (driver_id),
+			INDEX idx_vr_status (status),
+			INDEX idx_vr_service (service_record_id)
+		)
+	`)
+	if err != nil {
+		log.Printf("Vehicle replacements table: %v", err)
+	} else {
+		log.Println("Vehicle replacements table created/verified")
+	}
+
+	// Migrate existing fc_replacement_requests data if table exists and vehicle_replacements is empty
+	var count int
+	config.DB.QueryRow("SELECT COUNT(*) FROM vehicle_replacements").Scan(&count)
+	if count == 0 {
+		var fcExists int
+		err := config.DB.QueryRow(`
+			SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES 
+			WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'fc_replacement_requests'
+		`).Scan(&fcExists)
+		if err == nil && fcExists > 0 {
+			_, err = config.DB.Exec(`
+				INSERT INTO vehicle_replacements 
+					(vehicle_id, replacement_vehicle_id, driver_id, reason, start_date, end_date, 
+					 status, notes, requested_by_role, requested_by_id, approved_by_id, driver_notified, created_at, updated_at)
+				SELECT 
+					vehicle_id, replacement_vehicle_id, driver_id, reason, start_date, end_date,
+					status, notes, requested_by_role, requested_by_id, approved_by_id, driver_notified, created_at, updated_at
+				FROM fc_replacement_requests
+			`)
+			if err != nil {
+				log.Printf("FC replacement migration: %v", err)
+			} else {
+				log.Println("Migrated fc_replacement_requests data to vehicle_replacements")
+			}
+		}
+	}
 }

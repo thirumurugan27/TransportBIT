@@ -33,6 +33,10 @@ import {
   File,
   Paperclip,
   Loader2,
+  Wrench,
+  ShoppingBag,
+  Bus,
+  Tag,
 } from "lucide-react";
 import {useToast} from "../../../context/ToastContext";
 import {
@@ -98,6 +102,69 @@ const STATUS_DROPDOWN_OPTIONS = [
   },
 ];
 
+const CATEGORIES = [
+  {
+    value: "general",
+    label: "General",
+    description: "Puncture kits, consumables, tools & misc items",
+    icon: ShoppingBag,
+    color: "bg-gray-100 text-gray-700 border-gray-300",
+    badgeColor: "bg-gray-100 text-gray-600 border-gray-200",
+    activeColor: "bg-gray-50 border-gray-400 ring-2 ring-gray-200 shadow-sm",
+  },
+  {
+    value: "vehicle",
+    label: "Vehicle",
+    description: "Spare parts for a specific vehicle",
+    icon: Bus,
+    color: "bg-blue-100 text-blue-700 border-blue-300",
+    badgeColor: "bg-blue-100 text-blue-600 border-blue-200",
+    activeColor: "bg-blue-50 border-blue-400 ring-2 ring-blue-200 shadow-sm",
+  },
+  {
+    value: "repair_service",
+    label: "Repair & Service",
+    description: "Parts linked to an active service record",
+    icon: Wrench,
+    color: "bg-amber-100 text-amber-700 border-amber-300",
+    badgeColor: "bg-amber-100 text-amber-600 border-amber-200",
+    activeColor: "bg-amber-50 border-amber-400 ring-2 ring-amber-200 shadow-sm",
+  },
+];
+
+const CATEGORY_FILTER_OPTIONS = [
+  {value: "", label: "All Categories", icon: Tag, iconColor: "text-gray-500"},
+  {
+    value: "general",
+    label: "General",
+    icon: ShoppingBag,
+    iconColor: "text-gray-600",
+  },
+  {value: "vehicle", label: "Vehicle", icon: Bus, iconColor: "text-blue-600"},
+  {
+    value: "repair_service",
+    label: "Repair & Service",
+    icon: Wrench,
+    iconColor: "text-amber-600",
+  },
+];
+
+const CATEGORY_FORM_OPTIONS = [
+  {
+    value: "general",
+    label: "General",
+    icon: ShoppingBag,
+    iconColor: "text-gray-600",
+  },
+  {value: "vehicle", label: "Vehicle", icon: Bus, iconColor: "text-blue-600"},
+  {
+    value: "repair_service",
+    label: "Repair & Service",
+    icon: Wrench,
+    iconColor: "text-amber-600",
+  },
+];
+
 const getStatusBadge = (status) => {
   const opt =
     STATUS_OPTIONS.find((s) => s.value === status) || STATUS_OPTIONS[0];
@@ -108,6 +175,19 @@ const getStatusBadge = (status) => {
     >
       <Icon size={12} />
       {opt.label}
+    </span>
+  );
+};
+
+const getCategoryBadge = (category) => {
+  const cat = CATEGORIES.find((c) => c.value === category) || CATEGORIES[2];
+  const Icon = cat.icon;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${cat.badgeColor}`}
+    >
+      <Icon size={11} />
+      {cat.label}
     </span>
   );
 };
@@ -132,10 +212,12 @@ export default function PartsPurchases() {
   const [orders, setOrders] = useState([]);
   const [expenditure, setExpenditure] = useState(null);
   const [serviceRecords, setServiceRecords] = useState([]);
+  const [vehicles, setVehicles] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("");
   const [vendorFilter, setVendorFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [expandedOrders, setExpandedOrders] = useState({});
@@ -143,6 +225,8 @@ export default function PartsPurchases() {
   // Create order modal
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [bulkForm, setBulkForm] = useState({
+    category: "general",
+    vehicle_id: "",
     service_record_id: "",
     vendor_id: "",
     invoice_number: "",
@@ -219,6 +303,7 @@ export default function PartsPurchases() {
       fetchOrders(),
       fetchExpenditure(),
       fetchServiceRecords(),
+      fetchVehicles(),
       fetchVendors(),
     ]);
     setLoading(false);
@@ -260,6 +345,15 @@ export default function PartsPurchases() {
     }
   };
 
+  const fetchVehicles = async () => {
+    try {
+      const res = await apiGet("/api/admin/vehicles");
+      if (res.ok) setVehicles(await res.json());
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const fetchVendors = async () => {
     try {
       const res = await apiGet("/api/admin/vendors");
@@ -284,7 +378,11 @@ export default function PartsPurchases() {
     }
     try {
       const body = {
-        service_record_id: parseInt(bulkForm.service_record_id),
+        category: bulkForm.category,
+        vehicle_id: bulkForm.vehicle_id ? parseInt(bulkForm.vehicle_id) : null,
+        service_record_id: bulkForm.service_record_id
+          ? parseInt(bulkForm.service_record_id)
+          : null,
         vendor_id: bulkForm.vendor_id ? parseInt(bulkForm.vendor_id) : null,
         invoice_number: bulkForm.invoice_number,
         purchased_date: bulkForm.purchased_date,
@@ -350,6 +448,8 @@ export default function PartsPurchases() {
   const closeCreateModal = () => {
     setShowCreateModal(false);
     setBulkForm({
+      category: "general",
+      vehicle_id: "",
       service_record_id: "",
       vendor_id: "",
       invoice_number: "",
@@ -839,6 +939,7 @@ export default function PartsPurchases() {
   );
 
   const filtered = orders.filter((o) => {
+    if (categoryFilter && o.category !== categoryFilter) return false;
     if (vendorFilter && o.vendor_id !== parseInt(vendorFilter)) return false;
     if (statusFilter && o.status !== statusFilter) return false;
     if (!searchQuery) return true;
@@ -885,6 +986,7 @@ export default function PartsPurchases() {
     {key: "all", label: "All Orders"},
     {key: "by_vehicle", label: "By Vehicle"},
     {key: "by_vendor", label: "By Vendor"},
+    {key: "by_category", label: "By Category"},
   ];
 
   if (loading && orders.length === 0) return <Loading fullScreen={false} />;
@@ -997,6 +1099,50 @@ export default function PartsPurchases() {
             </div>
           )}
 
+          {activeTab === "by_category" && (
+            <div>
+              {expenditure?.by_category?.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {expenditure.by_category.map((cs, i) => {
+                    const cat =
+                      CATEGORIES.find((c) => c.value === cs.category) ||
+                      CATEGORIES[2];
+                    const Icon = cat.icon;
+                    return (
+                      <div
+                        key={i}
+                        className={`rounded-md p-5 border-2 ${cat.color} hover:shadow-sm transition-shadow`}
+                      >
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="p-2.5 rounded-md bg-white/60">
+                            <Icon size={22} />
+                          </div>
+                          <div>
+                            <p className="font-bold text-sm">{cat.label}</p>
+                            <p className="text-[10px] opacity-70">
+                              {cat.description}
+                            </p>
+                          </div>
+                        </div>
+                        <p className="text-2xl font-extrabold">
+                          ₹{cs.total_spent?.toLocaleString()}
+                        </p>
+                        <div className="flex gap-4 mt-2 text-xs opacity-70">
+                          <span>{cs.parts_count} products</span>
+                          <span>{cs.order_count} orders</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-secondarytext text-center py-8">
+                  No category expenditure data yet
+                </p>
+              )}
+            </div>
+          )}
+
           {activeTab === "all" && (
             <div className="space-y-4">
               {/* Toolbar */}
@@ -1006,6 +1152,13 @@ export default function PartsPurchases() {
                     value={searchQuery}
                     onChange={setSearchQuery}
                     placeholder="Search invoice, vendor, vehicle..."
+                  />
+                  <CustomDropdown
+                    value={categoryFilter}
+                    onChange={setCategoryFilter}
+                    options={CATEGORY_FILTER_OPTIONS}
+                    placeholder="All Categories"
+                    width="w-48"
                   />
                   {vendors.length > 0 && (
                     <CustomDropdown
@@ -1047,8 +1200,9 @@ export default function PartsPurchases() {
                       <th className="w-10 px-3 py-3"></th>
                       {[
                         "Invoice / Order",
+                        "Category",
                         "Vendor",
-                        "Vehicle",
+                        "Vehicle / Context",
                         "Products",
                         "Total",
                         "Date",
@@ -1066,7 +1220,7 @@ export default function PartsPurchases() {
                   <tbody className="divide-y divide-primarybg">
                     {filtered.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="text-center py-16">
+                        <td colSpan={9} className="text-center py-16">
                           <div className="flex flex-col items-center gap-3">
                             <div className="bg-primarybg p-4 rounded-full">
                               <ClipboardList
@@ -1123,7 +1277,18 @@ export default function PartsPurchases() {
                                     {order.invoice_number || `#ORD-${order.id}`}
                                   </span>
                                   <span className="text-[10px] text-secondarytext flex items-center gap-1">
-                                    {order.service_title || "Service Record"}
+                                    {order.service_title ||
+                                      (order.category === "general"
+                                        ? "General Purchase"
+                                        : order.category === "vehicle"
+                                          ? "Vehicle Purchase"
+                                          : order.service_record_id &&
+                                              !order.service_title
+                                            ? "Service (Deleted)"
+                                            : order.category ===
+                                                "repair_service"
+                                              ? "Repair & Service"
+                                              : "Service Record")}
                                     {order.invoice_file && (
                                       <Paperclip
                                         size={10}
@@ -1134,6 +1299,9 @@ export default function PartsPurchases() {
                                   </span>
                                 </div>
                               </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              {getCategoryBadge(order.category)}
                             </td>
                             <td
                               className="px-4 py-3 cursor-pointer"
@@ -1166,7 +1334,8 @@ export default function PartsPurchases() {
                               <span className="text-secondarytext text-xs">
                                 {order.vehicle_name
                                   ? `${order.vehicle_name} (${order.vehicle_number})`
-                                  : order.vehicle_number || "-"}
+                                  : order.vehicle_number ||
+                                    (order.category === "general" ? "—" : "-")}
                               </span>
                             </td>
                             <td
@@ -1227,6 +1396,7 @@ export default function PartsPurchases() {
                                         {p.part_name}
                                       </span>
                                     </td>
+                                    <td className="px-4 py-2 text-secondarytext text-xs"></td>
                                     <td className="px-4 py-2 text-secondarytext text-xs">
                                       -
                                     </td>
@@ -1289,7 +1459,8 @@ export default function PartsPurchases() {
                     {selectedOrder.invoice_number ||
                       `Order #${selectedOrder.id}`}
                   </h3>
-                  <div className="flex items-center gap-2 mt-1">
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    {getCategoryBadge(selectedOrder.category)}
                     {getStatusBadge(selectedOrder.status)}
                     <span className="text-sm text-secondarytext">
                       {selectedOrder.product_count} product
@@ -1372,6 +1543,10 @@ export default function PartsPurchases() {
                   <Calendar size={14} /> Purchase Info
                 </h4>
                 <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-secondarytext">Category</span>
+                    <span>{getCategoryBadge(selectedOrder.category)}</span>
+                  </div>
                   {selectedOrder.invoice_number && (
                     <div className="flex justify-between">
                       <span className="text-sm text-secondarytext">
@@ -1388,23 +1563,31 @@ export default function PartsPurchases() {
                       {selectedOrder.purchased_date || "-"}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-secondarytext">Vehicle</span>
-                    <span className="font-medium text-primarytext">
-                      {selectedOrder.vehicle_name ||
-                        selectedOrder.vehicle_number ||
-                        "-"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-secondarytext">Service</span>
-                    <span
-                      className="font-medium text-primarytext text-right max-w-50 truncate"
-                      title={selectedOrder.service_title}
-                    >
-                      {selectedOrder.service_title || "-"}
-                    </span>
-                  </div>
+                  {(selectedOrder.vehicle_name ||
+                    selectedOrder.vehicle_number) && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-secondarytext">
+                        Vehicle
+                      </span>
+                      <span className="font-medium text-primarytext">
+                        {selectedOrder.vehicle_name ||
+                          selectedOrder.vehicle_number}
+                      </span>
+                    </div>
+                  )}
+                  {selectedOrder.service_title && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-secondarytext">
+                        Service
+                      </span>
+                      <span
+                        className="font-medium text-primarytext text-right max-w-50 truncate"
+                        title={selectedOrder.service_title}
+                      >
+                        {selectedOrder.service_title}
+                      </span>
+                    </div>
+                  )}
                   {selectedOrder.added_by_name && (
                     <div className="flex justify-between">
                       <span className="text-sm text-secondarytext">
@@ -1866,7 +2049,7 @@ export default function PartsPurchases() {
                   New Purchase Order
                 </h3>
                 <p className="text-xs text-secondarytext mt-0.5">
-                  Create a bill with multiple products from the same vendor
+                  Fill in the details to create a purchase order
                 </p>
               </div>
               <button
@@ -1884,30 +2067,79 @@ export default function PartsPurchases() {
                   Order Details
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Category Dropdown */}
                   <div>
                     <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                      Service Record *
+                      Category *
                     </label>
-                    <SearchableSelect
+                    <CustomDropdown
                       isWhite
-                      value={bulkForm.service_record_id}
+                      value={bulkForm.category}
                       onChange={(val) =>
-                        setBulkForm({...bulkForm, service_record_id: val})
+                        setBulkForm({
+                          ...bulkForm,
+                          category: val,
+                          vehicle_id: "",
+                          service_record_id: "",
+                        })
                       }
-                      placeholder="Select Service Record"
-                      options={serviceRecords.map((sr) => {
-                        const vehicleLabel = sr.vehicle_name
-                          ? `${sr.vehicle_name} (${sr.vehicle_number})`
-                          : sr.vehicle_number;
-                        return {
-                          value: sr.id,
-                          label: vehicleLabel,
-                          subtitle: sr.title,
-                        };
-                      })}
-                      emptyMessage="No active service records"
+                      options={CATEGORY_FORM_OPTIONS}
+                      placeholder="Select Category"
+                      width="w-full"
                     />
                   </div>
+                  {/* Vehicle picker — shown only for 'vehicle' category */}
+                  {bulkForm.category === "vehicle" && (
+                    <div>
+                      <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
+                        Vehicle
+                      </label>
+                      <SearchableSelect
+                        isWhite
+                        value={bulkForm.vehicle_id}
+                        onChange={(val) =>
+                          setBulkForm({...bulkForm, vehicle_id: val})
+                        }
+                        placeholder="Select Vehicle (Optional)"
+                        options={vehicles.map((v) => ({
+                          value: v.id,
+                          label: v.vehicle_name
+                            ? `${v.vehicle_name} (${v.vehicle_number})`
+                            : v.vehicle_number,
+                          subtitle: v.vehicle_type,
+                        }))}
+                        emptyMessage="No vehicles found"
+                      />
+                    </div>
+                  )}
+
+                  {/* Service Record picker — shown only for 'repair_service' category */}
+                  {bulkForm.category === "repair_service" && (
+                    <div>
+                      <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
+                        Service Record *
+                      </label>
+                      <SearchableSelect
+                        isWhite
+                        value={bulkForm.service_record_id}
+                        onChange={(val) =>
+                          setBulkForm({...bulkForm, service_record_id: val})
+                        }
+                        placeholder="Select Service Record"
+                        options={serviceRecords.map((sr) => {
+                          const vehicleLabel = sr.vehicle_name
+                            ? `${sr.vehicle_name} (${sr.vehicle_number})`
+                            : sr.vehicle_number;
+                          return {
+                            value: sr.id,
+                            label: vehicleLabel,
+                            subtitle: sr.title,
+                          };
+                        })}
+                        emptyMessage="No active service records"
+                      />
+                    </div>
+                  )}
                   <div>
                     <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
                       Vendor

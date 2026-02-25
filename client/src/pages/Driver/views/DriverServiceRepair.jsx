@@ -1,11 +1,12 @@
-import React, {useState, useEffect} from "react";
+import React, {useState, useEffect, useMemo} from "react";
 import {useAuth} from "../../../context/AuthContext";
 import {apiGet, apiPost} from "../../../utils/api";
 import {useToast} from "../../../context/ToastContext";
 import Loading from "../../../components/ui/Loading";
 import SearchableSelect from "../../../components/ui/SearchableSelect";
+import CustomDropdown from "../../../components/ui/CustomDropdown";
+import CustomSearch from "../../../components/ui/CustomSearch";
 import {
-  AlertTriangle,
   Plus,
   Clock,
   CheckCircle,
@@ -13,43 +14,82 @@ import {
   Wrench,
   Send,
   X,
-  History,
   FileText,
   CalendarDays,
+  ChevronRight,
+  Bus,
+  Gauge,
+  Shield,
 } from "lucide-react";
 
 const severityOptions = [
-  {value: "low", label: "Low", color: "bg-blue-100 text-blue-700"},
-  {value: "medium", label: "Medium", color: "bg-yellow-100 text-yellow-700"},
-  {value: "high", label: "High", color: "bg-orange-100 text-orange-700"},
-  {value: "critical", label: "Critical", color: "bg-red-100 text-red-700"},
+  {
+    value: "low",
+    label: "Low",
+    color: "bg-skyblue/10 text-skyblue",
+    dot: "bg-skyblue",
+  },
+  {
+    value: "medium",
+    label: "Medium",
+    color: "bg-pending/10 text-pending",
+    dot: "bg-pending",
+  },
+  {
+    value: "high",
+    label: "High",
+    color: "bg-red/10 text-red",
+    dot: "bg-red",
+  },
+  {
+    value: "critical",
+    label: "Critical",
+    color: "bg-red/15 text-red",
+    dot: "bg-red",
+  },
 ];
 
 const statusConfig = {
-  reported: {label: "Reported", color: "bg-blue-100 text-blue-700", icon: Send},
+  reported: {
+    label: "Reported",
+    color: "bg-skyblue/10 text-skyblue border-skyblue/20",
+    bgIcon: "bg-skyblue/10",
+    iconColor: "text-skyblue",
+    icon: Send,
+  },
   approved: {
     label: "Approved",
-    color: "bg-indigo-100 text-indigo-700",
+    color: "bg-primary/10 text-primary border-primary/20",
+    bgIcon: "bg-primary/10",
+    iconColor: "text-primary",
     icon: CheckCircle,
   },
   in_progress: {
     label: "In Progress",
-    color: "bg-yellow-100 text-yellow-700",
+    color: "bg-pending/10 text-pending border-pending/20",
+    bgIcon: "bg-pending/10",
+    iconColor: "text-pending",
     icon: Wrench,
   },
   completed: {
     label: "Completed",
-    color: "bg-green-100 text-green-700",
+    color: "bg-green/10 text-green border-green/20",
+    bgIcon: "bg-green/10",
+    iconColor: "text-green",
     icon: CheckCircle,
   },
   rejected: {
     label: "Rejected",
-    color: "bg-red-100 text-red-700",
+    color: "bg-red/10 text-red border-red/20",
+    bgIcon: "bg-red/10",
+    iconColor: "text-red",
     icon: XCircle,
   },
   cancelled: {
     label: "Cancelled",
-    color: "bg-gray-100 text-gray-600",
+    color: "bg-secondarytext/10 text-secondarytext border-secondarytext/20",
+    bgIcon: "bg-secondarytext/10",
+    iconColor: "text-secondarytext",
     icon: XCircle,
   },
 };
@@ -66,15 +106,15 @@ const initialForm = {
 export default function DriverServiceRepair() {
   const {showToast} = useToast();
   const {user} = useAuth();
-  const [activeTab, setActiveTab] = useState("report");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [requests, setRequests] = useState([]);
-  const [vehicleHistory, setVehicleHistory] = useState([]);
   const [vehicles, setVehicles] = useState([]);
   const [serviceTypes, setServiceTypes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState(initialForm);
   const [submitting, setSubmitting] = useState(false);
-  const [selectedVehicleId, setSelectedVehicleId] = useState("");
+  const [showReportModal, setShowReportModal] = useState(false);
   const [detailModal, setDetailModal] = useState(null);
 
   useEffect(() => {
@@ -82,6 +122,25 @@ export default function DriverServiceRepair() {
     fetchMyRequests();
     fetchServiceTypes();
   }, []);
+
+  // Also extract vehicles from driver's own service requests
+  useEffect(() => {
+    if (requests.length > 0) {
+      setVehicles((prev) => {
+        const map = new Map(prev.map((v) => [v.id, v]));
+        requests.forEach((r) => {
+          if (r.vehicle_id && !map.has(r.vehicle_id)) {
+            map.set(r.vehicle_id, {
+              id: r.vehicle_id,
+              vehicle_name: r.vehicle_name || r.vehicle_number,
+              vehicle_number: r.vehicle_number || `Vehicle #${r.vehicle_id}`,
+            });
+          }
+        });
+        return Array.from(map.values());
+      });
+    }
+  }, [requests]);
 
   const fetchVehicles = async () => {
     try {
@@ -97,6 +156,19 @@ export default function DriverServiceRepair() {
               id: a.vehicle_id,
               vehicle_name: a.vehicle_name || a.vehicle_number,
               vehicle_number: a.vehicle_number || `Vehicle #${a.vehicle_id}`,
+            });
+          }
+          // Also include group vehicles from EV assignments
+          if (a.group_vehicles) {
+            a.group_vehicles.forEach((gv) => {
+              if (gv.vehicle_id && !vehicleMap.has(gv.vehicle_id)) {
+                vehicleMap.set(gv.vehicle_id, {
+                  id: gv.vehicle_id,
+                  vehicle_name: gv.vehicle_name || gv.vehicle_number,
+                  vehicle_number:
+                    gv.vehicle_number || `Vehicle #${gv.vehicle_id}`,
+                });
+              }
             });
           }
         });
@@ -128,24 +200,6 @@ export default function DriverServiceRepair() {
     }
   };
 
-  const fetchVehicleHistory = async (vehicleId) => {
-    if (!vehicleId) {
-      setVehicleHistory([]);
-      return;
-    }
-    setLoading(true);
-    try {
-      const res = await apiGet(
-        `/api/driver/services/vehicle-history?vehicle_id=${vehicleId}`,
-      );
-      if (res.ok) setVehicleHistory(await res.json());
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleReport = async (e) => {
     e.preventDefault();
     if (!form.vehicle_id) {
@@ -169,7 +223,7 @@ export default function DriverServiceRepair() {
       if (res.ok) {
         showToast(data.message || "Issue reported successfully", "success");
         setForm(initialForm);
-        setActiveTab("requests");
+        setShowReportModal(false);
         fetchMyRequests();
       } else {
         showToast(data.error || "Failed to report", "error");
@@ -194,334 +248,441 @@ export default function DriverServiceRepair() {
     subtitle: v.vehicle_number,
   }));
 
-  const tabs = [
-    {key: "report", label: "Report Issue", icon: Plus},
-    {key: "requests", label: "My Requests", icon: FileText},
-    {key: "history", label: "Vehicle History", icon: History},
+  // Stats from requests
+  const stats = useMemo(() => {
+    const total = requests.length;
+    const active = requests.filter((r) =>
+      ["reported", "approved", "in_progress"].includes(r.status),
+    ).length;
+    const completed = requests.filter((r) => r.status === "completed").length;
+    const rejected = requests.filter(
+      (r) => r.status === "rejected" || r.status === "cancelled",
+    ).length;
+    return {total, active, completed, rejected};
+  }, [requests]);
+
+  // Filtered requests
+  const filteredRequests = useMemo(() => {
+    let filtered = requests;
+    if (statusFilter === "active")
+      filtered = filtered.filter((r) =>
+        ["reported", "approved", "in_progress"].includes(r.status),
+      );
+    else if (statusFilter === "rejected")
+      filtered = filtered.filter(
+        (r) => r.status === "rejected" || r.status === "cancelled",
+      );
+    else if (statusFilter !== "all")
+      filtered = filtered.filter((r) => r.status === statusFilter);
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (r) =>
+          (r.title || "").toLowerCase().includes(q) ||
+          (r.service_type_name || "").toLowerCase().includes(q) ||
+          (r.vehicle_number || "").toLowerCase().includes(q) ||
+          (r.description || "").toLowerCase().includes(q),
+      );
+    }
+    return filtered;
+  }, [requests, statusFilter, searchQuery]);
+
+  const statusFilterOptions = [
+    {value: "all", label: "All"},
+    {value: "active", label: "Active"},
+    {value: "completed", label: "Completed"},
+    {value: "rejected", label: "Rejected"},
   ];
 
+  // Status timeline steps
+  const getTimeline = (req) => {
+    const steps = [
+      {
+        key: "reported",
+        label: "Reported",
+        date: req.created_at,
+        done: true,
+      },
+      {
+        key: "approved",
+        label: "Approved",
+        date: null,
+        done: ["approved", "in_progress", "completed"].includes(req.status),
+      },
+      {
+        key: "in_progress",
+        label: "In Progress",
+        date: null,
+        done: ["in_progress", "completed"].includes(req.status),
+      },
+      {
+        key: "completed",
+        label: "Completed",
+        date: req.completed_at || null,
+        done: req.status === "completed",
+      },
+    ];
+    if (req.status === "rejected")
+      return [
+        steps[0],
+        {
+          key: "rejected",
+          label: "Rejected",
+          date: null,
+          done: true,
+          isNegative: true,
+        },
+      ];
+    if (req.status === "cancelled")
+      return [
+        steps[0],
+        {
+          key: "cancelled",
+          label: "Cancelled",
+          date: null,
+          done: true,
+          isNegative: true,
+        },
+      ];
+    return steps;
+  };
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 pb-8 animate-fadeIn">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-primarytext">
-          Service & Repair
-        </h1>
-        <p className="text-secondarytext text-sm mt-0.5">
-          Report vehicle issues and track service requests
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-lg sm:text-2xl font-bold text-primarytext">
+            Service & Repair
+          </h1>
+          <p className="text-secondarytext text-xs sm:text-sm mt-0.5">
+            Report vehicle issues and track service requests
+          </p>
+        </div>
+        <button
+          onClick={() => setShowReportModal(true)}
+          className="flex items-center gap-1.5 bg-primary hover:bg-primarydull text-white px-4 sm:px-6 py-2 sm:py-2.5 rounded-md font-medium transition-all shadow-sm hover:shadow-md text-sm"
+        >
+          <Plus size={16} />
+          <span className="hidden xs:inline">Report</span> Issue
+        </button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-3">
-        {tabs.map((tab) => {
-          const TabIcon = tab.icon;
-          return (
-            <button
-              key={tab.key}
-              onClick={() => {
-                setActiveTab(tab.key);
-                if (tab.key === "requests") fetchMyRequests();
-              }}
-              className={`flex items-center justify-center gap-2 py-2.5 px-5 rounded-md text-sm font-semibold transition-all ${
-                activeTab === tab.key
-                  ? "bg-primary text-white shadow-md shadow-primary/25"
-                  : "bg-secondarybg text-secondarytext hover:bg-primarybg border border-gray-100"
-              }`}
+      {/* Stats Cards */}
+      {requests.length > 0 && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[
+            {
+              label: "Total Requests",
+              value: stats.total,
+              icon: FileText,
+              color: "bg-primary/10 text-primary",
+            },
+            {
+              label: "Active",
+              value: stats.active,
+              icon: Clock,
+              color: "bg-pending/10 text-pending",
+            },
+            {
+              label: "Completed",
+              value: stats.completed,
+              icon: CheckCircle,
+              color: "bg-green/10 text-green",
+            },
+            {
+              label: "Rejected",
+              value: stats.rejected,
+              icon: XCircle,
+              color: "bg-red/10 text-red",
+            },
+          ].map((stat, i) => (
+            <div
+              key={i}
+              className="bg-secondarybg rounded-md p-4 border border-primarybg"
             >
-              <TabIcon size={16} />
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Report Issue Tab */}
-      {activeTab === "report" && (
-        <div className="bg-secondarybg rounded-md border border-gray-100 p-6 animate-fadeIn">
-          <h2 className="text-lg font-bold text-primarytext mb-5">
-            Report a Vehicle Issue
-          </h2>
-          <form onSubmit={handleReport} className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                Vehicle *
-              </label>
-              <SearchableSelect
-                options={vehicleOptions}
-                value={String(form.vehicle_id)}
-                onChange={(val) => setForm({...form, vehicle_id: val})}
-                placeholder="Search your vehicle..."
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                Service Type{" "}
-                <span className="text-secondarytext font-normal text-[10px]">
-                  (Optional)
-                </span>
-              </label>
-              <SearchableSelect
-                options={serviceTypeOptions}
-                value={String(form.service_type_id)}
-                onChange={(val) => setForm({...form, service_type_id: val})}
-                placeholder="Select service type..."
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                Issue Title *
-              </label>
-              <input
-                type="text"
-                value={form.title}
-                onChange={(e) => setForm({...form, title: e.target.value})}
-                className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                placeholder="e.g., Brake noise, Engine overheating"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                Description *
-              </label>
-              <textarea
-                value={form.description}
-                onChange={(e) =>
-                  setForm({...form, description: e.target.value})
-                }
-                className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
-                rows={4}
-                placeholder="Describe the issue in detail..."
-                required
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                  Severity
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {severityOptions.map((s) => (
-                    <button
-                      type="button"
-                      key={s.value}
-                      onClick={() => setForm({...form, severity: s.value})}
-                      className={`px-3 py-2 rounded-md text-sm font-medium border transition-colors ${
-                        form.severity === s.value
-                          ? `${s.color} border-current`
-                          : "border-gray-200 text-secondarytext hover:bg-primarybg"
-                      }`}
-                    >
-                      {s.label}
-                    </button>
-                  ))}
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider mb-1">
+                    {stat.label}
+                  </p>
+                  <h3 className="text-2xl font-extrabold text-primarytext">
+                    {stat.value}
+                  </h3>
+                </div>
+                <div
+                  className={`w-10 h-10 rounded-md flex items-center justify-center ${stat.color}`}
+                >
+                  <stat.icon size={18} />
                 </div>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                  Odometer (km)
-                </label>
-                <input
-                  type="number"
-                  value={form.odometer_reading}
-                  onChange={(e) =>
-                    setForm({...form, odometer_reading: e.target.value})
-                  }
-                  className="w-full border border-gray-200 rounded-md p-2.5 bg-primarybg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  placeholder="Current km reading"
-                  min="0"
-                />
-              </div>
             </div>
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full py-2.5 bg-primary text-white rounded-md text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              <Send size={16} />
-              {submitting ? "Submitting..." : "Submit Report"}
-            </button>
-          </form>
+          ))}
         </div>
       )}
 
-      {/* My Requests Tab */}
-      {activeTab === "requests" && (
-        <div className="space-y-2.5 animate-fadeIn">
-          {loading ? (
-            <Loading fullScreen={false} />
-          ) : requests.length === 0 ? (
-            <div className="text-center py-12 text-secondarytext bg-secondarybg rounded-md border border-gray-100">
-              <AlertTriangle size={36} className="mx-auto mb-3 text-gray-300" />
-              <p className="text-sm">No service requests yet</p>
-              <button
-                onClick={() => setActiveTab("report")}
-                className="mt-3 text-primary text-sm font-medium hover:underline"
-              >
-                Report an issue
-              </button>
+      {/* My Requests */}
+      <div className="space-y-3 animate-fadeIn">
+        {/* Status Filter */}
+        <div className="flex items-center gap-2">
+          <CustomSearch
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search requests..."
+            isWhite
+          />
+          <CustomDropdown
+            isWhite
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={statusFilterOptions}
+            placeholder="Filter by status"
+            width="w-40"
+          />
+        </div>
+
+        {loading ? (
+          <Loading fullScreen={false} />
+        ) : filteredRequests.length === 0 ? (
+          <div className="text-center py-16 text-secondarytext bg-secondarybg rounded-md border border-primarybg">
+            <div className="w-14 h-14 rounded-full bg-primarybg flex items-center justify-center mx-auto mb-4">
+              <Wrench size={24} className="text-secondarytext/50" />
             </div>
-          ) : (
-            requests.map((req) => {
+            <p className="text-sm font-medium text-primarytext">
+              {statusFilter === "all"
+                ? "No service requests yet"
+                : `No ${statusFilter} requests`}
+            </p>
+            <p className="text-xs text-secondarytext mt-1">
+              Report a vehicle issue to get started
+            </p>
+            <button
+              onClick={() => setShowReportModal(true)}
+              className="mt-4 text-primary text-xs font-semibold hover:underline flex items-center gap-1 mx-auto"
+            >
+              <Plus size={14} />
+              Report an issue
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {filteredRequests.map((req) => {
               const sc = statusConfig[req.status] || statusConfig.reported;
               const StatusIcon = sc.icon;
+              const sevOption = severityOptions.find(
+                (s) => s.value === req.severity,
+              );
 
               return (
                 <div
                   key={req.id}
-                  className="bg-secondarybg rounded-md border border-gray-100 p-4 cursor-pointer hover:shadow-sm transition-all"
+                  className="bg-secondarybg rounded-md border border-primarybg p-4 cursor-pointer hover:border-primary/30 hover:shadow-sm transition-all group"
                   onClick={() => setDetailModal(req)}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3 flex-1 min-w-0">
-                      <div
-                        className={`w-9 h-9 rounded-md flex items-center justify-center shrink-0 ${
-                          sc.color.includes("green")
-                            ? "bg-green-100"
-                            : sc.color.includes("red")
-                              ? "bg-red-100"
-                              : sc.color.includes("yellow")
-                                ? "bg-yellow-100"
-                                : sc.color.includes("indigo")
-                                  ? "bg-indigo-100"
-                                  : "bg-blue-100"
-                        }`}
-                      >
-                        <StatusIcon
-                          size={16}
-                          className={
-                            sc.color.includes("green")
-                              ? "text-green-600"
-                              : sc.color.includes("red")
-                                ? "text-red-600"
-                                : sc.color.includes("yellow")
-                                  ? "text-yellow-600"
-                                  : sc.color.includes("indigo")
-                                    ? "text-indigo-600"
-                                    : "text-blue-600"
-                          }
-                        />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-bold text-primarytext text-sm">
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={`w-9 h-9 rounded-md flex items-center justify-center shrink-0 ${sc.bgIcon}`}
+                    >
+                      <StatusIcon size={16} className={sc.iconColor} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-wrap min-w-0">
+                          <h3 className="font-bold text-primarytext text-sm truncate">
                             {req.title}
                           </h3>
-                          <span
-                            className={`text-[10px] px-2 py-0.5 rounded-md font-semibold ${sc.color}`}
-                          >
-                            {sc.label}
-                          </span>
-                          {req.severity && (
-                            <span
-                              className={`text-[10px] px-2 py-0.5 rounded-md font-semibold ${
-                                severityOptions.find(
-                                  (s) => s.value === req.severity,
-                                )?.color || "bg-gray-100 text-gray-600"
-                              }`}
-                            >
-                              {req.severity}
-                            </span>
-                          )}
                         </div>
-                        <p className="text-xs text-secondarytext mt-0.5">
-                          {req.vehicle_number}
-                        </p>
-                        <p className="text-xs text-secondarytext mt-1 line-clamp-2">
-                          {req.description}
-                        </p>
-                        <p className="text-[11px] text-secondarytext mt-2">
-                          Reported: {req.created_at || "-"}
-                        </p>
+                        <ChevronRight
+                          size={16}
+                          className="text-secondarytext/40 group-hover:text-primary shrink-0 transition-colors"
+                        />
                       </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-      )}
-
-      {/* Vehicle History Tab */}
-      {activeTab === "history" && (
-        <div className="space-y-4 animate-fadeIn">
-          <div className="bg-secondarybg rounded-md border border-gray-100 p-4">
-            <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-              Select Vehicle
-            </label>
-            <SearchableSelect
-              options={vehicleOptions}
-              value={String(selectedVehicleId)}
-              onChange={(val) => {
-                setSelectedVehicleId(val);
-                fetchVehicleHistory(val);
-              }}
-              placeholder="Search vehicle to view history..."
-            />
-          </div>
-
-          {loading ? (
-            <Loading fullScreen={false} />
-          ) : selectedVehicleId && vehicleHistory.length === 0 ? (
-            <div className="text-center py-12 text-secondarytext bg-secondarybg rounded-md border border-gray-100">
-              <History size={36} className="mx-auto mb-3 text-gray-300" />
-              <p className="text-sm">No service history for this vehicle</p>
-            </div>
-          ) : (
-            vehicleHistory.map((record) => {
-              const sc = statusConfig[record.status] || statusConfig.reported;
-              return (
-                <div
-                  key={record.id}
-                  className="bg-secondarybg rounded-md border border-gray-100 p-4 transition-all hover:shadow-sm"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-bold text-primarytext text-sm">
-                          {record.title}
-                        </h3>
+                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                         <span
-                          className={`text-[10px] px-2 py-0.5 rounded-md font-semibold ${sc.color}`}
+                          className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${sc.color}`}
                         >
                           {sc.label}
                         </span>
+                        {sevOption && (
+                          <span
+                            className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${sevOption.color}`}
+                          >
+                            {sevOption.label}
+                          </span>
+                        )}
+                        <span className="text-[10px] text-secondarytext flex items-center gap-1">
+                          <Bus size={10} />
+                          {req.vehicle_name || req.vehicle_number}
+                        </span>
                       </div>
-                      <p className="text-xs text-secondarytext mt-0.5">
-                        {record.service_type_name || "General"} |{" "}
-                        {record.vehicle_number}
-                      </p>
-                      {record.description && (
-                        <p className="text-xs text-secondarytext mt-1 line-clamp-2">
-                          {record.description}
+                      {req.description && (
+                        <p className="text-xs text-secondarytext mt-1.5 line-clamp-1">
+                          {req.description}
                         </p>
                       )}
-                      <div className="flex items-center gap-3 mt-2 text-xs text-secondarytext">
-                        {record.scheduled_date && (
-                          <span className="flex items-center gap-1">
-                            <CalendarDays size={12} />
-                            {record.scheduled_date || "-"}
-                          </span>
-                        )}
-                        {record.total_cost > 0 && (
-                          <span className="text-primary font-bold">
-                            ₹{record.total_cost.toLocaleString()}
-                          </span>
-                        )}
-                      </div>
+                      <p className="text-[10px] text-secondarytext/70 mt-2 flex items-center gap-1">
+                        <Clock size={10} />
+                        {req.created_at}
+                      </p>
                     </div>
                   </div>
                 </div>
               );
-            })
-          )}
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Report Issue Modal */}
+      {showReportModal && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn"
+          onClick={() => setShowReportModal(false)}
+        >
+          <div
+            className="bg-secondarybg rounded-md shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto animate-scaleIn"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 bg-secondarybg p-5 border-b border-primarybg flex items-center justify-between rounded-t-md z-10">
+              <div>
+                <h3 className="text-base font-bold text-primarytext">
+                  Report a Vehicle Issue
+                </h3>
+                <p className="text-xs text-secondarytext mt-0.5">
+                  Your request will be reviewed by an admin
+                </p>
+              </div>
+              <button
+                onClick={() => setShowReportModal(false)}
+                className="text-secondarytext hover:text-primarytext transition-colors p-1"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleReport} className="p-5 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
+                    Vehicle *
+                  </label>
+                  <SearchableSelect
+                    options={vehicleOptions}
+                    value={String(form.vehicle_id)}
+                    onChange={(val) => setForm({...form, vehicle_id: val})}
+                    placeholder="Search vehicle..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
+                    Service Type{" "}
+                    <span className="text-secondarytext font-normal text-[10px]">
+                      (Optional)
+                    </span>
+                  </label>
+                  <SearchableSelect
+                    options={serviceTypeOptions}
+                    value={String(form.service_type_id)}
+                    onChange={(val) => setForm({...form, service_type_id: val})}
+                    placeholder="Select type..."
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
+                  Issue Title *
+                </label>
+                <input
+                  type="text"
+                  value={form.title}
+                  onChange={(e) => setForm({...form, title: e.target.value})}
+                  className="w-full border border-primarybg rounded-md p-2.5 bg-primarybg text-sm text-primarytext focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  placeholder="e.g., Brake noise, Engine overheating"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
+                  Description *
+                </label>
+                <textarea
+                  value={form.description}
+                  onChange={(e) =>
+                    setForm({...form, description: e.target.value})
+                  }
+                  className="w-full border border-primarybg rounded-md p-2.5 bg-primarybg text-sm text-primarytext focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
+                  rows={3}
+                  placeholder="Describe the issue in detail..."
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
+                    Severity
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {severityOptions.map((s) => (
+                      <button
+                        type="button"
+                        key={s.value}
+                        onClick={() => setForm({...form, severity: s.value})}
+                        className={`px-3 py-2 rounded-md text-xs font-semibold border transition-all flex items-center gap-1.5 ${
+                          form.severity === s.value
+                            ? `${s.color} border-current shadow-sm`
+                            : "border-primarybg text-secondarytext hover:bg-primarybg"
+                        }`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            form.severity === s.value
+                              ? s.dot
+                              : "bg-secondarytext/30"
+                          }`}
+                        />
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
+                    Odometer (km)
+                  </label>
+                  <input
+                    type="number"
+                    value={form.odometer_reading}
+                    onChange={(e) =>
+                      setForm({...form, odometer_reading: e.target.value})
+                    }
+                    className="w-full border border-primarybg rounded-md p-2.5 bg-primarybg text-sm text-primarytext focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    placeholder="Current km reading"
+                    min="0"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowReportModal(false)}
+                  className="flex-1 py-2.5 border border-primarybg text-secondarytext rounded-md text-sm font-semibold hover:bg-primarybg transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="flex-1 py-2.5 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primarydull transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
+                >
+                  <Send size={14} />
+                  {submitting ? "Submitting..." : "Submit Report"}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
@@ -532,117 +693,229 @@ export default function DriverServiceRepair() {
           onClick={() => setDetailModal(null)}
         >
           <div
-            className="bg-secondarybg rounded-md shadow-xl w-full max-w-md max-h-[80vh] overflow-y-auto animate-scaleIn"
+            className="bg-secondarybg rounded-md shadow-xl w-full max-w-lg max-h-[85vh] overflow-y-auto animate-scaleIn"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="sticky top-0 bg-secondarybg p-6 border-b border-gray-100 flex items-center justify-between rounded-t-md">
-              <h3 className="text-lg font-bold text-primarytext">
-                Request Details
-              </h3>
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-secondarybg p-5 border-b border-primarybg flex items-center justify-between rounded-t-md z-10">
+              <div className="flex items-center gap-3 min-w-0">
+                {(() => {
+                  const sc =
+                    statusConfig[detailModal.status] || statusConfig.reported;
+                  return (
+                    <div
+                      className={`w-9 h-9 rounded-md flex items-center justify-center shrink-0 ${sc.bgIcon}`}
+                    >
+                      <sc.icon size={16} className={sc.iconColor} />
+                    </div>
+                  );
+                })()}
+                <div className="min-w-0">
+                  <h3 className="text-base font-bold text-primarytext truncate">
+                    {detailModal.title}
+                  </h3>
+                  <p className="text-xs text-secondarytext">
+                    {detailModal.vehicle_name || detailModal.vehicle_number}
+                  </p>
+                </div>
+              </div>
               <button
                 onClick={() => setDetailModal(null)}
-                className="text-secondarytext hover:text-primarytext transition-colors"
+                className="text-secondarytext hover:text-primarytext transition-colors p-1"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <h3 className="font-bold text-primarytext">
-                  {detailModal.title}
-                </h3>
-                <div className="flex items-center gap-2 mt-1.5">
-                  {(() => {
-                    const sc =
-                      statusConfig[detailModal.status] || statusConfig.reported;
-                    return (
-                      <span
-                        className={`text-[10px] px-2 py-0.5 rounded-md font-semibold ${sc.color}`}
-                      >
-                        {sc.label}
-                      </span>
-                    );
-                  })()}
-                  {detailModal.severity && (
+
+            <div className="p-5 space-y-5">
+              {/* Status & Severity Badges */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {(() => {
+                  const sc =
+                    statusConfig[detailModal.status] || statusConfig.reported;
+                  return (
                     <span
-                      className={`text-[10px] px-2 py-0.5 rounded-md font-semibold ${
-                        severityOptions.find(
-                          (s) => s.value === detailModal.severity,
-                        )?.color || "bg-gray-100 text-gray-600"
-                      }`}
+                      className={`text-xs px-3 py-1 rounded-full font-semibold border ${sc.color}`}
                     >
-                      {detailModal.severity}
+                      {sc.label}
                     </span>
-                  )}
+                  );
+                })()}
+                {detailModal.severity && (
+                  <span
+                    className={`text-xs px-3 py-1 rounded-full font-semibold ${
+                      severityOptions.find(
+                        (s) => s.value === detailModal.severity,
+                      )?.color || "bg-secondarytext/10 text-secondarytext"
+                    }`}
+                  >
+                    {detailModal.severity.charAt(0).toUpperCase() +
+                      detailModal.severity.slice(1)}{" "}
+                    Severity
+                  </span>
+                )}
+              </div>
+
+              {/* Status Timeline */}
+              <div className="bg-primarybg rounded-md p-4">
+                <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider mb-3">
+                  Status Timeline
+                </p>
+                <div className="flex items-center gap-0">
+                  {getTimeline(detailModal).map((step, i, arr) => (
+                    <React.Fragment key={step.key}>
+                      <div className="flex flex-col items-center gap-1.5 min-w-0">
+                        <div
+                          className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0 ${
+                            step.isNegative
+                              ? "bg-red"
+                              : step.done
+                                ? "bg-primary"
+                                : "bg-secondarytext/20"
+                          }`}
+                        >
+                          {step.isNegative ? (
+                            <XCircle size={14} />
+                          ) : step.done ? (
+                            <CheckCircle size={14} />
+                          ) : (
+                            i + 1
+                          )}
+                        </div>
+                        <span
+                          className={`text-[10px] font-semibold text-center leading-tight ${
+                            step.isNegative
+                              ? "text-red"
+                              : step.done
+                                ? "text-primarytext"
+                                : "text-secondarytext/50"
+                          }`}
+                        >
+                          {step.label}
+                        </span>
+                      </div>
+                      {i < arr.length - 1 && (
+                        <div
+                          className={`flex-1 h-0.5 mx-1 -mt-4 rounded-full ${
+                            arr[i + 1]?.done || arr[i + 1]?.isNegative
+                              ? arr[i + 1]?.isNegative
+                                ? "bg-red/40"
+                                : "bg-primary"
+                              : "bg-secondarytext/15"
+                          }`}
+                        />
+                      )}
+                    </React.Fragment>
+                  ))}
                 </div>
               </div>
 
-              <div className="space-y-2.5">
+              {/* Detail Fields */}
+              <div className="space-y-2">
                 {[
-                  {label: "Vehicle", value: detailModal.vehicle_number},
+                  {
+                    label: "Vehicle",
+                    value:
+                      detailModal.vehicle_name || detailModal.vehicle_number,
+                    icon: Bus,
+                  },
                   detailModal.service_type_name && {
                     label: "Service Type",
                     value: detailModal.service_type_name,
+                    icon: Wrench,
                   },
-                  detailModal.odometer_reading > 0 && {
+                  detailModal.odometer_at_service > 0 && {
                     label: "Odometer",
-                    value: `${detailModal.odometer_reading} km`,
+                    value: `${detailModal.odometer_at_service?.toLocaleString()} km`,
+                    icon: Gauge,
                   },
                   detailModal.scheduled_date && {
                     label: "Scheduled",
-                    value: detailModal.scheduled_date || "-",
+                    value: detailModal.scheduled_date,
+                    icon: CalendarDays,
+                  },
+                  detailModal.completed_at && {
+                    label: "Completed",
+                    value: detailModal.completed_at,
+                    icon: CheckCircle,
                   },
                   detailModal.workshop_name && {
                     label: "Workshop",
                     value: detailModal.workshop_name,
+                    icon: Shield,
                   },
-                  detailModal.total_cost > 0 && {
-                    label: "Total Cost",
-                    value: `₹${detailModal.total_cost.toLocaleString()}`,
-                    highlight: true,
+                  detailModal.mechanic_name && {
+                    label: "Mechanic",
+                    value: detailModal.mechanic_name,
+                    icon: Wrench,
                   },
                 ]
                   .filter(Boolean)
                   .map((item, i) => (
-                    <div key={i} className="flex justify-between text-sm">
-                      <span className="text-secondarytext">{item.label}</span>
-                      <span
-                        className={
-                          item.highlight
-                            ? "text-primary font-bold"
-                            : "text-primarytext font-medium"
-                        }
-                      >
+                    <div
+                      key={i}
+                      className="flex items-center justify-between py-2 border-b border-primarybg last:border-0"
+                    >
+                      <span className="text-xs text-secondarytext flex items-center gap-2">
+                        {item.icon && (
+                          <item.icon
+                            size={13}
+                            className="text-secondarytext/50"
+                          />
+                        )}
+                        {item.label}
+                      </span>
+                      <span className="text-sm font-semibold text-primarytext">
                         {item.value}
                       </span>
                     </div>
                   ))}
               </div>
 
+              {/* Description */}
               {detailModal.description && (
                 <div>
-                  <p className="text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
+                  <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider mb-1.5">
                     Description
                   </p>
-                  <p className="text-sm text-primarytext bg-primarybg p-3 rounded-md">
+                  <p className="text-sm text-primarytext bg-primarybg p-3 rounded-md leading-relaxed">
                     {detailModal.description}
                   </p>
                 </div>
               )}
 
+              {/* Admin Remarks */}
               {detailModal.admin_remarks && (
                 <div>
-                  <p className="text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
+                  <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider mb-1.5">
                     Admin Remarks
                   </p>
-                  <p className="text-sm text-primarytext bg-primarybg p-3 rounded-md">
-                    {detailModal.admin_remarks}
-                  </p>
+                  <div className="bg-primary/5 border border-primary/10 p-3 rounded-md">
+                    <p className="text-sm text-primarytext leading-relaxed">
+                      {detailModal.admin_remarks}
+                    </p>
+                  </div>
                 </div>
               )}
 
-              <div className="text-xs text-secondarytext pt-2 border-t border-gray-100">
-                Reported: {new Date(detailModal.created_at).toLocaleString()}
+              {/* Rejection Reason */}
+              {detailModal.rejection_reason && (
+                <div>
+                  <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider mb-1.5">
+                    Rejection Reason
+                  </p>
+                  <div className="bg-red/5 border border-red/10 p-3 rounded-md">
+                    <p className="text-sm text-primarytext leading-relaxed">
+                      {detailModal.rejection_reason}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Timestamp */}
+              <div className="text-[10px] text-secondarytext/60 pt-2 border-t border-primarybg flex items-center gap-1">
+                <Clock size={10} />
+                Reported: {detailModal.created_at}
               </div>
             </div>
           </div>

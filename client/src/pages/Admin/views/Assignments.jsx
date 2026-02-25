@@ -1045,6 +1045,20 @@ export default function Assignments() {
                             ? a.vehicle_group_name || "EV Assignment"
                             : a.vehicle_name || a.vehicle_number}
                         </p>
+                        {a.vehicle_status === "under_maintenance" && (
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded bg-pending/10 text-pending">
+                              <AlertTriangle size={10} />
+                              In Service
+                            </span>
+                            {a.replacement_vehicle_number && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded bg-skyblue/10 text-skyblue">
+                                <RefreshCw size={10} />
+                                Replaced: {a.replacement_vehicle_number}
+                              </span>
+                            )}
+                          </div>
+                        )}
                         <p className="text-xs text-secondarytext">
                           {activeTab === "ev" ? (
                             <span className="flex items-center gap-1">

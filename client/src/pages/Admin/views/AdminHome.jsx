@@ -430,7 +430,7 @@ export default function AdminHome() {
           </div>
           <div className="flex gap-2">
             <button
-              onClick={() => navigate("/admin-dashboard/fc-replacement")}
+              onClick={() => navigate("/admin-dashboard/vehicle-replacements")}
               className="px-4 py-2 bg-primary hover:bg-primarydull text-white rounded-md font-medium transition-colors text-sm"
             >
               Manage Replacements

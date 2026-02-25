@@ -555,7 +555,7 @@ func GetInchargeVehicleAlerts(c *gin.Context) {
 	})
 }
 
-// POST /api/incharge/fc-replacement/request - Incharge requests FC replacement (needs admin approval)
+// POST /api/incharge/fc-replacement/request - Incharge requests vehicle replacement (needs admin approval)
 func RequestFCReplacement(c *gin.Context) {
 	var req struct {
 		VehicleID  int    `json:"vehicle_id"`
@@ -573,7 +573,7 @@ func RequestFCReplacement(c *gin.Context) {
 
 	// Create request with pending status (needs admin approval)
 	result, err := config.DB.Exec(`
-		INSERT INTO fc_replacement_requests 
+		INSERT INTO vehicle_replacements 
 		(vehicle_id, driver_id, start_date, end_date, reason, status, requested_by_role, requested_by_id, notes)
 		VALUES (?, ?, ?, ?, ?, 'pending', 'incharge', ?, ?)
 	`, req.VehicleID, req.DriverID, req.StartDate, req.EndDate, req.Reason, req.InchargeID, req.Notes)
@@ -594,8 +594,8 @@ func RequestFCReplacement(c *gin.Context) {
 	// Create notification for admin
 	_, err = config.DB.Exec(`
 		INSERT INTO notifications (recipient_role, recipient_id, type, title, message, reference_id, is_read)
-		VALUES ('ADMIN', 0, 'fc_replacement_request', 'New FC Replacement Request', ?, ?, 0)
-	`, fmt.Sprintf("Incharge %s requested FC replacement for vehicle %s (%s to %s). Reason: %s",
+		VALUES ('ADMIN', 0, 'vehicle_replacement_request', 'New Vehicle Replacement Request', ?, ?, 0)
+	`, fmt.Sprintf("Incharge %s requested vehicle replacement for vehicle %s (%s to %s). Reason: %s",
 		inchargeName, vehicleNumber, req.StartDate, req.EndDate, req.Reason), requestID)
 
 	if err != nil {
@@ -603,13 +603,13 @@ func RequestFCReplacement(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "FC replacement request submitted for admin approval",
+		"message": "Vehicle replacement request submitted for admin approval",
 		"id":      requestID,
 		"status":  "pending",
 	})
 }
 
-// GET /api/incharge/fc-replacements - Get FC replacements for incharge's cluster
+// GET /api/incharge/fc-replacements - Get vehicle replacements for incharge's cluster
 func GetInchargeFCReplacements(c *gin.Context) {
 	inchargeID := c.Query("incharge_id")
 	if inchargeID == "" {
@@ -641,7 +641,7 @@ func GetInchargeFCReplacements(c *gin.Context) {
 			r.notes, r.driver_notified,
 			DATE_FORMAT(r.created_at, '%d-%m-%Y %h:%i %p') as created_at,
 			DATEDIFF(r.end_date, CURDATE()) as days_remaining
-		FROM fc_replacement_requests r
+		FROM vehicle_replacements r
 		JOIN vehicles v ON r.vehicle_id = v.id
 		LEFT JOIN vehicles rv ON r.replacement_vehicle_id = rv.id
 		JOIN drivers d ON r.driver_id = d.id

@@ -11,7 +11,7 @@ import LeaveApprovals from "./views/LeaveApprovals";
 import ScheduleManagement from "./views/ScheduleManagement";
 import KmManagement from "./views/KmManagement";
 import AttendanceRecords from "./views/AttendanceRecords";
-import FCReplacementManagement from "./views/FCReplacementManagement";
+import VehicleReplacements from "./views/VehicleReplacements";
 import VehicleRequests from "./views/VehicleRequests";
 import AdminStudentTransport from "./views/AdminStudentTransport";
 import ServiceRecords from "./views/ServiceRecords";
@@ -103,8 +103,8 @@ export default function AdminDashboard() {
             <Route path="leave-approvals" element={<LeaveApprovals />} />
             <Route path="attendance-records" element={<AttendanceRecords />} />
             <Route
-              path="fc-replacement"
-              element={<FCReplacementManagement />}
+              path="vehicle-replacements"
+              element={<VehicleReplacements />}
             />
             <Route path="vehicle-requests" element={<VehicleRequests />} />
             <Route

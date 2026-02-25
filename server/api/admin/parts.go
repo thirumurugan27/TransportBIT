@@ -17,7 +17,7 @@ import (
 
 // partsSelectColumns is the shared SELECT clause for parts queries (with vendor JOIN)
 const partsSelectColumns = `
-	p.id, p.purchase_order_id, p.service_record_id, p.part_name,
+	p.id, p.purchase_order_id, p.category, p.vehicle_id, p.service_record_id, p.part_name,
 	p.vendor_id,
 	COALESCE(vdr.name, ''),
 	COALESCE(vdr.contact, ''),
@@ -31,13 +31,17 @@ const partsSelectColumns = `
 	COALESCE(DATE_FORMAT(p.returned_date, '%d-%m-%Y'), ''),
 	COALESCE(DATE_FORMAT(p.cancelled_date, '%d-%m-%Y'), ''),
 	p.added_by, DATE_FORMAT(p.created_at, '%d-%m-%Y %h:%i %p'),
-	COALESCE(v.vehicle_number, ''), COALESCE(v.vehicle_name, ''), COALESCE(sr.title, ''), COALESCE(u.full_name, '')
+	COALESCE(COALESCE(v.vehicle_number, dv.vehicle_number), ''),
+	COALESCE(COALESCE(v.vehicle_name, dv.vehicle_name), ''),
+	COALESCE(sr.title, ''),
+	COALESCE(u.full_name, '')
 `
 
 const partsFromJoins = `
 	FROM parts_purchased p
 	LEFT JOIN service_records sr ON p.service_record_id = sr.id
 	LEFT JOIN vehicles v ON sr.vehicle_id = v.id
+	LEFT JOIN vehicles dv ON p.vehicle_id = dv.id
 	LEFT JOIN users u ON p.added_by = u.id
 	LEFT JOIN vendors vdr ON p.vendor_id = vdr.id
 `
@@ -110,9 +114,29 @@ func AddPart(c *gin.Context) {
 		return
 	}
 
-	if req.ServiceRecordID == 0 || req.PartName == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Service record and product name are required"})
+	// Default category
+	if req.Category == "" {
+		req.Category = models.PurchaseCategoryRepairService
+	}
+	if !models.IsValidPurchaseCategory(req.Category) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid category"})
 		return
+	}
+
+	if req.PartName == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Product name is required"})
+		return
+	}
+
+	// Validate per category
+	switch req.Category {
+	case models.PurchaseCategoryRepairService:
+		if req.ServiceRecordID == nil || *req.ServiceRecordID == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Service record is required for repair & service purchases"})
+			return
+		}
+	case models.PurchaseCategoryVehicle:
+		// vehicle_id is optional
 	}
 
 	if req.Quantity <= 0 {
@@ -135,12 +159,22 @@ func AddPart(c *gin.Context) {
 		req.OrderedDate = req.PurchasedDate
 	}
 
+	// For repair_service, auto-resolve vehicle_id from service record
+	if req.Category == models.PurchaseCategoryRepairService && req.ServiceRecordID != nil {
+		var srvVehicleID sql.NullInt64
+		config.DB.QueryRow(`SELECT vehicle_id FROM service_records WHERE id = ?`, *req.ServiceRecordID).Scan(&srvVehicleID)
+		if srvVehicleID.Valid {
+			v := int(srvVehicleID.Int64)
+			req.VehicleID = &v
+		}
+	}
+
 	// Create a purchase order for this single part
 	orderResult, err := config.DB.Exec(`
 		INSERT INTO purchase_orders 
-		(service_record_id, vendor_id, invoice_number, purchased_date, status, ordered_date, added_by)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
-	`, req.ServiceRecordID, req.VendorID, req.InvoiceNumber, nilIfEmpty(req.PurchasedDate),
+		(category, vehicle_id, service_record_id, vendor_id, invoice_number, purchased_date, status, ordered_date, added_by)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, req.Category, req.VehicleID, req.ServiceRecordID, req.VendorID, req.InvoiceNumber, nilIfEmpty(req.PurchasedDate),
 		req.Status, nilIfEmpty(req.OrderedDate), adminID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create order: " + err.Error()})
@@ -150,11 +184,11 @@ func AddPart(c *gin.Context) {
 
 	result, err := config.DB.Exec(`
 		INSERT INTO parts_purchased 
-		(purchase_order_id, service_record_id, part_name, vendor_id,
+		(purchase_order_id, category, vehicle_id, service_record_id, part_name, vendor_id,
 		 quantity, unit_price, total_price, warranty_months, invoice_number, purchased_date, 
 		 status, ordered_date, added_by)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, orderID, req.ServiceRecordID, req.PartName, req.VendorID,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, orderID, req.Category, req.VehicleID, req.ServiceRecordID, req.PartName, req.VendorID,
 		req.Quantity, req.UnitPrice, totalPrice, req.WarrantyMonths, req.InvoiceNumber, req.PurchasedDate,
 		req.Status, nilIfEmpty(req.OrderedDate), adminID)
 	if err != nil {
@@ -164,8 +198,10 @@ func AddPart(c *gin.Context) {
 
 	id, _ := result.LastInsertId()
 
-	// Recalculate service record costs
-	recalcServiceCost(req.ServiceRecordID)
+	// Only recalculate service cost for repair_service
+	if req.Category == models.PurchaseCategoryRepairService && req.ServiceRecordID != nil {
+		recalcServiceCost(*req.ServiceRecordID)
+	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Part added successfully", "id": id})
 }
@@ -178,10 +214,26 @@ func AddBulkParts(c *gin.Context) {
 		return
 	}
 
-	if req.ServiceRecordID == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Service record is required"})
+	// Default category
+	if req.Category == "" {
+		req.Category = models.PurchaseCategoryRepairService
+	}
+	if !models.IsValidPurchaseCategory(req.Category) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid category"})
 		return
 	}
+
+	// Validate per category
+	switch req.Category {
+	case models.PurchaseCategoryRepairService:
+		if req.ServiceRecordID == nil || *req.ServiceRecordID == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Service record is required for repair & service purchases"})
+			return
+		}
+	case models.PurchaseCategoryVehicle:
+		// vehicle_id is optional
+	}
+
 	if len(req.Parts) == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "At least one product is required"})
 		return
@@ -193,6 +245,16 @@ func AddBulkParts(c *gin.Context) {
 	} else if !models.IsValidProductStatus(req.Status) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid status. Must be: pending, received, returned, or cancelled"})
 		return
+	}
+
+	// For repair_service, auto-resolve vehicle_id from service record
+	if req.Category == models.PurchaseCategoryRepairService && req.ServiceRecordID != nil {
+		var srvVehicleID sql.NullInt64
+		config.DB.QueryRow(`SELECT vehicle_id FROM service_records WHERE id = ?`, *req.ServiceRecordID).Scan(&srvVehicleID)
+		if srvVehicleID.Valid {
+			v := int(srvVehicleID.Int64)
+			req.VehicleID = &v
+		}
 	}
 
 	adminID, _ := c.Get("user_id")
@@ -207,9 +269,9 @@ func AddBulkParts(c *gin.Context) {
 	// Create a purchase order first
 	orderResult, err := tx.Exec(`
 		INSERT INTO purchase_orders 
-		(service_record_id, vendor_id, invoice_number, purchased_date, status, ordered_date, added_by)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
-	`, req.ServiceRecordID, req.VendorID, req.InvoiceNumber, nilIfEmpty(req.PurchasedDate),
+		(category, vehicle_id, service_record_id, vendor_id, invoice_number, purchased_date, status, ordered_date, added_by)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, req.Category, req.VehicleID, req.ServiceRecordID, req.VendorID, req.InvoiceNumber, nilIfEmpty(req.PurchasedDate),
 		req.Status, nilIfEmpty(req.PurchasedDate), adminID)
 	if err != nil {
 		tx.Rollback()
@@ -232,11 +294,11 @@ func AddBulkParts(c *gin.Context) {
 
 		result, err := tx.Exec(`
 			INSERT INTO parts_purchased 
-			(purchase_order_id, service_record_id, part_name, vendor_id,
+			(purchase_order_id, category, vehicle_id, service_record_id, part_name, vendor_id,
 			 quantity, unit_price, total_price, warranty_months, invoice_number, purchased_date, 
 			 status, ordered_date, added_by)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		`, orderID, req.ServiceRecordID, part.PartName, req.VendorID,
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`, orderID, req.Category, req.VehicleID, req.ServiceRecordID, part.PartName, req.VendorID,
 			part.Quantity, part.UnitPrice, totalPrice, part.WarrantyMonths, req.InvoiceNumber, req.PurchasedDate,
 			req.Status, nilIfEmpty(req.PurchasedDate), adminID)
 		if err != nil {
@@ -253,8 +315,10 @@ func AddBulkParts(c *gin.Context) {
 		return
 	}
 
-	// Recalculate service record costs once after all inserts
-	recalcServiceCost(req.ServiceRecordID)
+	// Only recalculate service cost for repair_service
+	if req.Category == models.PurchaseCategoryRepairService && req.ServiceRecordID != nil {
+		recalcServiceCost(*req.ServiceRecordID)
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"message":  fmt.Sprintf("%d parts added successfully", len(insertedIDs)),
@@ -301,9 +365,11 @@ func UpdatePart(c *gin.Context) {
 	}
 
 	// Recalculate service record costs
-	var serviceRecordID int
+	var serviceRecordID sql.NullInt64
 	config.DB.QueryRow(`SELECT service_record_id FROM parts_purchased WHERE id = ?`, req.ID).Scan(&serviceRecordID)
-	recalcServiceCost(serviceRecordID)
+	if serviceRecordID.Valid && serviceRecordID.Int64 > 0 {
+		recalcServiceCost(int(serviceRecordID.Int64))
+	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Part updated successfully"})
 }
@@ -362,7 +428,7 @@ func DeletePart(c *gin.Context) {
 	}
 
 	// Get service record ID before deleting
-	var serviceRecordID int
+	var serviceRecordID sql.NullInt64
 	config.DB.QueryRow(`SELECT service_record_id FROM parts_purchased WHERE id = ?`, id).Scan(&serviceRecordID)
 
 	_, err := config.DB.Exec(`DELETE FROM parts_purchased WHERE id = ?`, id)
@@ -372,8 +438,8 @@ func DeletePart(c *gin.Context) {
 	}
 
 	// Recalculate service record costs
-	if serviceRecordID > 0 {
-		recalcServiceCost(serviceRecordID)
+	if serviceRecordID.Valid && serviceRecordID.Int64 > 0 {
+		recalcServiceCost(int(serviceRecordID.Int64))
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Part deleted successfully"})
@@ -395,28 +461,33 @@ func GetPartsExpenditure(c *gin.Context) {
 		PartsCount int     `json:"parts_count"`
 	}
 
-	// By vehicle
+	// True grand total from ALL parts_purchased (regardless of vehicle)
+	var grandTotal float64
+	var grandParts int
+	config.DB.QueryRow(`SELECT COALESCE(SUM(total_price), 0), COUNT(id) FROM parts_purchased`).Scan(&grandTotal, &grandParts)
+
+	// By vehicle - using purchase_orders vehicle reference
 	rows, err := config.DB.Query(`
-		SELECT sr.vehicle_id, COALESCE(v.vehicle_number, ''), 
+		SELECT COALESCE(COALESCE(v.id, dv.id), 0),
+			   COALESCE(COALESCE(v.vehicle_number, dv.vehicle_number), ''), 
 			   COALESCE(SUM(p.total_price), 0), COUNT(p.id)
 		FROM parts_purchased p
-		JOIN service_records sr ON p.service_record_id = sr.id
-		LEFT JOIN vehicles v ON sr.vehicle_id = v.id
-		GROUP BY sr.vehicle_id, v.vehicle_number
+		LEFT JOIN purchase_orders po ON p.purchase_order_id = po.id
+		LEFT JOIN service_records sr ON COALESCE(po.service_record_id, p.service_record_id) = sr.id
+		LEFT JOIN vehicles v ON COALESCE(po.vehicle_id, sr.vehicle_id) = v.id
+		LEFT JOIN vehicles dv ON p.vehicle_id = dv.id
+		WHERE COALESCE(po.vehicle_id, sr.vehicle_id, p.vehicle_id) IS NOT NULL
+		GROUP BY COALESCE(v.id, dv.id), COALESCE(v.vehicle_number, dv.vehicle_number)
 		ORDER BY SUM(p.total_price) DESC
 	`)
 
 	var vehicles []VehicleSpend
-	var grandTotal float64
-	var grandParts int
 
 	if err == nil {
 		defer rows.Close()
 		for rows.Next() {
 			var vs VehicleSpend
 			rows.Scan(&vs.VehicleID, &vs.VehicleNumber, &vs.TotalSpent, &vs.PartsCount)
-			grandTotal += vs.TotalSpent
-			grandParts += vs.PartsCount
 			vehicles = append(vehicles, vs)
 		}
 	}
@@ -456,9 +527,38 @@ func GetPartsExpenditure(c *gin.Context) {
 	var totalOrders int
 	config.DB.QueryRow(`SELECT COUNT(*) FROM purchase_orders`).Scan(&totalOrders)
 
+	// By category
+	type CategorySpend struct {
+		Category   string  `json:"category"`
+		TotalSpent float64 `json:"total_spent"`
+		PartsCount int     `json:"parts_count"`
+		OrderCount int     `json:"order_count"`
+	}
+	catRows, err := config.DB.Query(`
+		SELECT COALESCE(po.category, 'repair_service'), 
+			   COALESCE(SUM(p.total_price), 0), COUNT(p.id), COUNT(DISTINCT po.id)
+		FROM parts_purchased p
+		LEFT JOIN purchase_orders po ON p.purchase_order_id = po.id
+		GROUP BY COALESCE(po.category, 'repair_service')
+		ORDER BY SUM(p.total_price) DESC
+	`)
+	var categorySpends []CategorySpend
+	if err == nil {
+		defer catRows.Close()
+		for catRows.Next() {
+			var cs CategorySpend
+			catRows.Scan(&cs.Category, &cs.TotalSpent, &cs.PartsCount, &cs.OrderCount)
+			categorySpends = append(categorySpends, cs)
+		}
+	}
+	if categorySpends == nil {
+		categorySpends = []CategorySpend{}
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"by_vehicle":     vehicles,
 		"by_vendor":      vendorSpends,
+		"by_category":    categorySpends,
 		"total_spent":    grandTotal,
 		"total_parts":    grandParts,
 		"total_orders":   totalOrders,
@@ -474,9 +574,11 @@ func scanParts(rows *sql.Rows) []models.PartPurchased {
 		var addedBy sql.NullInt64
 		var vendorID sql.NullInt64
 		var purchaseOrderID sql.NullInt64
+		var vehicleID sql.NullInt64
+		var serviceRecordID sql.NullInt64
 
 		if err := rows.Scan(
-			&p.ID, &purchaseOrderID, &p.ServiceRecordID, &p.PartName,
+			&p.ID, &purchaseOrderID, &p.Category, &vehicleID, &serviceRecordID, &p.PartName,
 			&vendorID,
 			&p.VendorName, &p.VendorContact, &p.VendorAddress, &p.VendorGST,
 			&p.Quantity, &p.UnitPrice, &p.TotalPrice, &p.WarrantyMonths,
@@ -493,6 +595,14 @@ func scanParts(rows *sql.Rows) []models.PartPurchased {
 			v := int(purchaseOrderID.Int64)
 			p.PurchaseOrderID = &v
 		}
+		if vehicleID.Valid {
+			v := int(vehicleID.Int64)
+			p.VehicleID = &v
+		}
+		if serviceRecordID.Valid {
+			v := int(serviceRecordID.Int64)
+			p.ServiceRecordID = &v
+		}
 		if vendorID.Valid {
 			v := int(vendorID.Int64)
 			p.VendorID = &v
@@ -500,6 +610,10 @@ func scanParts(rows *sql.Rows) []models.PartPurchased {
 		if addedBy.Valid {
 			v := int(addedBy.Int64)
 			p.AddedBy = &v
+		}
+
+		if p.Category == "" {
+			p.Category = models.PurchaseCategoryRepairService
 		}
 
 		parts = append(parts, p)

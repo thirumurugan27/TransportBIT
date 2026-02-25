@@ -22,6 +22,7 @@ import {
   MapPin,
   AlertTriangle,
   ChevronRight,
+  RefreshCw,
 } from "lucide-react";
 import {useToast} from "../../../context/ToastContext";
 import {apiGet, apiPost, apiDelete} from "../../../utils/api";
@@ -302,6 +303,13 @@ export default function ServiceRecords() {
   const [editingRecord, setEditingRecord] = useState(null);
   const [form, setForm] = useState(initialForm);
 
+  // Start service with replacement vehicle
+  const [showStartModal, setShowStartModal] = useState(null);
+  const [availableReplacements, setAvailableReplacements] = useState([]);
+  const [selectedReplacement, setSelectedReplacement] = useState(null);
+  const [replacementEndDate, setReplacementEndDate] = useState("");
+  const [startLoading, setStartLoading] = useState(false);
+
   const [approveForm, setApproveForm] = useState({
     scheduled_date: "",
     admin_remarks: "",
@@ -407,8 +415,31 @@ export default function ServiceRecords() {
       "This action cannot be undone.",
     );
     if (!confirmed) return;
+
     try {
-      const res = await apiDelete(`/api/admin/services/delete?id=${id}`);
+      // Check for linked purchase orders
+      let deletePurchases = false;
+      const checkRes = await apiGet(
+        `/api/admin/services/${id}/linked-purchases`,
+      );
+      if (checkRes.ok) {
+        const linked = await checkRes.json();
+        if (linked.count > 0) {
+          const totalAmount = linked.orders.reduce(
+            (sum, o) => sum + o.total,
+            0,
+          );
+          const deleteThem = await showConfirm(
+            "Linked Purchases Found",
+            `This service record has ${linked.count} linked purchase order(s) worth ₹${totalAmount.toLocaleString()}. Delete them too?\n\nChoose OK to delete purchases, or Cancel to keep them.`,
+          );
+          deletePurchases = deleteThem;
+        }
+      }
+
+      const res = await apiDelete(
+        `/api/admin/services/delete?id=${id}&delete_purchases=${deletePurchases}`,
+      );
       const data = await res.json();
       if (res.ok) {
         showToast(data.message, "success");
@@ -453,21 +484,49 @@ export default function ServiceRecords() {
     }
   };
 
-  const handleStart = async (id) => {
-    const confirmed = await showConfirm(
-      "Start Service",
-      "Vehicle will be marked as under maintenance.",
-    );
-    if (!confirmed) return;
+  const openStartModal = async (record) => {
+    setShowStartModal(record);
+    setSelectedReplacement(null);
+    setReplacementEndDate("");
+    setAvailableReplacements([]);
+    // Fetch available replacement vehicles
     try {
-      const res = await apiPost(`/api/admin/services/${id}/start`, {});
+      const today = new Date().toISOString().split("T")[0];
+      const endDate = new Date(Date.now() + 30 * 86400000)
+        .toISOString()
+        .split("T")[0];
+      const res = await apiGet(
+        `/api/admin/vehicle-replacements/available-vehicles?start_date=${today}&end_date=${endDate}&exclude_vehicle_id=${record.vehicle_id}`,
+      );
+      if (res.ok) setAvailableReplacements(await res.json());
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleStart = async () => {
+    if (!showStartModal) return;
+    setStartLoading(true);
+    try {
+      const body = {};
+      if (selectedReplacement) {
+        body.replacement_vehicle_id = selectedReplacement;
+        body.replacement_end_date = replacementEndDate || "";
+      }
+      const res = await apiPost(
+        `/api/admin/services/${showStartModal.id}/start`,
+        body,
+      );
       const data = await res.json();
       if (res.ok) {
         showToast(data.message, "success");
+        setShowStartModal(null);
         fetchAll();
       } else showToast(data.error, "error");
     } catch {
       showToast("Failed", "error");
+    } finally {
+      setStartLoading(false);
     }
   };
 
@@ -1134,9 +1193,9 @@ export default function ServiceRecords() {
                 <ActionBtn
                   color={C.skyblue}
                   onClick={() => {
-                    const id = showDetailModal.id;
+                    const record = showDetailModal;
                     setShowDetailModal(null);
-                    handleStart(id);
+                    openStartModal(record);
                   }}
                 >
                   <Play size={15} fill="white" /> Start Service
@@ -1537,6 +1596,115 @@ export default function ServiceRecords() {
             >
               Mark Completed
             </button>
+          </div>
+        </Modal>
+      )}
+
+      {/* ─── Start Service Modal (with replacement picker) ─────────────────── */}
+      {showStartModal && (
+        <Modal onClose={() => setShowStartModal(null)}>
+          <ModalHeader
+            title="Start Service"
+            onClose={() => setShowStartModal(null)}
+          />
+          <div className="p-6 space-y-5">
+            {/* Service info */}
+            <div className="p-4 rounded-lg" style={{background: C.primarybg}}>
+              <div className="flex items-center gap-2 mb-2">
+                <Wrench size={16} style={{color: C.primary}} />
+                <span
+                  className="text-sm font-bold"
+                  style={{color: C.primarytext}}
+                >
+                  {showStartModal.title}
+                </span>
+              </div>
+              <div className="text-xs" style={{color: C.secondarytext}}>
+                Vehicle:{" "}
+                <strong>
+                  {showStartModal.vehicle_name || showStartModal.vehicle_number}
+                </strong>
+                <span className="mx-2">•</span>
+                {showStartModal.vehicle_type}
+              </div>
+            </div>
+
+            <div
+              className="p-4 rounded-lg border"
+              style={{borderColor: "#FBC02D", background: "#FFFDE7"}}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <AlertTriangle size={15} style={{color: "#F57F17"}} />
+                <span className="text-xs font-bold" style={{color: "#F57F17"}}>
+                  Vehicle will be marked as under maintenance
+                </span>
+              </div>
+              <p className="text-xs" style={{color: "#795548"}}>
+                Optionally assign a temporary replacement vehicle for the driver
+                during service.
+              </p>
+            </div>
+
+            {/* Replacement vehicle picker (optional) */}
+            <div>
+              <Label>Replacement Vehicle (Optional)</Label>
+              <SearchableSelect
+                value={selectedReplacement}
+                onChange={(val) => setSelectedReplacement(val)}
+                options={availableReplacements.map((v) => ({
+                  value: v.id,
+                  label: `${v.vehicle_number} – ${v.vehicle_name || v.vehicle_type}`,
+                }))}
+                placeholder="Search & select replacement vehicle..."
+              />
+              {selectedReplacement && (
+                <div className="mt-2 flex items-center gap-2">
+                  <RefreshCw size={13} style={{color: C.primary}} />
+                  <span className="text-xs" style={{color: C.secondarytext}}>
+                    Driver will be temporarily assigned to this vehicle
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {selectedReplacement && (
+              <div>
+                <Label>Replacement End Date</Label>
+                <input
+                  type="date"
+                  value={replacementEndDate}
+                  onChange={(e) => setReplacementEndDate(e.target.value)}
+                  className={inputCls}
+                  min={new Date().toISOString().split("T")[0]}
+                />
+                <p className="text-xs mt-1" style={{color: C.secondarytext}}>
+                  Leave blank to auto-set 30 days from today
+                </p>
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setShowStartModal(null)}
+                className="flex-1 py-2.5 rounded-md font-bold text-sm border-2 hover:opacity-90 transition-opacity"
+                style={{
+                  borderColor: "#D8DCF0",
+                  color: C.secondarytext,
+                  background: "transparent",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleStart}
+                disabled={startLoading}
+                className="flex-1 py-2.5 rounded-md text-white font-bold text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                style={{background: C.skyblue, opacity: startLoading ? 0.7 : 1}}
+              >
+                <Play size={15} fill="white" />
+                {startLoading ? "Starting..." : "Start Service"}
+              </button>
+            </div>
           </div>
         </Modal>
       )}

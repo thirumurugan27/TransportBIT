@@ -61,6 +61,7 @@ type VehicleGroupMember struct {
 	ValidFrom     string `json:"valid_from"`
 	ValidTo       string `json:"valid_to"`
 	AddedAt       string `json:"added_at"`
+	VehicleStatus string `json:"vehicle_status"`
 }
 
 // GroupVehicle - vehicle in a group (for listing)
@@ -401,7 +402,8 @@ func GetVehicleGroupMembers(c *gin.Context) {
 		       v.vehicle_number, v.vehicle_type,
 		       DATE_FORMAT(vgm.valid_from, '%d-%m-%Y') as valid_from,
 		       DATE_FORMAT(vgm.valid_to, '%d-%m-%Y') as valid_to,
-		       DATE_FORMAT(vgm.added_at, '%d-%m-%Y %h:%i %p') as added_at
+		       DATE_FORMAT(vgm.added_at, '%d-%m-%Y %h:%i %p') as added_at,
+		       v.status as vehicle_status
 		FROM vehicle_group_members vgm
 		JOIN vehicles v ON vgm.vehicle_id = v.id
 		WHERE vgm.group_id = ?
@@ -417,7 +419,7 @@ func GetVehicleGroupMembers(c *gin.Context) {
 	var members []VehicleGroupMember
 	for rows.Next() {
 		var m VehicleGroupMember
-		err := rows.Scan(&m.ID, &m.GroupID, &m.VehicleID, &m.VehicleNumber, &m.VehicleType, &m.ValidFrom, &m.ValidTo, &m.AddedAt)
+		err := rows.Scan(&m.ID, &m.GroupID, &m.VehicleID, &m.VehicleNumber, &m.VehicleType, &m.ValidFrom, &m.ValidTo, &m.AddedAt, &m.VehicleStatus)
 		if err != nil {
 			log.Printf("Scan member error: %v", err)
 			continue

@@ -46,7 +46,12 @@ func GetAllAssignments(c *gin.Context) {
 		           WHEN att.status = 'present' THEN 'present'
 		           WHEN att.status = 'absent' THEN 'absent'
 		           ELSE 'not_marked'
-		       END AS driver_status
+		       END AS driver_status,
+		       v.status as vehicle_status,
+		       COALESCE((SELECT rv.vehicle_number FROM vehicle_replacements vr 
+		                 JOIN vehicles rv ON vr.replacement_vehicle_id = rv.id 
+		                 WHERE vr.vehicle_id = a.vehicle_id AND vr.status = 'approved' 
+		                 ORDER BY vr.created_at DESC LIMIT 1), '') as replacement_vehicle_number
 		FROM assignments a
 		JOIN shifts s ON a.shift_id = s.id
 		JOIN vehicles v ON a.vehicle_id = v.id
@@ -77,7 +82,8 @@ func GetAllAssignments(c *gin.Context) {
 			&isTemp, &originalDriverID, &createdByID,
 			&a.ShiftName, &a.StartTime, &a.EndTime,
 			&a.VehicleNumber, &a.VehicleType, &a.VehicleName,
-			&a.DriverName, &a.OriginalDriverName, &createdByName, &a.DriverStatus)
+			&a.DriverName, &a.OriginalDriverName, &createdByName, &a.DriverStatus,
+			&a.VehicleStatus, &a.ReplacementVehicleNumber)
 		if err != nil {
 			log.Printf("Scan error: %v", err)
 			continue
@@ -112,7 +118,12 @@ func GetAllAssignments(c *gin.Context) {
 		       v.vehicle_number, v.vehicle_type,
 		       COALESCE(v.vehicle_name, ''),
 		       u.full_name AS driver_name,
-		       COALESCE(u_orig.full_name, '') as original_driver_name
+		       COALESCE(u_orig.full_name, '') as original_driver_name,
+		       v.status as vehicle_status,
+		       COALESCE((SELECT rv.vehicle_number FROM vehicle_replacements vr 
+		                 JOIN vehicles rv ON vr.replacement_vehicle_id = rv.id 
+		                 WHERE vr.vehicle_id = ta.vehicle_id AND vr.status = 'approved' 
+		                 ORDER BY vr.created_at DESC LIMIT 1), '') as replacement_vehicle_number
 		FROM temporary_assignments ta
 		LEFT JOIN shifts s ON ta.shift_id = s.id
 		JOIN vehicles v ON ta.vehicle_id = v.id
@@ -140,7 +151,8 @@ func GetAllAssignments(c *gin.Context) {
 				&originalDriverID,
 				&a.ShiftName, &a.StartTime, &a.EndTime,
 				&a.VehicleNumber, &a.VehicleType, &a.VehicleName,
-				&a.DriverName, &a.OriginalDriverName)
+				&a.DriverName, &a.OriginalDriverName,
+				&a.VehicleStatus, &a.ReplacementVehicleNumber)
 
 			if err != nil {
 				log.Printf("Scan error temp assignment: %v", err)
