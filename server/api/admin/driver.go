@@ -32,7 +32,7 @@ func GetDrivers(c *gin.Context) {
 		       COALESCE(DATE_FORMAT(d.date_of_joining, '%d-%m-%Y'), '') as date_of_joining,
 		       COALESCE(DATE_FORMAT(d.date_of_relieving, '%d-%m-%Y'), '') as date_of_relieving,
 		       COALESCE(d.allowed_vehicle_type, '') as allowed_vehicle_type,
-		       d.home_vehicle_id, d.home_stop_id, COALESCE(d.is_incharge, 0) as is_incharge,
+		       d.home_vehicle_id, d.home_stop_id,
 		       CASE 
 		           WHEN lr.id IS NOT NULL AND lr.status = 'admin_approved' 
 		               AND CURDATE() BETWEEN lr.start_date AND lr.end_date THEN 'on_leave'
@@ -75,7 +75,6 @@ func GetDrivers(c *gin.Context) {
 			&d.AllowedVehicleType,
 			&d.HomeVehicleID,
 			&d.HomeStopID,
-			&d.IsIncharge,
 			&d.Status,
 			&d.ClusterID,
 			&d.ClusterName,
@@ -157,9 +156,9 @@ func CreateDriver(c *gin.Context) {
 		INSERT INTO drivers (
 			user_id, license_number, license_type, license_expiry,
 			experience_years, date_of_joining, date_of_relieving, allowed_vehicle_type,
-			home_vehicle_id, home_stop_id, is_incharge
+			home_vehicle_id, home_stop_id
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
 		userID,
 		req.LicenseNumber,
@@ -171,7 +170,6 @@ func CreateDriver(c *gin.Context) {
 		req.AllowedVehicleType,
 		req.HomeVehicleID,
 		req.HomeStopID,
-		req.IsIncharge,
 	)
 
 	if err != nil {
@@ -252,10 +250,10 @@ func UpdateDriver(c *gin.Context) {
 	// Update drivers table
 	_, err = config.DB.Exec(`
 		UPDATE drivers SET license_number=?, license_type=?, license_expiry=?,
-		       experience_years=?, date_of_joining=?, date_of_relieving=?, allowed_vehicle_type=?, home_vehicle_id=?, home_stop_id=?, is_incharge=?
+		       experience_years=?, date_of_joining=?, date_of_relieving=?, allowed_vehicle_type=?, home_vehicle_id=?, home_stop_id=?
 		WHERE id=?
 	`, req.LicenseNumber, req.LicenseType, licenseExpiry,
-		req.ExperienceYears, dateOfJoining, dateOfRelieving, req.AllowedVehicleType, req.HomeVehicleID, req.HomeStopID, req.IsIncharge, req.ID)
+		req.ExperienceYears, dateOfJoining, dateOfRelieving, req.AllowedVehicleType, req.HomeVehicleID, req.HomeStopID, req.ID)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

@@ -288,7 +288,6 @@ export default function LeaveApprovals() {
     const matchesStatus =
       statusFilter === "ALL" ||
       status.toUpperCase() === statusFilter ||
-      (statusFilter === "PENDING" && status === "incharge_approved") ||
       (statusFilter === "APPROVED" &&
         (status === "admin_approved" || status === "approved")) ||
       (statusFilter === "REJECTED" && status === "rejected");
@@ -297,12 +296,8 @@ export default function LeaveApprovals() {
   });
 
   const modalStatus = selectedLeave ? getStatus(selectedLeave) : "";
-  const modalInchargeApproved =
-    modalStatus === "incharge_approved" || modalStatus === "approved";
   const modalAdminApproved =
     modalStatus === "admin_approved" || modalStatus === "approved";
-  const modalInchargeRejected =
-    modalStatus === "rejected" && selectedLeave?.incharge_id;
   const modalAdminRejected =
     modalStatus === "rejected" && selectedLeave?.admin_id;
 
@@ -393,9 +388,6 @@ export default function LeaveApprovals() {
                     Duration
                   </th>
                   <th className="px-6 py-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Incharge Status
-                  </th>
-                  <th className="px-6 py-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">
                     Admin Status
                   </th>
                 </tr>
@@ -403,11 +395,6 @@ export default function LeaveApprovals() {
               <tbody className="divide-y divide-gray-100">
                 {filteredLeaves.map((leave, idx) => {
                   const status = getStatus(leave);
-                  const inchargeApproved = !!(
-                    leave.incharge_approved_at ||
-                    status === "incharge_approved" ||
-                    status === "approved"
-                  );
                   const adminApproved =
                     status !== "rejected" &&
                     !!(
@@ -415,8 +402,6 @@ export default function LeaveApprovals() {
                       status === "admin_approved" ||
                       status === "approved"
                     );
-                  const inchargeRejected =
-                    status === "rejected" && leave.incharge_id;
                   const adminRejected = status === "rejected" && leave.admin_id;
 
                   return (
@@ -479,39 +464,18 @@ export default function LeaveApprovals() {
                       <td className="px-6 py-4">
                         <span
                           className={`inline-flex items-center px-3 py-1 rounded-md text-xs font-semibold ${
-                            inchargeApproved
-                              ? "bg-green-100 text-green-700"
-                              : inchargeRejected
-                                ? "bg-red-100 text-red-700"
-                                : "bg-yellow-100 text-yellow-700"
-                          }`}
-                        >
-                          {inchargeApproved
-                            ? "Approved"
-                            : inchargeRejected
-                              ? "Rejected"
-                              : "Pending"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`inline-flex items-center px-3 py-1 rounded-md text-xs font-semibold ${
                             adminApproved
                               ? "bg-green-100 text-green-700"
                               : adminRejected
                                 ? "bg-red-100 text-red-700"
-                                : inchargeApproved
-                                  ? "bg-blue-100 text-blue-700"
-                                  : "bg-gray-100 text-gray-500"
+                                : "bg-yellow-100 text-yellow-700"
                           }`}
                         >
                           {adminApproved
                             ? "Approved"
                             : adminRejected
                               ? "Rejected"
-                              : inchargeApproved
-                                ? "Pending"
-                                : "Waiting"}
+                              : "Pending"}
                         </span>
                       </td>
                     </tr>
@@ -647,52 +611,6 @@ export default function LeaveApprovals() {
                   Approval Status
                 </h4>
                 <div className="space-y-3">
-                  {/* Incharge Approval */}
-                  <div className="bg-gray-50 rounded-md p-4 border border-gray-200">
-                    <div className="flex items-start gap-3">
-                      <User className="w-5 h-5 text-gray-600 mt-0.5" />
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold text-gray-800 mb-1">
-                          Incharge Approval
-                        </p>
-                        {selectedLeave.incharge_name ? (
-                          <div>
-                            <p className="text-sm text-gray-700">
-                              {selectedLeave.incharge_name}
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1">
-                              {getStatus(selectedLeave) === "rejected" &&
-                              selectedLeave.incharge_id
-                                ? `Rejected by ${selectedLeave.incharge_name}`
-                                : selectedLeave.incharge_approved_at
-                                  ? `Approved by ${selectedLeave.incharge_name}`
-                                  : "Not yet reviewed"}
-                            </p>
-                          </div>
-                        ) : (
-                          <p className="text-sm text-gray-500">
-                            Not yet reviewed
-                          </p>
-                        )}
-                      </div>
-                      <span
-                        className={`px-3 py-1 rounded-md text-xs font-semibold ${
-                          modalInchargeApproved
-                            ? "bg-green-100 text-green-700"
-                            : modalInchargeRejected
-                              ? "bg-red-100 text-red-700"
-                              : "bg-yellow-100 text-yellow-700"
-                        }`}
-                      >
-                        {modalInchargeApproved
-                          ? "Approved"
-                          : modalInchargeRejected
-                            ? "Rejected"
-                            : "Pending"}
-                      </span>
-                    </div>
-                  </div>
-
                   {/* Admin Approval */}
                   <div className="bg-blue-50 rounded-md p-4 border border-blue-200">
                     <div className="flex items-start gap-3">

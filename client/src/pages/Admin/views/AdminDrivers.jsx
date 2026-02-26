@@ -56,7 +56,6 @@ export default function AdminDrivers() {
     date_of_relieving: "",
     experience_years: 0,
     allowed_vehicle_type: "CAR",
-    is_incharge: false,
     status: "ACTIVE",
   };
 
@@ -168,7 +167,6 @@ export default function AdminDrivers() {
         : "",
       experience_years: selectedDriver.experience_years,
       allowed_vehicle_type: selectedDriver.allowed_vehicle_type,
-      is_incharge: selectedDriver.is_incharge,
       status: selectedDriver.status,
     });
     setEditId(selectedDriver.id);
@@ -462,11 +460,6 @@ export default function AdminDrivers() {
                       ? "Not Marked"
                       : driver.status}
                   </span>
-                  {driver.is_incharge && (
-                    <span className="px-3 py-1.5 bg-primarydull/10 text-primarydull rounded-md text-xs font-bold uppercase">
-                      Incharge
-                    </span>
-                  )}
                 </div>
               </div>
             ))
@@ -585,11 +578,6 @@ export default function AdminDrivers() {
                               ? "Not Marked"
                               : driver.status}
                           </span>
-                          {driver.is_incharge && (
-                            <span className="px-2 py-1 bg-primary/10 text-primary rounded-md text-xs font-semibold">
-                              Incharge
-                            </span>
-                          )}
                         </div>
                       </td>
                     </tr>
@@ -782,14 +770,6 @@ export default function AdminDrivers() {
                         {selectedDriver.status === "not_marked"
                           ? "Not Marked"
                           : selectedDriver.status}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-secondarytext">
-                        Incharge
-                      </span>
-                      <span className="text-sm font-semibold text-primarytext">
-                        {selectedDriver.is_incharge ? "Yes" : "No"}
                       </span>
                     </div>
                   </div>
@@ -1072,24 +1052,6 @@ export default function AdminDrivers() {
                           }
                         />
                       </div>
-                    </div>
-                    <div>
-                      <label className="flex items-center gap-3 p-3 bg-primary/5 border border-primary/10 rounded-md cursor-pointer hover:bg-primary/10 transition-colors">
-                        <input
-                          type="checkbox"
-                          checked={driverForm.is_incharge}
-                          onChange={(e) =>
-                            setDriverForm({
-                              ...driverForm,
-                              is_incharge: e.target.checked,
-                            })
-                          }
-                          className="w-4 h-4 text-primary rounded-md focus:ring-primary"
-                        />
-                        <span className="text-sm font-semibold text-primary">
-                          Assign as Bus Incharge
-                        </span>
-                      </label>
                     </div>
                   </div>
                 </div>

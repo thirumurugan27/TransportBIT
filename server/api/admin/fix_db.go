@@ -58,7 +58,7 @@ func FixDatabaseSchema() {
 		log.Println("Schema Fix: temporary_assignments.shift_id now nullable for EV clusters")
 	}
 
-	// 6. Fix leave_requests status - needs to accept 'pending', 'approved', 'rejected', 'admin_approved', 'incharge_approved'
+	// 6. Fix leave_requests status - needs to accept 'pending', 'approved', 'rejected', 'admin_approved'
 	_, err = config.DB.Exec("ALTER TABLE leave_requests MODIFY COLUMN status VARCHAR(50) DEFAULT 'pending'")
 	if err != nil {
 		log.Printf("Schema Fix (leave_requests): %v", err)
@@ -93,7 +93,7 @@ func FixDatabaseSchema() {
 	_, err = config.DB.Exec(`
 		CREATE TABLE IF NOT EXISTS notifications (
 			id INT AUTO_INCREMENT PRIMARY KEY,
-			recipient_role ENUM('ADMIN','DRIVER','STUDENT','FACULTY','INCHARGE') NOT NULL,
+			recipient_role ENUM('ADMIN','DRIVER','STUDENT','FACULTY') NOT NULL,
 			recipient_id INT NOT NULL DEFAULT 0,
 			type VARCHAR(50) DEFAULT 'general',
 			title VARCHAR(255) NOT NULL,
@@ -340,6 +340,14 @@ func initVehicleReplacementsTable() {
 	config.DB.Exec("ALTER TABLE vehicle_replacements ADD COLUMN replacement_type VARCHAR(50) NOT NULL DEFAULT 'vehicle' AFTER driver_notified")
 	config.DB.Exec("ALTER TABLE vehicle_replacements ADD COLUMN replacement_driver_id INT NULL AFTER replacement_type")
 	config.DB.Exec("ALTER TABLE vehicle_replacements ADD INDEX idx_vr_replacement_driver (replacement_driver_id)")
+
+	// ── KM Logs: Add fuel_consumed, status, approved_by, approved_at columns ──
+	config.DB.Exec("ALTER TABLE km_logs ADD COLUMN fuel_consumed FLOAT DEFAULT NULL")
+	config.DB.Exec("ALTER TABLE km_logs ADD COLUMN status VARCHAR(20) DEFAULT 'approved'")
+	config.DB.Exec("ALTER TABLE km_logs ADD COLUMN approved_by INT DEFAULT NULL")
+	config.DB.Exec("ALTER TABLE km_logs ADD COLUMN approved_at DATETIME DEFAULT NULL")
+	config.DB.Exec("ALTER TABLE km_logs ADD INDEX idx_km_status (status)")
+	log.Println("Schema Fix: km_logs fuel/status columns ensured")
 
 	// Migrate existing fc_replacement_requests data if table exists and vehicle_replacements is empty
 	var count int

@@ -22,7 +22,6 @@ type DriverProfile struct {
 	ExperienceYears int    `json:"experience_years"`
 	DateOfJoining   string `json:"date_of_joining"`
 	DateOfRelieving string `json:"date_of_relieving"`
-	IsIncharge      bool   `json:"is_incharge"`
 	Status          string `json:"status"`
 }
 
@@ -51,7 +50,6 @@ func GetDriverProfile(c *gin.Context) {
 			d.experience_years, 
 			DATE_FORMAT(d.date_of_joining, '%d-%m-%Y') as date_of_joining,
 			DATE_FORMAT(d.date_of_relieving, '%d-%m-%Y') as date_of_relieving,
-			d.is_incharge,
 			CASE 
 				WHEN EXISTS(SELECT 1 FROM leave_requests lr 
 				            WHERE lr.driver_id = d.id 
@@ -70,7 +68,7 @@ func GetDriverProfile(c *gin.Context) {
 		&profile.Phone, &profile.Email, &profile.LicenseNumber,
 		&profile.LicenseType, &profile.LicenseExpiry,
 		&profile.ExperienceYears, &profile.DateOfJoining, &profile.DateOfRelieving,
-		&profile.IsIncharge, &profile.Status,
+		&profile.Status,
 	)
 
 	if err != nil {

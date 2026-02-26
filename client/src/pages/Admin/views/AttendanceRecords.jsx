@@ -371,16 +371,6 @@ export default function AttendanceRecords() {
                           <span className="text-gray-300">-</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 text-sm">
-                        {record.marked_by_incharge_name ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-medium">
-                            <UserCheck size={12} />
-                            {record.marked_by_incharge_name}
-                          </span>
-                        ) : (
-                          <span className="text-gray-300">-</span>
-                        )}
-                      </td>
                       {isSingleDay && (
                         <td className="px-6 py-4 text-right">
                           <div className="flex justify-end gap-2">

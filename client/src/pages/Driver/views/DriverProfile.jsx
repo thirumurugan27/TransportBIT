@@ -65,11 +65,6 @@ export default function DriverProfile() {
             <span className="px-3 py-1 bg-primarybg text-secondarytext text-xs font-semibold rounded-md border border-gray-200">
               {profile.experience_years} Years Exp
             </span>
-            {profile.is_incharge && (
-              <span className="px-3 py-1 bg-pending/10 text-pending text-xs font-semibold rounded-md border border-pending/20">
-                Bus Incharge
-              </span>
-            )}
           </div>
         </div>
         <div className="text-right">

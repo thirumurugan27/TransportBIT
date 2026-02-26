@@ -205,7 +205,6 @@ func GetKmFilterMeta(c *gin.Context) {
         JOIN users u ON d.user_id = u.id
         LEFT JOIN driver_cluster_members dcm ON dcm.driver_id = d.id AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to
         LEFT JOIN driver_clusters c ON dcm.cluster_id = c.id
-        WHERE d.is_incharge = 0
         ORDER BY u.full_name
     `)
 	if err != nil {
@@ -270,16 +269,17 @@ func GetKmFilterMeta(c *gin.Context) {
 // AdminAddKmLog allows admins to record KM entries with driver + vehicle context
 func AdminAddKmLog(c *gin.Context) {
 	var req struct {
-		AdminUserID  int     `json:"admin_user_id"`
-		DriverID     int     `json:"driver_id"`
-		VehicleID    *int    `json:"vehicle_id"`
-		AssignmentID *int    `json:"assignment_id"`
-		Date         string  `json:"date"`
-		StartKm      float64 `json:"start_km"`
-		EndKm        float64 `json:"end_km"`
-		TotalKm      float64 `json:"total_km"`
-		Remarks      string  `json:"remarks"`
-		VehicleType  string  `json:"vehicle_type"`
+		AdminUserID  int      `json:"admin_user_id"`
+		DriverID     int      `json:"driver_id"`
+		VehicleID    *int     `json:"vehicle_id"`
+		AssignmentID *int     `json:"assignment_id"`
+		Date         string   `json:"date"`
+		StartKm      float64  `json:"start_km"`
+		EndKm        float64  `json:"end_km"`
+		TotalKm      float64  `json:"total_km"`
+		FuelConsumed *float64 `json:"fuel_consumed"`
+		Remarks      string   `json:"remarks"`
+		VehicleType  string   `json:"vehicle_type"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -352,21 +352,27 @@ func AdminAddKmLog(c *gin.Context) {
 		assignmentID = *req.AssignmentID
 	}
 
-	// Check if entry already exists for this driver and date
+	// Check if entry already exists for this driver, date, AND vehicle
 	var existingID int
-	err = config.DB.QueryRow(`SELECT id FROM km_logs WHERE driver_id = ? AND date = ?`, req.DriverID, req.Date).Scan(&existingID)
+	err = config.DB.QueryRow(`SELECT id FROM km_logs WHERE driver_id = ? AND date = ? AND vehicle_id = ?`, req.DriverID, req.Date, vehicleID).Scan(&existingID)
+
+	var fuelConsumed interface{}
+	if req.FuelConsumed != nil {
+		fuelConsumed = *req.FuelConsumed
+	}
 
 	var result sql.Result
-	if err == sql.ErrNoRows {
-		// No existing entry, insert new one
+	switch err {
+	case sql.ErrNoRows:
+		// No existing entry, insert new one — admin entries are auto-approved
 		result, err = config.DB.Exec(`
             INSERT INTO km_logs (
-                driver_id, date, start_km, end_km, total_km, remarks,
-                vehicle_type, vehicle_id, assignment_id,
-                recorded_by_user_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `, req.DriverID, req.Date, req.StartKm, req.EndKm, req.TotalKm, req.Remarks,
-			req.VehicleType, vehicleID, assignmentID, req.AdminUserID)
+                driver_id, date, start_km, end_km, total_km, fuel_consumed, remarks,
+                vehicle_id, assignment_id,
+                recorded_by_user_id, status, approved_by, approved_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved', ?, NOW())
+        `, req.DriverID, req.Date, req.StartKm, req.EndKm, req.TotalKm, fuelConsumed, req.Remarks,
+			vehicleID, assignmentID, req.AdminUserID, req.AdminUserID)
 
 		if err != nil {
 			log.Printf("AdminAddKmLog: Database insert error: %v", err)
@@ -377,16 +383,16 @@ func AdminAddKmLog(c *gin.Context) {
 		id, _ := result.LastInsertId()
 		log.Printf("AdminAddKmLog: Successfully inserted km_log with ID: %d", id)
 		c.JSON(http.StatusOK, gin.H{"message": "KM log recorded successfully", "id": id})
-	} else if err == nil {
+	case nil:
 		// Entry exists, update it
 		result, err = config.DB.Exec(`
             UPDATE km_logs SET
-                start_km = ?, end_km = ?, total_km = ?, remarks = ?,
-                vehicle_type = ?, vehicle_id = ?, assignment_id = ?,
-                recorded_by_user_id = ?
+                start_km = ?, end_km = ?, total_km = ?, fuel_consumed = ?, remarks = ?,
+                vehicle_id = ?, assignment_id = ?,
+                recorded_by_user_id = ?, status = 'approved', approved_by = ?, approved_at = NOW()
             WHERE id = ?
-        `, req.StartKm, req.EndKm, req.TotalKm, req.Remarks,
-			req.VehicleType, vehicleID, assignmentID, req.AdminUserID, existingID)
+        `, req.StartKm, req.EndKm, req.TotalKm, fuelConsumed, req.Remarks,
+			vehicleID, assignmentID, req.AdminUserID, req.AdminUserID, existingID)
 
 		if err != nil {
 			log.Printf("AdminAddKmLog: Database update error: %v", err)
@@ -396,7 +402,7 @@ func AdminAddKmLog(c *gin.Context) {
 
 		log.Printf("AdminAddKmLog: Successfully updated km_log with ID: %d", existingID)
 		c.JSON(http.StatusOK, gin.H{"message": "KM log updated successfully", "id": existingID})
-	} else {
+	default:
 		// Database error
 		log.Printf("AdminAddKmLog: Database query error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
@@ -413,6 +419,7 @@ func GetAdminKmLogs(c *gin.Context) {
 	vehicleParam := c.Query("vehicle_id")
 	vehicleType := c.Query("vehicle_type")
 	search := c.Query("search")
+	statusParam := c.DefaultQuery("status", "")
 	limitParam := c.DefaultQuery("limit", "200")
 
 	limit, err := strconv.Atoi(limitParam)
@@ -453,6 +460,11 @@ func GetAdminKmLogs(c *gin.Context) {
 		args = append(args, like, like)
 	}
 
+	if statusParam != "" {
+		whereClause += " AND kl.status = ?"
+		args = append(args, statusParam)
+	}
+
 	args = append(args, limit)
 
 	queryStr := `
@@ -462,6 +474,7 @@ func GetAdminKmLogs(c *gin.Context) {
             kl.start_km,
             kl.end_km,
             kl.total_km,
+            kl.fuel_consumed,
             kl.remarks,
             NULLIF(COALESCE(v.vehicle_name, ''), '') as vehicle_name,
             COALESCE(v.vehicle_number, 'N/A') as vehicle_number,
@@ -470,7 +483,8 @@ func GetAdminKmLogs(c *gin.Context) {
             COALESCE(c.name, 'Unassigned') as cluster_name,
             COALESCE(s.name, 'N/A') as shift,
             'N/A' as route_name,
-            COALESCE(recorder.full_name, 'Unknown') as recorded_by_name
+            COALESCE(recorder.full_name, 'Unknown') as recorded_by_name,
+            COALESCE(kl.status, 'approved') as status
         FROM km_logs kl
         JOIN drivers d ON kl.driver_id = d.id
         JOIN users u ON d.user_id = u.id
@@ -500,28 +514,30 @@ func GetAdminKmLogs(c *gin.Context) {
 	defer rows.Close()
 
 	type adminKmLog struct {
-		ID            int     `json:"id"`
-		Date          string  `json:"date"`
-		StartKm       float64 `json:"start_km"`
-		EndKm         float64 `json:"end_km"`
-		TotalKm       float64 `json:"total_km"`
-		Remarks       *string `json:"remarks"`
-		VehicleName   *string `json:"vehicle_name"`
-		VehicleNumber string  `json:"vehicle_number"`
-		VehicleType   string  `json:"vehicle_type"`
-		DriverName    string  `json:"driver_name"`
-		ClusterName   string  `json:"cluster_name"`
-		Shift         string  `json:"shift"`
-		RouteName     string  `json:"route_name"`
-		RecordedBy    *string `json:"recorded_by_name"`
+		ID            int      `json:"id"`
+		Date          string   `json:"date"`
+		StartKm       float64  `json:"start_km"`
+		EndKm         float64  `json:"end_km"`
+		TotalKm       float64  `json:"total_km"`
+		FuelConsumed  *float64 `json:"fuel_consumed"`
+		Remarks       *string  `json:"remarks"`
+		VehicleName   *string  `json:"vehicle_name"`
+		VehicleNumber string   `json:"vehicle_number"`
+		VehicleType   string   `json:"vehicle_type"`
+		DriverName    string   `json:"driver_name"`
+		ClusterName   string   `json:"cluster_name"`
+		Shift         string   `json:"shift"`
+		RouteName     string   `json:"route_name"`
+		RecordedBy    *string  `json:"recorded_by_name"`
+		Status        string   `json:"status"`
 	}
 
 	var logs []adminKmLog
 	for rows.Next() {
 		var l adminKmLog
-		if err := rows.Scan(&l.ID, &l.Date, &l.StartKm, &l.EndKm, &l.TotalKm, &l.Remarks,
+		if err := rows.Scan(&l.ID, &l.Date, &l.StartKm, &l.EndKm, &l.TotalKm, &l.FuelConsumed, &l.Remarks,
 			&l.VehicleName, &l.VehicleNumber, &l.VehicleType, &l.DriverName, &l.ClusterName,
-			&l.Shift, &l.RouteName, &l.RecordedBy); err == nil {
+			&l.Shift, &l.RouteName, &l.RecordedBy, &l.Status); err == nil {
 			logs = append(logs, l)
 		}
 	}
@@ -1194,5 +1210,183 @@ func GetDriverKmHistory(c *gin.Context) {
 		"by_vehicle_type": byVehicleType,
 		"recent_logs":     recentLogs,
 		"monthly_trends":  monthlyTrends,
+	})
+}
+
+// ── KM Log Approval System ──
+
+// ApproveKmLog approves a pending KM log entry
+func ApproveKmLog(c *gin.Context) {
+	var req struct {
+		ID          int `json:"id"`
+		AdminUserID int `json:"admin_user_id"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.ID == 0 || req.AdminUserID == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id and admin_user_id required"})
+		return
+	}
+
+	// Verify admin
+	var adminName string
+	if err := config.DB.QueryRow(`SELECT full_name FROM users WHERE id = ? AND role = 'ADMIN'`, req.AdminUserID).Scan(&adminName); err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Admin not found"})
+		return
+	}
+
+	// Check km_log exists and is pending
+	var status string
+	if err := config.DB.QueryRow(`SELECT COALESCE(status, 'approved') FROM km_logs WHERE id = ?`, req.ID).Scan(&status); err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "KM log not found"})
+		return
+	}
+	if status != "pending" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "KM log is already " + status})
+		return
+	}
+
+	_, err := config.DB.Exec(`
+		UPDATE km_logs SET status = 'approved', approved_by = ?, approved_at = NOW() WHERE id = ?
+	`, req.AdminUserID, req.ID)
+	if err != nil {
+		log.Printf("ApproveKmLog error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to approve"})
+		return
+	}
+
+	log.Printf("KM log #%d approved by %s (ID: %d)", req.ID, adminName, req.AdminUserID)
+	c.JSON(http.StatusOK, gin.H{"message": "KM log approved successfully"})
+}
+
+// RejectKmLog rejects a pending KM log entry
+func RejectKmLog(c *gin.Context) {
+	var req struct {
+		ID          int    `json:"id"`
+		AdminUserID int    `json:"admin_user_id"`
+		Reason      string `json:"reason"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.ID == 0 || req.AdminUserID == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id and admin_user_id required"})
+		return
+	}
+
+	// Verify admin
+	var adminName string
+	if err := config.DB.QueryRow(`SELECT full_name FROM users WHERE id = ? AND role = 'ADMIN'`, req.AdminUserID).Scan(&adminName); err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Admin not found"})
+		return
+	}
+
+	// Check km_log exists and is pending
+	var status string
+	if err := config.DB.QueryRow(`SELECT COALESCE(status, 'approved') FROM km_logs WHERE id = ?`, req.ID).Scan(&status); err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "KM log not found"})
+		return
+	}
+	if status != "pending" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "KM log is already " + status})
+		return
+	}
+
+	rejectReason := req.Reason
+	if rejectReason == "" {
+		rejectReason = "Rejected by admin"
+	}
+
+	_, err := config.DB.Exec(`
+		UPDATE km_logs SET status = 'rejected', approved_by = ?, approved_at = NOW(), 
+		       remarks = CONCAT(COALESCE(remarks, ''), ' [Rejected: ', ?, ']')
+		WHERE id = ?
+	`, req.AdminUserID, rejectReason, req.ID)
+	if err != nil {
+		log.Printf("RejectKmLog error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to reject"})
+		return
+	}
+
+	log.Printf("KM log #%d rejected by %s (ID: %d) - Reason: %s", req.ID, adminName, req.AdminUserID, rejectReason)
+	c.JSON(http.StatusOK, gin.H{"message": "KM log rejected"})
+}
+
+// GetPendingKmLogsCount returns count of pending KM log approvals
+func GetPendingKmLogsCount(c *gin.Context) {
+	var count int
+	config.DB.QueryRow(`SELECT COUNT(*) FROM km_logs WHERE status = 'pending'`).Scan(&count)
+	c.JSON(http.StatusOK, gin.H{"count": count})
+}
+
+// GetFuelByVehicle returns fuel consumption grouped by vehicle (excluding EVs)
+func GetFuelByVehicle(c *gin.Context) {
+	period := c.DefaultQuery("period", "month")
+
+	var dateFilter string
+	switch period {
+	case "today":
+		dateFilter = "AND kl.date = CURDATE()"
+	case "week":
+		dateFilter = "AND kl.date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)"
+	case "month":
+		dateFilter = "AND MONTH(kl.date) = MONTH(CURDATE()) AND YEAR(kl.date) = YEAR(CURDATE())"
+	case "year":
+		dateFilter = "AND YEAR(kl.date) = YEAR(CURDATE())"
+	default:
+		dateFilter = "AND MONTH(kl.date) = MONTH(CURDATE()) AND YEAR(kl.date) = YEAR(CURDATE())"
+	}
+
+	rows, err := config.DB.Query(`
+		SELECT 
+			v.id,
+			COALESCE(NULLIF(v.vehicle_name, ''), v.vehicle_number) as vehicle_name,
+			v.vehicle_number,
+			COALESCE(v.vehicle_type, 'UNKNOWN') as vehicle_type,
+			COALESCE(v.fuel_type, 'Unknown') as fuel_type,
+			COALESCE(SUM(kl.fuel_consumed), 0) as total_fuel,
+			COALESCE(SUM(kl.total_km), 0) as total_km,
+			COUNT(*) as trip_count
+		FROM km_logs kl
+		JOIN vehicles v ON kl.vehicle_id = v.id
+		WHERE kl.status = 'approved'
+		AND kl.fuel_consumed IS NOT NULL AND kl.fuel_consumed > 0
+		AND COALESCE(v.vehicle_type, '') NOT IN ('EV', 'ELECTRIC', 'BATTERY_VEHICLE')
+		` + dateFilter + `
+		GROUP BY v.id, v.vehicle_name, v.vehicle_number, v.vehicle_type, v.fuel_type
+		ORDER BY total_fuel DESC
+	`)
+	if err != nil {
+		log.Printf("GetFuelByVehicle error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch fuel data"})
+		return
+	}
+	defer rows.Close()
+
+	type vehicleFuel struct {
+		VehicleID     int     `json:"vehicle_id"`
+		VehicleName   string  `json:"vehicle_name"`
+		VehicleNumber string  `json:"vehicle_number"`
+		VehicleType   string  `json:"vehicle_type"`
+		FuelType      string  `json:"fuel_type"`
+		TotalFuel     float64 `json:"total_fuel"`
+		TotalKm       float64 `json:"total_km"`
+		TripCount     int     `json:"trip_count"`
+		Mileage       float64 `json:"mileage"`
+	}
+
+	var results []vehicleFuel
+	var grandTotalFuel, grandTotalKm float64
+	for rows.Next() {
+		var v vehicleFuel
+		if err := rows.Scan(&v.VehicleID, &v.VehicleName, &v.VehicleNumber, &v.VehicleType, &v.FuelType, &v.TotalFuel, &v.TotalKm, &v.TripCount); err == nil {
+			if v.TotalFuel > 0 {
+				v.Mileage = v.TotalKm / v.TotalFuel
+			}
+			grandTotalFuel += v.TotalFuel
+			grandTotalKm += v.TotalKm
+			results = append(results, v)
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"vehicles":         results,
+		"grand_total_fuel": grandTotalFuel,
+		"grand_total_km":   grandTotalKm,
 	})
 }

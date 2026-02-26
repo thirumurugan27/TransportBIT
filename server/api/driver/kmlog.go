@@ -12,28 +12,31 @@ import (
 
 // KmLog - kilometer log entry
 type KmLog struct {
-	ID            int     `json:"id"`
-	DriverID      int     `json:"driver_id"`
-	Date          string  `json:"date"`
-	StartKm       float64 `json:"start_km"`
-	EndKm         float64 `json:"end_km"`
-	TotalKm       float64 `json:"total_km"`
-	Remarks       string  `json:"remarks"`
-	VehicleType   string  `json:"vehicle_type"`
-	VehicleID     *int    `json:"vehicle_id"`
-	VehicleNumber *string `json:"vehicle_number"`
+	ID            int      `json:"id"`
+	DriverID      int      `json:"driver_id"`
+	Date          string   `json:"date"`
+	StartKm       float64  `json:"start_km"`
+	EndKm         float64  `json:"end_km"`
+	TotalKm       float64  `json:"total_km"`
+	FuelConsumed  *float64 `json:"fuel_consumed"`
+	Remarks       string   `json:"remarks"`
+	VehicleType   string   `json:"vehicle_type"`
+	VehicleID     *int     `json:"vehicle_id"`
+	VehicleNumber *string  `json:"vehicle_number"`
+	Status        string   `json:"status"`
 }
 
 // KmLogRequest - request to add km log
 type KmLogRequest struct {
-	DriverID     int     `json:"driver_id"`
-	Date         string  `json:"date"`
-	StartKm      float64 `json:"start_km"`
-	EndKm        float64 `json:"end_km"`
-	TotalKm      float64 `json:"total_km"`
-	Remarks      string  `json:"remarks"`
-	VehicleID    *int    `json:"vehicle_id"`
-	AssignmentID *int    `json:"assignment_id"`
+	DriverID     int      `json:"driver_id"`
+	Date         string   `json:"date"`
+	StartKm      float64  `json:"start_km"`
+	EndKm        float64  `json:"end_km"`
+	TotalKm      float64  `json:"total_km"`
+	FuelConsumed *float64 `json:"fuel_consumed"`
+	Remarks      string   `json:"remarks"`
+	VehicleID    *int     `json:"vehicle_id"`
+	AssignmentID *int     `json:"assignment_id"`
 }
 
 /*
@@ -52,8 +55,10 @@ func GetDriverKmLogs(c *gin.Context) {
 
 	rows, err := config.DB.Query(`
 		SELECT k.id, k.driver_id, DATE_FORMAT(k.date, '%d-%m-%Y') as date, 
-		       k.start_km, k.end_km, k.total_km, COALESCE(k.remarks, '') as remarks,
-			   COALESCE(v.vehicle_type, 'BUS') as vehicle_type, k.vehicle_id, v.vehicle_number
+		       k.start_km, k.end_km, k.total_km, k.fuel_consumed,
+		       COALESCE(k.remarks, '') as remarks,
+			   COALESCE(v.vehicle_type, 'BUS') as vehicle_type, k.vehicle_id, v.vehicle_number,
+			   COALESCE(k.status, 'approved') as status
 		FROM km_logs k
 		LEFT JOIN vehicles v ON k.vehicle_id = v.id
 		WHERE k.driver_id = ?
@@ -73,7 +78,7 @@ func GetDriverKmLogs(c *gin.Context) {
 		var l KmLog
 		var vehicleID *int
 		var vehicleNumber *string
-		rows.Scan(&l.ID, &l.DriverID, &l.Date, &l.StartKm, &l.EndKm, &l.TotalKm, &l.Remarks, &l.VehicleType, &vehicleID, &vehicleNumber)
+		rows.Scan(&l.ID, &l.DriverID, &l.Date, &l.StartKm, &l.EndKm, &l.TotalKm, &l.FuelConsumed, &l.Remarks, &l.VehicleType, &vehicleID, &vehicleNumber, &l.Status)
 		l.VehicleID = vehicleID
 		l.VehicleNumber = vehicleNumber
 		logs = append(logs, l)
@@ -155,15 +160,20 @@ func AddDriverKmLog(c *gin.Context) {
 		assignmentID = *req.AssignmentID
 	}
 
-	// Insert into DB with recorded metadata
+	// Insert into DB with status='pending' - requires admin approval
+	var fuelConsumed interface{}
+	if req.FuelConsumed != nil {
+		fuelConsumed = *req.FuelConsumed
+	}
+
 	result, err := config.DB.Exec(`
 		INSERT INTO km_logs (
-			driver_id, date, start_km, end_km, total_km, remarks,
+			driver_id, date, start_km, end_km, total_km, fuel_consumed, remarks,
 			vehicle_id, assignment_id,
-			recorded_by_user_id
+			recorded_by_user_id, status
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, req.DriverID, req.Date, req.StartKm, req.EndKm, req.TotalKm, req.Remarks, vehicleID, assignmentID, recordedByUserID)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+	`, req.DriverID, req.Date, req.StartKm, req.EndKm, req.TotalKm, fuelConsumed, req.Remarks, vehicleID, assignmentID, recordedByUserID)
 
 	if err != nil {
 		log.Printf("Add km log error: %v", err)
@@ -173,8 +183,9 @@ func AddDriverKmLog(c *gin.Context) {
 
 	id, _ := result.LastInsertId()
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Km log added successfully",
+		"message": "KM log submitted for approval",
 		"id":      id,
+		"status":  "pending",
 	})
 }
 

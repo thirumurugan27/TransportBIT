@@ -6,7 +6,6 @@ import (
 	"transport-server/api/bus"
 	"transport-server/api/driver"
 	"transport-server/api/faculty"
-	"transport-server/api/incharge"
 	"transport-server/api/student"
 	"transport-server/middleware"
 
@@ -50,7 +49,7 @@ func RegisterRoutes(r *gin.Engine) {
 	// ========================================
 	// DRIVER ROUTES
 	// ========================================
-	drv := authenticated.Group("/driver", middleware.RoleMiddleware("DRIVER", "INCHARGE"))
+	drv := authenticated.Group("/driver", middleware.RoleMiddleware("DRIVER"))
 	registerDriverRoutes(drv)
 
 	// ========================================
@@ -58,12 +57,6 @@ func RegisterRoutes(r *gin.Engine) {
 	// ========================================
 	stu := authenticated.Group("/student", middleware.RoleMiddleware("STUDENT"))
 	registerStudentRoutes(stu)
-
-	// ========================================
-	// INCHARGE ROUTES
-	// ========================================
-	inc := authenticated.Group("/incharge", middleware.RoleMiddleware("INCHARGE"))
-	registerInchargeRoutes(inc)
 
 	// ========================================
 	// FACULTY ROUTES
@@ -156,6 +149,10 @@ func registerAdminRoutes(adm *gin.RouterGroup) {
 	adm.GET("/km-filters", admin.GetKmFilterMeta)
 	adm.GET("/km-logs", admin.GetAdminKmLogs)
 	adm.POST("/km-log/add", admin.AdminAddKmLog)
+	adm.POST("/km-log/approve", admin.ApproveKmLog)
+	adm.POST("/km-log/reject", admin.RejectKmLog)
+	adm.GET("/km-logs/pending-count", admin.GetPendingKmLogsCount)
+	adm.GET("/km-logs/fuel-by-vehicle", admin.GetFuelByVehicle)
 
 	// Cluster Management
 	adm.GET("/clusters", admin.GetClusters)
@@ -370,34 +367,6 @@ func registerStudentRoutes(stu *gin.RouterGroup) {
 	stu.GET("/stop-change/requests", student.GetMyStopChangeRequests)
 	stu.GET("/available-stops", student.GetAvailableStops)
 	stu.GET("/all-buses", student.GetAllBuses)
-}
-
-// registerInchargeRoutes sets up all incharge endpoints under /api/incharge
-func registerInchargeRoutes(inc *gin.RouterGroup) {
-	inc.GET("/assignments", incharge.GetInchargeAssignments)
-	inc.GET("/cluster-drivers", incharge.GetInchargeClusterDrivers)
-	inc.POST("/attendance/mark", incharge.InchargeMarkAttendance)
-	inc.GET("/attendance/history", incharge.GetInchargeAttendanceHistory)
-	inc.GET("/vehicles/alerts", incharge.GetInchargeVehicleAlerts)
-
-	// FC Replacement
-	inc.POST("/fc-replacement/request", incharge.RequestFCReplacement)
-	inc.GET("/fc-replacements", incharge.GetInchargeFCReplacements)
-
-	// Driver Management
-	inc.GET("/driver-assignments", incharge.GetDriverAssignments)
-	inc.GET("/all-drivers", incharge.GetAllDriversForIncharge)
-
-	// KM
-	inc.POST("/km-log/add", incharge.InchargeAddKmLog)
-	inc.GET("/driver-km-logs", incharge.GetDriverKmLogs)
-	inc.GET("/km-summary", incharge.GetInchargeKmSummary)
-	inc.GET("/km-filters", incharge.GetInchargeKmFilters)
-
-	// Leave
-	inc.POST("/leave/apply", incharge.InchargeApplyLeave)
-	inc.GET("/leave/pending", incharge.GetPendingLeaveRequests)
-	inc.POST("/leave/approve", incharge.ApproveLeave)
 }
 
 // registerFacultyRoutes sets up all faculty endpoints under /api/faculty

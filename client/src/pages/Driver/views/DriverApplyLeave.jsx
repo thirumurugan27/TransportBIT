@@ -143,29 +143,6 @@ export default function DriverApplyLeave() {
   };
 
   // Helper for status badge rendering
-  const getInchargeStatusInfo = (leave) => {
-    const status = getStatus(leave);
-    if (
-      leave.incharge_approved_at ||
-      status === "incharge_approved" ||
-      status === "admin_approved" ||
-      status === "approved"
-    )
-      return {
-        label: "Approved",
-        cls: "bg-green/10 text-green border border-green/20",
-      };
-    if (status === "rejected" && leave.incharge_id && !leave.admin_id)
-      return {
-        label: "Rejected",
-        cls: "bg-red/10 text-red border border-red/20",
-      };
-    return {
-      label: "Pending",
-      cls: "bg-pending/10 text-pending border border-pending/20",
-    };
-  };
-
   const getAdminStatusInfo = (leave) => {
     const status = getStatus(leave);
     if (
@@ -182,14 +159,9 @@ export default function DriverApplyLeave() {
         label: "Rejected",
         cls: "bg-red/10 text-red border border-red/20",
       };
-    if (leave.incharge_approved_at)
-      return {
-        label: "Pending",
-        cls: "bg-pending/10 text-pending border border-pending/20",
-      };
     return {
-      label: "Waiting",
-      cls: "bg-gray-100 text-gray-400 border border-gray-200",
+      label: "Pending",
+      cls: "bg-pending/10 text-pending border border-pending/20",
     };
   };
 
@@ -265,13 +237,11 @@ export default function DriverApplyLeave() {
                     <th className="px-5 py-3.5">To</th>
                     <th className="px-5 py-3.5">Duration</th>
                     <th className="px-5 py-3.5">Remarks</th>
-                    <th className="px-5 py-3.5">Incharge</th>
-                    <th className="px-5 py-3.5">Admin</th>
+                    <th className="px-5 py-3.5">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {filteredLeaves.map((leave, idx) => {
-                    const ich = getInchargeStatusInfo(leave);
                     const adm = getAdminStatusInfo(leave);
                     return (
                       <tr
@@ -296,13 +266,6 @@ export default function DriverApplyLeave() {
                         </td>
                         <td className="px-5 py-3.5">
                           <span
-                            className={`inline-flex px-2.5 py-1 rounded-md text-xs font-medium ${ich.cls}`}
-                          >
-                            {ich.label}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3.5">
-                          <span
                             className={`inline-flex px-2.5 py-1 rounded-md text-xs font-medium ${adm.cls}`}
                           >
                             {adm.label}
@@ -318,7 +281,6 @@ export default function DriverApplyLeave() {
             {/* Mobile Cards - hidden on desktop */}
             <div className="md:hidden divide-y divide-gray-100">
               {filteredLeaves.map((leave, idx) => {
-                const ich = getInchargeStatusInfo(leave);
                 const adm = getAdminStatusInfo(leave);
                 return (
                   <div
@@ -332,11 +294,6 @@ export default function DriverApplyLeave() {
                         {leave.leave_type}
                       </span>
                       <div className="flex items-center gap-1.5">
-                        <span
-                          className={`px-2 py-0.5 rounded-md text-[10px] font-semibold ${ich.cls}`}
-                        >
-                          {ich.label}
-                        </span>
                         <span
                           className={`px-2 py-0.5 rounded-md text-[10px] font-semibold ${adm.cls}`}
                         >
@@ -617,98 +574,45 @@ export default function DriverApplyLeave() {
                 <h4 className="text-sm font-bold text-gray-800 mb-3">
                   Approval Status
                 </h4>
-                <div className="space-y-3">
-                  {/* Incharge */}
-                  <div className="border border-gray-200 rounded-md p-3.5 bg-gray-50/50">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-bold text-gray-700">
-                          Incharge
+                <div className="border border-gray-200 rounded-md p-3.5 bg-gray-50/50">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-gray-700">Admin</p>
+                      {selectedLeave.admin_name && (
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {selectedLeave.admin_name}
                         </p>
-                        {selectedLeave.incharge_name && (
-                          <p className="text-xs text-gray-500 mt-0.5">
-                            {selectedLeave.incharge_name}
+                      )}
+                      {selectedLeave.admin_approved_at &&
+                        selectedLeave.admin_name && (
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            Approved by: {selectedLeave.admin_name}
                           </p>
                         )}
-                        {selectedLeave.incharge_approved_at &&
-                          selectedLeave.incharge_name && (
-                            <p className="text-xs text-gray-400 mt-0.5">
-                              Approved by: {selectedLeave.incharge_name}
-                            </p>
-                          )}
-                      </div>
-                      <span
-                        className={`shrink-0 text-xs font-bold px-3 py-1 rounded-md text-white ${
-                          selectedLeave.incharge_approved_at
-                            ? "bg-green"
-                            : getStatus(selectedLeave) === "rejected" &&
-                                selectedLeave.incharge_id &&
-                                !selectedLeave.admin_id
-                              ? "bg-red"
-                              : "bg-pending"
-                        }`}
-                      >
-                        {selectedLeave.incharge_approved_at
-                          ? "Approved"
-                          : getStatus(selectedLeave) === "rejected" &&
-                              selectedLeave.incharge_id &&
-                              !selectedLeave.admin_id
-                            ? "Rejected"
-                            : "Pending"}
-                      </span>
                     </div>
-                    {selectedLeave.incharge_remarks && (
-                      <p className="text-xs text-gray-600 mt-2.5 bg-white p-2 rounded-md border border-gray-100">
-                        {selectedLeave.incharge_remarks}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Admin */}
-                  <div className="border border-gray-200 rounded-md p-3.5 bg-gray-50/50">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-bold text-gray-700">Admin</p>
-                        {selectedLeave.admin_name && (
-                          <p className="text-xs text-gray-500 mt-0.5">
-                            {selectedLeave.admin_name}
-                          </p>
-                        )}
-                        {selectedLeave.admin_approved_at &&
-                          selectedLeave.admin_name && (
-                            <p className="text-xs text-gray-400 mt-0.5">
-                              Approved by: {selectedLeave.admin_name}
-                            </p>
-                          )}
-                      </div>
-                      <span
-                        className={`shrink-0 text-xs font-bold px-3 py-1 rounded-md text-white ${
-                          selectedLeave.admin_approved_at
-                            ? "bg-green"
-                            : getStatus(selectedLeave) === "rejected" &&
-                                selectedLeave.admin_id
-                              ? "bg-red"
-                              : selectedLeave.incharge_approved_at
-                                ? "bg-pending"
-                                : "bg-gray-300"
-                        }`}
-                      >
-                        {selectedLeave.admin_approved_at
-                          ? "Approved"
+                    <span
+                      className={`shrink-0 text-xs font-bold px-3 py-1 rounded-md text-white ${
+                        selectedLeave.admin_approved_at
+                          ? "bg-green"
                           : getStatus(selectedLeave) === "rejected" &&
                               selectedLeave.admin_id
-                            ? "Rejected"
-                            : selectedLeave.incharge_approved_at
-                              ? "Pending"
-                              : "Waiting"}
-                      </span>
-                    </div>
-                    {selectedLeave.admin_remarks && (
-                      <p className="text-xs text-gray-600 mt-2.5 bg-white p-2 rounded-md border border-gray-100">
-                        {selectedLeave.admin_remarks}
-                      </p>
-                    )}
+                            ? "bg-red"
+                            : "bg-pending"
+                      }`}
+                    >
+                      {selectedLeave.admin_approved_at
+                        ? "Approved"
+                        : getStatus(selectedLeave) === "rejected" &&
+                            selectedLeave.admin_id
+                          ? "Rejected"
+                          : "Pending"}
+                    </span>
                   </div>
+                  {selectedLeave.admin_remarks && (
+                    <p className="text-xs text-gray-600 mt-2.5 bg-white p-2 rounded-md border border-gray-100">
+                      {selectedLeave.admin_remarks}
+                    </p>
+                  )}
                 </div>
               </div>
 

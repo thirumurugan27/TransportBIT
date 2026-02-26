@@ -381,25 +381,6 @@ func activateVehicleReplacement(requestID int, req VehicleReplacementRequest) {
 	`, req.DriverID, "Vehicle Replacement", message, requestID)
 
 	config.DB.Exec("UPDATE vehicle_replacements SET driver_notified = TRUE WHERE id = ?", requestID)
-
-	// Notify incharge
-	var inchargeID int
-	config.DB.QueryRow(`
-		SELECT d2.id FROM driver_cluster_members dcm1
-		JOIN driver_cluster_members dcm2 ON dcm1.cluster_id = dcm2.cluster_id
-		JOIN drivers d2 ON d2.id = dcm2.driver_id AND d2.is_incharge = 1
-		WHERE dcm1.driver_id = ? AND CURDATE() BETWEEN dcm1.valid_from AND dcm1.valid_to
-		AND CURDATE() BETWEEN dcm2.valid_from AND dcm2.valid_to
-	`, req.DriverID).Scan(&inchargeID)
-
-	if inchargeID > 0 {
-		inchargeMsg := fmt.Sprintf("Vehicle %s replaced by %s for driver %s. Reason: %s. Period: %s to %s",
-			vehicleNumber, replacementVehicleNumber, driverName, req.Reason, req.StartDate, req.EndDate)
-		config.DB.Exec(`
-			INSERT INTO notifications (recipient_role, recipient_id, title, message, type, reference_id)
-			VALUES ('DRIVER', ?, ?, ?, 'info', ?)
-		`, inchargeID, "Vehicle Replacement Activated", inchargeMsg, requestID)
-	}
 }
 
 // activateDriverReplacement - Internal: handles driver swap on the same vehicle, temp assignment, notifications
@@ -482,25 +463,6 @@ func activateDriverReplacement(requestID int, req VehicleReplacementRequest) {
 	}
 
 	config.DB.Exec("UPDATE vehicle_replacements SET driver_notified = TRUE WHERE id = ?", requestID)
-
-	// Notify incharge
-	var inchargeID int
-	config.DB.QueryRow(`
-		SELECT d2.id FROM driver_cluster_members dcm1
-		JOIN driver_cluster_members dcm2 ON dcm1.cluster_id = dcm2.cluster_id
-		JOIN drivers d2 ON d2.id = dcm2.driver_id AND d2.is_incharge = 1
-		WHERE dcm1.driver_id = ? AND CURDATE() BETWEEN dcm1.valid_from AND dcm1.valid_to
-		AND CURDATE() BETWEEN dcm2.valid_from AND dcm2.valid_to
-	`, req.DriverID).Scan(&inchargeID)
-
-	if inchargeID > 0 {
-		inchargeMsg := fmt.Sprintf("Driver %s replaced by %s on vehicle %s. Reason: %s. Period: %s to %s",
-			driverName, replacementDriverName, vehicleNumber, req.Reason, req.StartDate, req.EndDate)
-		config.DB.Exec(`
-			INSERT INTO notifications (recipient_role, recipient_id, title, message, type, reference_id)
-			VALUES ('DRIVER', ?, ?, ?, 'info', ?)
-		`, inchargeID, "Driver Replacement Activated", inchargeMsg, requestID)
-	}
 }
 
 // POST /api/admin/vehicle-replacements/complete - Complete a replacement (return to original)
@@ -748,19 +710,18 @@ func GetVehicleDriversNew(c *gin.Context) {
 	}
 
 	type DriverInfo struct {
-		ID         int    `json:"id"`
-		FullName   string `json:"full_name"`
-		IsIncharge bool   `json:"is_incharge"`
-		ShiftID    *int   `json:"shift_id"`
-		ShiftName  string `json:"shift_name"`
-		IsEV       bool   `json:"is_ev"`
+		ID        int    `json:"id"`
+		FullName  string `json:"full_name"`
+		ShiftID   *int   `json:"shift_id"`
+		ShiftName string `json:"shift_name"`
+		IsEV      bool   `json:"is_ev"`
 	}
 
 	var drivers []DriverInfo
 
 	// Regular assignments
 	rows, err := config.DB.Query(`
-		SELECT DISTINCT d.id, u.full_name, d.is_incharge,
+		SELECT DISTINCT d.id, u.full_name,
 			   a.shift_id, COALESCE(s.name, ''), FALSE
 		FROM assignments a
 		JOIN drivers d ON a.driver_id = d.id
@@ -772,14 +733,14 @@ func GetVehicleDriversNew(c *gin.Context) {
 		defer rows.Close()
 		for rows.Next() {
 			var d DriverInfo
-			rows.Scan(&d.ID, &d.FullName, &d.IsIncharge, &d.ShiftID, &d.ShiftName, &d.IsEV)
+			rows.Scan(&d.ID, &d.FullName, &d.ShiftID, &d.ShiftName, &d.IsEV)
 			drivers = append(drivers, d)
 		}
 	}
 
 	// EV cluster assignments
 	evRows, err := config.DB.Query(`
-		SELECT DISTINCT d.id, u.full_name, d.is_incharge,
+		SELECT DISTINCT d.id, u.full_name,
 			   ev.shift_id, COALESCE(s.name, 'EV Duty'), TRUE
 		FROM ev_assignments ev
 		JOIN driver_clusters dc ON ev.cluster_id = dc.id
@@ -793,7 +754,7 @@ func GetVehicleDriversNew(c *gin.Context) {
 		defer evRows.Close()
 		for evRows.Next() {
 			var d DriverInfo
-			evRows.Scan(&d.ID, &d.FullName, &d.IsIncharge, &d.ShiftID, &d.ShiftName, &d.IsEV)
+			evRows.Scan(&d.ID, &d.FullName, &d.ShiftID, &d.ShiftName, &d.IsEV)
 			d.IsEV = true
 			drivers = append(drivers, d)
 		}

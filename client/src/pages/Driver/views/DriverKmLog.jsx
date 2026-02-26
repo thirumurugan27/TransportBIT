@@ -13,6 +13,10 @@ import {
   Calendar,
   AlertCircle,
   X,
+  Fuel,
+  Clock,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 
 export default function DriverKmLog() {
@@ -32,6 +36,7 @@ export default function DriverKmLog() {
     vehicle_id: "",
     assignment_id: "",
     remarks: "",
+    fuel_consumed: "",
   });
 
   useEffect(() => {
@@ -137,11 +142,12 @@ export default function DriverKmLog() {
         assignment_id: form.assignment_id ? parseInt(form.assignment_id) : null,
         remarks: form.remarks,
         total_km: parseFloat(form.end_km) - parseFloat(form.start_km),
+        fuel_consumed: form.fuel_consumed ? parseFloat(form.fuel_consumed) : null,
       };
 
       const res = await apiPost("/api/driver/km-log/add", payload);
       if (res.ok) {
-        showToast("Log added!", "success");
+        showToast("KM log submitted for approval!", "success");
         closeModal();
         fetchLogs();
       } else {
@@ -158,7 +164,7 @@ export default function DriverKmLog() {
 
   const closeModal = () => {
     setShowModal(false);
-    setForm((prev) => ({...prev, start_km: 0, end_km: 0, remarks: ""}));
+    setForm((prev) => ({...prev, start_km: 0, end_km: 0, remarks: "", fuel_consumed: ""}));
   };
 
   const totalKm = parseFloat(form.end_km || 0) - parseFloat(form.start_km || 0);
@@ -292,13 +298,28 @@ export default function DriverKmLog() {
                       ? parseFloat(log.total_km)
                       : parseFloat(log.end_km) - parseFloat(log.start_km);
                   return (
-                    <div key={log.id} className="p-4 space-y-2.5">
+                    <div key={log.id} className={`p-4 space-y-2.5 ${log.status === "pending" ? "bg-pending/5" : ""}`}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Calendar size={13} className="text-secondarytext" />
                           <span className="font-bold text-primarytext text-sm">
                             {log.date}
                           </span>
+                          {log.status === "pending" && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase px-1.5 py-0.5 bg-pending/15 text-pending rounded">
+                              <Clock size={10} /> Pending
+                            </span>
+                          )}
+                          {log.status === "rejected" && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase px-1.5 py-0.5 bg-red/15 text-red rounded">
+                              <XCircle size={10} /> Rejected
+                            </span>
+                          )}
+                          {log.status === "approved" && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase px-1.5 py-0.5 bg-green/15 text-green rounded">
+                              <CheckCircle2 size={10} /> Approved
+                            </span>
+                          )}
                         </div>
                         <span className="font-bold text-primary text-sm">
                           {dist.toFixed(1)} km
@@ -308,6 +329,12 @@ export default function DriverKmLog() {
                         {log.vehicle_number && (
                           <span className="text-sm font-medium text-primarytext">
                             {log.vehicle_number}
+                          </span>
+                        )}
+                        {log.fuel_consumed && (
+                          <span className="inline-flex items-center gap-1 text-xs text-pending font-medium">
+                            <Fuel size={12} />
+                            {parseFloat(log.fuel_consumed).toFixed(1)} L
                           </span>
                         )}
                       </div>
@@ -363,6 +390,12 @@ export default function DriverKmLog() {
                     <th className="px-6 py-3.5 text-right text-xs font-bold text-secondarytext uppercase tracking-wider">
                       Distance
                     </th>
+                    <th className="px-6 py-3.5 text-right text-xs font-bold text-secondarytext uppercase tracking-wider">
+                      Fuel (L)
+                    </th>
+                    <th className="px-6 py-3.5 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">
+                      Status
+                    </th>
                     <th className="px-6 py-3.5 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
                       Remarks
                     </th>
@@ -399,6 +432,30 @@ export default function DriverKmLog() {
                               {dist.toFixed(1)} km
                             </span>
                           </td>
+                          <td className="px-6 py-3.5 whitespace-nowrap text-right text-sm">
+                            {log.fuel_consumed ? (
+                              <span className="font-medium text-pending">{parseFloat(log.fuel_consumed).toFixed(1)}</span>
+                            ) : (
+                              <span className="text-secondarytext">—</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-3.5 whitespace-nowrap text-center">
+                            {log.status === "pending" && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase px-2 py-1 bg-pending/15 text-pending rounded">
+                                <Clock size={10} /> Pending
+                              </span>
+                            )}
+                            {log.status === "approved" && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase px-2 py-1 bg-green/15 text-green rounded">
+                                <CheckCircle2 size={10} /> Approved
+                              </span>
+                            )}
+                            {log.status === "rejected" && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase px-2 py-1 bg-red/15 text-red rounded">
+                                <XCircle size={10} /> Rejected
+                              </span>
+                            )}
+                          </td>
                           <td className="px-6 py-3.5">
                             <p className="text-sm text-secondarytext truncate max-w-[200px]">
                               {log.remarks || "—"}
@@ -410,7 +467,7 @@ export default function DriverKmLog() {
                   ) : (
                     <tr>
                       <td
-                        colSpan="6"
+                        colSpan="8"
                         className="px-6 py-12 text-center text-secondarytext"
                       >
                         <div className="flex flex-col items-center justify-center gap-2">
@@ -557,6 +614,35 @@ export default function DriverKmLog() {
                   </span>
                 </div>
               )}
+
+              {/* Fuel Consumed */}
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-primarytext">
+                  Fuel Consumed{" "}
+                  <span className="text-secondarytext font-normal">
+                    (Optional, in Liters)
+                  </span>
+                </label>
+                <input
+                  type="number"
+                  value={form.fuel_consumed}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      fuel_consumed: e.target.value,
+                    }))
+                  }
+                  className="w-full h-[42px] px-3 border border-gray-200 rounded-md bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+                  placeholder="0.0"
+                  min="0"
+                  step="0.1"
+                />
+                {form.fuel_consumed && totalKm > 0 && (
+                  <p className="text-xs text-secondarytext mt-0.5">
+                    Mileage: <span className="font-bold text-primary">{(totalKm / parseFloat(form.fuel_consumed)).toFixed(1)} km/L</span>
+                  </p>
+                )}
+              </div>
 
               {/* Remarks */}
               <div className="space-y-1.5">

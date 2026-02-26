@@ -20,9 +20,6 @@ export const logout = async () => {
     localStorage.removeItem("email");
     localStorage.removeItem("role");
     localStorage.removeItem("driverId");
-    localStorage.removeItem("isIncharge");
-    localStorage.removeItem("inchargeId");
-    localStorage.removeItem("inchargeName");
     localStorage.removeItem("driverName");
 
     // Redirect to login
@@ -37,7 +34,6 @@ export const getCurrentUser = () => {
         email: localStorage.getItem("email"),
         role: localStorage.getItem("role"),
         driverId: localStorage.getItem("driverId"),
-        isIncharge: localStorage.getItem("isIncharge") === "true",
     };
 };
 

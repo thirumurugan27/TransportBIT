@@ -3,7 +3,6 @@ import {BrowserRouter, Routes, Route, Navigate} from "react-router-dom";
 import Login from "./pages/Auth/Login";
 import AdminDashboard from "./pages/Admin/AdminDashboard";
 import DriverDashboard from "./pages/Driver/DriverDashboard";
-import InchargeDashboard from "./pages/Incharge/InchargeDashboard";
 import StudentDashboard from "./pages/Student/StudentDashboard";
 import FacultyDashboard from "./pages/Faculty/FacultyDashboard";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -32,10 +31,6 @@ function App() {
               path="/driver-login"
               element={<Navigate to="/login" replace />}
             />
-            <Route
-              path="/incharge-login"
-              element={<Navigate to="/login" replace />}
-            />
 
             {/* Admin Dashboard - Protected with nested routes */}
             <Route
@@ -53,16 +48,6 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={["DRIVER"]}>
                   <DriverDashboard />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* Incharge Dashboard - Protected with nested routes */}
-            <Route
-              path="/incharge-dashboard/*"
-              element={
-                <ProtectedRoute allowedRoles={["INCHARGE"]}>
-                  <InchargeDashboard />
                 </ProtectedRoute>
               }
             />

@@ -48,7 +48,6 @@ type CreateDriverRequest struct {
 	AllowedVehicleType string `json:"allowed_vehicle_type"`
 	HomeVehicleID      *int   `json:"home_vehicle_id"`
 	HomeStopID         *int   `json:"home_stop_id"`
-	IsIncharge         bool   `json:"is_incharge"`
 }
 
 type DriverResponse struct {
@@ -67,7 +66,6 @@ type DriverResponse struct {
 	AllowedVehicleType string `json:"allowed_vehicle_type"`
 	HomeVehicleID      *int   `json:"home_vehicle_id"`
 	HomeStopID         *int   `json:"home_stop_id"`
-	IsIncharge         bool   `json:"is_incharge"`
 	Status             string `json:"status"`
 	ClusterID          *int   `json:"cluster_id"`
 	ClusterName        string `json:"cluster_name"`
@@ -283,9 +281,7 @@ type Attendance struct {
 	CheckinTime  *string `json:"checkin_time"`
 	CheckoutTime *string `json:"checkout_time"`
 	// Joined
-	FullName             string  `json:"full_name"`
-	MarkedByInchargeID   *int    `json:"marked_by_incharge_id"`
-	MarkedByInchargeName *string `json:"marked_by_incharge_name"`
+	FullName string `json:"full_name"`
 }
 
 type MarkAttendanceRequest struct {

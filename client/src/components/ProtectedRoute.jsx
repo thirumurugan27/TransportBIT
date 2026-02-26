@@ -27,8 +27,6 @@ export default function ProtectedRoute({children, allowedRoles}) {
         return <Navigate to="/admin-dashboard" replace />;
       case "DRIVER":
         return <Navigate to="/driver-dashboard" replace />;
-      case "INCHARGE":
-        return <Navigate to="/incharge-dashboard" replace />;
       case "STUDENT":
         return <Navigate to="/student-dashboard" replace />;
       default:

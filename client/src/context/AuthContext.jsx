@@ -105,9 +105,6 @@ export const AuthProvider = ({children}) => {
       case "DRIVER":
         navigate("/driver-dashboard");
         break;
-      case "INCHARGE":
-        navigate("/incharge-dashboard");
-        break;
       case "STUDENT":
         navigate("/student-dashboard");
         break;

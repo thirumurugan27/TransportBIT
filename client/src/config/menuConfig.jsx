@@ -209,75 +209,6 @@ export const driverMenuConfig = {
   ],
 };
 
-// Incharge Menu Configuration
-export const inchargeMenuConfig = {
-  portalName: "Incharge Portal",
-  portalSubtitle: "Management System",
-  basePath: "/incharge-dashboard",
-  items: [
-    {
-      key: "dashboard",
-      label: "Dashboard",
-      icon: <DashboardIcon />,
-      path: "",
-    },
-    {
-      key: "attendance",
-      label: "Mark Attendance",
-      icon: <AttendanceIcon />,
-      path: "/mark-attendance",
-    },
-    {
-      key: "driverHistory",
-      label: "Driver History",
-      icon: <HistoryIcon />,
-      path: "/driver-history",
-    },
-    {
-      key: "scheduleManagement",
-      label: "Schedule Management",
-      icon: <ScheduleIcon />,
-      path: "/schedule-management",
-    },
-    {
-      key: "assignmentManagement",
-      label: "Assignment Management",
-      icon: <AssignmentIcon />,
-      path: "/assignment-management",
-    },
-    {
-      key: "assignments",
-      label: "My Assignments",
-      icon: <AssignmentIcon />,
-      path: "/assignments",
-    },
-    {
-      key: "leaves",
-      label: "Leave Approvals",
-      icon: <LeaveIcon />,
-      path: "/leave-approvals",
-    },
-    {
-      key: "kmManagement",
-      label: "KM Management",
-      icon: <KmIcon />,
-      path: "/km-management",
-    },
-    {
-      key: "insuranceFCStatus",
-      label: "Insurance & FC Status",
-      icon: <VehicleIcon />,
-      path: "/insurance-fc-status",
-    },
-    {
-      key: "driverManagement",
-      label: "Driver Management",
-      icon: <DriversIcon />,
-      path: "/driver-management",
-    },
-  ],
-};
-
 // Student Menu Configuration
 export const studentMenuConfig = {
   portalName: "Transport BIT",
@@ -349,7 +280,6 @@ export const getMenuConfigByRole = (role) => {
   const configs = {
     ADMIN: adminMenuConfig,
     DRIVER: driverMenuConfig,
-    INCHARGE: inchargeMenuConfig,
     STUDENT: studentMenuConfig,
     FACULTY: facultyMenuConfig,
   };
@@ -360,7 +290,6 @@ export const getMenuConfigByRole = (role) => {
 export default {
   adminMenuConfig,
   driverMenuConfig,
-  inchargeMenuConfig,
   studentMenuConfig,
   facultyMenuConfig,
   getMenuConfigByRole,

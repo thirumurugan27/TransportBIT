@@ -209,7 +209,8 @@ func AssignStudentTransport(c *gin.Context) {
 		WHERE user_id = ? AND academic_year = ?
 	`, req.UserID, req.AcademicYear).Scan(&existingID)
 
-	if err == sql.ErrNoRows {
+	switch err {
+	case sql.ErrNoRows:
 		// Create new assignment
 		var feeID interface{}
 		if transportFeeID.Valid {
@@ -228,7 +229,7 @@ func AssignStudentTransport(c *gin.Context) {
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"message": "Student transport assigned successfully", "fee": feeAmount})
-	} else if err == nil {
+	case nil:
 		// Update existing
 		_, err = config.DB.Exec(`
 			UPDATE student_transport 
@@ -241,7 +242,7 @@ func AssignStudentTransport(c *gin.Context) {
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"message": "Student transport updated successfully", "fee": feeAmount})
-	} else {
+	default:
 		log.Printf("Error checking existing: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process request"})
 	}
@@ -717,7 +718,8 @@ func ProcessTransportRequest(c *gin.Context) {
 			WHERE user_id = ? AND academic_year = ?
 		`, userID, academicYear).Scan(&existingID)
 
-		if err == sql.ErrNoRows {
+		switch err {
+		case sql.ErrNoRows:
 			// Create new transport assignment
 			_, err = config.DB.Exec(`
 				INSERT INTO student_transport (user_id, bus_id, stop_id, academic_year, total_fee, paid_amount, status)
@@ -728,7 +730,7 @@ func ProcessTransportRequest(c *gin.Context) {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Request approved but failed to assign transport"})
 				return
 			}
-		} else if err == nil {
+		case nil:
 			// Update existing transport
 			_, err = config.DB.Exec(`
 				UPDATE student_transport 

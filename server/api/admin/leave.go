@@ -41,9 +41,6 @@ func GetLeaveHistory(c *gin.Context) {
 			   DATE_FORMAT(lr.end_date, '%d-%m-%Y') as end_date,
 			   TIME_FORMAT(lr.end_time, '%h:%i %p') as end_time,
 			   lr.reason, lr.status,
-			   lr.incharge_id, u_inc.full_name as incharge_name,
-			   DATE_FORMAT(lr.incharge_approved_at, '%d-%m-%Y %h:%i %p') as incharge_approved_at,
-			   lr.incharge_remarks,
 			   lr.admin_id, u_adm.full_name as admin_name,
 			   DATE_FORMAT(lr.admin_approved_at, '%d-%m-%Y %h:%i %p') as admin_approved_at,
 			   lr.admin_remarks,
@@ -51,7 +48,6 @@ func GetLeaveHistory(c *gin.Context) {
 		FROM leave_requests lr
 		JOIN drivers d ON lr.driver_id = d.id
 		JOIN users u ON d.user_id = u.id
-		LEFT JOIN users u_inc ON lr.incharge_id = u_inc.id
 		LEFT JOIN users u_adm ON lr.admin_id = u_adm.id
 		ORDER BY lr.created_at DESC
 		LIMIT 200
@@ -65,39 +61,34 @@ func GetLeaveHistory(c *gin.Context) {
 
 	// Define struct inline or reuse if available
 	type LeaveRequest struct {
-		ID                 int     `json:"id"`
-		DriverID           int     `json:"driver_id"`
-		DriverName         string  `json:"driver_name"`
-		LeaveType          string  `json:"leave_type"`
-		StartDate          string  `json:"start_date"`
-		StartTime          string  `json:"start_time"`
-		EndDate            string  `json:"end_date"`
-		EndTime            string  `json:"end_time"`
-		Reason             string  `json:"reason"`
-		Status             string  `json:"status"`
-		InchargeID         *int    `json:"incharge_id"`
-		InchargeName       *string `json:"incharge_name"`
-		InchargeApprovedAt *string `json:"incharge_approved_at"`
-		InchargeRemarks    *string `json:"incharge_remarks"`
-		AdminID            *int    `json:"admin_id"`
-		AdminName          *string `json:"admin_name"`
-		AdminApprovedAt    *string `json:"admin_approved_at"`
-		AdminRemarks       *string `json:"admin_remarks"`
-		CreatedAt          string  `json:"created_at"`
+		ID              int     `json:"id"`
+		DriverID        int     `json:"driver_id"`
+		DriverName      string  `json:"driver_name"`
+		LeaveType       string  `json:"leave_type"`
+		StartDate       string  `json:"start_date"`
+		StartTime       string  `json:"start_time"`
+		EndDate         string  `json:"end_date"`
+		EndTime         string  `json:"end_time"`
+		Reason          string  `json:"reason"`
+		Status          string  `json:"status"`
+		AdminID         *int    `json:"admin_id"`
+		AdminName       *string `json:"admin_name"`
+		AdminApprovedAt *string `json:"admin_approved_at"`
+		AdminRemarks    *string `json:"admin_remarks"`
+		CreatedAt       string  `json:"created_at"`
 	}
 
 	var requests []LeaveRequest
 	for rows.Next() {
 		var req LeaveRequest
 		var startDate, startTime, endDate, endTime, createdAt []byte
-		var inchargeApprovedAt, adminApprovedAt sql.NullString
-		var inchargeRemarks, adminRemarks sql.NullString
-		var inchargeName, adminName sql.NullString
-		var inchargeID, adminID sql.NullInt64
+		var adminApprovedAt sql.NullString
+		var adminRemarks sql.NullString
+		var adminName sql.NullString
+		var adminID sql.NullInt64
 
 		err := rows.Scan(&req.ID, &req.DriverID, &req.DriverName, &req.LeaveType,
 			&startDate, &startTime, &endDate, &endTime, &req.Reason, &req.Status,
-			&inchargeID, &inchargeName, &inchargeApprovedAt, &inchargeRemarks,
 			&adminID, &adminName, &adminApprovedAt, &adminRemarks, &createdAt)
 
 		if err != nil {
@@ -111,19 +102,6 @@ func GetLeaveHistory(c *gin.Context) {
 		req.EndTime = string(endTime)
 		req.CreatedAt = string(createdAt)
 
-		if inchargeID.Valid {
-			id := int(inchargeID.Int64)
-			req.InchargeID = &id
-		}
-		if inchargeName.Valid {
-			req.InchargeName = &inchargeName.String
-		}
-		if inchargeApprovedAt.Valid {
-			req.InchargeApprovedAt = &inchargeApprovedAt.String
-		}
-		if inchargeRemarks.Valid {
-			req.InchargeRemarks = &inchargeRemarks.String
-		}
 		if adminID.Valid {
 			id := int(adminID.Int64)
 			req.AdminID = &id
@@ -154,11 +132,10 @@ func GetLeaveHistory(c *gin.Context) {
 */
 func GetLeaveStats(c *gin.Context) {
 	stats := map[string]int{
-		"pending":           0,
-		"incharge_approved": 0,
-		"admin_approved":    0,
-		"rejected":          0,
-		"total":             0,
+		"pending":        0,
+		"admin_approved": 0,
+		"rejected":       0,
+		"total":          0,
 	}
 
 	rows, err := config.DB.Query(`
@@ -186,25 +163,21 @@ func GetLeaveStats(c *gin.Context) {
 
 // LeaveRequest - leave request struct for admin
 type LeaveRequest struct {
-	ID                 int     `json:"id"`
-	DriverID           int     `json:"driver_id"`
-	DriverName         string  `json:"driver_name"`
-	LeaveType          string  `json:"leave_type"`
-	StartDate          string  `json:"start_date"`
-	StartTime          string  `json:"start_time"`
-	EndDate            string  `json:"end_date"`
-	EndTime            string  `json:"end_time"`
-	Reason             string  `json:"reason"`
-	Status             string  `json:"status"`
-	InchargeID         *int    `json:"incharge_id"`
-	InchargeName       *string `json:"incharge_name"`
-	InchargeApprovedAt *string `json:"incharge_approved_at"`
-	InchargeRemarks    *string `json:"incharge_remarks"`
-	AdminID            *int    `json:"admin_id"`
-	AdminName          *string `json:"admin_name"`
-	AdminApprovedAt    *string `json:"admin_approved_at"`
-	AdminRemarks       *string `json:"admin_remarks"`
-	CreatedAt          string  `json:"created_at"`
+	ID              int     `json:"id"`
+	DriverID        int     `json:"driver_id"`
+	DriverName      string  `json:"driver_name"`
+	LeaveType       string  `json:"leave_type"`
+	StartDate       string  `json:"start_date"`
+	StartTime       string  `json:"start_time"`
+	EndDate         string  `json:"end_date"`
+	EndTime         string  `json:"end_time"`
+	Reason          string  `json:"reason"`
+	Status          string  `json:"status"`
+	AdminID         *int    `json:"admin_id"`
+	AdminName       *string `json:"admin_name"`
+	AdminApprovedAt *string `json:"admin_approved_at"`
+	AdminRemarks    *string `json:"admin_remarks"`
+	CreatedAt       string  `json:"created_at"`
 }
 
 // ApproveLeaveRequest - request to approve leave
@@ -231,9 +204,6 @@ func GetPendingLeaveRequests(c *gin.Context) {
 			SELECT lr.id, lr.driver_id, u.full_name as driver_name, lr.leave_type, 
 				   DATE_FORMAT(lr.start_date, '%d-%m-%Y'), TIME_FORMAT(lr.start_time, '%h:%i %p'),
 				   DATE_FORMAT(lr.end_date, '%d-%m-%Y'), TIME_FORMAT(lr.end_time, '%h:%i %p'), lr.reason, lr.status,
-				   lr.incharge_id, u_inc.full_name as incharge_name,
-				   DATE_FORMAT(lr.incharge_approved_at, '%d-%m-%Y %h:%i %p') as incharge_approved_at,
-				   lr.incharge_remarks,
 				   lr.admin_id, u_adm.full_name as admin_name,
 				   DATE_FORMAT(lr.admin_approved_at, '%d-%m-%Y %h:%i %p') as admin_approved_at,
 				   lr.admin_remarks,
@@ -241,17 +211,14 @@ func GetPendingLeaveRequests(c *gin.Context) {
 			FROM leave_requests lr
 			JOIN drivers d ON lr.driver_id = d.id
 			JOIN users u ON d.user_id = u.id
-			LEFT JOIN users u_inc ON lr.incharge_id = u_inc.id
 			LEFT JOIN users u_adm ON lr.admin_id = u_adm.id
 	`
 
 	var query string
 	if status == "pending" {
 		query = baseQuery + " WHERE lr.status = 'pending' ORDER BY lr.created_at DESC"
-	} else if status == "incharge_approved" {
-		query = baseQuery + " WHERE lr.status = 'incharge_approved' ORDER BY lr.created_at DESC"
 	} else {
-		query = baseQuery + " WHERE lr.status IN ('pending', 'incharge_approved') ORDER BY lr.created_at DESC"
+		query = baseQuery + " WHERE lr.status = 'pending' ORDER BY lr.created_at DESC"
 	}
 
 	var args []interface{}
@@ -267,14 +234,13 @@ func GetPendingLeaveRequests(c *gin.Context) {
 	for rows.Next() {
 		var req LeaveRequest
 		var startDate, startTime, endDate, endTime, createdAt []byte
-		var inchargeApprovedAt, adminApprovedAt sql.NullString
-		var inchargeRemarks, adminRemarks sql.NullString
-		var inchargeName, adminName sql.NullString
-		var inchargeID, adminID sql.NullInt64
+		var adminApprovedAt sql.NullString
+		var adminRemarks sql.NullString
+		var adminName sql.NullString
+		var adminID sql.NullInt64
 
 		err := rows.Scan(&req.ID, &req.DriverID, &req.DriverName, &req.LeaveType,
 			&startDate, &startTime, &endDate, &endTime, &req.Reason, &req.Status,
-			&inchargeID, &inchargeName, &inchargeApprovedAt, &inchargeRemarks,
 			&adminID, &adminName, &adminApprovedAt, &adminRemarks, &createdAt)
 
 		if err != nil {
@@ -288,19 +254,6 @@ func GetPendingLeaveRequests(c *gin.Context) {
 		req.EndTime = string(endTime)
 		req.CreatedAt = string(createdAt)
 
-		if inchargeID.Valid {
-			id := int(inchargeID.Int64)
-			req.InchargeID = &id
-		}
-		if inchargeName.Valid {
-			req.InchargeName = &inchargeName.String
-		}
-		if inchargeApprovedAt.Valid {
-			req.InchargeApprovedAt = &inchargeApprovedAt.String
-		}
-		if inchargeRemarks.Valid {
-			req.InchargeRemarks = &inchargeRemarks.String
-		}
 		if adminID.Valid {
 			id := int(adminID.Int64)
 			req.AdminID = &id
@@ -325,7 +278,7 @@ func GetPendingLeaveRequests(c *gin.Context) {
 =========================
 
 	POST /api/admin/leave/approve
-	Admin approves/rejects leave (after incharge approval)
+	Admin approves/rejects leave
 
 =========================
 */
@@ -337,26 +290,24 @@ func ApproveLeave(c *gin.Context) {
 	}
 
 	status := strings.ToLower(strings.TrimSpace(req.Status))
-	if status != "approved" && status != "rejected" && status != "admin_approved" {
+	if status != "approved" && status != "rejected" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid status. Use 'approved' or 'rejected'"})
 		return
 	}
 
-	// Get current leave status, incharge decision, and details
+	// Get current leave details
 	var currentStatus string
 	var driverID int
 	var startDate, endDate string
-	var inchargeApprovedAt sql.NullString
 	var adminApprovedAt sql.NullString
 	err := config.DB.QueryRow(`
 		SELECT status, driver_id, 
 			DATE_FORMAT(start_date, '%d-%m-%Y'), 
 			DATE_FORMAT(end_date, '%d-%m-%Y'),
-			incharge_approved_at,
 			admin_approved_at
 		FROM leave_requests 
 		WHERE id = ?
-	`, req.LeaveID).Scan(&currentStatus, &driverID, &startDate, &endDate, &inchargeApprovedAt, &adminApprovedAt)
+	`, req.LeaveID).Scan(&currentStatus, &driverID, &startDate, &endDate, &adminApprovedAt)
 
 	if err != nil {
 		log.Printf("Get leave status error: %v", err)
@@ -370,23 +321,12 @@ func ApproveLeave(c *gin.Context) {
 		return
 	}
 
-	// Determine new status based on admin decision and incharge decision
+	// Determine new status
 	var newStatus string
 	if status == "rejected" {
-		// If admin rejects, the leave is rejected regardless of incharge decision
 		newStatus = "rejected"
 	} else {
-		// Admin approved - check if incharge has also approved
-		if inchargeApprovedAt.Valid && currentStatus != "rejected" {
-			// Both have approved - mark as fully approved
-			newStatus = "approved"
-		} else if currentStatus == "rejected" {
-			// Incharge already rejected, keep it rejected
-			newStatus = "rejected"
-		} else {
-			// Admin approved but incharge hasn't decided yet
-			newStatus = "admin_approved"
-		}
+		newStatus = "approved"
 	}
 
 	// Update leave request with admin decision
@@ -420,8 +360,8 @@ func ApproveLeave(c *gin.Context) {
 		return
 	}
 
-	// If admin approved (either fully approved or admin_approved), automatically mark attendance as absent for the leave period
-	if newStatus == "approved" || newStatus == "admin_approved" {
+	// If admin approved, automatically mark attendance as absent for the leave period
+	if newStatus == "approved" {
 		markAttendanceForLeave(driverID, startDate, endDate)
 	}
 
@@ -433,16 +373,12 @@ func ApproveLeave(c *gin.Context) {
 	var notifMessage string
 
 	if newStatus == "rejected" {
-		notifTitle = "Leave Request Rejected by Admin"
-		notifMessage = fmt.Sprintf("Your leave request from %s to %s has been rejected by admin. Reason: %s",
+		notifTitle = "Leave Request Rejected"
+		notifMessage = fmt.Sprintf("Your leave request from %s to %s has been rejected. Reason: %s",
 			startDate, endDate, req.Remarks)
-	} else if newStatus == "approved" {
-		notifTitle = "Leave Request Approved"
-		notifMessage = fmt.Sprintf("Your leave request from %s to %s has been fully approved by both incharge and admin. Attendance will be automatically marked as absent.",
-			startDate, endDate)
 	} else {
-		notifTitle = "Leave Request - Admin Approved"
-		notifMessage = fmt.Sprintf("Your leave request from %s to %s has been approved by admin. Waiting for incharge approval.",
+		notifTitle = "Leave Request Approved"
+		notifMessage = fmt.Sprintf("Your leave request from %s to %s has been approved. Attendance will be automatically marked as absent.",
 			startDate, endDate)
 	}
 
@@ -705,7 +641,7 @@ func GetLeaveAffectedAssignments(c *gin.Context) {
 		WHERE d.id != ?
 		AND d.id NOT IN (
 			SELECT lr.driver_id FROM leave_requests lr
-			WHERE lr.status IN ('approved', 'admin_approved', 'incharge_approved')
+			WHERE lr.status IN ('approved', 'admin_approved')
 			AND (
 				(lr.start_date <= ? AND lr.end_date >= ?) OR
 				(lr.start_date <= ? AND lr.end_date >= ?) OR
@@ -777,7 +713,6 @@ func ApproveLeaveWithAssignments(c *gin.Context) {
 	var driverID int
 	var startDate, endDate string
 	var currentStatus string
-	var inchargeApprovedAt sql.NullString
 	var adminApprovedAt sql.NullString
 
 	err := config.DB.QueryRow(`
@@ -785,11 +720,10 @@ func ApproveLeaveWithAssignments(c *gin.Context) {
 			DATE_FORMAT(start_date, '%d-%m-%Y'), 
 			DATE_FORMAT(end_date, '%d-%m-%Y'),
 			status,
-			incharge_approved_at,
 			admin_approved_at
 		FROM leave_requests 
 		WHERE id = ?
-	`, req.LeaveID).Scan(&driverID, &startDate, &endDate, &currentStatus, &inchargeApprovedAt, &adminApprovedAt)
+	`, req.LeaveID).Scan(&driverID, &startDate, &endDate, &currentStatus, &adminApprovedAt)
 
 	if err != nil {
 		log.Printf("Get leave details error: %v", err)
@@ -805,14 +739,11 @@ func ApproveLeaveWithAssignments(c *gin.Context) {
 
 	// Determine final status
 	var newStatus string
-	if inchargeApprovedAt.Valid && currentStatus != "rejected" {
-		newStatus = "approved"
-	} else if currentStatus == "rejected" {
+	if currentStatus == "rejected" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot approve a rejected leave request"})
 		return
-	} else {
-		newStatus = "admin_approved"
 	}
+	newStatus = "approved"
 
 	// Start transaction
 	tx, err := config.DB.Begin()
@@ -923,13 +854,8 @@ func ApproveLeaveWithAssignments(c *gin.Context) {
 	config.DB.QueryRow("SELECT user_id FROM drivers WHERE id = ?", driverID).Scan(&driverUserID)
 
 	var notifTitle, notifMessage string
-	if newStatus == "approved" {
-		notifTitle = "Leave Request Approved"
-		notifMessage = fmt.Sprintf("Your leave request from %s to %s has been fully approved. Attendance will be automatically marked as absent.", startDate, endDate)
-	} else {
-		notifTitle = "Leave Request - Admin Approved"
-		notifMessage = fmt.Sprintf("Your leave request from %s to %s has been approved by admin. Waiting for incharge approval.", startDate, endDate)
-	}
+	notifTitle = "Leave Request Approved"
+	notifMessage = fmt.Sprintf("Your leave request from %s to %s has been approved. Attendance will be automatically marked as absent.", startDate, endDate)
 
 	_, _ = config.DB.Exec(`
 		INSERT INTO notifications (recipient_role, recipient_id, title, message, type, reference_id)
@@ -1062,7 +988,8 @@ func markAttendanceForLeave(driverID int, startDateStr, endDateStr string) {
 			WHERE user_id = ? AND date = ?
 		`, userID, dateStr).Scan(&existingStatus)
 
-		if err == sql.ErrNoRows {
+		switch err {
+		case sql.ErrNoRows:
 			// No attendance record exists, insert new one
 			_, err = config.DB.Exec(`
 				INSERT INTO attendance (user_id, date, status, checkin_time)
@@ -1074,7 +1001,7 @@ func markAttendanceForLeave(driverID int, startDateStr, endDateStr string) {
 				log.Printf("Automatically marked absent for user %d (driver %d) on %s due to approved leave",
 					userID, driverID, dateStr)
 			}
-		} else if err == nil {
+		case nil:
 			// Attendance record exists, update it if it's not already marked
 			if existingStatus == "not_marked" || existingStatus == "" {
 				_, err = config.DB.Exec(`

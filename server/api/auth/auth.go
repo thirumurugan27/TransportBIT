@@ -18,15 +18,14 @@ import (
 
 // UnifiedLoginResponse - unified response for all user types
 type UnifiedLoginResponse struct {
-	UserID     int    `json:"user_id"`
-	Username   string `json:"username"`
-	FullName   string `json:"full_name"`
-	Email      string `json:"email"`
-	Role       string `json:"role"`
-	Token      string `json:"token"` // Added Token
-	DriverID   *int   `json:"driver_id,omitempty"`
-	IsIncharge *bool  `json:"is_incharge,omitempty"`
-	Message    string `json:"message"`
+	UserID   int    `json:"user_id"`
+	Username string `json:"username"`
+	FullName string `json:"full_name"`
+	Email    string `json:"email"`
+	Role     string `json:"role"`
+	Token    string `json:"token"`
+	DriverID *int   `json:"driver_id,omitempty"`
+	Message  string `json:"message"`
 }
 
 // 🔐 UNIFIED LOGIN - Single endpoint for all roles
@@ -86,18 +85,16 @@ func UnifiedLogin(c *gin.Context) {
 		Message:  "Login successful",
 	}
 
-	// If role is DRIVER or INCHARGE, get driver details
-	if role == "DRIVER" || role == "INCHARGE" {
+	// If role is DRIVER, get driver details
+	if role == "DRIVER" {
 		var driverID int
-		var isIncharge bool
 		err = config.DB.QueryRow(
-			"SELECT id, is_incharge FROM drivers WHERE user_id = ?",
+			"SELECT id FROM drivers WHERE user_id = ?",
 			userID,
-		).Scan(&driverID, &isIncharge)
+		).Scan(&driverID)
 
 		if err == nil {
 			response.DriverID = &driverID
-			response.IsIncharge = &isIncharge
 		} else {
 			log.Printf("Driver record not found for user %d: %v", userID, err)
 		}

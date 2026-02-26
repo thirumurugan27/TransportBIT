@@ -12,25 +12,21 @@ import (
 
 // LeaveRequest - leave request struct
 type LeaveRequest struct {
-	ID                 int     `json:"id"`
-	DriverID           int     `json:"driver_id"`
-	DriverName         string  `json:"driver_name"`
-	LeaveType          string  `json:"leave_type"`
-	StartDate          string  `json:"start_date"`
-	StartTime          string  `json:"start_time"`
-	EndDate            string  `json:"end_date"`
-	EndTime            string  `json:"end_time"`
-	Reason             string  `json:"reason"`
-	Status             string  `json:"status"`
-	InchargeID         *int    `json:"incharge_id"`
-	InchargeName       *string `json:"incharge_name"`
-	InchargeApprovedAt *string `json:"incharge_approved_at"`
-	InchargeRemarks    *string `json:"incharge_remarks"`
-	AdminID            *int    `json:"admin_id"`
-	AdminName          *string `json:"admin_name"`
-	AdminApprovedAt    *string `json:"admin_approved_at"`
-	AdminRemarks       *string `json:"admin_remarks"`
-	CreatedAt          string  `json:"created_at"`
+	ID              int     `json:"id"`
+	DriverID        int     `json:"driver_id"`
+	DriverName      string  `json:"driver_name"`
+	LeaveType       string  `json:"leave_type"`
+	StartDate       string  `json:"start_date"`
+	StartTime       string  `json:"start_time"`
+	EndDate         string  `json:"end_date"`
+	EndTime         string  `json:"end_time"`
+	Reason          string  `json:"reason"`
+	Status          string  `json:"status"`
+	AdminID         *int    `json:"admin_id"`
+	AdminName       *string `json:"admin_name"`
+	AdminApprovedAt *string `json:"admin_approved_at"`
+	AdminRemarks    *string `json:"admin_remarks"`
+	CreatedAt       string  `json:"created_at"`
 }
 
 // ApplyLeaveRequest - request to apply for leave
@@ -137,10 +133,8 @@ func GetMyLeaveRequests(c *gin.Context) {
 			   DATE_FORMAT(lr.end_date, '%d-%m-%Y') as end_date,
 			   TIME_FORMAT(lr.end_time, '%h:%i %p') as end_time,
 			   lr.reason, lr.status,
-			   lr.incharge_id, u_inc.full_name as incharge_name, lr.incharge_approved_at, lr.incharge_remarks,
 			   lr.admin_id, u_adm.full_name as admin_name, lr.admin_approved_at, lr.admin_remarks, lr.created_at
 		FROM leave_requests lr
-		LEFT JOIN users u_inc ON lr.incharge_id = u_inc.id
 		LEFT JOIN users u_adm ON lr.admin_id = u_adm.id
 		WHERE lr.driver_id = ?
 		ORDER BY lr.created_at DESC
@@ -157,13 +151,12 @@ func GetMyLeaveRequests(c *gin.Context) {
 	for rows.Next() {
 		var l LeaveRequest
 		var startDate, startTime, endDate, endTime, createdAt []byte
-		var inchargeApprovedAt, adminApprovedAt sql.NullString
-		var inchargeRemarks, adminRemarks sql.NullString
-		var inchargeName, adminName sql.NullString
-		var inchargeID, adminID sql.NullInt64
+		var adminApprovedAt sql.NullString
+		var adminRemarks sql.NullString
+		var adminName sql.NullString
+		var adminID sql.NullInt64
 
 		err := rows.Scan(&l.ID, &l.DriverID, &l.LeaveType, &startDate, &startTime, &endDate, &endTime, &l.Reason, &l.Status,
-			&inchargeID, &inchargeName, &inchargeApprovedAt, &inchargeRemarks,
 			&adminID, &adminName, &adminApprovedAt, &adminRemarks, &createdAt)
 		if err != nil {
 			log.Printf("Scan leave request error: %v", err)
@@ -176,19 +169,6 @@ func GetMyLeaveRequests(c *gin.Context) {
 		l.EndTime = string(endTime)
 		l.CreatedAt = string(createdAt)
 
-		if inchargeID.Valid {
-			id := int(inchargeID.Int64)
-			l.InchargeID = &id
-		}
-		if inchargeName.Valid {
-			l.InchargeName = &inchargeName.String
-		}
-		if inchargeApprovedAt.Valid {
-			l.InchargeApprovedAt = &inchargeApprovedAt.String
-		}
-		if inchargeRemarks.Valid {
-			l.InchargeRemarks = &inchargeRemarks.String
-		}
 		if adminID.Valid {
 			id := int(adminID.Int64)
 			l.AdminID = &id

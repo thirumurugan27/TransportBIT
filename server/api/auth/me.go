@@ -59,18 +59,16 @@ func Me(c *gin.Context) {
 		response.FullName = username
 	}
 
-	// If role is DRIVER or INCHARGE, get driver details
-	if role == "DRIVER" || role == "INCHARGE" {
+	// If role is DRIVER, get driver details
+	if role == "DRIVER" {
 		var driverID int
-		var isIncharge bool
 		err = config.DB.QueryRow(
-			"SELECT id, is_incharge FROM drivers WHERE user_id = ?",
+			"SELECT id FROM drivers WHERE user_id = ?",
 			userID,
-		).Scan(&driverID, &isIncharge)
+		).Scan(&driverID)
 
 		if err == nil {
 			response.DriverID = &driverID
-			response.IsIncharge = &isIncharge
 		}
 	}
 

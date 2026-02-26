@@ -47,7 +47,6 @@ func ReportIssue(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Vehicle ID is required"})
 		return
 	}
-
 	severity := req.Severity
 	if severity == "" {
 		severity = "medium"
@@ -69,9 +68,7 @@ func ReportIssue(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to report issue: " + err.Error()})
 		return
 	}
-
 	id, _ := result.LastInsertId()
-
 	// Get vehicle number for notification
 	var vehicleNumber string
 	config.DB.QueryRow(`SELECT vehicle_number FROM vehicles WHERE id = ?`, req.VehicleID).Scan(&vehicleNumber)

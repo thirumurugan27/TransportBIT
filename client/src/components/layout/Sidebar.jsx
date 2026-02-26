@@ -140,9 +140,7 @@ export default function Sidebar({
             ) : (
               <div className="w-14 h-14 bg-primary rounded-md flex items-center justify-center shadow-md shadow-primary/20">
                 <span className="text-2xl">
-                  {role === "INCHARGE"
-                    ? "👔"
-                    : role === "STUDENT"
+                  {role === "STUDENT"
                       ? "🎓"
                       : "👤"}
                 </span>

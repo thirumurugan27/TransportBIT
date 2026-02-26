@@ -127,17 +127,14 @@ export const getStatusLabel = (leave) => {
     const status = (leave?.status || "").toLowerCase().trim();
     if (status === "rejected") return "Rejected";
 
-    // If explicitly approved or both approvals are present
-    if (status === "approved" || (leave.admin_approved_at && leave.incharge_approved_at)) {
+    // If explicitly approved
+    if (status === "approved" || leave.admin_approved_at) {
         return "Approved";
     }
 
     // Check individual approvals
     if (status === "admin_approved") {
         return "Admin Approved";
-    }
-    if (status === "incharge_approved") {
-        return "Incharge Approved";
     }
     if (status === "rejected") {
         return "Rejected";
@@ -167,21 +164,12 @@ export const getStatusColor = (leave) => {
         };
     }
 
-    // Check if both approved - fully approved
-    if (status === "approved" || (leave.admin_approved_at && leave.incharge_approved_at)) {
+    // Check if approved
+    if (status === "approved" || leave.admin_approved_at) {
         return {
             bg: "bg-green-100",
             text: "text-green-700",
             badge: "bg-green-500"
-        };
-    }
-
-    // Partially approved
-    if (status === "incharge_approved") {
-        return {
-            bg: "bg-blue-100",
-            text: "text-blue-700",
-            badge: "bg-blue-500"
         };
     }
 
