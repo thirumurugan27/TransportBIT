@@ -2000,22 +2000,7 @@ export default function ScheduleManagement() {
                       ))}
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShiftForm({
-                          ...shiftForm,
-                          slots: [
-                            ...shiftForm.slots,
-                            {start_time: "09:00", end_time: "17:00"},
-                          ],
-                        });
-                      }}
-                      className="mt-3 w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-md text-sm font-semibold text-secondarytext hover:border-primary hover:text-primary hover:bg-primary/5 transition-all flex items-center justify-center gap-2"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Add Another Time Slot
-                    </button>
+
                   </div>
                 </div>
               )}

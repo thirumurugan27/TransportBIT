@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"transport-server/config"
@@ -184,13 +185,22 @@ func CreateAssignment(c *gin.Context) {
 		createdBy = req.CreatedBy
 	}
 
+	// Normalize: if shift_ids is provided use it; otherwise fall back to single shift_id
+	shiftIDs := req.ShiftIDs
+	if len(shiftIDs) == 0 && req.ShiftID > 0 {
+		shiftIDs = []int{req.ShiftID}
+	}
+
 	// If this is a temporary assignment, redirect to temporary assignments handler
 	if req.IsTemporaryReplacement && req.OriginalDriverID != nil {
-		shiftID := req.ShiftID
+		firstShiftID := 0
+		if len(shiftIDs) > 0 {
+			firstShiftID = shiftIDs[0]
+		}
 		tempReq := models.CreateTemporaryAssignmentRequest{
 			OriginalDriverID:    *req.OriginalDriverID,
 			ReplacementDriverID: req.DriverID,
-			ShiftID:             &shiftID,
+			ShiftID:             &firstShiftID,
 			VehicleID:           req.VehicleID,
 			StartDate:           req.StartDate,
 			EndDate:             req.EndDate,
@@ -206,6 +216,11 @@ func CreateAssignment(c *gin.Context) {
 	// Validate date range for regular assignment
 	if req.StartDate == "" || req.EndDate == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Start date and end date are required"})
+		return
+	}
+
+	if len(shiftIDs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "At least one shift is required"})
 		return
 	}
 
@@ -256,55 +271,81 @@ func CreateAssignment(c *gin.Context) {
 		req.DriverID, req.EndDate, req.StartDate, req.StartDate).
 		Scan(&coarseCount)
 
-	hasConflict := false
-	// Only proceed to detailed time checks if we have potential conflicts, or just rely on the time check loop.
-	// Previously: if coarseCount > 0 { hasConflict = true } caused false positives for non-overlapping shifts on same day.
-
 	// Time-conflict validation using shift times (including multi-slot shifts)
-	// Gather the time ranges to validate for the selected shift
+	// Gather the time ranges to validate for ALL selected shifts
 	type timeRange struct{ start, end string }
-	var ranges []timeRange
+	allRanges := make(map[int][]timeRange) // shiftID -> time ranges
 
-	// Try slots first (multi-slot shifts)
-	slotRows, slotErr := config.DB.Query(`SELECT start_time, end_time FROM shift_slots WHERE shift_id = ? ORDER BY slot_order ASC`, req.ShiftID)
-	if slotErr == nil {
-		defer slotRows.Close()
-		for slotRows.Next() {
+	for _, sid := range shiftIDs {
+		var ranges []timeRange
+		// Try slots first (multi-slot shifts)
+		slotRows, slotErr := config.DB.Query(`SELECT start_time, end_time FROM shift_slots WHERE shift_id = ? ORDER BY slot_order ASC`, sid)
+		if slotErr == nil {
+			defer slotRows.Close()
+			for slotRows.Next() {
+				var s, e sql.NullString
+				slotRows.Scan(&s, &e)
+				if s.Valid && e.Valid {
+					ranges = append(ranges, timeRange{start: s.String, end: e.String})
+				}
+			}
+		}
+		// If no slots, fall back to the main shift times
+		if len(ranges) == 0 {
 			var s, e sql.NullString
-			slotRows.Scan(&s, &e)
+			_ = config.DB.QueryRow(`SELECT start_time, end_time FROM shifts WHERE id = ?`, sid).Scan(&s, &e)
 			if s.Valid && e.Valid {
 				ranges = append(ranges, timeRange{start: s.String, end: e.String})
 			}
 		}
+		allRanges[sid] = ranges
 	}
-	// If no slots, fall back to the main shift times
-	if len(ranges) == 0 {
-		var s, e sql.NullString
-		_ = config.DB.QueryRow(`SELECT start_time, end_time FROM shifts WHERE id = ?`, req.ShiftID).Scan(&s, &e)
-		if s.Valid && e.Valid {
-			ranges = append(ranges, timeRange{start: s.String, end: e.String})
+
+	// Check for inter-shift conflicts (between the selected shifts themselves)
+	if len(shiftIDs) > 1 {
+		for i := 0; i < len(shiftIDs); i++ {
+			for j := i + 1; j < len(shiftIDs); j++ {
+				for _, r1 := range allRanges[shiftIDs[i]] {
+					for _, r2 := range allRanges[shiftIDs[j]] {
+						if timesOverlap(r1.start, r1.end, r2.start, r2.end) {
+							// Get shift names for error message
+							var name1, name2 string
+							config.DB.QueryRow(`SELECT name FROM shifts WHERE id = ?`, shiftIDs[i]).Scan(&name1)
+							config.DB.QueryRow(`SELECT name FROM shifts WHERE id = ?`, shiftIDs[j]).Scan(&name2)
+							c.JSON(http.StatusConflict, gin.H{
+								"error":   "time_conflict",
+								"message": fmt.Sprintf("Selected shifts have overlapping times: \"%s\" conflicts with \"%s\"", name1, name2),
+							})
+							return
+						}
+					}
+				}
+			}
 		}
 	}
 
-	// Check for time conflicts across every day in the selected date range
-	start, _ := time.Parse("2006-01-02", req.StartDate)
-	end, _ := time.Parse("2006-01-02", req.EndDate)
-	if end.Before(start) {
-		end = start
-	}
-	conflictDate := "" // Track which date has the conflict
-	for d := start; !d.After(end); d = d.Add(24 * time.Hour) {
-		checkDate := d.Format("2006-01-02")
-		for _, r := range ranges {
-			hc, err := CheckDriverTimeConflict(req.DriverID, r.start, r.end, checkDate)
-			if err != nil {
-				log.Printf("Error during time conflict check: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Error checking time conflict"})
-				return
+	// Check for time conflicts with existing assignments across every day in the date range
+	hasConflict := false
+	conflictDate := ""
+	var conflictRanges []timeRange
+	for d_iter := mustParseDate(req.StartDate); !d_iter.After(mustParseDate(req.EndDate)); d_iter = d_iter.Add(24 * time.Hour) {
+		checkDate := d_iter.Format("2006-01-02")
+		for _, sid := range shiftIDs {
+			for _, r := range allRanges[sid] {
+				hc, err := CheckDriverTimeConflict(req.DriverID, r.start, r.end, checkDate)
+				if err != nil {
+					log.Printf("Error during time conflict check: %v", err)
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Error checking time conflict"})
+					return
+				}
+				if hc {
+					hasConflict = true
+					conflictDate = checkDate
+					conflictRanges = allRanges[sid]
+					break
+				}
 			}
-			if hc {
-				hasConflict = true
-				conflictDate = checkDate
+			if hasConflict {
 				break
 			}
 		}
@@ -315,8 +356,8 @@ func CreateAssignment(c *gin.Context) {
 
 	if hasConflict && !req.ForceAssign {
 		// Build conflict details for UI notification
-		checkRanges := make([]struct{ start, end string }, len(ranges))
-		for i, r := range ranges {
+		checkRanges := make([]struct{ start, end string }, len(conflictRanges))
+		for i, r := range conflictRanges {
 			checkRanges[i] = struct{ start, end string }{start: r.start, end: r.end}
 		}
 		conflicts, err := getDriverConflictsDetails(req.DriverID, conflictDate, checkRanges)
@@ -332,19 +373,31 @@ func CreateAssignment(c *gin.Context) {
 		return
 	}
 
-	// Create assignment with description
-	_, err = config.DB.Exec(`
-		INSERT INTO assignments (shift_id, vehicle_id, driver_id, assigned_date, start_date, end_date, status, created_by, description)
-		VALUES (?, ?, ?, ?, ?, ?, 'assigned', ?, ?)
-	`, req.ShiftID, req.VehicleID, req.DriverID, req.StartDate, req.StartDate, req.EndDate, createdBy, req.Description)
+	// Create one assignment per selected shift
+	for _, sid := range shiftIDs {
+		_, err = config.DB.Exec(`
+			INSERT INTO assignments (shift_id, vehicle_id, driver_id, assigned_date, start_date, end_date, status, created_by, description)
+			VALUES (?, ?, ?, ?, ?, ?, 'assigned', ?, ?)
+		`, sid, req.VehicleID, req.DriverID, req.StartDate, req.StartDate, req.EndDate, createdBy, req.Description)
 
-	if err != nil {
-		log.Printf("Create assignment error: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+		if err != nil {
+			log.Printf("Create assignment error for shift %d: %v", sid, err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Assignment created successfully"})
+	msg := "Assignment created successfully"
+	if len(shiftIDs) > 1 {
+		msg = fmt.Sprintf("%d assignments created successfully (one per shift)", len(shiftIDs))
+	}
+	c.JSON(http.StatusOK, gin.H{"message": msg})
+}
+
+// Helper to parse date string, returns zero time on error
+func mustParseDate(s string) time.Time {
+	t, _ := time.Parse("2006-01-02", s)
+	return t
 }
 
 // POST /api/admin/assignments/update
@@ -849,17 +902,19 @@ func getDriverConflictsDetails(driverID int, checkDate string, checkRanges []str
 /*
 	=========================
 	  GET /api/admin/assignments/check-driver-conflict
-	  Check if a specific driver has conflicts for a given shift and date
+	  Check if a specific driver has conflicts for given shifts and date
+	  Accepts: shift_id (single) or shift_ids (comma-separated)
 
 =========================
 */
 func CheckDriverConflictAPI(c *gin.Context) {
 	driverIDStr := c.Query("driver_id")
 	shiftIDStr := c.Query("shift_id")
+	shiftIDsStr := c.Query("shift_ids")
 	checkDate := c.Query("date")
 
-	if driverIDStr == "" || shiftIDStr == "" || checkDate == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "driver_id, shift_id, and date are required"})
+	if driverIDStr == "" || checkDate == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "driver_id and date are required"})
 		return
 	}
 
@@ -869,33 +924,53 @@ func CheckDriverConflictAPI(c *gin.Context) {
 		return
 	}
 
-	shiftID, err := strconv.Atoi(shiftIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid shift_id"})
-		return
-	}
-
-	// Get shift time ranges (including slots)
-	type timeRange struct{ start, end string }
-	var ranges []timeRange
-
-	// Try slots first (multi-slot shifts)
-	slotRows, slotErr := config.DB.Query(`SELECT start_time, end_time FROM shift_slots WHERE shift_id = ? ORDER BY slot_order ASC`, shiftID)
-	if slotErr == nil {
-		defer slotRows.Close()
-		for slotRows.Next() {
-			var s, e sql.NullString
-			slotRows.Scan(&s, &e)
-			if s.Valid && e.Valid {
-				ranges = append(ranges, timeRange{start: s.String, end: e.String})
+	// Parse shift IDs - support both shift_id and shift_ids parameters
+	var shiftIDs []int
+	if shiftIDsStr != "" {
+		parts := strings.Split(shiftIDsStr, ",")
+		for _, p := range parts {
+			p = strings.TrimSpace(p)
+			if id, err := strconv.Atoi(p); err == nil && id > 0 {
+				shiftIDs = append(shiftIDs, id)
 			}
+		}
+	} else if shiftIDStr != "" {
+		if id, err := strconv.Atoi(shiftIDStr); err == nil && id > 0 {
+			shiftIDs = []int{id}
 		}
 	}
 
-	// If no slots, fall back to the main shift times
-	if len(ranges) == 0 {
+	if len(shiftIDs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "shift_id or shift_ids is required"})
+		return
+	}
+
+	// Get shift time ranges for all shifts (including slots)
+	type timeRange struct{ start, end string }
+	var ranges []timeRange
+
+	for _, sid := range shiftIDs {
+		// Try slots first (multi-slot shifts)
+		slotRows, slotErr := config.DB.Query(`SELECT start_time, end_time FROM shift_slots WHERE shift_id = ? ORDER BY slot_order ASC`, sid)
+		if slotErr == nil {
+			hasSlots := false
+			for slotRows.Next() {
+				var s, e sql.NullString
+				slotRows.Scan(&s, &e)
+				if s.Valid && e.Valid {
+					ranges = append(ranges, timeRange{start: s.String, end: e.String})
+					hasSlots = true
+				}
+			}
+			slotRows.Close()
+			if hasSlots {
+				continue
+			}
+		}
+
+		// If no slots, fall back to the main shift times
 		var s, e sql.NullString
-		_ = config.DB.QueryRow(`SELECT start_time, end_time FROM shifts WHERE id = ?`, shiftID).Scan(&s, &e)
+		_ = config.DB.QueryRow(`SELECT start_time, end_time FROM shifts WHERE id = ?`, sid).Scan(&s, &e)
 		if s.Valid && e.Valid {
 			ranges = append(ranges, timeRange{start: s.String, end: e.String})
 		}
@@ -947,10 +1022,11 @@ func CheckDriverConflictAPI(c *gin.Context) {
 func CheckVehicleConflictAPI(c *gin.Context) {
 	vehicleIDStr := c.Query("vehicle_id")
 	shiftIDStr := c.Query("shift_id")
+	shiftIDsStr := c.Query("shift_ids")
 	checkDate := c.Query("date")
 
-	if vehicleIDStr == "" || shiftIDStr == "" || checkDate == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "vehicle_id, shift_id, and date are required"})
+	if vehicleIDStr == "" || checkDate == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "vehicle_id and date are required"})
 		return
 	}
 
@@ -960,33 +1036,53 @@ func CheckVehicleConflictAPI(c *gin.Context) {
 		return
 	}
 
-	shiftID, err := strconv.Atoi(shiftIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid shift_id"})
-		return
-	}
-
-	// Get shift time ranges (including slots)
-	type timeRange struct{ start, end string }
-	var ranges []timeRange
-
-	// Try slots first (multi-slot shifts)
-	slotRows, slotErr := config.DB.Query(`SELECT start_time, end_time FROM shift_slots WHERE shift_id = ? ORDER BY slot_order ASC`, shiftID)
-	if slotErr == nil {
-		defer slotRows.Close()
-		for slotRows.Next() {
-			var s, e sql.NullString
-			slotRows.Scan(&s, &e)
-			if s.Valid && e.Valid {
-				ranges = append(ranges, timeRange{start: s.String, end: e.String})
+	// Parse shift IDs - support both shift_id and shift_ids parameters
+	var shiftIDs []int
+	if shiftIDsStr != "" {
+		parts := strings.Split(shiftIDsStr, ",")
+		for _, p := range parts {
+			p = strings.TrimSpace(p)
+			if id, err := strconv.Atoi(p); err == nil && id > 0 {
+				shiftIDs = append(shiftIDs, id)
 			}
+		}
+	} else if shiftIDStr != "" {
+		if id, err := strconv.Atoi(shiftIDStr); err == nil && id > 0 {
+			shiftIDs = []int{id}
 		}
 	}
 
-	// If no slots, fall back to the main shift times
-	if len(ranges) == 0 {
+	if len(shiftIDs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "shift_id or shift_ids is required"})
+		return
+	}
+
+	// Get shift time ranges for all shifts (including slots)
+	type timeRange struct{ start, end string }
+	var ranges []timeRange
+
+	for _, sid := range shiftIDs {
+		// Try slots first (multi-slot shifts)
+		slotRows, slotErr := config.DB.Query(`SELECT start_time, end_time FROM shift_slots WHERE shift_id = ? ORDER BY slot_order ASC`, sid)
+		if slotErr == nil {
+			hasSlots := false
+			for slotRows.Next() {
+				var s, e sql.NullString
+				slotRows.Scan(&s, &e)
+				if s.Valid && e.Valid {
+					ranges = append(ranges, timeRange{start: s.String, end: e.String})
+					hasSlots = true
+				}
+			}
+			slotRows.Close()
+			if hasSlots {
+				continue
+			}
+		}
+
+		// If no slots, fall back to the main shift times
 		var s, e sql.NullString
-		_ = config.DB.QueryRow(`SELECT start_time, end_time FROM shifts WHERE id = ?`, shiftID).Scan(&s, &e)
+		_ = config.DB.QueryRow(`SELECT start_time, end_time FROM shifts WHERE id = ?`, sid).Scan(&s, &e)
 		if s.Valid && e.Valid {
 			ranges = append(ranges, timeRange{start: s.String, end: e.String})
 		}

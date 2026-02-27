@@ -710,15 +710,16 @@ func GetMyTransportRequests(c *gin.Context) {
 	rows, err := config.DB.Query(`
 		SELECT 
 			tr.id, tr.user_id,
-			tr.bus_id, COALESCE(v.vehicle_name, v.vehicle_number, ''), CONCAT(b.start_point, ' → ', b.end_point) as route,
-			tr.stop_id, bs.stop_name, bs.fee,
+			tr.bus_id, COALESCE(v.vehicle_name, v.vehicle_number, ''), CONCAT(COALESCE(b.start_point,''), ' → ', COALESCE(b.end_point,'')) as route,
+			tr.stop_id, COALESCE(bs.stop_name, ''), COALESCE(bs.fee, 0),
 			tr.academic_year, COALESCE(tr.reason, ''), tr.status,
 			COALESCE(tr.admin_remarks, ''),
 			tr.processed_by,
 			tr.processed_at, tr.created_at
 		FROM transport_requests tr
-		JOIN buses b ON tr.bus_id = b.id
-		JOIN bus_stops bs ON tr.stop_id = bs.id
+		LEFT JOIN buses b ON tr.bus_id = b.id
+		LEFT JOIN vehicles v ON b.vehicle_id = v.id
+		LEFT JOIN bus_stops bs ON tr.stop_id = bs.id
 		WHERE tr.user_id = ?
 		ORDER BY tr.created_at DESC
 	`, userID)

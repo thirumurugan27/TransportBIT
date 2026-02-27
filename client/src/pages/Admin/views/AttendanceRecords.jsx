@@ -17,6 +17,26 @@ import {useToast} from "../../../context/ToastContext";
 
 import {apiGet, apiPost} from "../../../utils/api";
 
+// Format ISO datetime to readable format like "09:16 AM, 27 Feb 2026"
+const formatCheckinTime = (isoString) => {
+  if (!isoString) return null;
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return isoString;
+    const hours = d.getHours();
+    const minutes = d.getMinutes().toString().padStart(2, "0");
+    const ampm = hours >= 12 ? "PM" : "AM";
+    const h12 = hours % 12 || 12;
+    const day = d.getDate().toString().padStart(2, "0");
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const month = months[d.getMonth()];
+    const year = d.getFullYear();
+    return `${h12}:${minutes} ${ampm}, ${day} ${month} ${year}`;
+  } catch {
+    return isoString;
+  }
+};
+
 export default function AttendanceRecords() {
   const {showToast} = useToast();
   const [attendanceHistory, setAttendanceHistory] = useState([]);
@@ -295,23 +315,23 @@ export default function AttendanceRecords() {
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  <th className="px-5 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[14%]">
                     Date
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  <th className="px-5 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[18%]">
                     Driver
                   </th>
-                  <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  <th className="px-5 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider w-[12%]">
                     Status
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  <th className="px-5 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[22%]">
                     Check-in
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  <th className="px-5 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[16%]">
                     Marked By
                   </th>
                   {isSingleDay && (
-                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <th className="px-5 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider w-[18%]">
                       Actions
                     </th>
                   )}
@@ -324,13 +344,13 @@ export default function AttendanceRecords() {
                       key={`${record.id ?? "record"}-${record.date ?? "nodate"}-${idx}`}
                       className="hover:bg-gray-50/50 transition-colors"
                     >
-                      <td className="px-6 py-4 font-medium text-gray-900">
+                      <td className="px-5 py-4 font-medium text-gray-900">
                         <div className="flex items-center gap-2">
                           <Calendar size={14} className="text-gray-400" />
                           {record.date}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-md bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
                             {record.full_name?.charAt(0) || "?"}
@@ -340,7 +360,7 @@ export default function AttendanceRecords() {
                           </span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-center">
+                      <td className="px-5 py-4 text-center">
                         <span
                           className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wide border ${
                             record.status === "present"
@@ -366,13 +386,23 @@ export default function AttendanceRecords() {
                                 : "Not Marked"}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {record.checkin_time || (
-                          <span className="text-gray-300">-</span>
+                      <td className="px-5 py-4 text-sm text-gray-600">
+                        {record.checkin_time ? (
+                          <div className="flex items-center gap-1.5">
+                            <Clock size={13} className="text-gray-400 shrink-0" />
+                            <span>{formatCheckinTime(record.checkin_time)}</span>
+                          </div>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-4 text-sm text-gray-500">
+                        {record.marked_by_name || record.marked_by || (
+                          <span className="text-gray-300">—</span>
                         )}
                       </td>
                       {isSingleDay && (
-                        <td className="px-6 py-4 text-right">
+                        <td className="px-5 py-4 text-right">
                           <div className="flex justify-end gap-2">
                             <button
                               onClick={(e) => {

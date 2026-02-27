@@ -198,6 +198,7 @@ type Assignment struct {
 
 type CreateAssignmentRequest struct {
 	ShiftID                int    `json:"shift_id"`
+	ShiftIDs               []int  `json:"shift_ids"`
 	VehicleID              int    `json:"vehicle_id"`
 	DriverID               int    `json:"driver_id"`
 	StartDate              string `json:"start_date"`
@@ -280,8 +281,10 @@ type Attendance struct {
 	Status       string  `json:"status"`
 	CheckinTime  *string `json:"checkin_time"`
 	CheckoutTime *string `json:"checkout_time"`
+	MarkedBy     *int    `json:"marked_by"`
 	// Joined
-	FullName string `json:"full_name"`
+	FullName     string `json:"full_name"`
+	MarkedByName string `json:"marked_by_name"`
 }
 
 type MarkAttendanceRequest struct {
@@ -421,6 +424,9 @@ type StudentTransport struct {
 	UserID        int     `json:"user_id"`
 	StudentName   string  `json:"student_name"`
 	StudentEmail  string  `json:"student_email"`
+	Department    string  `json:"department"`
+	Year          int     `json:"year"`
+	RollNumber    string  `json:"roll_number"`
 	BusID         int     `json:"bus_id"`
 	VehicleName   string  `json:"vehicle_name"`
 	BusNumber     string  `json:"bus_number"`

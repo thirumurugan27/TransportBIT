@@ -50,7 +50,7 @@ func main() {
 	corsConfig := cors.Config{
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-Tunnel-Skip-Efficiency-Check"},
-		ExposeHeaders:    []string{"Content-Length"},
+		ExposeHeaders:    []string{"Content-Length", "Content-Disposition", "Content-Type"},
 		AllowCredentials: true,
 		AllowOrigins:     strings.Split(allowedOrigins, ","),
 	}

@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from "react";
+import React, {useState, useEffect, useRef} from "react";
 import TemporaryAssignments from "./TemporaryAssignments";
 import VehicleReplacements from "./VehicleReplacements";
 import Loading from "../../../components/ui/Loading";
@@ -22,6 +22,8 @@ import {
   Filter,
   Truck,
   FileText,
+  Check,
+  ChevronDown,
 } from "lucide-react";
 import CustomDropdown from "../../../components/ui/CustomDropdown";
 import CustomSearch from "../../../components/ui/CustomSearch";
@@ -46,12 +48,253 @@ const getCreatorIdFromToken = () => {
 // Helper to convert 24h time to 12h AM/PM format
 const formatTimeAMPM = (time24) => {
   if (!time24) return "";
+  // If already contains AM/PM, return as-is (backend pre-formatted)
+  if (/[AP]M/i.test(time24)) return time24.trim();
   const [hours, minutes] = time24.split(":");
   const h = parseInt(hours, 10);
   const ampm = h >= 12 ? "PM" : "AM";
   const h12 = h % 12 || 12;
   return `${h12}:${minutes} ${ampm}`;
 };
+
+// Convert "HH:MM" to minutes since midnight for comparison
+const timeToMinutes = (t) => {
+  if (!t) return 0;
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
+};
+
+// Check if two time ranges overlap
+const timesOverlap = (s1, e1, s2, e2) => {
+  const start1 = timeToMinutes(s1);
+  const end1 = timeToMinutes(e1);
+  const start2 = timeToMinutes(s2);
+  const end2 = timeToMinutes(e2);
+  return start1 < end2 && start2 < end1;
+};
+
+// Get all time ranges for a shift (handles multi-slot shifts)
+const getShiftTimeRanges = (shift) => {
+  if (shift.slots && shift.slots.length > 0) {
+    return shift.slots.map((slot) => ({
+      start: slot.start_time,
+      end: slot.end_time,
+    }));
+  }
+  return [{start: shift.start_time, end: shift.end_time}];
+};
+
+// Detect time conflicts between selected shifts
+// Returns array of [shiftName1, shiftName2] pairs that conflict
+const detectInterShiftConflicts = (selectedShifts) => {
+  const conflictPairs = [];
+  for (let i = 0; i < selectedShifts.length; i++) {
+    for (let j = i + 1; j < selectedShifts.length; j++) {
+      const ranges1 = getShiftTimeRanges(selectedShifts[i]);
+      const ranges2 = getShiftTimeRanges(selectedShifts[j]);
+      let hasOverlap = false;
+      for (const r1 of ranges1) {
+        for (const r2 of ranges2) {
+          if (timesOverlap(r1.start, r1.end, r2.start, r2.end)) {
+            hasOverlap = true;
+            break;
+          }
+        }
+        if (hasOverlap) break;
+      }
+      if (hasOverlap) {
+        conflictPairs.push([selectedShifts[i].name, selectedShifts[j].name]);
+      }
+    }
+  }
+  return conflictPairs;
+};
+
+// Multi-Shift Select Component with checkboxes
+function MultiShiftSelect({shifts, selectedIds, onChange, formatTimeAMPM}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const containerRef = useRef(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const filteredShifts = shifts.filter((s) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    const timeDisplay =
+      s.slots && s.slots.length > 0
+        ? s.slots
+            .map(
+              (slot) =>
+                `${formatTimeAMPM(slot.start_time)}-${formatTimeAMPM(slot.end_time)}`,
+            )
+            .join(", ")
+        : `${formatTimeAMPM(s.start_time)}-${formatTimeAMPM(s.end_time)}`;
+    return (
+      (s.name || "").toLowerCase().includes(q) ||
+      timeDisplay.toLowerCase().includes(q)
+    );
+  });
+
+  const toggleShift = (shiftId) => {
+    if (selectedIds.includes(shiftId)) {
+      onChange(selectedIds.filter((id) => id !== shiftId));
+    } else {
+      onChange([...selectedIds, shiftId]);
+    }
+  };
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between border border-gray-200 rounded-md p-2.5 bg-primarybg hover:border-primary/40 transition-colors text-left"
+      >
+        <span className={`text-sm ${selectedIds.length > 0 ? "text-primarytext" : "text-secondarytext"}`}>
+          {selectedIds.length > 0
+            ? `${selectedIds.length} shift${selectedIds.length > 1 ? "s" : ""} selected`
+            : "Click to select shifts..."}
+        </span>
+        <ChevronDown
+          size={16}
+          className={`text-secondarytext transition-transform ${isOpen ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {isOpen && (
+        <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-72 overflow-hidden">
+          {/* Search */}
+          <div className="p-2 border-b border-gray-100">
+            <div className="relative">
+              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-secondarytext" />
+              <input
+                type="text"
+                placeholder="Search shifts..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-8 pr-3 py-2 text-sm bg-primarybg border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                autoFocus
+              />
+            </div>
+          </div>
+
+          {/* Select All / Clear */}
+          <div className="px-3 py-1.5 border-b border-gray-100 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => {
+                if (selectedIds.length === shifts.length) {
+                  onChange([]);
+                } else {
+                  onChange(shifts.map((s) => s.id));
+                }
+              }}
+              className="text-xs text-primary hover:text-primary/80 font-medium"
+            >
+              {selectedIds.length === shifts.length ? "Clear All" : "Select All"}
+            </button>
+            <span className="text-xs text-secondarytext">
+              {selectedIds.length}/{shifts.length}
+            </span>
+          </div>
+
+          {/* Options */}
+          <div className="overflow-y-auto max-h-52">
+            {filteredShifts.length === 0 ? (
+              <p className="p-3 text-sm text-secondarytext text-center">No shifts found</p>
+            ) : (
+              filteredShifts.map((s) => {
+                const isSelected = selectedIds.includes(s.id);
+                const timeDisplay =
+                  s.slots && s.slots.length > 0
+                    ? s.slots
+                        .map(
+                          (slot) =>
+                            `${formatTimeAMPM(slot.start_time)}-${formatTimeAMPM(slot.end_time)}`,
+                        )
+                        .join(", ")
+                    : `${formatTimeAMPM(s.start_time)}-${formatTimeAMPM(s.end_time)}`;
+
+                // Check if this shift would conflict with already selected shifts
+                const wouldConflict =
+                  !isSelected &&
+                  selectedIds.length > 0 &&
+                  (() => {
+                    const selectedShifts = shifts.filter((sh) =>
+                      selectedIds.includes(sh.id),
+                    );
+                    const ranges1 = getShiftTimeRanges(s);
+                    return selectedShifts.some((sel) => {
+                      const ranges2 = getShiftTimeRanges(sel);
+                      return ranges1.some((r1) =>
+                        ranges2.some((r2) =>
+                          timesOverlap(r1.start, r1.end, r2.start, r2.end),
+                        ),
+                      );
+                    });
+                  })();
+
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => toggleShift(s.id)}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 hover:bg-primary/5 transition-colors text-left ${
+                      isSelected ? "bg-primary/10" : ""
+                    } ${wouldConflict ? "bg-red/5" : ""}`}
+                  >
+                    {/* Checkbox */}
+                    <div
+                      className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
+                        isSelected
+                          ? "bg-primary border-primary"
+                          : "border-gray-300"
+                      }`}
+                    >
+                      {isSelected && <Check size={10} className="text-white" />}
+                    </div>
+
+                    {/* Shift Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-primarytext truncate">
+                          {s.name}
+                        </span>
+                        {wouldConflict && (
+                          <span className="text-[10px] font-medium text-red bg-red/10 px-1.5 py-0.5 rounded">
+                            OVERLAP
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs text-secondarytext">{timeDisplay}</span>
+                    </div>
+
+                    {/* Slot count badge */}
+                    {s.slots && s.slots.length > 0 && (
+                      <span className="text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded font-medium shrink-0">
+                        {s.slots.length} slots
+                      </span>
+                    )}
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Assignments() {
   const {showToast} = useToast();
@@ -80,7 +323,7 @@ export default function Assignments() {
     vehicle_group_id: 0,
     driver_id: 0,
     cluster_id: 0,
-    shift_id: 0,
+    shift_ids: [],
     start_date: new Date().toISOString().split("T")[0],
     end_date: new Date().toISOString().split("T")[0],
     description: "",
@@ -372,7 +615,7 @@ export default function Assignments() {
       vehicle_group_id: 0,
       driver_id: 0,
       cluster_id: 0,
-      shift_id: 0,
+      shift_ids: [],
       start_date: new Date().toISOString().split("T")[0],
       end_date: new Date().toISOString().split("T")[0],
       description: "",
@@ -391,13 +634,31 @@ export default function Assignments() {
           assignmentForm.end_date
         : assignmentForm.vehicle_id &&
           assignmentForm.driver_id &&
-          assignmentForm.shift_id &&
+          assignmentForm.shift_ids.length > 0 &&
           assignmentForm.start_date &&
           assignmentForm.end_date;
 
     if (!isValid) {
       showToast("Please fill all required fields", "warning");
       return;
+    }
+
+    // Check for time conflicts between selected shifts before submitting
+    if (assignmentForm.shift_ids.length > 1 && !forceAssign) {
+      const selectedShifts = shifts.filter((s) =>
+        assignmentForm.shift_ids.includes(s.id),
+      );
+      const conflictPairs = detectInterShiftConflicts(selectedShifts);
+      if (conflictPairs.length > 0) {
+        const names = conflictPairs
+          .map((p) => `"${p[0]}" and "${p[1]}"`)
+          .join(", ");
+        showToast(
+          `Selected shifts have overlapping times: ${names}`,
+          "error",
+        );
+        return;
+      }
     }
 
     const endpoint =
@@ -407,6 +668,7 @@ export default function Assignments() {
 
     const payload = {
       ...assignmentForm,
+      shift_ids: assignmentForm.shift_ids,
       vehicle_category: createModalType.toUpperCase(),
       force_assign: forceAssign,
       created_by: getCreatorIdFromToken() || undefined,
@@ -508,16 +770,18 @@ export default function Assignments() {
   // Check driver availability and update availability map
   const checkDriverAvailability = async (
     drivers,
-    shiftId,
+    shiftIds,
     startDate,
     endDate,
   ) => {
-    if (!shiftId || !startDate) return;
+    if (!shiftIds || (Array.isArray(shiftIds) ? shiftIds.length === 0 : !shiftIds) || !startDate) return;
+
+    const shiftIdsParam = Array.isArray(shiftIds) ? shiftIds.join(",") : shiftIds;
 
     const availabilityPromises = drivers.map(async (driver) => {
       try {
         const response = await apiGet(
-          `/api/admin/assignments/check-driver-conflict?driver_id=${driver.driver_id || driver.id}&shift_id=${shiftId}&date=${startDate}`,
+          `/api/admin/assignments/check-driver-conflict?driver_id=${driver.driver_id || driver.id}&shift_ids=${shiftIdsParam}&date=${startDate}`,
         );
         const data = await response.json();
         return {
@@ -544,13 +808,15 @@ export default function Assignments() {
   };
 
   // Check vehicle availability and update availability map
-  const checkVehicleAvailability = async (vehicleList, shiftId, startDate) => {
-    if (!shiftId || !startDate) return;
+  const checkVehicleAvailability = async (vehicleList, shiftIds, startDate) => {
+    if (!shiftIds || (Array.isArray(shiftIds) ? shiftIds.length === 0 : !shiftIds) || !startDate) return;
+
+    const shiftIdsParam = Array.isArray(shiftIds) ? shiftIds.join(",") : shiftIds;
 
     const availabilityPromises = vehicleList.map(async (vehicle) => {
       try {
         const response = await apiGet(
-          `/api/admin/assignments/check-vehicle-conflict?vehicle_id=${vehicle.id}&shift_id=${shiftId}&date=${startDate}`,
+          `/api/admin/assignments/check-vehicle-conflict?vehicle_id=${vehicle.id}&shift_ids=${shiftIdsParam}&date=${startDate}`,
         );
         const data = await response.json();
         return {
@@ -582,7 +848,7 @@ export default function Assignments() {
       const driversToCheck = getAvailableDriversForSelection();
       checkDriverAvailability(
         driversToCheck,
-        conflictPendingForm.shift_id,
+        conflictPendingForm.shift_ids || [],
         conflictPendingForm.start_date,
         conflictPendingForm.end_date,
       );
@@ -593,20 +859,20 @@ export default function Assignments() {
   useEffect(() => {
     if (
       showCreateModal &&
-      assignmentForm.shift_id &&
+      assignmentForm.shift_ids.length > 0 &&
       assignmentForm.start_date &&
       availableDrivers.length > 0
     ) {
       checkDriverAvailability(
         availableDrivers,
-        assignmentForm.shift_id,
+        assignmentForm.shift_ids,
         assignmentForm.start_date,
         assignmentForm.end_date,
       );
     }
   }, [
     showCreateModal,
-    assignmentForm.shift_id,
+    assignmentForm.shift_ids,
     assignmentForm.start_date,
     assignmentForm.end_date,
     availableDrivers,
@@ -616,7 +882,7 @@ export default function Assignments() {
   useEffect(() => {
     if (
       showCreateModal &&
-      assignmentForm.shift_id &&
+      assignmentForm.shift_ids.length > 0 &&
       assignmentForm.start_date &&
       vehicles.length > 0
     ) {
@@ -627,13 +893,13 @@ export default function Assignments() {
       );
       checkVehicleAvailability(
         filteredVehicles,
-        assignmentForm.shift_id,
+        assignmentForm.shift_ids,
         assignmentForm.start_date,
       );
     }
   }, [
     showCreateModal,
-    assignmentForm.shift_id,
+    assignmentForm.shift_ids,
     assignmentForm.start_date,
     vehicles,
     createModalType,
@@ -1294,108 +1560,163 @@ export default function Assignments() {
                 </div>
               </div>
 
-              {/* Shift Selection - For all assignment types (optional for EV) */}
+              {/* Shift Selection - Multi-select for all assignment types */}
               <div>
                 <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                  Shift
+                  Shifts {assignmentForm.shift_ids.length > 0 && (
+                    <span className="text-primary font-normal normal-case">
+                      ({assignmentForm.shift_ids.length} selected)
+                    </span>
+                  )}
                 </label>
-                <SearchableSelect
-                  value={assignmentForm.shift_id}
-                  onChange={(val) =>
-                    setAssignmentForm({
-                      ...assignmentForm,
-                      shift_id: parseInt(val) || 0,
-                    })
-                  }
-                  placeholder="Select Shift"
-                  options={shifts.map((s) => {
-                    const timeDisplay =
-                      s.slots && s.slots.length > 0
-                        ? s.slots
-                            .map(
-                              (slot) =>
-                                `${formatTimeAMPM(slot.start_time)}-${formatTimeAMPM(slot.end_time)}`,
-                            )
-                            .join(", ")
-                        : `${formatTimeAMPM(s.start_time)}-${formatTimeAMPM(s.end_time)}`;
-                    return {
-                      value: s.id,
-                      label: s.name,
-                      subtitle: timeDisplay,
-                    };
-                  })}
-                  emptyMessage="No shifts available"
-                />
 
-                {/* Shift Details Display */}
-                {assignmentForm.shift_id > 0 &&
-                  (() => {
-                    const selectedShift = shifts.find(
-                      (s) => s.id === assignmentForm.shift_id,
-                    );
-                    if (!selectedShift) return null;
+                {/* Selected Shifts as Chips */}
+                {assignmentForm.shift_ids.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {assignmentForm.shift_ids.map((sid) => {
+                      const s = shifts.find((sh) => sh.id === sid);
+                      if (!s) return null;
+                      const timeDisplay =
+                        s.slots && s.slots.length > 0
+                          ? s.slots
+                              .map(
+                                (slot) =>
+                                  `${formatTimeAMPM(slot.start_time)}-${formatTimeAMPM(slot.end_time)}`,
+                              )
+                              .join(", ")
+                          : `${formatTimeAMPM(s.start_time)}-${formatTimeAMPM(s.end_time)}`;
+                      return (
+                        <span
+                          key={sid}
+                          className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs font-medium px-2.5 py-1.5 rounded-md border border-primary/20"
+                        >
+                          <Clock size={12} />
+                          {s.name} ({timeDisplay})
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setAssignmentForm({
+                                ...assignmentForm,
+                                shift_ids: assignmentForm.shift_ids.filter(
+                                  (id) => id !== sid,
+                                ),
+                              })
+                            }
+                            className="ml-0.5 hover:text-red text-primary/60 transition-colors"
+                          >
+                            <X size={12} />
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
 
-                    const hasSlots =
-                      selectedShift.slots && selectedShift.slots.length > 0;
+                {/* Multi-Select Shift Dropdown */}
+                <div className="relative">
+                  <MultiShiftSelect
+                    shifts={shifts}
+                    selectedIds={assignmentForm.shift_ids}
+                    onChange={(newIds) =>
+                      setAssignmentForm({
+                        ...assignmentForm,
+                        shift_ids: newIds,
+                      })
+                    }
+                    formatTimeAMPM={formatTimeAMPM}
+                  />
+                </div>
 
-                    return (
-                      <div className="mt-3 p-4 bg-primary/5 border border-primary/20 rounded-md">
-                        <div className="flex items-start justify-between mb-3">
-                          <div>
-                            <h4 className="text-sm font-bold text-primarytext">
-                              {selectedShift.name}
-                            </h4>
-                            {selectedShift.description && (
-                              <p className="text-xs text-secondarytext mt-0.5">
-                                {selectedShift.description}
-                              </p>
-                            )}
-                          </div>
-                          <span className="text-xs font-semibold text-primary bg-white px-2 py-1 rounded-md">
-                            {hasSlots
-                              ? `${selectedShift.slots.length} Slots`
-                              : "Single Shift"}
-                          </span>
-                        </div>
-
-                        {hasSlots ? (
-                          <div className="space-y-2">
-                            <p className="text-xs font-bold text-secondarytext uppercase tracking-wider">
-                              Time Slots
+                {/* Inter-Shift Conflict Warning */}
+                {assignmentForm.shift_ids.length > 1 && (() => {
+                  const selectedShifts = shifts.filter((s) =>
+                    assignmentForm.shift_ids.includes(s.id),
+                  );
+                  const conflictPairs = detectInterShiftConflicts(selectedShifts);
+                  if (conflictPairs.length === 0) return null;
+                  return (
+                    <div className="mt-2 p-3 bg-red/10 border border-red/30 rounded-md">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle size={16} className="text-red shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-xs font-bold text-red">Time Conflict Between Selected Shifts</p>
+                          {conflictPairs.map((pair, idx) => (
+                            <p key={idx} className="text-xs text-red/80 mt-0.5">
+                              "{pair[0]}" overlaps with "{pair[1]}"
                             </p>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Selected Shifts Details Display */}
+                {assignmentForm.shift_ids.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {assignmentForm.shift_ids.map((sid) => {
+                      const selectedShift = shifts.find((s) => s.id === sid);
+                      if (!selectedShift) return null;
+                      const hasSlots =
+                        selectedShift.slots && selectedShift.slots.length > 0;
+                      return (
+                        <div
+                          key={sid}
+                          className="p-3 bg-primary/5 border border-primary/20 rounded-md"
+                        >
+                          <div className="flex items-start justify-between mb-2">
+                            <div>
+                              <h4 className="text-sm font-bold text-primarytext">
+                                {selectedShift.name}
+                              </h4>
+                              {selectedShift.description && (
+                                <p className="text-xs text-secondarytext mt-0.5">
+                                  {selectedShift.description}
+                                </p>
+                              )}
+                            </div>
+                            <span className="text-xs font-semibold text-primary bg-white px-2 py-1 rounded-md">
+                              {hasSlots
+                                ? `${selectedShift.slots.length} Slots`
+                                : "Single Shift"}
+                            </span>
+                          </div>
+
+                          {hasSlots ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                               {selectedShift.slots.map((slot, idx) => (
                                 <div
                                   key={idx}
-                                  className="flex items-center gap-2 bg-white px-3 py-2 rounded-md border border-primary/10"
+                                  className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-md border border-primary/10"
                                 >
                                   <Clock
-                                    size={14}
+                                    size={12}
                                     className="text-primary shrink-0"
                                   />
-                                  <span className="text-sm font-medium text-primarytext">
+                                  <span className="text-xs font-medium text-primarytext">
                                     {formatTimeAMPM(slot.start_time)} -{" "}
                                     {formatTimeAMPM(slot.end_time)}
                                   </span>
                                 </div>
                               ))}
                             </div>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-md border border-primary/10">
-                            <Clock
-                              size={14}
-                              className="text-primary shrink-0"
-                            />
-                            <span className="text-sm font-medium text-primarytext">
-                              {formatTimeAMPM(selectedShift.start_time)} -{" "}
-                              {formatTimeAMPM(selectedShift.end_time)}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
+                          ) : (
+                            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-md border border-primary/10">
+                              <Clock
+                                size={12}
+                                className="text-primary shrink-0"
+                              />
+                              <span className="text-xs font-medium text-primarytext">
+                                {formatTimeAMPM(selectedShift.start_time)} -{" "}
+                                {formatTimeAMPM(selectedShift.end_time)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {createModalType === "ev" ? (
@@ -1444,7 +1765,7 @@ export default function Assignments() {
                       .map((v) => {
                         const availability = vehicleAvailabilityMap[v.id];
                         const hasAvailabilityData =
-                          assignmentForm.shift_id > 0 &&
+                          assignmentForm.shift_ids.length > 0 &&
                           assignmentForm.start_date &&
                           availability !== undefined;
                         const isAvailable = hasAvailabilityData
@@ -1518,7 +1839,7 @@ export default function Assignments() {
                       const driverId = d.driver_id || d.id;
                       const availability = driverAvailabilityMap[driverId];
                       const hasAvailabilityData =
-                        assignmentForm.shift_id > 0 &&
+                        assignmentForm.shift_ids.length > 0 &&
                         assignmentForm.start_date &&
                         availability !== undefined;
                       return {

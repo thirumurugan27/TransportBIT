@@ -66,10 +66,13 @@ func getSingleDayAttendanceByDate(c *gin.Context, date, status string) {
 			END as status,
 			a.checkin_time,
 			a.checkout_time,
-			u.full_name
+			a.marked_by,
+			u.full_name,
+			COALESCE(marker.full_name, '') as marked_by_name
 		FROM drivers d
 		JOIN users u ON d.user_id = u.id
 		LEFT JOIN attendance a ON a.user_id = u.id AND a.date = ` + date + `
+		LEFT JOIN users marker ON a.marked_by = marker.id
 		LEFT JOIN leave_requests lr ON lr.driver_id = d.id 
 			AND lr.status = 'admin_approved'
 			AND ` + date + ` BETWEEN lr.start_date AND lr.end_date
@@ -86,7 +89,7 @@ func getSingleDayAttendanceByDate(c *gin.Context, date, status string) {
 	var list []models.Attendance
 	for rows.Next() {
 		var a models.Attendance
-		rows.Scan(&a.ID, &a.UserID, &a.Date, &a.Status, &a.CheckinTime, &a.CheckoutTime, &a.FullName)
+		rows.Scan(&a.ID, &a.UserID, &a.Date, &a.Status, &a.CheckinTime, &a.CheckoutTime, &a.MarkedBy, &a.FullName, &a.MarkedByName)
 		list = append(list, a)
 	}
 
@@ -116,10 +119,12 @@ func getAttendanceRange(c *gin.Context, startDate, endDate, status string) {
 	}
 
 	query := `
-		SELECT a.id, a.user_id, DATE_FORMAT(a.date, '%d-%m-%Y') as date, a.status, a.checkin_time, a.checkout_time, u.full_name
+		SELECT a.id, a.user_id, DATE_FORMAT(a.date, '%d-%m-%Y') as date, a.status, a.checkin_time, a.checkout_time, a.marked_by, u.full_name,
+		       COALESCE(marker.full_name, '') as marked_by_name
 		FROM attendance a
 		JOIN users u ON a.user_id = u.id
 		JOIN drivers d ON d.user_id = u.id
+		LEFT JOIN users marker ON a.marked_by = marker.id
 		WHERE ` + dateCondition + statusCondition + `
 		ORDER BY a.date DESC, a.id DESC
 	`
@@ -133,7 +138,7 @@ func getAttendanceRange(c *gin.Context, startDate, endDate, status string) {
 	var list []models.Attendance
 	for rows.Next() {
 		var a models.Attendance
-		rows.Scan(&a.ID, &a.UserID, &a.Date, &a.Status, &a.CheckinTime, &a.CheckoutTime, &a.FullName)
+		rows.Scan(&a.ID, &a.UserID, &a.Date, &a.Status, &a.CheckinTime, &a.CheckoutTime, &a.MarkedBy, &a.FullName, &a.MarkedByName)
 		list = append(list, a)
 	}
 
@@ -148,6 +153,9 @@ func MarkAttendance(c *gin.Context) {
 		return
 	}
 
+	// Get the admin who is marking the attendance
+	markedBy := getUserIDFromRequest(c)
+
 	// Upsert attendance
 	var checkinTime interface{}
 	if req.CheckinTime != nil && *req.CheckinTime != "" {
@@ -155,10 +163,10 @@ func MarkAttendance(c *gin.Context) {
 	}
 
 	_, err := config.DB.Exec(`
-		INSERT INTO attendance (user_id, date, status, checkin_time)
-		VALUES (?, ?, ?, ?)
-		ON DUPLICATE KEY UPDATE status=VALUES(status), checkin_time=VALUES(checkin_time)
-	`, req.UserID, req.Date, req.Status, checkinTime)
+		INSERT INTO attendance (user_id, date, status, checkin_time, marked_by)
+		VALUES (?, ?, ?, ?, ?)
+		ON DUPLICATE KEY UPDATE status=VALUES(status), checkin_time=VALUES(checkin_time), marked_by=VALUES(marked_by)
+	`, req.UserID, req.Date, req.Status, checkinTime, markedBy)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

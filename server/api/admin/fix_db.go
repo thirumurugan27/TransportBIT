@@ -167,6 +167,12 @@ func FixDatabaseSchema() {
 	// 13. Create unified vehicle_replacements table
 	initVehicleReplacementsTable()
 
+	// 14. Add marked_by column to attendance table
+	_, err = config.DB.Exec("ALTER TABLE attendance ADD COLUMN marked_by INT NULL")
+	if err == nil {
+		log.Println("Schema Fix: Added marked_by column to attendance")
+	}
+
 	// 10. Mark attendance as absent for all approved leaves that haven't been marked yet
 	fixApprovedLeaveAttendance()
 }

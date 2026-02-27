@@ -8,6 +8,7 @@ import (
 	"transport-server/api/faculty"
 	"transport-server/api/student"
 	"transport-server/middleware"
+	"transport-server/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -25,6 +26,17 @@ func RegisterRoutes(r *gin.Engine) {
 	// Google OAuth
 	r.GET("/auth/google/login", auth.GoogleLogin)
 	r.GET("/auth/google/callback", auth.GoogleCallback)
+
+	// DEBUG: Test PDF endpoint (remove after testing)
+	r.GET("/test-pdf", func(c *gin.Context) {
+		pr := utils.NewPDFReport("TEST REPORT", "Generated for testing", false)
+		pr.AddTable(
+			[]string{"S.No", "Name", "Status"},
+			[][]string{{"1", "Test Item", "Active"}, {"2", "Another Item", "Done"}},
+			[]float64{20, 80, 40},
+		)
+		pr.Send(c, "test_report.pdf")
+	})
 
 	// ========================================
 	// AUTHENTICATED ROUTES
@@ -75,6 +87,7 @@ func registerAdminRoutes(adm *gin.RouterGroup) {
 
 	// Dashboard
 	adm.GET("/dashboard/stats", admin.GetDashboardStats)
+	adm.GET("/dashboard/driver-workload", admin.GetDriverWorkload)
 
 	// Driver Management
 	adm.GET("/drivers", admin.GetDrivers)
@@ -251,6 +264,7 @@ func registerAdminRoutes(adm *gin.RouterGroup) {
 	// Students by Bus
 	adm.GET("/buses/with-students", admin.GetBusesWithStudentCounts)
 	adm.GET("/buses/:id/students", admin.GetStudentsByBus)
+	adm.GET("/student-transport/:id/fee-summary", admin.GetStudentFeeSummary)
 
 	// Vehicle Requests (Faculty Bookings - Admin side)
 	adm.GET("/vehicle-requests", admin.GetAllVehicleRequests)
@@ -314,6 +328,21 @@ func registerAdminRoutes(adm *gin.RouterGroup) {
 
 	adm.GET("/service-tracking", admin.GetServiceTracking)
 	adm.POST("/service-tracking/update", admin.UpdateServiceTracking)
+
+	// Reports (Excel download)
+	adm.GET("/reports/attendance", admin.GenerateAttendanceReport)
+	adm.GET("/reports/service", admin.GenerateServiceReport)
+	adm.GET("/reports/purchase", admin.GeneratePurchaseReport)
+	adm.GET("/reports/leave", admin.GenerateLeaveReport)
+	adm.GET("/reports/km-fuel", admin.GenerateKmFuelReport)
+	adm.GET("/reports/vehicle-fleet", admin.GenerateVehicleFleetReport)
+	adm.GET("/reports/student-fee", admin.GenerateStudentFeeReport)
+	adm.GET("/reports/vehicle-requests", admin.GenerateVehicleRequestReport)
+	adm.GET("/reports/drivers", admin.GenerateDriverReport)
+	adm.GET("/reports/assignments", admin.GenerateAssignmentReport)
+	adm.GET("/reports/vendor", admin.GenerateVendorReport)
+	adm.GET("/reports/stop-changes", admin.GenerateStopChangeReport)
+	adm.GET("/reports/bus-detail", admin.GenerateBusDetailReport)
 }
 
 // registerDriverRoutes sets up all driver endpoints under /api/driver

@@ -116,6 +116,7 @@ func GetAllStudentTransport(c *gin.Context) {
 	rows, err := config.DB.Query(`
 		SELECT 
 			st.id, st.user_id, COALESCE(u.full_name, u.username, ''), COALESCE(u.email, ''),
+			COALESCE(u.department, ''), COALESCE(u.year, 0), COALESCE(u.roll_number, ''),
 			st.bus_id, COALESCE(v.vehicle_name, ''), COALESCE(v.vehicle_number, ''), COALESCE(b.start_point, ''), COALESCE(b.end_point, ''),
 			st.stop_id, COALESCE(bs.stop_name, ''), '',
 			st.total_fee, st.paid_amount, st.balance,
@@ -140,6 +141,7 @@ func GetAllStudentTransport(c *gin.Context) {
 		var t models.StudentTransport
 		err := rows.Scan(
 			&t.ID, &t.UserID, &t.StudentName, &t.StudentEmail,
+			&t.Department, &t.Year, &t.RollNumber,
 			&t.BusID, &t.VehicleName, &t.BusNumber, &t.RouteStart, &t.RouteEnd,
 			&t.StopID, &t.StopName, &t.StopLocation,
 			&t.TotalFee, &t.PaidAmount, &t.Balance,
@@ -538,7 +540,7 @@ func ProcessStopChangeRequest(c *gin.Context) {
 
 	// If approved, update student transport
 	if req.Status == "approved" {
-		// Update stop, bus, and recalculate balance
+		// Update stop, bus, and total_fee (balance is auto-calculated as total_fee - paid_amount)
 		_, err = config.DB.Exec(`
 			UPDATE student_transport 
 			SET stop_id = ?, bus_id = ?, total_fee = ?
@@ -549,7 +551,31 @@ func ProcessStopChangeRequest(c *gin.Context) {
 		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Request " + req.Status + " successfully"})
+	// Fetch current fee details for response
+	var currentFee, balance float64
+	config.DB.QueryRow(`SELECT COALESCE(scr.current_fee, 0), COALESCE(scr.new_fee, 0) FROM stop_change_requests scr WHERE scr.id = ?`, req.RequestID).Scan(&currentFee, &newFee)
+	feeDiff := newFee - currentFee
+
+	var settlementMsg string
+	if feeDiff > 0 {
+		settlementMsg = fmt.Sprintf("Student needs to pay additional ₹%.0f", feeDiff)
+	} else if feeDiff < 0 {
+		settlementMsg = fmt.Sprintf("Student is eligible for a refund of ₹%.0f", -feeDiff)
+	} else {
+		settlementMsg = "No fee change"
+	}
+
+	// Get updated balance
+	config.DB.QueryRow(`SELECT COALESCE(total_fee - paid_amount, 0) FROM student_transport WHERE id = ?`, studentTransportID).Scan(&balance)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":        "Request " + req.Status + " successfully",
+		"current_fee":    currentFee,
+		"new_fee":        newFee,
+		"fee_difference": feeDiff,
+		"balance":        balance,
+		"settlement":     settlementMsg,
+	})
 }
 
 // GET /api/admin/stop-change-requests/pending-count - Get count of pending requests
@@ -583,6 +609,7 @@ func GetAllTransportRequests(c *gin.Context) {
 		FROM transport_requests tr
 		LEFT JOIN users u ON tr.user_id = u.id
 		LEFT JOIN buses b ON tr.bus_id = b.id
+		LEFT JOIN vehicles v ON b.vehicle_id = v.id
 		LEFT JOIN bus_stops bs ON tr.stop_id = bs.id
 	`
 
@@ -793,6 +820,94 @@ func GetPendingTransportRequestCount(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"count": count})
 }
 
+// GET /api/admin/student-transport/:id/fee-summary - Get fee summary with stop change history
+func GetStudentFeeSummary(c *gin.Context) {
+	stID := c.Param("id")
+
+	// Current transport details
+	var totalFee, paidAmount, balance, stopFee float64
+	var stopName, status string
+	err := config.DB.QueryRow(`
+		SELECT st.total_fee, st.paid_amount, st.balance, COALESCE(bs.fee, 0), COALESCE(bs.stop_name, '-'), st.status
+		FROM student_transport st
+		LEFT JOIN bus_stops bs ON st.stop_id = bs.id
+		WHERE st.id = ?
+	`, stID).Scan(&totalFee, &paidAmount, &balance, &stopFee, &stopName, &status)
+	if err != nil {
+		log.Printf("Error fetching student transport fee summary: %v", err)
+		c.JSON(http.StatusNotFound, gin.H{"error": "Student transport not found"})
+		return
+	}
+
+	// Stop change history
+	rows, err := config.DB.Query(`
+		SELECT 
+			COALESCE(cs.stop_name, '-'), COALESCE(rs.stop_name, '-'),
+			COALESCE(scr.current_fee, 0), COALESCE(scr.new_fee, 0), COALESCE(scr.fee_difference, 0),
+			scr.status,
+			DATE_FORMAT(scr.created_at, '%d-%m-%Y %h:%i %p'),
+			DATE_FORMAT(scr.processed_at, '%d-%m-%Y %h:%i %p')
+		FROM stop_change_requests scr
+		LEFT JOIN bus_stops cs ON scr.current_stop_id = cs.id
+		LEFT JOIN bus_stops rs ON scr.requested_stop_id = rs.id
+		WHERE scr.student_transport_id = ?
+		ORDER BY scr.created_at DESC
+	`, stID)
+	if err != nil {
+		log.Printf("Error fetching stop change history: %v", err)
+		c.JSON(http.StatusOK, gin.H{
+			"current_stop":     stopName,
+			"current_stop_fee": stopFee,
+			"total_fee":        totalFee,
+			"paid_amount":      paidAmount,
+			"balance":          balance,
+			"status":           status,
+			"stop_changes":     []interface{}{},
+		})
+		return
+	}
+	defer rows.Close()
+
+	type StopChangeEntry struct {
+		FromStop    string  `json:"from_stop"`
+		ToStop      string  `json:"to_stop"`
+		OldFee      float64 `json:"old_fee"`
+		NewFee      float64 `json:"new_fee"`
+		Difference  float64 `json:"difference"`
+		Status      string  `json:"status"`
+		RequestedAt string  `json:"requested_at"`
+		ProcessedAt *string `json:"processed_at"`
+	}
+
+	var changes []StopChangeEntry
+	for rows.Next() {
+		var ch StopChangeEntry
+		var processedAt sql.NullString
+		var requestedAt sql.NullString
+		if err := rows.Scan(&ch.FromStop, &ch.ToStop, &ch.OldFee, &ch.NewFee, &ch.Difference, &ch.Status, &requestedAt, &processedAt); err != nil {
+			log.Printf("Error scanning stop change entry: %v", err)
+			continue
+		}
+		if requestedAt.Valid {
+			ch.RequestedAt = requestedAt.String
+		}
+		if processedAt.Valid {
+			ch.ProcessedAt = &processedAt.String
+		}
+		changes = append(changes, ch)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"current_stop":     stopName,
+		"current_stop_fee": stopFee,
+		"total_fee":        totalFee,
+		"paid_amount":      paidAmount,
+		"balance":          balance,
+		"status":           status,
+		"stop_changes":     changes,
+	})
+}
+
 // GET /api/admin/buses/:id/students - Get all students assigned to a specific bus
 func GetStudentsByBus(c *gin.Context) {
 	busID := c.Param("id")
@@ -860,7 +975,7 @@ func GetStudentsByBus(c *gin.Context) {
 func GetBusesWithStudentCounts(c *gin.Context) {
 	rows, err := config.DB.Query(`
 		SELECT 
-			b.id, COALESCE(v.vehicle_name, v.vehicle_number, ''), CONCAT(COALESCE(b.start_point, ''), ' → ', COALESCE(b.end_point, '')), 
+			b.id, b.vehicle_id, COALESCE(v.vehicle_name, v.vehicle_number, ''), CONCAT(COALESCE(b.start_point, ''), ' → ', COALESCE(b.end_point, '')), 
 			COALESCE(v.seating_capacity, 50),
 			0 as driver_id,
 			'Unassigned' as driver_name,
@@ -868,7 +983,7 @@ func GetBusesWithStudentCounts(c *gin.Context) {
 		FROM buses b
 		LEFT JOIN vehicles v ON b.vehicle_id = v.id
 		LEFT JOIN student_transport st ON b.id = st.bus_id AND st.status = 'active'
-		GROUP BY b.id, COALESCE(v.vehicle_name, v.vehicle_number, ''), b.start_point, b.end_point, v.seating_capacity
+		GROUP BY b.id, b.vehicle_id, COALESCE(v.vehicle_name, v.vehicle_number, ''), b.start_point, b.end_point, v.seating_capacity
 		ORDER BY COALESCE(v.vehicle_name, v.vehicle_number) ASC
 	`)
 	if err != nil {
@@ -879,24 +994,44 @@ func GetBusesWithStudentCounts(c *gin.Context) {
 	defer rows.Close()
 
 	type BusWithStudents struct {
-		ID           int    `json:"id"`
-		Name         string `json:"name"`
-		Route        string `json:"route"`
-		Capacity     int    `json:"capacity"`
-		DriverID     int    `json:"driver_id"`
-		DriverName   string `json:"driver_name"`
-		StudentCount int    `json:"student_count"`
+		ID           int      `json:"id"`
+		VehicleID    int      `json:"vehicle_id"`
+		Name         string   `json:"name"`
+		Route        string   `json:"route"`
+		Capacity     int      `json:"capacity"`
+		DriverID     int      `json:"driver_id"`
+		DriverName   string   `json:"driver_name"`
+		StudentCount int      `json:"student_count"`
+		StopNames    []string `json:"stop_names"`
 	}
 
 	var buses []BusWithStudents
 	for rows.Next() {
 		var b BusWithStudents
-		err := rows.Scan(&b.ID, &b.Name, &b.Route, &b.Capacity, &b.DriverID, &b.DriverName, &b.StudentCount)
+		err := rows.Scan(&b.ID, &b.VehicleID, &b.Name, &b.Route, &b.Capacity, &b.DriverID, &b.DriverName, &b.StudentCount)
 		if err != nil {
 			log.Printf("Error scanning bus: %v", err)
 			continue
 		}
+		b.StopNames = []string{}
 		buses = append(buses, b)
+	}
+
+	// Fetch stop names for each bus
+	for i, b := range buses {
+		stopRows, err := config.DB.Query(`
+			SELECT COALESCE(stop_name, '') FROM bus_stops WHERE vehicle_id = ? ORDER BY stop_order, stop_name
+		`, b.VehicleID)
+		if err != nil {
+			continue
+		}
+		for stopRows.Next() {
+			var name string
+			if err := stopRows.Scan(&name); err == nil && name != "" {
+				buses[i].StopNames = append(buses[i].StopNames, name)
+			}
+		}
+		stopRows.Close()
 	}
 
 	c.JSON(http.StatusOK, buses)

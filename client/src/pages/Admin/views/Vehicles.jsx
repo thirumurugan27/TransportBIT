@@ -1,4 +1,5 @@
 import React, {useState, useEffect, useRef} from "react";
+import {useSearchParams} from "react-router-dom";
 import Loading from "../../../components/ui/Loading";
 import {showError, showSuccess, showConfirm} from "../../../utils/swal";
 import {
@@ -78,7 +79,11 @@ export default function Vehicles() {
   // Filter State
   const [filterType, setFilterType] = useState("ALL");
   const [searchQuery, setSearchQuery] = useState("");
-  const [viewMode, setViewMode] = useState("fleet"); // "fleet" or "expiry"
+  const [searchParams] = useSearchParams();
+  const [viewMode, setViewMode] = useState(() => {
+    const v = searchParams.get("view");
+    return v === "expiry" ? "expiry" : "fleet";
+  });
 
   // Edit State
   const [isEditing, setIsEditing] = useState(false);
