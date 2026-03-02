@@ -513,7 +513,24 @@ export default function AdminStudentTransport() {
 
   return (
     <div className="space-y-6 p-6 animate-fadeIn">
-
+      {/* Page Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-primarytext">
+            Student Transport
+          </h1>
+          <p className="text-sm text-secondarytext mt-1">
+            Manage bus assignments, payments and transport requests
+          </p>
+        </div>
+        <button
+          onClick={() => setShowAssignModal(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-md hover:bg-primarydull transition-colors font-medium"
+        >
+          <Plus className="w-4 h-4" />
+          Assign Student
+        </button>
+      </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1034,6 +1051,13 @@ export default function AdminStudentTransport() {
                           className="w-full pl-9 pr-3 py-2 rounded-md border border-primarybg bg-primarybg text-sm text-primarytext placeholder:text-secondarytext focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                         />
                       </div>
+                      <button
+                        onClick={() => setShowAssignModal(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-md hover:bg-primarydull transition-colors font-medium whitespace-nowrap"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Assign Student
+                      </button>
                     </div>
                   </div>
 
