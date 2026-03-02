@@ -859,17 +859,6 @@ export default function ScheduleManagement() {
 
   return (
     <div className="space-y-6 pb-12 font-sans text-primarytext animate-fadeIn">
-      {/* Header Section */}
-      <div className="bg-linear-to-r from-primary/5 to-primarydull/5 rounded-md p-6 border border-primary/10">
-        <h1 className="text-3xl font-bold text-primarytext flex items-center gap-3">
-          <Clock className="w-8 h-8 text-primary" />
-          Schedule Management
-        </h1>
-        <p className="text-secondarytext mt-2 text-sm">
-          Manage driver groups, vehicle groups, shifts and schedules for
-          efficient operations
-        </p>
-      </div>
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">

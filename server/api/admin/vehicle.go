@@ -100,6 +100,11 @@ func CreateVehicle(c *gin.Context) {
 		                      insurance_expire_date, fc_expire_date, permit_expire_date)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 	`
+	// Normalise empty date strings → nil so MySQL receives NULL, not ''
+	req.InsuranceExpireDate = nullifyEmptyDate(req.InsuranceExpireDate)
+	req.FCExpireDate = nullifyEmptyDate(req.FCExpireDate)
+	req.PermitExpireDate = nullifyEmptyDate(req.PermitExpireDate)
+
 	result, err := config.DB.Exec(query,
 		req.VehicleName, req.VehicleNumber, req.VehicleType, req.FuelType, req.SeatingCapacity,
 		req.InsuranceExpireDate, req.FCExpireDate, req.PermitExpireDate)
@@ -113,20 +118,26 @@ func CreateVehicle(c *gin.Context) {
 	// If it's a bus, also create a record in the buses table
 	if req.VehicleType == "BUS" {
 		vehicleID, _ := result.LastInsertId()
-		busName := req.VehicleName
-		if busName == "" {
-			busName = req.VehicleNumber
-		}
 		_, err = config.DB.Exec(`
-			INSERT INTO buses (vehicle_id, name, start_point, end_point)
-			VALUES (?, ?, ?, ?)
-		`, vehicleID, busName, req.StartPoint, req.EndPoint)
+			INSERT INTO buses (vehicle_id, start_point, end_point)
+			VALUES (?, ?, ?)
+		`, vehicleID, req.StartPoint, req.EndPoint)
 		if err != nil {
 			log.Printf("Create bus record error: %v", err)
 		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Vehicle created successfully"})
+}
+
+// nullifyEmptyDate converts a *string that holds an empty string into nil,
+// so the SQL driver sends NULL to MySQL DATE columns instead of an empty
+// string (which MySQL strict mode rejects as an invalid date value).
+func nullifyEmptyDate(s *string) *string {
+	if s == nil || *s == "" {
+		return nil
+	}
+	return s
 }
 
 // POST /api/admin/vehicles/update - Update vehicle
@@ -136,6 +147,11 @@ func UpdateVehicle(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return
 	}
+
+	// Normalise empty date strings → nil so MySQL receives NULL, not ''
+	v.InsuranceExpireDate = nullifyEmptyDate(v.InsuranceExpireDate)
+	v.FCExpireDate = nullifyEmptyDate(v.FCExpireDate)
+	v.PermitExpireDate = nullifyEmptyDate(v.PermitExpireDate)
 
 	query := `
 		UPDATE vehicles SET vehicle_name=?, vehicle_number=?, vehicle_type=?, fuel_type=?, seating_capacity=?, status=?,
@@ -154,10 +170,10 @@ func UpdateVehicle(c *gin.Context) {
 	// If it's a bus, update or create the bus record
 	if v.VehicleType == "BUS" {
 		_, err = config.DB.Exec(`
-			INSERT INTO buses (vehicle_id, name, start_point, end_point)
-			VALUES (?, ?, ?, ?)
-			ON DUPLICATE KEY UPDATE name = VALUES(name), start_point = VALUES(start_point), end_point = VALUES(end_point)
-		`, v.ID, v.VehicleName, v.StartPoint, v.EndPoint)
+			INSERT INTO buses (vehicle_id, start_point, end_point)
+			VALUES (?, ?, ?)
+			ON DUPLICATE KEY UPDATE start_point = VALUES(start_point), end_point = VALUES(end_point)
+		`, v.ID, v.StartPoint, v.EndPoint)
 		if err != nil {
 			log.Printf("Update bus error: %v", err)
 		}

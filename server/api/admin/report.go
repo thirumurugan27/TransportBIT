@@ -682,18 +682,24 @@ func GenerateStudentFeeReport(c *gin.Context) {
 
 	rows, err := config.DB.Query(`
 		SELECT 
-			u.full_name, u.roll_number, u.department, u.year,
-			COALESCE(b.name, '-') as bus_name,
+			COALESCE(u.full_name, u.username, '-'),
+			COALESCE(u.roll_number, '-'),
+			COALESCE(u.department, '-'),
+			COALESCE(u.year, ''),
+			COALESCE(v.vehicle_number, '-') as bus_name,
 			COALESCE(s.stop_name, '-') as stop_name,
-			st.total_fee, st.paid_amount, st.balance,
-			st.status,
+			COALESCE(st.total_fee, 0),
+			COALESCE(st.paid_amount, 0),
+			COALESCE(st.balance, 0),
+			COALESCE(st.status, '-'),
 			st.academic_year
 		FROM student_transport st
 		JOIN users u ON st.user_id = u.id
 		LEFT JOIN buses b ON st.bus_id = b.id
+		LEFT JOIN vehicles v ON b.vehicle_id = v.id
 		LEFT JOIN bus_stops s ON st.stop_id = s.id
 		WHERE st.academic_year = ?
-		ORDER BY u.department, u.full_name
+		ORDER BY u.department, COALESCE(u.full_name, u.username)
 	`, academicYear)
 	if err != nil {
 		log.Printf("Student fee report error: %v", err)
@@ -784,13 +790,16 @@ func GenerateVehicleRequestReport(c *gin.Context) {
 
 	rows, err := config.DB.Query(`
 		SELECT 
-			f.full_name as faculty_name,
-			f.department,
-			vr.booking_type, vr.trip_type, vr.trip_mode,
-			vr.purpose,
-			vr.count_person,
-			vr.onward_from, vr.onward_to,
-			DATE_FORMAT(vr.onward_from_datetime, '%d-%m-%Y %h:%i %p'),
+			COALESCE(u.full_name, '-') as faculty_name,
+			COALESCE(f.department, '-'),
+			COALESCE(vr.BookingType, '-'),
+			COALESCE(vr.TripType, '-'),
+			COALESCE(vr.TripMode, '-'),
+			COALESCE(vr.Purpose, vr.PurposeOfVisit, '-'),
+			COALESCE(vr.CountPerson, 1),
+			COALESCE(vr.OnwardFromPlace, '-'),
+			COALESCE(vr.OnwardToPlace, '-'),
+			COALESCE(DATE_FORMAT(vr.OnwardFromDateTime, '%d-%m-%Y %h:%i %p'), '-'),
 			COALESCE(v.vehicle_number, '-') as vehicle,
 			COALESCE(u_drv.full_name, '-') as driver,
 			vr.status,
@@ -798,6 +807,7 @@ func GenerateVehicleRequestReport(c *gin.Context) {
 			DATE_FORMAT(vr.created_at, '%d-%m-%Y %h:%i %p')
 		FROM vehiclerequests vr
 		JOIN faculty f ON vr.faculty_id = f.id
+		JOIN users u ON f.user_id = u.id
 		LEFT JOIN vehicles v ON vr.vehicle_id = v.id
 		LEFT JOIN drivers d ON vr.driver_id = d.id
 		LEFT JOIN users u_drv ON d.user_id = u_drv.id
@@ -871,13 +881,16 @@ func GenerateDriverReport(c *gin.Context) {
 	}
 	rows, err := config.DB.Query(`
 		SELECT 
-			u.full_name, u.phone, u.email,
-			d.license_number, d.license_type,
+			COALESCE(u.full_name, '-'),
+			COALESCE(u.phone, '-'),
+			COALESCE(u.email, '-'),
+			COALESCE(d.license_number, '-'),
+			COALESCE(d.license_type, '-'),
 			COALESCE(DATE_FORMAT(d.license_expiry, '%d-%m-%Y'), '-'),
-			d.experience_years,
+			COALESCE(d.experience_years, 0),
 			COALESCE(DATE_FORMAT(d.date_of_joining, '%d-%m-%Y'), '-'),
 			COALESCE(d.allowed_vehicle_type, '-'),
-			d.status,
+			COALESCE(u.status, 'active'),
 			COALESCE(v.vehicle_number, '-') as home_vehicle,
 			COALESCE(s.stop_name, '-') as home_stop,
 			CASE WHEN d.license_expiry < CURDATE() THEN 'EXPIRED'
@@ -1286,13 +1299,15 @@ func GenerateBusDetailReport(c *gin.Context) {
 	var insuranceExpiry, fcExpiry, permitExpiry sql.NullString
 	err := config.DB.QueryRow(`
 		SELECT 
-			b.id, COALESCE(b.name, ''), COALESCE(b.start_point, ''), COALESCE(b.end_point, ''),
+			b.vehicle_id,
+			CONCAT(COALESCE(b.start_point, ''), ' - ', COALESCE(b.end_point, '')),
+			COALESCE(b.start_point, ''), COALESCE(b.end_point, ''),
 			b.vehicle_id, COALESCE(v.vehicle_number, ''), COALESCE(v.vehicle_name, ''),
 			COALESCE(v.vehicle_type, ''), COALESCE(v.fuel_type, ''), COALESCE(v.seating_capacity, 0),
 			COALESCE(v.status, ''),
-			DATE_FORMAT(v.insurance_expiry, '%d-%m-%Y'),
-			DATE_FORMAT(v.fc_expiry, '%d-%m-%Y'),
-			DATE_FORMAT(v.permit_expiry, '%d-%m-%Y')
+			DATE_FORMAT(v.insurance_expire_date, '%d-%m-%Y'),
+			DATE_FORMAT(v.fc_expire_date, '%d-%m-%Y'),
+			DATE_FORMAT(v.permit_expire_date, '%d-%m-%Y')
 		FROM buses b
 		JOIN vehicles v ON b.vehicle_id = v.id
 		WHERE b.id = ?

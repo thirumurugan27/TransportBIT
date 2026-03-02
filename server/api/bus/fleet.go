@@ -98,16 +98,13 @@ func InitBusStopsTable() {
 		log.Println("✅ buses table ready")
 	}
 
-	// Backward-compat: some older schemas used `bus_name` instead of `name`.
-	// Ensure `name` exists so API queries using b.name don't fail.
-	if cols, colErr := config.HasColumns("buses", "name", "bus_name"); colErr == nil {
-		if !cols["name"] && cols["bus_name"] {
+	// Ensure `name` column exists (older deployments may not have it).
+	if cols, colErr := config.HasColumns("buses", "name"); colErr == nil {
+		if !cols["name"] {
 			if _, alterErr := config.DB.Exec("ALTER TABLE buses ADD COLUMN name VARCHAR(100) NULL"); alterErr != nil {
 				log.Printf("Error adding buses.name column: %v", alterErr)
 			} else {
 				log.Println("Schema Fix: Added buses.name column")
-				// Backfill
-				_, _ = config.DB.Exec("UPDATE buses SET name = bus_name WHERE (name IS NULL OR name = '')")
 			}
 		}
 	}
@@ -140,8 +137,8 @@ func InitBusStopsTable() {
 
 	// Auto-populate buses table with existing BUS vehicles
 	config.DB.Exec(`
-		INSERT IGNORE INTO buses (vehicle_id, name)
-		SELECT id, vehicle_number FROM vehicles WHERE vehicle_type = 'BUS'
+		INSERT IGNORE INTO buses (vehicle_id)
+		SELECT id FROM vehicles WHERE vehicle_type = 'BUS'
 	`)
 }
 
@@ -391,10 +388,10 @@ func UpdateBusRoute(c *gin.Context) {
 
 	// Update or insert into buses table
 	_, err := config.DB.Exec(`
-		INSERT INTO buses (vehicle_id, start_point, end_point, name)
-		VALUES (?, ?, ?, ?)
-		ON DUPLICATE KEY UPDATE start_point=VALUES(start_point), end_point=VALUES(end_point), name=VALUES(name)
-	`, vehicleID, req.StartPoint, req.EndPoint, req.VehicleName)
+		INSERT INTO buses (vehicle_id, start_point, end_point)
+		VALUES (?, ?, ?)
+		ON DUPLICATE KEY UPDATE start_point=VALUES(start_point), end_point=VALUES(end_point)
+	`, vehicleID, req.StartPoint, req.EndPoint)
 
 	if err != nil {
 		log.Printf("Update bus route error: %v", err)

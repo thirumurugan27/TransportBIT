@@ -15,7 +15,7 @@ export default function StudentDashboard() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="flex h-screen bg-primarybg">
+    <div className="flex min-h-screen bg-primarybg">
       <Sidebar
         role="STUDENT"
         useLogo={true}
@@ -23,7 +23,7 @@ export default function StudentDashboard() {
         onClose={() => setMobileOpen(false)}
       />
 
-      <div className="flex-1 flex flex-col overflow-hidden lg:ml-[220px]">
+      <div className="flex-1 flex flex-col min-w-0">
         <DashboardHeader
           title="Student Portal"
           user={{name: studentName, role: "Student"}}
@@ -31,7 +31,7 @@ export default function StudentDashboard() {
           onMenuToggle={() => setMobileOpen(true)}
         />
 
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-primarybg p-3 sm:p-4 lg:p-6">
+        <main className="flex-1 overflow-x-hidden bg-primarybg p-3 sm:p-4 lg:p-6">
           <Routes>
             <Route path="" element={<StudentHome />} />
             <Route path="my-bus" element={<StudentTransport />} />

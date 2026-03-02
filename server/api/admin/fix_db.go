@@ -18,12 +18,13 @@ func FixDatabaseSchema() {
 		log.Println("Schema Fix: vehicles.status updated to VARCHAR")
 	}
 
-	// 2. Fix users status
+	// 2. Fix users status – add if missing (ignore duplicate-column error), then normalise type
+	config.DB.Exec("ALTER TABLE users ADD COLUMN status VARCHAR(50) DEFAULT 'active'") // no-op if already exists
 	_, err = config.DB.Exec("ALTER TABLE users MODIFY COLUMN status VARCHAR(50) DEFAULT 'active'")
 	if err != nil {
 		log.Printf("Schema Fix (users): %v", err)
 	} else {
-		log.Println("Schema Fix: users.status updated to VARCHAR")
+		log.Println("Schema Fix: users.status ensured as VARCHAR")
 	}
 
 	// 3. Fix student_transport status

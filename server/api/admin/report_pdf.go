@@ -60,7 +60,8 @@ func generateAttendanceReportPDF(c *gin.Context) {
 	defer rows.Close()
 
 	headers := []string{"S.No", "Driver Name", "License No", "Date", "Status", "Check-In", "Check-Out"}
-	widths := []float64{12, 50, 45, 30, 30, 35, 35}
+	// Portrait: 7 cols - widths proportional to content, scaleWidths fills to 190mm
+	widths := []float64{8, 30, 28, 20, 20, 22, 22}
 	var data [][]string
 	sno := 1
 	for rows.Next() {
@@ -73,7 +74,7 @@ func generateAttendanceReportPDF(c *gin.Context) {
 	}
 
 	period := fmt.Sprintf("Period: %s to %s | Generated: %s", startDate, endDate, time.Now().Format("02-01-2006 03:04 PM"))
-	pr := utils.NewPDFReport("DRIVER ATTENDANCE REPORT", period, true)
+	pr := utils.NewPDFReport("DRIVER ATTENDANCE REPORT", period, false) // portrait – 7 cols fit cleanly
 	pr.AddTable(headers, data, widths)
 	pr.Send(c, fmt.Sprintf("Attendance_Report_%s_to_%s.pdf", startDate, endDate))
 }
@@ -97,8 +98,7 @@ func generateServiceReportPDF(c *gin.Context) {
 			sr.labor_cost, sr.parts_cost, sr.total_cost,
 			COALESCE(DATE_FORMAT(sr.scheduled_date, '%d-%m-%Y'), '-'),
 			COALESCE(DATE_FORMAT(sr.started_at, '%d-%m-%Y'), '-'),
-			COALESCE(DATE_FORMAT(sr.completed_at, '%d-%m-%Y'), '-'),
-			DATE_FORMAT(sr.created_at, '%d-%m-%Y')
+			COALESCE(DATE_FORMAT(sr.completed_at, '%d-%m-%Y'), '-')
 		FROM service_records sr
 		JOIN vehicles v ON sr.vehicle_id = v.id
 		LEFT JOIN service_types st ON sr.service_type_id = st.id
@@ -119,21 +119,22 @@ func generateServiceReportPDF(c *gin.Context) {
 	}
 	defer rows.Close()
 
-	headers := []string{"S.No", "Vehicle No", "Vehicle", "Type", "Title", "Severity", "Status", "Workshop", "Labor", "Parts", "Total", "Scheduled", "Started", "Completed", "Created"}
-	widths := []float64{10, 18, 18, 16, 22, 14, 14, 18, 16, 16, 16, 18, 18, 18, 18}
+	headers := []string{"S.No", "Vehicle No", "Vehicle", "Type", "Title", "Severity", "Status", "Workshop", "Labor", "Parts", "Total", "Scheduled", "Started", "Completed"}
+	// 14 cols – Vehicle No, Status, Parts wider; scaleWidths fills landscape width
+	widths := []float64{8, 26, 22, 16, 28, 14, 22, 22, 14, 22, 16, 20, 20, 20}
 	var data [][]string
 	sno := 1
 	var totalLabor, totalParts, totalCost float64
 	for rows.Next() {
-		var vNum, vName, sType, title, severity, status, workshop, scheduled, started, completed, created string
+		var vNum, vName, sType, title, severity, status, workshop, scheduled, started, completed string
 		var labor, parts, total float64
-		if err := rows.Scan(&vNum, &vName, &sType, &title, &severity, &status, &workshop, &labor, &parts, &total, &scheduled, &started, &completed, &created); err != nil {
+		if err := rows.Scan(&vNum, &vName, &sType, &title, &severity, &status, &workshop, &labor, &parts, &total, &scheduled, &started, &completed); err != nil {
 			continue
 		}
 		data = append(data, []string{
 			fmt.Sprintf("%d", sno), vNum, vName, sType, title, severity, status, workshop,
 			utils.FmtMoney(labor), utils.FmtMoney(parts), utils.FmtMoney(total),
-			scheduled, started, completed, created,
+			scheduled, started, completed,
 		})
 		totalLabor += labor
 		totalParts += parts
@@ -179,7 +180,7 @@ func generatePurchaseReportPDF(c *gin.Context) {
 		LEFT JOIN vehicles v ON pp.vehicle_id = v.id
 		LEFT JOIN vendors vn ON pp.vendor_id = vn.id
 		WHERE pp.created_at BETWEEN ? AND DATE_ADD(?, INTERVAL 1 DAY)
-		ORDER BY pp.created_at DESC
+		ORDER BY pp.created_at ASC
 	`, startDate, endDate)
 	if err != nil {
 		log.Printf("PDF purchase report error: %v", err)
@@ -188,8 +189,8 @@ func generatePurchaseReportPDF(c *gin.Context) {
 	}
 	defer rows.Close()
 
-	headers := []string{"S.No", "ID", "Vehicle", "Vendor", "Category", "Part", "Qty", "Unit", "Total", "Invoice", "Status", "Warranty", "Purchased", "Ordered", "Received", "Created"}
-	widths := []float64{10, 10, 16, 20, 16, 22, 10, 14, 14, 16, 14, 12, 18, 18, 18, 18}
+	headers := []string{"S.No", "ID", "Vehicle", "Vendor", "Category", "Part", "Qty", "Unit Price", "Total", "Invoice", "Status", "Warranty", "Purchased", "Ordered", "Received", "Created"}
+	widths := []float64{8, 9, 18, 22, 16, 26, 8, 16, 16, 18, 14, 12, 18, 18, 18, 18}
 	var data [][]string
 	sno := 1
 	var grandTotal float64
@@ -254,7 +255,8 @@ func generateLeaveReportPDF(c *gin.Context) {
 	defer rows.Close()
 
 	headers := []string{"S.No", "Driver Name", "Leave Type", "Start Date", "Start Time", "End Date", "End Time", "Reason", "Status", "Approved By", "Remarks", "Applied On"}
-	widths := []float64{10, 28, 18, 18, 16, 18, 16, 30, 16, 24, 28, 24}
+	// Long-text cols (Reason, Remarks) are narrower; wrapping handles overflow
+	widths := []float64{8, 30, 18, 20, 18, 20, 18, 28, 14, 24, 26, 22}
 	var data [][]string
 	sno := 1
 	for rows.Next() {
@@ -307,7 +309,7 @@ func generateKmFuelReportPDF(c *gin.Context) {
 	defer rows.Close()
 
 	headers := []string{"S.No", "Driver Name", "Vehicle No", "Vehicle", "Date", "Start KM", "End KM", "Total KM", "Fuel(L)", "Mileage", "Status", "Remarks"}
-	widths := []float64{10, 28, 18, 22, 18, 18, 18, 18, 14, 16, 16, 28}
+	widths := []float64{8, 30, 20, 24, 20, 18, 18, 18, 14, 16, 14, 28}
 	var data [][]string
 	sno := 1
 	var totalKm, totalFuel float64
@@ -373,8 +375,8 @@ func generateVehicleFleetReportPDF(c *gin.Context) {
 	}
 	defer rows.Close()
 
-	headers := []string{"S.No", "Vehicle No", "Vehicle Name", "Type", "Fuel", "Seats", "Status", "Ins. Expiry", "Ins. Status", "FC Expiry", "FC Status", "Permit Exp.", "Permit Status"}
-	widths := []float64{10, 18, 22, 14, 14, 12, 14, 20, 20, 18, 20, 18, 20}
+	headers := []string{"S.No", "Vehicle No", "Vehicle Name", "Type", "Fuel", "Seats", "Status", "Insurance Exp.", "Ins.Status", "FC Expiry", "FC Status", "Permit Exp.", "Permit Status"}
+	widths := []float64{8, 20, 28, 14, 12, 10, 13, 22, 20, 20, 20, 20, 22}
 	var data [][]string
 	sno := 1
 	for rows.Next() {
@@ -406,15 +408,24 @@ func generateStudentFeeReportPDF(c *gin.Context) {
 
 	rows, err := config.DB.Query(`
 		SELECT 
-			u.full_name, u.roll_number, u.department, u.year,
-			COALESCE(b.name, '-'), COALESCE(s.stop_name, '-'),
-			st.total_fee, st.paid_amount, st.balance, st.status, st.academic_year
+			COALESCE(u.full_name, u.username, '-'),
+			COALESCE(u.roll_number, '-'),
+			COALESCE(u.department, '-'),
+			COALESCE(u.year, ''),
+			COALESCE(v.vehicle_number, '-'),
+			COALESCE(s.stop_name, '-'),
+			COALESCE(st.total_fee, 0),
+			COALESCE(st.paid_amount, 0),
+			COALESCE(st.balance, 0),
+			COALESCE(st.status, '-'),
+			st.academic_year
 		FROM student_transport st
 		JOIN users u ON st.user_id = u.id
 		LEFT JOIN buses b ON st.bus_id = b.id
+		LEFT JOIN vehicles v ON b.vehicle_id = v.id
 		LEFT JOIN bus_stops s ON st.stop_id = s.id
 		WHERE st.academic_year = ?
-		ORDER BY u.department, u.full_name
+		ORDER BY u.department, COALESCE(u.full_name, u.username)
 	`, academicYear)
 	if err != nil {
 		log.Printf("PDF student fee report error: %v", err)
@@ -424,7 +435,7 @@ func generateStudentFeeReportPDF(c *gin.Context) {
 	defer rows.Close()
 
 	headers := []string{"S.No", "Student Name", "Roll No", "Dept", "Year", "Bus", "Stop", "Total Fee", "Paid", "Balance", "Status"}
-	widths := []float64{10, 30, 18, 16, 10, 22, 22, 20, 20, 20, 16}
+	widths := []float64{8, 36, 20, 16, 10, 24, 24, 20, 20, 20, 16}
 	var data [][]string
 	sno := 1
 	var totalFee, totalPaid, totalBalance float64
@@ -470,16 +481,24 @@ func generateVehicleRequestReportPDF(c *gin.Context) {
 
 	rows, err := config.DB.Query(`
 		SELECT 
-			f.full_name, f.department,
-			vr.booking_type, vr.trip_type, vr.trip_mode, vr.purpose, vr.count_person,
-			vr.onward_from, vr.onward_to,
-			DATE_FORMAT(vr.onward_from_datetime, '%d-%m-%Y %h:%i %p'),
-			COALESCE(v.vehicle_number, '-'), COALESCE(u_drv.full_name, '-'),
+			COALESCE(u.full_name, '-'),
+			COALESCE(f.department, '-'),
+			COALESCE(vr.BookingType, '-'),
+			COALESCE(vr.TripType, '-'),
+			COALESCE(vr.TripMode, '-'),
+			COALESCE(vr.Purpose, vr.PurposeOfVisit, '-'),
+			COALESCE(vr.CountPerson, 1),
+			COALESCE(vr.OnwardFromPlace, '-'),
+			COALESCE(vr.OnwardToPlace, '-'),
+			COALESCE(DATE_FORMAT(vr.OnwardFromDateTime, '%d-%m-%Y %h:%i %p'), '-'),
+			COALESCE(v.vehicle_number, '-'),
+			COALESCE(u_drv.full_name, '-'),
 			vr.status,
 			COALESCE(DATE_FORMAT(vr.approved_at, '%d-%m-%Y'), '-'),
 			DATE_FORMAT(vr.created_at, '%d-%m-%Y %h:%i %p')
 		FROM vehiclerequests vr
 		JOIN faculty f ON vr.faculty_id = f.id
+		JOIN users u ON f.user_id = u.id
 		LEFT JOIN vehicles v ON vr.vehicle_id = v.id
 		LEFT JOIN drivers d ON vr.driver_id = d.id
 		LEFT JOIN users u_drv ON d.user_id = u_drv.id
@@ -494,7 +513,7 @@ func generateVehicleRequestReportPDF(c *gin.Context) {
 	defer rows.Close()
 
 	headers := []string{"S.No", "Faculty", "Dept", "Booking", "Trip", "Mode", "Purpose", "Prs", "From", "To", "Date & Time", "Vehicle", "Driver", "Status", "Approved", "Requested"}
-	widths := []float64{9, 20, 14, 14, 12, 12, 22, 8, 16, 16, 22, 16, 20, 14, 16, 22}
+	widths := []float64{8, 22, 14, 14, 12, 12, 24, 8, 16, 16, 24, 16, 22, 14, 18, 24}
 	var data [][]string
 	sno := 1
 	for rows.Next() {
@@ -521,13 +540,16 @@ func generateVehicleRequestReportPDF(c *gin.Context) {
 func generateDriverReportPDF(c *gin.Context) {
 	rows, err := config.DB.Query(`
 		SELECT 
-			u.full_name, u.phone, u.email,
-			d.license_number, d.license_type,
+			COALESCE(u.full_name, '-'),
+			COALESCE(u.phone, '-'),
+			COALESCE(u.email, '-'),
+			COALESCE(d.license_number, '-'),
+			COALESCE(d.license_type, '-'),
 			COALESCE(DATE_FORMAT(d.license_expiry, '%d-%m-%Y'), '-'),
-			d.experience_years,
+			COALESCE(d.experience_years, 0),
 			COALESCE(DATE_FORMAT(d.date_of_joining, '%d-%m-%Y'), '-'),
 			COALESCE(d.allowed_vehicle_type, '-'),
-			d.status,
+			COALESCE(u.status, 'active'),
 			COALESCE(v.vehicle_number, '-'),
 			COALESCE(s.stop_name, '-'),
 			CASE WHEN d.license_expiry < CURDATE() THEN 'EXPIRED'
@@ -547,7 +569,7 @@ func generateDriverReportPDF(c *gin.Context) {
 	defer rows.Close()
 
 	headers := []string{"S.No", "Driver Name", "Phone", "Email", "License No", "Lic. Type", "Lic. Expiry", "Exp(Yrs)", "DOJ", "Allowed", "Status", "Home Veh.", "Home Stop", "Lic. Status"}
-	widths := []float64{9, 22, 16, 26, 18, 14, 16, 12, 16, 14, 12, 16, 18, 18}
+	widths := []float64{8, 28, 20, 34, 22, 16, 20, 12, 18, 16, 14, 18, 18, 20}
 	var data [][]string
 	sno := 1
 	for rows.Next() {
@@ -604,7 +626,7 @@ func generateAssignmentReportPDF(c *gin.Context) {
 	defer rows.Close()
 
 	headers := []string{"S.No", "Driver Name", "Vehicle No", "Vehicle Name", "Shift", "Start Date", "End Date", "Status", "Temp?", "Description", "Created"}
-	widths := []float64{10, 28, 18, 22, 18, 20, 20, 16, 12, 30, 18}
+	widths := []float64{8, 32, 20, 26, 18, 20, 20, 16, 12, 38, 20}
 	var data [][]string
 	sno := 1
 	for rows.Next() {
@@ -653,7 +675,8 @@ func generateVendorReportPDF(c *gin.Context) {
 	defer rows.Close()
 
 	headers := []string{"S.No", "Vendor Name", "Contact", "GST Number", "Total Parts", "Total Spent", "Vehicles Served"}
-	widths := []float64{14, 40, 28, 32, 22, 26, 28}
+	// Portrait: 7 cols
+	widths := []float64{8, 42, 24, 32, 20, 26, 24}
 	var data [][]string
 	sno := 1
 	var grandTotal float64
@@ -723,7 +746,7 @@ func generateStopChangeReportPDF(c *gin.Context) {
 	defer rows.Close()
 
 	headers := []string{"S.No", "Student", "Roll No", "Dept", "Yr", "From Stop", "To Stop", "Old Fee", "New Fee", "Diff", "Paid", "Balance", "Status", "Reason", "By", "Remarks", "Requested", "Processed"}
-	widths := []float64{8, 18, 14, 12, 8, 16, 16, 14, 14, 12, 14, 14, 12, 20, 14, 20, 20, 20}
+	widths := []float64{7, 18, 14, 12, 7, 16, 16, 14, 14, 12, 14, 14, 12, 20, 16, 20, 22, 20}
 	var data [][]string
 	sno := 1
 	var totalDiff, totalOutstanding float64
@@ -776,13 +799,15 @@ func generateBusDetailReportPDF(c *gin.Context) {
 	var insuranceExpiry, fcExpiry, permitExpiry sql.NullString
 	err := config.DB.QueryRow(`
 		SELECT 
-			b.id, COALESCE(b.name, ''), COALESCE(b.start_point, ''), COALESCE(b.end_point, ''),
+			b.vehicle_id,
+			CONCAT(COALESCE(b.start_point, ''), ' - ', COALESCE(b.end_point, '')),
+			COALESCE(b.start_point, ''), COALESCE(b.end_point, ''),
 			b.vehicle_id, COALESCE(v.vehicle_number, ''), COALESCE(v.vehicle_name, ''),
 			COALESCE(v.vehicle_type, ''), COALESCE(v.fuel_type, ''), COALESCE(v.seating_capacity, 0),
 			COALESCE(v.status, ''),
-			DATE_FORMAT(v.insurance_expiry, '%d-%m-%Y'),
-			DATE_FORMAT(v.fc_expiry, '%d-%m-%Y'),
-			DATE_FORMAT(v.permit_expiry, '%d-%m-%Y')
+			DATE_FORMAT(v.insurance_expire_date, '%d-%m-%Y'),
+			DATE_FORMAT(v.fc_expire_date, '%d-%m-%Y'),
+			DATE_FORMAT(v.permit_expire_date, '%d-%m-%Y')
 		FROM buses b
 		JOIN vehicles v ON b.vehicle_id = v.id
 		WHERE b.id = ?
@@ -858,7 +883,7 @@ func generateBusDetailReportPDF(c *gin.Context) {
 	if err == nil {
 		defer stopRows.Close()
 		stopHeaders := []string{"S.No", "Stop Name", "Order", "Fee", "Distance(KM)", "Arrival", "Students"}
-		stopWidths := []float64{12, 55, 18, 22, 25, 22, 22}
+		stopWidths := []float64{10, 70, 16, 22, 24, 22, 22}
 		var stopData [][]string
 		ssno := 1
 		var totalStudents int
@@ -902,7 +927,7 @@ func generateBusDetailReportPDF(c *gin.Context) {
 	if err == nil {
 		defer stuRows.Close()
 		stuHeaders := []string{"S.No", "Student Name", "Roll No", "Email", "Dept", "Yr", "Stop", "Total Fee", "Paid", "Balance", "Status", "Year"}
-		stuWidths := []float64{9, 24, 16, 30, 14, 8, 20, 18, 18, 18, 14, 16}
+		stuWidths := []float64{8, 28, 18, 38, 14, 8, 20, 18, 18, 18, 14, 16}
 		var stuData [][]string
 		ssno := 1
 		var sTotalFee, sTotalPaid, sTotalBal float64

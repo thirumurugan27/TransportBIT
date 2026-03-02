@@ -123,8 +123,10 @@ export default function Vehicles() {
       const res = await apiGet("/api/admin/vehicles");
       const data = await res.json();
       setVehicles(data || []);
+      return data || [];
     } catch (err) {
       console.error("Error fetching vehicles:", err);
+      return [];
     } finally {
       setLoading(false);
     }
@@ -283,7 +285,12 @@ export default function Vehicles() {
             ? "Vehicle updated successfully!"
             : "Vehicle created successfully!",
         );
-        fetchVehicles();
+        const freshList = await fetchVehicles();
+        // Keep detail modal in sync after an edit
+        if (isEditing && editingId && selectedVehicle?.id === editingId) {
+          const updated = freshList.find((v) => v.id === editingId);
+          if (updated) setSelectedVehicle(updated);
+        }
         setShowCreateModal(false);
         setVehicleForm(initialFormState);
         setIsEditing(false);

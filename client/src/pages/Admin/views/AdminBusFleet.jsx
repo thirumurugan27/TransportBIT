@@ -100,12 +100,29 @@ export default function AdminBusFleet() {
   const toInputString = (value) =>
     value === null || value === undefined ? "" : `${value}`;
 
+  // Convert "07:30 AM" / "7:30 PM" (backend format) to "HH:MM" required by <input type="time">
+  const toTimeInputValue = (timeStr) => {
+    if (!timeStr) return "";
+    if (/^\d{2}:\d{2}$/.test(timeStr)) return timeStr;
+    const match = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (match) {
+      let hours = parseInt(match[1], 10);
+      const minutes = match[2];
+      const period = match[3].toUpperCase();
+      if (period === "AM" && hours === 12) hours = 0;
+      if (period === "PM" && hours !== 12) hours += 12;
+      return `${String(hours).padStart(2, "0")}:${minutes}`;
+    }
+    return timeStr;
+  };
+
   const beginEditStop = (stop) => {
     setEditingStop({
       ...stop,
-      arrival_time: stop.arrival_time || "",
+      arrival_time: toTimeInputValue(stop.arrival_time),
       distance_km: toInputString(stop.distance_km),
       fee: toInputString(stop.fee),
+      stop_order: toInputString(stop.stop_order),
     });
   };
 
@@ -657,15 +674,6 @@ export default function AdminBusFleet() {
       {/* Header Section */}
       <div className="bg-secondarybg rounded-md border border-primary/10 p-6 shadow-sm">
         <div className="flex flex-col gap-4">
-          <div>
-            <h1 className="text-3xl font-extrabold text-primarytext mb-2">
-              Bus Fleet Management
-            </h1>
-            <p className="text-secondarytext font-medium">
-              Comprehensive overview of buses, routes, and stops
-            </p>
-          </div>
-
           {/* Statistics */}
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
             <div className="bg-primarybg rounded-md p-4 border border-primary/10">

@@ -51,14 +51,14 @@ export default function AdminDashboard() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="flex h-screen bg-primarybg">
+    <div className="flex min-h-screen bg-primarybg">
       <Sidebar
         role="ADMIN"
         mobileOpen={mobileOpen}
         onClose={() => setMobileOpen(false)}
       />
 
-      <div className="flex-1 flex flex-col overflow-hidden lg:ml-[220px]">
+      <div className="flex-1 flex flex-col min-w-0">
         <DashboardHeader
           title="BIT Transport"
           user={{name: adminName, role: "Admin"}}
@@ -67,7 +67,7 @@ export default function AdminDashboard() {
           onMenuToggle={() => setMobileOpen(true)}
         />
 
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-primarybg p-3 sm:p-4 lg:p-6">
+        <main className="flex-1 overflow-x-hidden bg-primarybg p-3 sm:p-4 lg:p-6">
           {/* Global Alert Banner */}
           {absentAlerts.length > 0 && (
             <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-md shadow-sm flex justify-between items-center">

@@ -119,7 +119,10 @@ function MultiShiftSelect({shifts, selectedIds, onChange, formatTimeAMPM}) {
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (containerRef.current && !containerRef.current.contains(event.target)) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target)
+      ) {
         setIsOpen(false);
       }
     };
@@ -160,7 +163,9 @@ function MultiShiftSelect({shifts, selectedIds, onChange, formatTimeAMPM}) {
         onClick={() => setIsOpen(!isOpen)}
         className="w-full flex items-center justify-between border border-gray-200 rounded-md p-2.5 bg-primarybg hover:border-primary/40 transition-colors text-left"
       >
-        <span className={`text-sm ${selectedIds.length > 0 ? "text-primarytext" : "text-secondarytext"}`}>
+        <span
+          className={`text-sm ${selectedIds.length > 0 ? "text-primarytext" : "text-secondarytext"}`}
+        >
           {selectedIds.length > 0
             ? `${selectedIds.length} shift${selectedIds.length > 1 ? "s" : ""} selected`
             : "Click to select shifts..."}
@@ -176,7 +181,10 @@ function MultiShiftSelect({shifts, selectedIds, onChange, formatTimeAMPM}) {
           {/* Search */}
           <div className="p-2 border-b border-gray-100">
             <div className="relative">
-              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-secondarytext" />
+              <Search
+                size={14}
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-secondarytext"
+              />
               <input
                 type="text"
                 placeholder="Search shifts..."
@@ -201,7 +209,9 @@ function MultiShiftSelect({shifts, selectedIds, onChange, formatTimeAMPM}) {
               }}
               className="text-xs text-primary hover:text-primary/80 font-medium"
             >
-              {selectedIds.length === shifts.length ? "Clear All" : "Select All"}
+              {selectedIds.length === shifts.length
+                ? "Clear All"
+                : "Select All"}
             </button>
             <span className="text-xs text-secondarytext">
               {selectedIds.length}/{shifts.length}
@@ -211,7 +221,9 @@ function MultiShiftSelect({shifts, selectedIds, onChange, formatTimeAMPM}) {
           {/* Options */}
           <div className="overflow-y-auto max-h-52">
             {filteredShifts.length === 0 ? (
-              <p className="p-3 text-sm text-secondarytext text-center">No shifts found</p>
+              <p className="p-3 text-sm text-secondarytext text-center">
+                No shifts found
+              </p>
             ) : (
               filteredShifts.map((s) => {
                 const isSelected = selectedIds.includes(s.id);
@@ -276,7 +288,9 @@ function MultiShiftSelect({shifts, selectedIds, onChange, formatTimeAMPM}) {
                           </span>
                         )}
                       </div>
-                      <span className="text-xs text-secondarytext">{timeDisplay}</span>
+                      <span className="text-xs text-secondarytext">
+                        {timeDisplay}
+                      </span>
                     </div>
 
                     {/* Slot count badge */}
@@ -540,7 +554,13 @@ export default function Assignments() {
 
     // Status filter (for non-EV assignments)
     if (filterStatus && activeTab !== "ev") {
-      filtered = filtered.filter((a) => a.driver_status === filterStatus);
+      if (filterStatus === "not_marked") {
+        filtered = filtered.filter(
+          (a) => a.driver_status !== "present" && a.driver_status !== "absent",
+        );
+      } else {
+        filtered = filtered.filter((a) => a.driver_status === filterStatus);
+      }
     }
 
     // Sort
@@ -653,10 +673,7 @@ export default function Assignments() {
         const names = conflictPairs
           .map((p) => `"${p[0]}" and "${p[1]}"`)
           .join(", ");
-        showToast(
-          `Selected shifts have overlapping times: ${names}`,
-          "error",
-        );
+        showToast(`Selected shifts have overlapping times: ${names}`, "error");
         return;
       }
     }
@@ -774,9 +791,16 @@ export default function Assignments() {
     startDate,
     endDate,
   ) => {
-    if (!shiftIds || (Array.isArray(shiftIds) ? shiftIds.length === 0 : !shiftIds) || !startDate) return;
+    if (
+      !shiftIds ||
+      (Array.isArray(shiftIds) ? shiftIds.length === 0 : !shiftIds) ||
+      !startDate
+    )
+      return;
 
-    const shiftIdsParam = Array.isArray(shiftIds) ? shiftIds.join(",") : shiftIds;
+    const shiftIdsParam = Array.isArray(shiftIds)
+      ? shiftIds.join(",")
+      : shiftIds;
 
     const availabilityPromises = drivers.map(async (driver) => {
       try {
@@ -809,9 +833,16 @@ export default function Assignments() {
 
   // Check vehicle availability and update availability map
   const checkVehicleAvailability = async (vehicleList, shiftIds, startDate) => {
-    if (!shiftIds || (Array.isArray(shiftIds) ? shiftIds.length === 0 : !shiftIds) || !startDate) return;
+    if (
+      !shiftIds ||
+      (Array.isArray(shiftIds) ? shiftIds.length === 0 : !shiftIds) ||
+      !startDate
+    )
+      return;
 
-    const shiftIdsParam = Array.isArray(shiftIds) ? shiftIds.join(",") : shiftIds;
+    const shiftIdsParam = Array.isArray(shiftIds)
+      ? shiftIds.join(",")
+      : shiftIds;
 
     const availabilityPromises = vehicleList.map(async (vehicle) => {
       try {
@@ -986,18 +1017,7 @@ export default function Assignments() {
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* Header */}
-      <div className="bg-secondarybg rounded-md shadow-sm border border-gray-100 p-6">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div>
-            <h3 className="text-2xl font-bold text-primarytext flex items-center gap-2">
-              Assignment Management
-            </h3>
-            <p className="text-sm text-secondarytext mt-1">
-              Manage driver assignments for buses, cars, and electric vehicles
-            </p>
-          </div>
-        </div>
-      </div>
+      
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1243,6 +1263,7 @@ export default function Assignments() {
                         {value: "", label: "All Status"},
                         {value: "present", label: "Present"},
                         {value: "absent", label: "Absent"},
+                        {value: "not_marked", label: "Not Marked"},
                       ]}
                       width="w-full"
                     />
@@ -1276,230 +1297,238 @@ export default function Assignments() {
       {activeTab === "replacements" ? (
         <VehicleReplacements />
       ) : (
-      <div className="bg-secondarybg rounded-md border border-gray-100 shadow-sm overflow-hidden min-h-[400px]">
-        {activeTab === "temporary" ? (
-          <TemporaryAssignments openModal={openTempModal} />
-        ) : loading ? (
-          <Loading fullScreen={false} text="Loading assignments..." />
-        ) : (
-          <div className="p-4 grid gap-4">
-            {getCurrentAssignments().length > 0 ? (
-              getCurrentAssignments().map((a) => (
-                <div
-                  key={a.id}
-                  className="rounded-md border border-gray-100 bg-primarybg p-4 hover:shadow-lg hover:border-primary/30 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer active:scale-[0.99]"
-                  onClick={() => {
-                    if (activeTab === "ev") {
-                      fetchEvDetails(a.id);
-                    } else {
-                      fetchAssignmentDetails(a.id, a.is_temporary_replacement);
-                    }
-                  }}
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                      <div
-                        className={`w-12 h-12 rounded-md flex items-center justify-center text-white ${
-                          activeTab === "bus"
-                            ? "bg-primary"
-                            : activeTab === "car"
-                              ? "bg-green"
-                              : activeTab === "other"
-                                ? "bg-orange-500"
-                                : "bg-pending"
-                        }`}
-                      >
-                        {activeTab === "bus" ? (
-                          <Bus size={20} />
-                        ) : activeTab === "car" ? (
-                          <Car size={20} />
-                        ) : activeTab === "other" ? (
-                          <Truck size={20} />
-                        ) : (
-                          <Zap size={20} />
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-semibold text-primarytext">
-                          {activeTab === "ev"
-                            ? a.vehicle_group_name || "EV Assignment"
-                            : a.vehicle_name || a.vehicle_number}
-                        </p>
-                        {a.vehicle_status === "under_maintenance" && (
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded bg-pending/10 text-pending">
-                              <AlertTriangle size={10} />
-                              In Service
-                            </span>
-                            {a.replacement_vehicle_number && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded bg-skyblue/10 text-skyblue">
-                                <RefreshCw size={10} />
-                                Replaced: {a.replacement_vehicle_number}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                        <p className="text-xs text-secondarytext">
-                          {activeTab === "ev" ? (
-                            <span className="flex items-center gap-1">
-                              {a.cluster_name}{" "}
-                              <span className="opacity-50">•</span>{" "}
-                              {a.shift_name || "Default Schedule"}
-                            </span>
+        <div className="bg-secondarybg rounded-md border border-gray-100 shadow-sm overflow-hidden min-h-[400px]">
+          {activeTab === "temporary" ? (
+            <TemporaryAssignments openModal={openTempModal} />
+          ) : loading ? (
+            <Loading fullScreen={false} text="Loading assignments..." />
+          ) : (
+            <div className="p-4 grid gap-4">
+              {getCurrentAssignments().length > 0 ? (
+                getCurrentAssignments().map((a) => (
+                  <div
+                    key={a.id}
+                    className="rounded-md border border-gray-100 bg-primarybg p-4 hover:shadow-lg hover:border-primary/30 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer active:scale-[0.99]"
+                    onClick={() => {
+                      if (activeTab === "ev") {
+                        fetchEvDetails(a.id);
+                      } else {
+                        fetchAssignmentDetails(
+                          a.id,
+                          a.is_temporary_replacement,
+                        );
+                      }
+                    }}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                      <div className="flex items-center gap-4">
+                        <div
+                          className={`w-12 h-12 rounded-md flex items-center justify-center text-white ${
+                            activeTab === "bus"
+                              ? "bg-primary"
+                              : activeTab === "car"
+                                ? "bg-green"
+                                : activeTab === "other"
+                                  ? "bg-orange-500"
+                                  : "bg-pending"
+                          }`}
+                        >
+                          {activeTab === "bus" ? (
+                            <Bus size={20} />
+                          ) : activeTab === "car" ? (
+                            <Car size={20} />
+                          ) : activeTab === "other" ? (
+                            <Truck size={20} />
                           ) : (
-                            a.vehicle_number
+                            <Zap size={20} />
                           )}
-                        </p>
-                        <p className="text-sm text-secondarytext">
-                          {a.start_date === a.end_date
-                            ? a.start_date
-                            : `${a.start_date} to ${a.end_date}`}{" "}
-                          {activeTab !== "ev" &&
-                            a.cluster_name &&
-                            `(${a.cluster_name})`}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      {a.shift_name && (
-                        <span className="px-3 py-1.5 rounded-md bg-primary/10 text-primary text-sm font-medium">
-                          {a.shift_name}
-                        </span>
-                      )}
-                      <div className="flex flex-wrap gap-1">
-                        {a.slots && a.slots.length > 0 ? (
-                          a.slots.map((slot, idx) => (
-                            <span
-                              key={idx}
-                              className="text-xs text-secondarytext px-2 py-0.5 rounded-md bg-gray-100"
-                            >
-                              {formatTimeAMPM(slot.start_time)} -{" "}
-                              {formatTimeAMPM(slot.end_time)}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="text-xs text-secondarytext">
-                            {formatTimeAMPM(a.start_time || a.shift_start_time)}{" "}
-                            - {formatTimeAMPM(a.end_time || a.shift_end_time)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {activeTab !== "ev" && (
-                      <div className="flex items-center gap-2">
-                        <div className="w-10 h-10 rounded-md bg-gray-200 flex items-center justify-center">
-                          <User size={18} className="text-secondarytext" />
                         </div>
                         <div>
-                          <p className="font-medium text-primarytext">
-                            {a.driver_name}
+                          <p className="font-semibold text-primarytext">
+                            {activeTab === "ev"
+                              ? a.vehicle_group_name || "EV Assignment"
+                              : a.vehicle_name || a.vehicle_number}
                           </p>
-                          <div className="flex gap-1">
-                            {a.driver_status === "present" && (
-                              <span className="text-xs text-green font-medium">
-                                ● Present
+                          {a.vehicle_status === "under_maintenance" && (
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded bg-pending/10 text-pending">
+                                <AlertTriangle size={10} />
+                                In Service
                               </span>
-                            )}
-                            {a.driver_status === "absent" && (
-                              <span className="text-xs text-red font-medium">
-                                ● Absent
+                              {a.replacement_vehicle_number && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded bg-skyblue/10 text-skyblue">
+                                  <RefreshCw size={10} />
+                                  Replaced: {a.replacement_vehicle_number}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          <p className="text-xs text-secondarytext">
+                            {activeTab === "ev" ? (
+                              <span className="flex items-center gap-1">
+                                {a.cluster_name}{" "}
+                                <span className="opacity-50">•</span>{" "}
+                                {a.shift_name || "Default Schedule"}
                               </span>
+                            ) : (
+                              a.vehicle_number
                             )}
-                          </div>
+                          </p>
+                          <p className="text-sm text-secondarytext">
+                            {a.start_date === a.end_date
+                              ? a.start_date
+                              : `${a.start_date} to ${a.end_date}`}{" "}
+                            {activeTab !== "ev" &&
+                              a.cluster_name &&
+                              `(${a.cluster_name})`}
+                          </p>
                         </div>
                       </div>
-                    )}
-
-                    {activeTab === "ev" &&
-                      a.drivers &&
-                      a.drivers.length > 0 && (
-                        <div className="flex items-center gap-2">
-                          <div className="flex -space-x-2">
-                            {a.drivers.slice(0, 4).map((driver, idx) => (
-                              <div
-                                key={driver.driver_id}
-                                className="w-8 h-8 rounded-md bg-primary text-white flex items-center justify-center text-xs font-medium border-2 border-white"
-                                title={driver.driver_name}
-                              >
-                                {driver.driver_name
-                                  .split(" ")
-                                  .map((n) => n[0])
-                                  .join("")
-                                  .substring(0, 2)}
-                              </div>
-                            ))}
-                            {a.drivers.length > 4 && (
-                              <div className="w-8 h-8 rounded-md bg-gray-300 text-gray-600 flex items-center justify-center text-xs font-medium border-2 border-white">
-                                +{a.drivers.length - 4}
-                              </div>
-                            )}
-                          </div>
-                          <span className="text-xs text-secondarytext">
-                            {a.driver_count || a.drivers.length} drivers
+                      <div className="flex items-center gap-3">
+                        {a.shift_name && (
+                          <span className="px-3 py-1.5 rounded-md bg-primary/10 text-primary text-sm font-medium">
+                            {a.shift_name}
                           </span>
+                        )}
+                        <div className="flex flex-wrap gap-1">
+                          {a.slots && a.slots.length > 0 ? (
+                            a.slots.map((slot, idx) => (
+                              <span
+                                key={idx}
+                                className="text-xs text-secondarytext px-2 py-0.5 rounded-md bg-gray-100"
+                              >
+                                {formatTimeAMPM(slot.start_time)} -{" "}
+                                {formatTimeAMPM(slot.end_time)}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-xs text-secondarytext">
+                              {formatTimeAMPM(
+                                a.start_time || a.shift_start_time,
+                              )}{" "}
+                              - {formatTimeAMPM(a.end_time || a.shift_end_time)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {activeTab !== "ev" && (
+                        <div className="flex items-center gap-2">
+                          <div className="w-10 h-10 rounded-md bg-gray-200 flex items-center justify-center">
+                            <User size={18} className="text-secondarytext" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-primarytext">
+                              {a.driver_name}
+                            </p>
+                            <div className="flex gap-1">
+                              {a.driver_status === "present" ? (
+                                <span className="text-xs text-green font-medium">
+                                  ● Present
+                                </span>
+                              ) : a.driver_status === "absent" ? (
+                                <span className="text-xs text-red font-medium">
+                                  ● Absent
+                                </span>
+                              ) : (
+                                <span className="text-xs text-secondarytext font-medium">
+                                  ● Not Marked
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       )}
 
-                    <div
-                      className="flex gap-2"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {activeTab !== "ev" ? (
-                        <>
+                      {activeTab === "ev" &&
+                        a.drivers &&
+                        a.drivers.length > 0 && (
+                          <div className="flex items-center gap-2">
+                            <div className="flex -space-x-2">
+                              {a.drivers.slice(0, 4).map((driver, idx) => (
+                                <div
+                                  key={driver.driver_id}
+                                  className="w-8 h-8 rounded-md bg-primary text-white flex items-center justify-center text-xs font-medium border-2 border-white"
+                                  title={driver.driver_name}
+                                >
+                                  {driver.driver_name
+                                    .split(" ")
+                                    .map((n) => n[0])
+                                    .join("")
+                                    .substring(0, 2)}
+                                </div>
+                              ))}
+                              {a.drivers.length > 4 && (
+                                <div className="w-8 h-8 rounded-md bg-gray-300 text-gray-600 flex items-center justify-center text-xs font-medium border-2 border-white">
+                                  +{a.drivers.length - 4}
+                                </div>
+                              )}
+                            </div>
+                            <span className="text-xs text-secondarytext">
+                              {a.driver_count || a.drivers.length} drivers
+                            </span>
+                          </div>
+                        )}
+
+                      <div
+                        className="flex gap-2"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {activeTab !== "ev" ? (
+                          <>
+                            <button
+                              onClick={() => {
+                                setReassignModal(a);
+                                setReassignDriverId(a.driver_id);
+                                fetchAvailableDrivers();
+                              }}
+                              className="px-3 py-2 bg-primary/10 text-primary rounded-md hover:bg-primary/20 transition-colors text-sm font-medium flex items-center gap-1.5"
+                            >
+                              <RefreshCw size={14} /> Reassign
+                            </button>
+                            <button
+                              onClick={() => handleDelete(a.id, false)}
+                              className="px-3 py-2 bg-red/10 text-red rounded-md hover:bg-red/20 transition-colors text-sm font-medium flex items-center gap-1.5"
+                            >
+                              <Trash2 size={14} /> Delete
+                            </button>
+                          </>
+                        ) : (
                           <button
-                            onClick={() => {
-                              setReassignModal(a);
-                              setReassignDriverId(a.driver_id);
-                              fetchAvailableDrivers();
-                            }}
-                            className="px-3 py-2 bg-primary/10 text-primary rounded-md hover:bg-primary/20 transition-colors text-sm font-medium flex items-center gap-1.5"
-                          >
-                            <RefreshCw size={14} /> Reassign
-                          </button>
-                          <button
-                            onClick={() => handleDelete(a.id, false)}
+                            onClick={() => handleDelete(a.id, true)}
                             className="px-3 py-2 bg-red/10 text-red rounded-md hover:bg-red/20 transition-colors text-sm font-medium flex items-center gap-1.5"
                           >
                             <Trash2 size={14} /> Delete
                           </button>
-                        </>
-                      ) : (
-                        <button
-                          onClick={() => handleDelete(a.id, true)}
-                          className="px-3 py-2 bg-red/10 text-red rounded-md hover:bg-red/20 transition-colors text-sm font-medium flex items-center gap-1.5"
-                        >
-                          <Trash2 size={14} /> Delete
-                        </button>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </div>
+                ))
+              ) : (
+                <div className="text-center py-12 text-secondarytext">
+                  <p>
+                    {searchQuery || filterShift || filterStatus
+                      ? `No assignments match your search or filter criteria`
+                      : `No assignments found for ${activeTab}`}
+                  </p>
+                  {(searchQuery || filterShift || filterStatus) && (
+                    <button
+                      onClick={() => {
+                        setSearchQuery("");
+                        setFilterShift("");
+                        setFilterStatus("");
+                      }}
+                      className="mt-3 px-4 py-2 text-primary hover:bg-primary/10 rounded-md transition-colors text-sm font-medium"
+                    >
+                      Clear All Filters
+                    </button>
+                  )}
                 </div>
-              ))
-            ) : (
-              <div className="text-center py-12 text-secondarytext">
-                <p>
-                  {searchQuery || filterShift || filterStatus
-                    ? `No assignments match your search or filter criteria`
-                    : `No assignments found for ${activeTab}`}
-                </p>
-                {(searchQuery || filterShift || filterStatus) && (
-                  <button
-                    onClick={() => {
-                      setSearchQuery("");
-                      setFilterShift("");
-                      setFilterStatus("");
-                    }}
-                    className="mt-3 px-4 py-2 text-primary hover:bg-primary/10 rounded-md transition-colors text-sm font-medium"
-                  >
-                    Clear All Filters
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+              )}
+            </div>
+          )}
+        </div>
       )}
 
       {/* Create Modal */}
@@ -1563,7 +1592,8 @@ export default function Assignments() {
               {/* Shift Selection - Multi-select for all assignment types */}
               <div>
                 <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                  Shifts {assignmentForm.shift_ids.length > 0 && (
+                  Shifts{" "}
+                  {assignmentForm.shift_ids.length > 0 && (
                     <span className="text-primary font-normal normal-case">
                       ({assignmentForm.shift_ids.length} selected)
                     </span>
@@ -1628,28 +1658,38 @@ export default function Assignments() {
                 </div>
 
                 {/* Inter-Shift Conflict Warning */}
-                {assignmentForm.shift_ids.length > 1 && (() => {
-                  const selectedShifts = shifts.filter((s) =>
-                    assignmentForm.shift_ids.includes(s.id),
-                  );
-                  const conflictPairs = detectInterShiftConflicts(selectedShifts);
-                  if (conflictPairs.length === 0) return null;
-                  return (
-                    <div className="mt-2 p-3 bg-red/10 border border-red/30 rounded-md">
-                      <div className="flex items-start gap-2">
-                        <AlertTriangle size={16} className="text-red shrink-0 mt-0.5" />
-                        <div>
-                          <p className="text-xs font-bold text-red">Time Conflict Between Selected Shifts</p>
-                          {conflictPairs.map((pair, idx) => (
-                            <p key={idx} className="text-xs text-red/80 mt-0.5">
-                              "{pair[0]}" overlaps with "{pair[1]}"
+                {assignmentForm.shift_ids.length > 1 &&
+                  (() => {
+                    const selectedShifts = shifts.filter((s) =>
+                      assignmentForm.shift_ids.includes(s.id),
+                    );
+                    const conflictPairs =
+                      detectInterShiftConflicts(selectedShifts);
+                    if (conflictPairs.length === 0) return null;
+                    return (
+                      <div className="mt-2 p-3 bg-red/10 border border-red/30 rounded-md">
+                        <div className="flex items-start gap-2">
+                          <AlertTriangle
+                            size={16}
+                            className="text-red shrink-0 mt-0.5"
+                          />
+                          <div>
+                            <p className="text-xs font-bold text-red">
+                              Time Conflict Between Selected Shifts
                             </p>
-                          ))}
+                            {conflictPairs.map((pair, idx) => (
+                              <p
+                                key={idx}
+                                className="text-xs text-red/80 mt-0.5"
+                              >
+                                "{pair[0]}" overlaps with "{pair[1]}"
+                              </p>
+                            ))}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })()}
+                    );
+                  })()}
 
                 {/* Selected Shifts Details Display */}
                 {assignmentForm.shift_ids.length > 0 && (

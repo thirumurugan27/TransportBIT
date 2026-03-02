@@ -15,7 +15,7 @@ export default function FacultyDashboard() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="flex h-screen bg-primarybg">
+    <div className="flex min-h-screen bg-primarybg">
       <Sidebar
         role="FACULTY"
         useLogo={true}
@@ -23,7 +23,7 @@ export default function FacultyDashboard() {
         onClose={() => setMobileOpen(false)}
       />
 
-      <div className="flex-1 flex flex-col overflow-hidden lg:ml-[220px]">
+      <div className="flex-1 flex flex-col min-w-0">
         <DashboardHeader
           title="Faculty Portal"
           user={{name: facultyName, role: "Faculty"}}
@@ -31,7 +31,7 @@ export default function FacultyDashboard() {
           onMenuToggle={() => setMobileOpen(true)}
         />
 
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-primarybg p-3 sm:p-4 lg:p-6">
+        <main className="flex-1 overflow-x-hidden bg-primarybg p-3 sm:p-4 lg:p-6">
           <Routes>
             <Route path="" element={<FacultyHome />} />
             <Route path="vehicle-booking" element={<VehicleBooking />} />
