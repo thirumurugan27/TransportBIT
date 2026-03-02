@@ -11,22 +11,17 @@ import (
 	"transport-server/api/admin"
 	"transport-server/config"
 	"transport-server/models"
-	"transport-server/utils"
 
 	"github.com/gin-gonic/gin"
 )
 
 // GET /api/driver/vehicle-requests - Get vehicle requests assigned to driver
 func GetDriverVehicleRequests(c *gin.Context) {
-	userID, err := utils.GetUserIDFromToken(c)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-		return
-	}
+	userID := c.GetInt("user_id")
 
 	// Get driver ID
 	var driverID int
-	err = config.DB.QueryRow(`SELECT id FROM drivers WHERE user_id = ?`, userID).Scan(&driverID)
+	err := config.DB.QueryRow(`SELECT id FROM drivers WHERE user_id = ?`, userID).Scan(&driverID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Driver profile not found"})
 		return
@@ -191,14 +186,10 @@ func GetDriverVehicleRequests(c *gin.Context) {
 
 // GET /api/driver/vehicle-requests/upcoming - Get upcoming vehicle requests
 func GetDriverUpcomingVehicleRequests(c *gin.Context) {
-	userID, err := utils.GetUserIDFromToken(c)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-		return
-	}
+	userID := c.GetInt("user_id")
 
 	var driverID int
-	err = config.DB.QueryRow(`SELECT id FROM drivers WHERE user_id = ?`, userID).Scan(&driverID)
+	err := config.DB.QueryRow(`SELECT id FROM drivers WHERE user_id = ?`, userID).Scan(&driverID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Driver profile not found"})
 		return
@@ -365,14 +356,10 @@ func GetDriverUpcomingVehicleRequests(c *gin.Context) {
 
 // POST /api/driver/vehicle-request/verify-start-otp - Driver verifies start OTP to begin trip
 func VerifyStartOTP(c *gin.Context) {
-	userID, err := utils.GetUserIDFromToken(c)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-		return
-	}
+	userID := c.GetInt("user_id")
 
 	var driverID int
-	err = config.DB.QueryRow(`SELECT id FROM drivers WHERE user_id = ?`, userID).Scan(&driverID)
+	err := config.DB.QueryRow(`SELECT id FROM drivers WHERE user_id = ?`, userID).Scan(&driverID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Driver profile not found"})
 		return
@@ -446,14 +433,10 @@ func VerifyStartOTP(c *gin.Context) {
 
 // POST /api/driver/vehicle-request/verify-end-otp - Driver verifies end OTP to complete trip
 func VerifyEndOTP(c *gin.Context) {
-	userID, err := utils.GetUserIDFromToken(c)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-		return
-	}
+	userID := c.GetInt("user_id")
 
 	var driverID int
-	err = config.DB.QueryRow(`SELECT id FROM drivers WHERE user_id = ?`, userID).Scan(&driverID)
+	err := config.DB.QueryRow(`SELECT id FROM drivers WHERE user_id = ?`, userID).Scan(&driverID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Driver profile not found"})
 		return

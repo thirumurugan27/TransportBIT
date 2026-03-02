@@ -96,37 +96,49 @@ func GoogleCallback(c *gin.Context) {
 	).Scan(&userID, &username, &role, &fullName, &dbEmail)
 
 	if err == sql.ErrNoRows {
-		// Option: Create user if not exists?
-		// For this system, we'll restrict to existing users or auto-register as STUDENT?
-		// Let's return error for now to be safe, or maybe the user wants auto-registration.
-		// "like above mentioned project" -> bit-resume usually allows any student.
-		// Let's redirect to frontend with error param.
-		frontendURL := "http://localhost:5173/login?error=User%20not%20found"
-		c.Redirect(http.StatusTemporaryRedirect, frontendURL)
+		feFallback := os.Getenv("FRONTEND_URL")
+		if feFallback == "" {
+			feFallback = "http://localhost:5173"
+		}
+		c.Redirect(http.StatusTemporaryRedirect, feFallback+"/login?error=User%20not%20found")
 		return
 	}
 	if err != nil {
 		log.Printf("Database error: %v", err)
-		c.Redirect(http.StatusTemporaryRedirect, "http://localhost:5173/login?error=Server%20error")
+		feFallback := os.Getenv("FRONTEND_URL")
+		if feFallback == "" {
+			feFallback = "http://localhost:5173"
+		}
+		c.Redirect(http.StatusTemporaryRedirect, feFallback+"/login?error=Server%20error")
 		return
 	}
 
 	// Generate JWT
 	jwtToken, err := utils.GenerateToken(userID, username, role)
 	if err != nil {
-		c.Redirect(http.StatusTemporaryRedirect, "http://localhost:5173/login?error=Token%20generation%20failed")
+		feFallback := os.Getenv("FRONTEND_URL")
+		if feFallback == "" {
+			feFallback = "http://localhost:5173"
+		}
+		c.Redirect(http.StatusTemporaryRedirect, feFallback+"/login?error=Token%20generation%20failed")
 		return
 	}
 
-	// Redirect to frontend with token
-	c.SetCookie("TRANSPORT_AUTH", jwtToken, 3600*24, "/", "", false, true)
+	// Set same secure HttpOnly cookie as the regular login
+	secure := os.Getenv("ENV") == "production"
+	frontendURL := os.Getenv("FRONTEND_URL")
+	if frontendURL == "" {
+		frontendURL = "http://localhost:5173"
+	}
+	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetCookie("TRANSPORT_AUTH", jwtToken, 3600*24, "/", "", secure, true)
 	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(`
 		<!DOCTYPE html>
 		<html>
 		<head><title>Logged In</title></head>
 		<body>
 			<script>
-				window.opener.postMessage("login-success", "http://localhost:5173");
+				window.opener.postMessage("login-success", "`+frontendURL+`");
 				window.close();
 			</script>
 		</body>

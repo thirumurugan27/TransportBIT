@@ -4,70 +4,42 @@ import (
 	"net/http"
 
 	"transport-server/config"
-	"transport-server/utils"
 
 	"github.com/gin-gonic/gin"
 )
 
-// 🔐 ME - Get current user from cookie/token
+// Me returns the currently authenticated user.
+//
+// This handler sits behind AuthMiddleware, which has already validated the JWT
+// and injected user_id, username, and role into the Gin context.
+// There is no need to re-parse the token here.
 func Me(c *gin.Context) {
-	// Try to get token from header first
-	tokenStr := c.GetHeader("Authorization")
-	if tokenStr == "" {
-		// Try cookie
-		var err error
-		tokenStr, err = c.Cookie("TRANSPORT_AUTH")
-		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Missing token"})
-			return
-		}
-	} else {
-		// Remove Bearer prefix if present
-		if len(tokenStr) > 7 && tokenStr[:7] == "Bearer " {
-			tokenStr = tokenStr[7:]
-		}
-	}
+	userID := c.GetInt("user_id")
+	username := c.GetString("username")
+	role := c.GetString("role")
 
-	claims, err := utils.ParseJWT(tokenStr)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
-		return
-	}
-
-	// Safely get claims
-	userID := int(claims["user_id"].(float64)) // JWT numbers are float64
-	username := claims["username"].(string)
-	role := claims["role"].(string)
-
-	// Fetch fresh details from DB
-	response := UnifiedLoginResponse{
+	response := UserResponse{
 		UserID:   userID,
 		Username: username,
 		Role:     role,
-		Token:    tokenStr,
-		Message:  "User authenticated",
 	}
 
-	// Get basic user info
-	err = config.DB.QueryRow(
+	// Fetch fresh name + email from DB on every /me call so the client always
+	// has up-to-date profile data without needing a separate profile request.
+	_ = config.DB.QueryRow(
 		"SELECT full_name, COALESCE(email, '') FROM users WHERE id = ?",
 		userID,
 	).Scan(&response.FullName, &response.Email)
 
-	if err != nil {
-		// Fallback if user deleted but token valid? unlikely
+	if response.FullName == "" {
 		response.FullName = username
 	}
 
-	// If role is DRIVER, get driver details
 	if role == "DRIVER" {
 		var driverID int
-		err = config.DB.QueryRow(
-			"SELECT id FROM drivers WHERE user_id = ?",
-			userID,
-		).Scan(&driverID)
-
-		if err == nil {
+		if err := config.DB.QueryRow(
+			"SELECT id FROM drivers WHERE user_id = ?", userID,
+		).Scan(&driverID); err == nil {
 			response.DriverID = &driverID
 		}
 	}

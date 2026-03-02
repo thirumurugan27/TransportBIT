@@ -19,9 +19,8 @@ export default function ProtectedRoute({children, allowedRoles}) {
     return <Navigate to="/login" replace />;
   }
 
-  // Check if user has the required role
+  // Redirect to the role's own dashboard if they try to access another role's page
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    // Redirect to appropriate dashboard based on their role
     switch (user.role) {
       case "ADMIN":
         return <Navigate to="/admin-dashboard" replace />;
@@ -29,6 +28,8 @@ export default function ProtectedRoute({children, allowedRoles}) {
         return <Navigate to="/driver-dashboard" replace />;
       case "STUDENT":
         return <Navigate to="/student-dashboard" replace />;
+      case "FACULTY":
+        return <Navigate to="/faculty-dashboard" replace />;
       default:
         return <Navigate to="/login" replace />;
     }

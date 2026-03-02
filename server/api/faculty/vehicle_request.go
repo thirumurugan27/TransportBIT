@@ -10,21 +10,16 @@ import (
 
 	"transport-server/config"
 	"transport-server/models"
-	"transport-server/utils"
 
 	"github.com/gin-gonic/gin"
 )
 
 // POST /api/faculty/vehicle-request
 func CreateVehicleRequest(c *gin.Context) {
-	userID, err := utils.GetUserIDFromToken(c)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-		return
-	}
+	userID := c.GetInt("user_id")
 
 	var facultyID int
-	err = config.DB.QueryRow(`SELECT id FROM faculty WHERE user_id = ?`, userID).Scan(&facultyID)
+	err := config.DB.QueryRow(`SELECT id FROM faculty WHERE user_id = ?`, userID).Scan(&facultyID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Faculty profile not found"})
 		return
@@ -269,14 +264,10 @@ func CreateVehicleRequest(c *gin.Context) {
 
 // GET /api/faculty/vehicle-requests
 func GetMyVehicleRequests(c *gin.Context) {
-	userID, err := utils.GetUserIDFromToken(c)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-		return
-	}
+	userID := c.GetInt("user_id")
 
 	var facultyID int
-	err = config.DB.QueryRow(`SELECT id FROM faculty WHERE user_id = ?`, userID).Scan(&facultyID)
+	err := config.DB.QueryRow(`SELECT id FROM faculty WHERE user_id = ?`, userID).Scan(&facultyID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Faculty profile not found"})
 		return
@@ -413,14 +404,10 @@ func GetMyVehicleRequests(c *gin.Context) {
 
 // POST /api/faculty/vehicle-request/cancel
 func CancelVehicleRequest(c *gin.Context) {
-	userID, err := utils.GetUserIDFromToken(c)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-		return
-	}
+	userID := c.GetInt("user_id")
 
 	var facultyID int
-	err = config.DB.QueryRow(`SELECT id FROM faculty WHERE user_id = ?`, userID).Scan(&facultyID)
+	err := config.DB.QueryRow(`SELECT id FROM faculty WHERE user_id = ?`, userID).Scan(&facultyID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Faculty profile not found"})
 		return
@@ -462,14 +449,10 @@ func CancelVehicleRequest(c *gin.Context) {
 
 // GET /api/faculty/vehicle-request/:id/otp - Faculty gets their OTP for a request
 func GetVehicleRequestOTP(c *gin.Context) {
-	userID, err := utils.GetUserIDFromToken(c)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-		return
-	}
+	userID := c.GetInt("user_id")
 
 	var facultyID int
-	err = config.DB.QueryRow(`SELECT id FROM faculty WHERE user_id = ?`, userID).Scan(&facultyID)
+	err := config.DB.QueryRow(`SELECT id FROM faculty WHERE user_id = ?`, userID).Scan(&facultyID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Faculty profile not found"})
 		return

@@ -15,84 +15,69 @@ export const AuthProvider = ({children}) => {
     checkAuth();
   }, []);
 
+  // Validate the session with the server. Called once on mount and after Google login.
+  // The HttpOnly cookie is sent automatically by the browser — no token handling in JS.
   const checkAuth = async () => {
     try {
-      // Use credentials: 'include' to send cookies
       const res = await fetch(`${API_BASE}/api/me`, {
-        headers: {
-          "X-Tunnel-Skip-Efficiency-Check": "true",
-          // If you are using a token in header as fallback:
-          // 'Authorization': `Bearer ${token}`
-          // But since the user wants to avoid local storage, we rely on the HttpOnly cookie set by backend
-        },
         credentials: "include",
+        headers: {"X-Tunnel-Skip-Efficiency-Check": "true"},
       });
-
       if (res.ok) {
         const userData = await res.json();
         setUser(userData);
-
-        // Handle redirect if on login page and already logged in
         if (location.pathname === "/login" || location.pathname === "/") {
           redirectToDashboard(userData.role);
         }
       } else {
         setUser(null);
       }
-    } catch (err) {
-      console.error("Auth check failed:", err);
+    } catch {
       setUser(null);
     } finally {
       setLoading(false);
     }
   };
 
+  // Submit credentials. Server validates and sets the HttpOnly cookie.
+  // The response body gives us the user profile — we never touch the token.
   const login = async (username, password) => {
     try {
       const res = await fetch(`${API_BASE}/api/login`, {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
           "X-Tunnel-Skip-Efficiency-Check": "true",
         },
         body: JSON.stringify({username, password}),
-        credentials: "include", // Important for setting the cookie
       });
-
       if (res.ok) {
         const data = await res.json();
-        // Save token to localStorage for API calls
-        if (data.token) {
-          localStorage.setItem("token", data.token);
-        }
         setUser(data);
         redirectToDashboard(data.role);
         return {success: true};
-      } else {
-        const err = await res.json();
-        return {success: false, error: err.error};
       }
-    } catch (err) {
-      return {success: false, error: "Network error"};
+      const err = await res.json();
+      return {success: false, error: err.error || "Invalid credentials"};
+    } catch {
+      return {success: false, error: "Network error. Please try again."};
     }
   };
 
-  // Google Login just refreshes state because the popup handles the cookie setting
-  const googleLoginSuccess = () => {
-    checkAuth();
-  };
+  // Called by the Google OAuth popup after it sets the cookie server-side.
+  const googleLoginSuccess = () => checkAuth();
 
+  // Tell the server to expire the cookie, then clear React state.
   const logout = async () => {
     try {
       await fetch(`${API_BASE}/api/logout`, {
         method: "POST",
         credentials: "include",
       });
-    } catch (err) {
-      console.error("Logout failed", err);
+    } catch {
+      // Even if the request fails, clear local state and redirect
     }
-    // Clear localStorage
-    localStorage.removeItem("token");
     setUser(null);
     navigate("/login");
   };

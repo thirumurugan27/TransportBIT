@@ -1,52 +1,58 @@
 /**
  * Auth utility functions
+ *
+ * SECURITY: Authentication is handled entirely via HttpOnly cookies set by the
+ * server. No tokens or sensitive user data are ever written to localStorage or
+ * sessionStorage, preventing XSS token-theft attacks.
+ *
+ * For user data, consume the AuthContext (useAuth()) instead of these helpers
+ * where possible. These helpers exist for edge-cases outside React tree.
  */
 
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
+
+/**
+ * Programmatically log the user out:
+ * - Clears the HttpOnly cookie server-side
+ * - Redirects to /login
+ * NOTE: Do NOT call localStorage.setItem/removeItem for auth data anywhere.
+ */
 export const logout = async () => {
     try {
-        // Call the logout API to clear the HttpOnly cookie on the server
-        await fetch('http://localhost:8080/api/logout', {
+        await fetch(`${API_BASE}/api/logout`, {
             method: 'POST',
-            credentials: 'include'
+            credentials: 'include',
         });
     } catch (err) {
         console.error("Logout API call failed:", err);
     }
-
-    // Clear all auth data from localStorage
-    localStorage.removeItem("userId");
-    localStorage.removeItem("username");
-    localStorage.removeItem("fullName");
-    localStorage.removeItem("email");
-    localStorage.removeItem("role");
-    localStorage.removeItem("driverId");
-    localStorage.removeItem("driverName");
-
-    // Redirect to login
     window.location.href = "/login";
 };
 
-export const getCurrentUser = () => {
-    return {
-        userId: localStorage.getItem("userId"),
-        username: localStorage.getItem("username"),
-        fullName: localStorage.getItem("fullName"),
-        email: localStorage.getItem("email"),
-        role: localStorage.getItem("role"),
-        driverId: localStorage.getItem("driverId"),
-    };
-};
+/**
+ * Returns headers needed for every API request.
+ * No Authorization header — the HttpOnly cookie is sent automatically
+ * by the browser via credentials: 'include'.
+ */
+export const getAuthHeaders = () => ({
+    'Content-Type': 'application/json',
+    'X-Tunnel-Skip-Efficiency-Check': 'true',
+});
 
-export const isAuthenticated = () => {
-    return !!localStorage.getItem("userId") && !!localStorage.getItem("role");
-};
-
-export const hasRole = (allowedRoles) => {
-    const role = localStorage.getItem("role");
-    return allowedRoles.includes(role);
-};
-
-export const getAuthHeaders = () => {
-    const token = localStorage.getItem("token");
-    return token ? { Authorization: `Bearer ${token}` } : {};
+/**
+ * Check authentication status by calling the /api/me endpoint.
+ * Never rely on localStorage to decide if a user is logged in.
+ * @returns {Promise<object|null>} user object or null
+ */
+export const fetchCurrentUser = async () => {
+    try {
+        const res = await fetch(`${API_BASE}/api/me`, {
+            credentials: 'include',
+            headers: getAuthHeaders(),
+        });
+        if (res.ok) return res.json();
+        return null;
+    } catch {
+        return null;
+    }
 };

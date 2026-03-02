@@ -30,12 +30,18 @@ func generateAttendanceReportPDF(c *gin.Context) {
 	}
 
 	rows, err := config.DB.Query(`
-		SELECT 
-			u.full_name, d.license_number,
-			DATE_FORMAT(a.date, '%d-%m-%Y'),
-			CASE 
+		WITH RECURSIVE date_range AS (
+			SELECT ? AS d
+			UNION ALL
+			SELECT d + INTERVAL 1 DAY FROM date_range WHERE d < ?
+		)
+		SELECT
+			u.full_name,
+			d.license_number,
+			DATE_FORMAT(dr.d, '%d-%m-%Y'),
+			CASE
 				WHEN lr.id IS NOT NULL AND lr.status = 'admin_approved'
-					AND a.date BETWEEN lr.start_date AND lr.end_date THEN 'On Leave'
+					AND dr.d BETWEEN lr.start_date AND lr.end_date THEN 'On Leave'
 				WHEN a.status = 'present' THEN 'Present'
 				WHEN a.status = 'absent' THEN 'Absent'
 				WHEN a.status = 'on_leave' THEN 'On Leave'
@@ -43,14 +49,14 @@ func generateAttendanceReportPDF(c *gin.Context) {
 			END,
 			COALESCE(TIME_FORMAT(a.checkin_time, '%h:%i %p'), '-'),
 			COALESCE(TIME_FORMAT(a.checkout_time, '%h:%i %p'), '-')
-		FROM attendance a
-		JOIN users u ON a.user_id = u.id
-		JOIN drivers d ON d.user_id = u.id
-		LEFT JOIN leave_requests lr ON lr.driver_id = d.id 
+		FROM date_range dr
+		CROSS JOIN drivers d
+		JOIN users u ON d.user_id = u.id
+		LEFT JOIN attendance a ON a.user_id = u.id AND a.date = dr.d
+		LEFT JOIN leave_requests lr ON lr.driver_id = d.id
 			AND lr.status = 'admin_approved'
-			AND a.date BETWEEN lr.start_date AND lr.end_date
-		WHERE a.date BETWEEN ? AND ?
-		ORDER BY u.full_name, a.date
+			AND dr.d BETWEEN lr.start_date AND lr.end_date
+		ORDER BY u.full_name, dr.d
 	`, startDate, endDate)
 	if err != nil {
 		log.Printf("PDF attendance report error: %v", err)

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
+	"os"
 
 	"transport-server/config"
 	"transport-server/models"
@@ -12,21 +13,21 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-/* =========================
-   AUTH HANDLERS
-========================= */
+// ─── Shared response types ─────────────────────────────────────────────────────
 
-// UnifiedLoginResponse - unified response for all user types
-type UnifiedLoginResponse struct {
+// UserResponse is the standard shape returned by /api/login and /api/me.
+// The JWT is never included — authentication is entirely via the HttpOnly cookie.
+type UserResponse struct {
 	UserID   int    `json:"user_id"`
 	Username string `json:"username"`
 	FullName string `json:"full_name"`
 	Email    string `json:"email"`
 	Role     string `json:"role"`
-	Token    string `json:"token"`
 	DriverID *int   `json:"driver_id,omitempty"`
-	Message  string `json:"message"`
 }
+
+// Keep backward-compatible alias so me.go and google.go compile without changes
+type UnifiedLoginResponse = UserResponse
 
 // 🔐 UNIFIED LOGIN - Single endpoint for all roles
 func UnifiedLogin(c *gin.Context) {
@@ -72,17 +73,17 @@ func UnifiedLogin(c *gin.Context) {
 		return
 	}
 
-	// Set HttpOnly cookie for security - token expires in 24 hours
-	c.SetCookie("TRANSPORT_AUTH", token, 3600*24, "/", "", false, true)
+	// Set HttpOnly + SameSite cookie — Secure=true in production, false in dev
+	secure := os.Getenv("ENV") == "production"
+	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetCookie("TRANSPORT_AUTH", token, 3600*24, "/", "", secure, true)
 
-	response := UnifiedLoginResponse{
+	response := UserResponse{
 		UserID:   userID,
 		Username: req.Username,
 		FullName: fullName,
 		Email:    email,
 		Role:     role,
-		Token:    token,
-		Message:  "Login successful",
 	}
 
 	// If role is DRIVER, get driver details
@@ -139,6 +140,8 @@ func SetupAdminPassword(c *gin.Context) {
 // 🚪 LOGOUT
 func Logout(c *gin.Context) {
 	// Clear the cookie by setting max age to -1
-	c.SetCookie("TRANSPORT_AUTH", "", -1, "/", "", false, true)
+	secureLogout := os.Getenv("ENV") == "production"
+	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetCookie("TRANSPORT_AUTH", "", -1, "/", "", secureLogout, true)
 	c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
 }

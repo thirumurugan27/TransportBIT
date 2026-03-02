@@ -108,27 +108,42 @@ func getSingleDayAttendanceByDate(c *gin.Context, date, status string) {
 	c.JSON(http.StatusOK, list)
 }
 
-// getAttendanceRange returns attendance records for a date range (historical view)
+// getAttendanceRange returns attendance records for a date range.
+// Uses a date_range CTE + CROSS JOIN drivers so that drivers with no
+// attendance record on a given day appear as 'not_marked'.
 func getAttendanceRange(c *gin.Context, startDate, endDate, status string) {
-	dateCondition := "a.date BETWEEN '" + startDate + "' AND '" + endDate + "'"
-
-	// Build status condition
-	statusCondition := ""
-	if status != "" && status != "all" {
-		statusCondition = " AND a.status = '" + status + "'"
-	}
-
 	query := `
-		SELECT a.id, a.user_id, DATE_FORMAT(a.date, '%d-%m-%Y') as date, a.status, a.checkin_time, a.checkout_time, a.marked_by, u.full_name,
-		       COALESCE(marker.full_name, '') as marked_by_name
-		FROM attendance a
-		JOIN users u ON a.user_id = u.id
-		JOIN drivers d ON d.user_id = u.id
+		WITH RECURSIVE date_range AS (
+			SELECT ? AS d
+			UNION ALL
+			SELECT d + INTERVAL 1 DAY FROM date_range WHERE d < ?
+		)
+		SELECT
+			COALESCE(a.id, 0) as id,
+			u.id as user_id,
+			DATE_FORMAT(dr.d, '%d-%m-%Y') as date,
+			CASE
+				WHEN lr.id IS NOT NULL AND lr.status = 'admin_approved'
+					AND dr.d BETWEEN lr.start_date AND lr.end_date THEN 'on_leave'
+				WHEN a.status IS NOT NULL THEN a.status
+				ELSE 'not_marked'
+			END as status,
+			a.checkin_time,
+			a.checkout_time,
+			a.marked_by,
+			u.full_name,
+			COALESCE(marker.full_name, '') as marked_by_name
+		FROM date_range dr
+		CROSS JOIN drivers d
+		JOIN users u ON d.user_id = u.id
+		LEFT JOIN attendance a ON a.user_id = u.id AND a.date = dr.d
 		LEFT JOIN users marker ON a.marked_by = marker.id
-		WHERE ` + dateCondition + statusCondition + `
-		ORDER BY a.date DESC, a.id DESC
+		LEFT JOIN leave_requests lr ON lr.driver_id = d.id
+			AND lr.status = 'admin_approved'
+			AND dr.d BETWEEN lr.start_date AND lr.end_date
+		ORDER BY dr.d DESC, u.full_name
 	`
-	rows, err := config.DB.Query(query)
+	rows, err := config.DB.Query(query, startDate, endDate)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -140,6 +155,18 @@ func getAttendanceRange(c *gin.Context, startDate, endDate, status string) {
 		var a models.Attendance
 		rows.Scan(&a.ID, &a.UserID, &a.Date, &a.Status, &a.CheckinTime, &a.CheckoutTime, &a.MarkedBy, &a.FullName, &a.MarkedByName)
 		list = append(list, a)
+	}
+
+	// Filter by status if provided
+	if status != "" && status != "all" {
+		var filtered []models.Attendance
+		for _, a := range list {
+			if a.Status == status {
+				filtered = append(filtered, a)
+			}
+		}
+		c.JSON(http.StatusOK, filtered)
+		return
 	}
 
 	c.JSON(http.StatusOK, list)

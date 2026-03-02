@@ -7,18 +7,13 @@ import (
 	"strings"
 
 	"transport-server/config"
-	"transport-server/utils"
 
 	"github.com/gin-gonic/gin"
 )
 
 // GetFacultyProfile - Get current faculty profile
 func GetFacultyProfile(c *gin.Context) {
-	userID, err := utils.GetUserIDFromToken(c)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-		return
-	}
+	userID := c.GetInt("user_id")
 
 	var faculty struct {
 		ID          int    `json:"id"`
@@ -30,7 +25,7 @@ func GetFacultyProfile(c *gin.Context) {
 		Designation string `json:"designation"`
 	}
 
-	err = config.DB.QueryRow(`
+	err := config.DB.QueryRow(`
 		SELECT f.id, f.user_id, u.full_name, COALESCE(u.email, '') as email, 
 		       COALESCE(u.phone, '') as phone, COALESCE(f.department, '') as department,
 		       COALESCE(f.designation, '') as designation
@@ -55,11 +50,7 @@ func GetFacultyProfile(c *gin.Context) {
 
 // UpdateFacultyProfile - Update faculty profile
 func UpdateFacultyProfile(c *gin.Context) {
-	userID, err := utils.GetUserIDFromToken(c)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-		return
-	}
+	userID := c.GetInt("user_id")
 
 	var req struct {
 		FullName    string `json:"full_name"`
