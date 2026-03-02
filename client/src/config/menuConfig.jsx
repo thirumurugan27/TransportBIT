@@ -107,6 +107,26 @@ export const adminMenuConfig = {
       path: "/vehicle-requests",
     },
     {
+      key: "Purchases",
+      label: "Purchases",
+      icon: <SubPartsIcon />,
+      hasSubmenu: true,
+      submenu: [
+        {
+          label: "Purchase Log",
+          icon: <SubPartsIcon />,
+          key: "serviceRecords",
+          path: "/parts-purchases",
+        },
+        {
+          key: "vendors",
+          label: "Vendors",
+          icon: <SubVendorIcon />,
+          path: "/vendors",
+        },
+      ],
+    },
+    {
       key: "serviceRepair",
       label: "Service & Repair",
       icon: <WrenchIcon />,
@@ -119,12 +139,6 @@ export const adminMenuConfig = {
           path: "/service-records",
         },
         {
-          key: "partsPurchases",
-          label: "Product Purchases",
-          icon: <SubPartsIcon />,
-          path: "/parts-purchases",
-        },
-        {
           key: "serviceTypes",
           label: "Service Types",
           icon: <SubServiceTypeIcon />,
@@ -135,12 +149,6 @@ export const adminMenuConfig = {
           label: "Reminders",
           icon: <SubReminderIcon />,
           path: "/service-reminders",
-        },
-        {
-          key: "vendors",
-          label: "Vendors",
-          icon: <SubVendorIcon />,
-          path: "/vendors",
         },
       ],
     },
