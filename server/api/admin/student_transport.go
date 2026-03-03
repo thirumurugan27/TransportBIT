@@ -5,12 +5,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strings"
 	"time"
 
 	"transport-server/config"
 	"transport-server/models"
-	"transport-server/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -170,9 +168,20 @@ func AssignStudentTransport(c *gin.Context) {
 		req.AcademicYear = "2025-2026"
 	}
 
+	// The frontend sends vehicle_id (from bus fleet API) as bus_id.
+	// Resolve to the actual buses table ID for the FK constraint.
+	var actualBusID int
+	err := config.DB.QueryRow(`SELECT id FROM buses WHERE vehicle_id = ?`, req.BusID).Scan(&actualBusID)
+	if err != nil {
+		log.Printf("Error resolving bus ID from vehicle_id %d: %v", req.BusID, err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid bus selection"})
+		return
+	}
+	req.BusID = actualBusID
+
 	// Get fee for the selected stop
 	var feeAmount float64
-	err := config.DB.QueryRow(`
+	err = config.DB.QueryRow(`
 		SELECT fee_amount FROM transport_fees 
 		WHERE stop_id = ? AND academic_year = ? AND is_active = TRUE
 	`, req.StopID, req.AcademicYear).Scan(&feeAmount)
@@ -343,15 +352,7 @@ func GetAllTransportPayments(c *gin.Context) {
 
 // POST /api/admin/transport-payments/record - Record a payment
 func RecordTransportPayment(c *gin.Context) {
-	tokenStr := c.GetHeader("Authorization")
-	if len(tokenStr) > 7 && tokenStr[:7] == "Bearer " {
-		tokenStr = tokenStr[7:]
-	}
-	claims, _ := utils.ParseJWT(tokenStr)
-	adminID := 0
-	if claims != nil {
-		adminID = int(claims["user_id"].(float64))
-	}
+	adminID := c.GetInt("user_id")
 
 	var req models.RecordPaymentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -473,15 +474,7 @@ func GetAllStopChangeRequests(c *gin.Context) {
 
 // POST /api/admin/stop-change-requests/process - Approve or reject request
 func ProcessStopChangeRequest(c *gin.Context) {
-	tokenStr := c.GetHeader("Authorization")
-	if len(tokenStr) > 7 && tokenStr[:7] == "Bearer " {
-		tokenStr = tokenStr[7:]
-	}
-	claims, _ := utils.ParseJWT(tokenStr)
-	adminID := 0
-	if claims != nil {
-		adminID = int(claims["user_id"].(float64))
-	}
+	adminID := c.GetInt("user_id")
 
 	var req models.ProcessStopChangeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -669,20 +662,7 @@ func GetAllTransportRequests(c *gin.Context) {
 
 // POST /api/admin/transport-requests/process - Approve or reject a transport request
 func ProcessTransportRequest(c *gin.Context) {
-	authHeader := c.GetHeader("Authorization")
-	if authHeader == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header required"})
-		return
-	}
-
-	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-	claims, err := utils.ParseJWT(tokenString)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
-		return
-	}
-
-	adminID := int(claims["user_id"].(float64))
+	adminID := c.GetInt("user_id")
 
 	var req models.ProcessTransportRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -699,7 +679,7 @@ func ProcessTransportRequest(c *gin.Context) {
 	var userID, busID, stopID int
 	var academicYear, currentStatus string
 	var fee float64
-	err = config.DB.QueryRow(`
+	err := config.DB.QueryRow(`
 		SELECT tr.user_id, tr.bus_id, tr.stop_id, tr.academic_year, COALESCE(bs.fee, 0), tr.status
 		FROM transport_requests tr
 		LEFT JOIN bus_stops bs ON tr.stop_id = bs.id

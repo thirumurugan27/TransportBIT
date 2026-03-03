@@ -3,6 +3,7 @@ import {useAuth} from "../../../context/AuthContext";
 import {useToast} from "../../../context/ToastContext";
 import {showConfirm} from "../../../utils/swal";
 import Loading from "../../../components/ui/Loading";
+import {apiGet, apiPost} from "../../../utils/api";
 import {
   Bus,
   MapPin,
@@ -58,8 +59,6 @@ export default function StudentTransport() {
 
   const [submitting, setSubmitting] = useState(false);
 
-  const token = localStorage.getItem("token");
-
   useEffect(() => {
     fetchTransport();
     fetchPayments();
@@ -70,9 +69,7 @@ export default function StudentTransport() {
 
   const fetchTransport = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/student/transport`, {
-        headers: {Authorization: `Bearer ${token}`},
-      });
+      const res = await apiGet("/api/student/transport");
       if (res.ok) {
         const data = await res.json();
         setTransport(data);
@@ -92,9 +89,7 @@ export default function StudentTransport() {
 
   const fetchPayments = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/student/transport/payments`, {
-        headers: {Authorization: `Bearer ${token}`},
-      });
+      const res = await apiGet("/api/student/transport/payments");
       if (res.ok) {
         const data = await res.json();
         setPayments(data || []);
@@ -106,9 +101,7 @@ export default function StudentTransport() {
 
   const fetchStopRequests = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/student/stop-change/requests`, {
-        headers: {Authorization: `Bearer ${token}`},
-      });
+      const res = await apiGet("/api/student/stop-change/requests");
       if (res.ok) {
         const data = await res.json();
         setStopRequests(data || []);
@@ -120,9 +113,7 @@ export default function StudentTransport() {
 
   const fetchTransportRequests = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/student/transport/requests`, {
-        headers: {Authorization: `Bearer ${token}`},
-      });
+      const res = await apiGet("/api/student/transport/requests");
       if (res.ok) {
         const data = await res.json();
         setTransportRequests(data || []);
@@ -138,9 +129,7 @@ export default function StudentTransport() {
 
   const fetchAllBuses = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/student/all-buses`, {
-        headers: {Authorization: `Bearer ${token}`},
-      });
+      const res = await apiGet("/api/student/all-buses");
       if (res.ok) {
         const data = await res.json();
         setAllBuses(data || []);
@@ -156,9 +145,7 @@ export default function StudentTransport() {
       return;
     }
     try {
-      const res = await fetch(`${API_BASE}/api/student/bus/${busId}/stops`, {
-        headers: {Authorization: `Bearer ${token}`},
-      });
+      const res = await apiGet(`/api/student/bus/${busId}/stops`);
       if (res.ok) {
         const data = await res.json();
         setter(data || []);
@@ -230,14 +217,10 @@ export default function StudentTransport() {
     }
     setSubmitting(true);
     try {
-      const res = await fetch(`${API_BASE}/api/student/stop-change/request`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(requestForm),
-      });
+      const res = await apiPost(
+        "/api/student/stop-change/request",
+        requestForm,
+      );
       if (res.ok) {
         showToast("Stop change request submitted successfully!", "success");
         closeRequestModal();
@@ -263,17 +246,9 @@ export default function StudentTransport() {
 
     setCancellingRequestId(requestId);
     try {
-      const res = await fetch(
-        `${API_BASE}/api/student/stop-change/request/cancel`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({request_id: requestId}),
-        },
-      );
+      const res = await apiPost("/api/student/stop-change/request/cancel", {
+        request_id: requestId,
+      });
       if (res.ok) {
         showToast("Request cancelled", "success");
         fetchStopRequests();
@@ -296,14 +271,10 @@ export default function StudentTransport() {
     }
     setSubmitting(true);
     try {
-      const res = await fetch(`${API_BASE}/api/student/transport/request`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(transportRequestForm),
-      });
+      const res = await apiPost(
+        "/api/student/transport/request",
+        transportRequestForm,
+      );
       if (res.ok) {
         showToast(
           "Transport request submitted successfully! Please wait for admin approval.",

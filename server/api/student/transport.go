@@ -8,7 +8,6 @@ import (
 
 	"transport-server/config"
 	"transport-server/models"
-	"transport-server/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -142,21 +141,10 @@ func InitStudentTransportTables() {
 
 // GET /api/student/transport - Get student's transport details
 func GetMyTransport(c *gin.Context) {
-	// Get user from token
-	tokenStr := c.GetHeader("Authorization")
-	if len(tokenStr) > 7 && tokenStr[:7] == "Bearer " {
-		tokenStr = tokenStr[7:]
-	}
-	claims, err := utils.ParseJWT(tokenStr)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-		return
-	}
-
-	userID := int(claims["user_id"].(float64))
+	userID := c.GetInt("user_id")
 
 	var transport models.StudentTransport
-	err = config.DB.QueryRow(`
+	err := config.DB.QueryRow(`
 		SELECT 
 			st.id, st.user_id, COALESCE(u.full_name, u.username) as student_name, COALESCE(u.email, ''),
 			st.bus_id, COALESCE(v.vehicle_name, '') as vehicle_name, COALESCE(v.vehicle_number, '') as bus_number, 
@@ -197,17 +185,7 @@ func GetMyTransport(c *gin.Context) {
 
 // GET /api/student/transport/payments - Get payment history
 func GetMyPayments(c *gin.Context) {
-	tokenStr := c.GetHeader("Authorization")
-	if len(tokenStr) > 7 && tokenStr[:7] == "Bearer " {
-		tokenStr = tokenStr[7:]
-	}
-	claims, err := utils.ParseJWT(tokenStr)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-		return
-	}
-
-	userID := int(claims["user_id"].(float64))
+	userID := c.GetInt("user_id")
 
 	rows, err := config.DB.Query(`
 		SELECT 
@@ -251,17 +229,7 @@ func GetMyPayments(c *gin.Context) {
 
 // POST /api/student/stop-change/request - Submit stop change request
 func RequestStopChange(c *gin.Context) {
-	tokenStr := c.GetHeader("Authorization")
-	if len(tokenStr) > 7 && tokenStr[:7] == "Bearer " {
-		tokenStr = tokenStr[7:]
-	}
-	claims, err := utils.ParseJWT(tokenStr)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-		return
-	}
-
-	userID := int(claims["user_id"].(float64))
+	userID := c.GetInt("user_id")
 
 	var req models.CreateStopChangeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -272,7 +240,7 @@ func RequestStopChange(c *gin.Context) {
 	// Get current student transport
 	var studentTransportID, currentStopID int
 	var currentFee float64
-	err = config.DB.QueryRow(`
+	err := config.DB.QueryRow(`
 		SELECT st.id, st.stop_id, st.total_fee
 		FROM student_transport st
 		WHERE st.user_id = ? AND st.status = 'active'
@@ -344,15 +312,7 @@ func RequestStopChange(c *gin.Context) {
 
 // POST /api/student/stop-change/request/cancel - Cancel pending stop change request
 func CancelStopChangeRequest(c *gin.Context) {
-	tokenStr := c.GetHeader("Authorization")
-	if len(tokenStr) > 7 && tokenStr[:7] == "Bearer " {
-		tokenStr = tokenStr[7:]
-	}
-	claims, err := utils.ParseJWT(tokenStr)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-		return
-	}
+	userID := c.GetInt("user_id")
 
 	var req models.CancelStopChangeRequest
 	if err := c.ShouldBindJSON(&req); err != nil || req.RequestID == 0 {
@@ -360,10 +320,8 @@ func CancelStopChangeRequest(c *gin.Context) {
 		return
 	}
 
-	userID := int(claims["user_id"].(float64))
-
 	var requestID int
-	err = config.DB.QueryRow(`
+	err := config.DB.QueryRow(`
 		SELECT scr.id 
 		FROM stop_change_requests scr
 		JOIN student_transport st ON scr.student_transport_id = st.id
@@ -390,17 +348,7 @@ func CancelStopChangeRequest(c *gin.Context) {
 
 // GET /api/student/stop-change/requests - Get my stop change requests
 func GetMyStopChangeRequests(c *gin.Context) {
-	tokenStr := c.GetHeader("Authorization")
-	if len(tokenStr) > 7 && tokenStr[:7] == "Bearer " {
-		tokenStr = tokenStr[7:]
-	}
-	claims, err := utils.ParseJWT(tokenStr)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-		return
-	}
-
-	userID := int(claims["user_id"].(float64))
+	userID := c.GetInt("user_id")
 
 	rows, err := config.DB.Query(`
 		SELECT 
@@ -470,15 +418,21 @@ func GetMyStopChangeRequests(c *gin.Context) {
 
 // GET /api/student/bus/:id/stops - Get all stops for a bus (for dropdown)
 func GetBusStopsForStudent(c *gin.Context) {
-	busID := c.Param("id")
+	// The :id param may be a buses.id (from GetAllBuses) or a vehicles.id
+	// (from GetBusFleet). Try resolving via buses first; fall back to using
+	// the value directly as a vehicle_id.
+	paramID := c.Param("id")
 
-	// Get vehicle_id from buses table
 	var vehicleID int
-	err := config.DB.QueryRow(`SELECT vehicle_id FROM buses WHERE id = ?`, busID).Scan(&vehicleID)
+	err := config.DB.QueryRow(`SELECT vehicle_id FROM buses WHERE id = ?`, paramID).Scan(&vehicleID)
 	if err != nil {
-		log.Printf("Error fetching bus: %v", err)
-		c.JSON(http.StatusNotFound, gin.H{"error": "Bus not found"})
-		return
+		// Not a buses.id — treat as vehicle_id directly
+		vid, convErr := strconv.Atoi(paramID)
+		if convErr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid bus ID"})
+			return
+		}
+		vehicleID = vid
 	}
 
 	rows, err := config.DB.Query(`
@@ -524,21 +478,11 @@ func GetBusStopsForStudent(c *gin.Context) {
 
 // GET /api/student/available-stops - Get all stops available for stop change
 func GetAvailableStops(c *gin.Context) {
-	tokenStr := c.GetHeader("Authorization")
-	if len(tokenStr) > 7 && tokenStr[:7] == "Bearer " {
-		tokenStr = tokenStr[7:]
-	}
-	claims, err := utils.ParseJWT(tokenStr)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-		return
-	}
-
-	userID := int(claims["user_id"].(float64))
+	userID := c.GetInt("user_id")
 
 	// Get current bus ID
 	var busID, currentStopID int
-	err = config.DB.QueryRow(`
+	err := config.DB.QueryRow(`
 		SELECT bus_id, stop_id FROM student_transport 
 		WHERE user_id = ? AND status = 'active' LIMIT 1
 	`, userID).Scan(&busID, &currentStopID)
@@ -641,17 +585,7 @@ func GetAllBuses(c *gin.Context) {
 
 // POST /api/student/transport/request - Request bus/stop assignment
 func RequestTransport(c *gin.Context) {
-	tokenStr := c.GetHeader("Authorization")
-	if len(tokenStr) > 7 && tokenStr[:7] == "Bearer " {
-		tokenStr = tokenStr[7:]
-	}
-	claims, err := utils.ParseJWT(tokenStr)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-		return
-	}
-
-	userID := int(claims["user_id"].(float64))
+	userID := c.GetInt("user_id")
 
 	var req models.CreateTransportRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -680,7 +614,7 @@ func RequestTransport(c *gin.Context) {
 	}
 
 	// Create request
-	_, err = config.DB.Exec(`
+	_, err := config.DB.Exec(`
 		INSERT INTO transport_requests (user_id, bus_id, stop_id, academic_year, reason, status)
 		VALUES (?, ?, ?, ?, ?, 'pending')
 	`, userID, req.BusID, req.StopID, req.AcademicYear, req.Reason)
@@ -695,17 +629,7 @@ func RequestTransport(c *gin.Context) {
 
 // GET /api/student/transport/requests - Get my transport requests
 func GetMyTransportRequests(c *gin.Context) {
-	tokenStr := c.GetHeader("Authorization")
-	if len(tokenStr) > 7 && tokenStr[:7] == "Bearer " {
-		tokenStr = tokenStr[7:]
-	}
-	claims, err := utils.ParseJWT(tokenStr)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-		return
-	}
-
-	userID := int(claims["user_id"].(float64))
+	userID := c.GetInt("user_id")
 
 	rows, err := config.DB.Query(`
 		SELECT 

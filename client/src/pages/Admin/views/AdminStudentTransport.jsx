@@ -1,6 +1,7 @@
 import React, {useState, useEffect} from "react";
 import {useToast} from "../../../context/ToastContext";
 import Loading from "../../../components/ui/Loading";
+import {apiGet, apiPost} from "../../../utils/api";
 import {
   Users,
   Bus,
@@ -20,8 +21,6 @@ import {
   AlertCircle,
   X,
 } from "lucide-react";
-
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
 export default function AdminStudentTransport() {
   const {showToast} = useToast();
@@ -60,12 +59,7 @@ export default function AdminStudentTransport() {
   useEffect(() => {
     if (showStudentDetailModal && selectedStudent?.id) {
       setFeeSummaryLoading(true);
-      fetch(
-        `${API_BASE}/api/admin/student-transport/${selectedStudent.id}/fee-summary`,
-        {
-          headers: {Authorization: `Bearer ${localStorage.getItem("token")}`},
-        },
-      )
+      apiGet(`/api/admin/student-transport/${selectedStudent.id}/fee-summary`)
         .then((r) => r.json())
         .then((data) => {
           setFeeSummary(data);
@@ -118,7 +112,6 @@ export default function AdminStudentTransport() {
   const [selectedBusId, setSelectedBusId] = useState(null);
   const [selectedStopFilter, setSelectedStopFilter] = useState("ALL");
   const [busStopSearch, setBusStopSearch] = useState("");
-  const token = localStorage.getItem("token");
 
   useEffect(() => {
     fetchAll();
@@ -143,9 +136,7 @@ export default function AdminStudentTransport() {
 
   const fetchStudents = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/students`, {
-        headers: {Authorization: `Bearer ${token}`},
-      });
+      const res = await apiGet("/api/admin/students");
       if (res.ok) setStudents((await res.json()) || []);
     } catch (err) {
       console.error(err);
@@ -154,9 +145,7 @@ export default function AdminStudentTransport() {
 
   const fetchStudentTransports = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/student-transport`, {
-        headers: {Authorization: `Bearer ${token}`},
-      });
+      const res = await apiGet("/api/admin/student-transport");
       if (res.ok) setStudentTransports((await res.json()) || []);
     } catch (err) {
       console.error(err);
@@ -165,9 +154,7 @@ export default function AdminStudentTransport() {
 
   const fetchBuses = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/bus-fleet`, {
-        headers: {Authorization: `Bearer ${token}`},
-      });
+      const res = await apiGet("/api/admin/bus-fleet");
       if (res.ok) setBuses((await res.json()) || []);
     } catch (err) {
       console.error(err);
@@ -176,9 +163,7 @@ export default function AdminStudentTransport() {
 
   const fetchStops = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/stops`, {
-        headers: {Authorization: `Bearer ${token}`},
-      });
+      const res = await apiGet("/api/admin/stops");
       if (res.ok) setStops((await res.json()) || []);
     } catch (err) {
       console.error(err);
@@ -187,9 +172,7 @@ export default function AdminStudentTransport() {
 
   const fetchPayments = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/transport-payments`, {
-        headers: {Authorization: `Bearer ${token}`},
-      });
+      const res = await apiGet("/api/admin/transport-payments");
       if (res.ok) setPayments((await res.json()) || []);
     } catch (err) {
       console.error(err);
@@ -198,9 +181,7 @@ export default function AdminStudentTransport() {
 
   const fetchStopChangeRequests = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/stop-change-requests`, {
-        headers: {Authorization: `Bearer ${token}`},
-      });
+      const res = await apiGet("/api/admin/stop-change-requests");
       if (res.ok) setStopChangeRequests((await res.json()) || []);
     } catch (err) {
       console.error(err);
@@ -209,12 +190,7 @@ export default function AdminStudentTransport() {
 
   const fetchPendingCount = async () => {
     try {
-      const res = await fetch(
-        `${API_BASE}/api/admin/stop-change-requests/pending-count`,
-        {
-          headers: {Authorization: `Bearer ${token}`},
-        },
-      );
+      const res = await apiGet("/api/admin/stop-change-requests/pending-count");
       if (res.ok) {
         const data = await res.json();
         setPendingCount(data.count || 0);
@@ -226,9 +202,7 @@ export default function AdminStudentTransport() {
 
   const fetchTransportRequests = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/transport-requests`, {
-        headers: {Authorization: `Bearer ${token}`},
-      });
+      const res = await apiGet("/api/admin/transport-requests");
       if (res.ok) setTransportRequests((await res.json()) || []);
     } catch (err) {
       console.error(err);
@@ -237,12 +211,7 @@ export default function AdminStudentTransport() {
 
   const fetchPendingTransportCount = async () => {
     try {
-      const res = await fetch(
-        `${API_BASE}/api/admin/transport-requests/pending-count`,
-        {
-          headers: {Authorization: `Bearer ${token}`},
-        },
-      );
+      const res = await apiGet("/api/admin/transport-requests/pending-count");
       if (res.ok) {
         const data = await res.json();
         setPendingTransportCount(data.count || 0);
@@ -254,9 +223,7 @@ export default function AdminStudentTransport() {
 
   const fetchBusesWithStudents = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/buses/with-students`, {
-        headers: {Authorization: `Bearer ${token}`},
-      });
+      const res = await apiGet("/api/admin/buses/with-students");
       if (res.ok) setBusesWithStudents((await res.json()) || []);
     } catch (err) {
       console.error(err);
@@ -265,9 +232,7 @@ export default function AdminStudentTransport() {
 
   const fetchStudentsByBus = async (busId) => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/buses/${busId}/students`, {
-        headers: {Authorization: `Bearer ${token}`},
-      });
+      const res = await apiGet(`/api/admin/buses/${busId}/students`);
       if (res.ok) {
         setSelectedBusStudents((await res.json()) || []);
         setSelectedBusId(busId);
@@ -280,9 +245,7 @@ export default function AdminStudentTransport() {
 
   const fetchBusStops = async (busId) => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/bus/${busId}/stops`, {
-        headers: {Authorization: `Bearer ${token}`},
-      });
+      const res = await apiGet(`/api/admin/bus/${busId}/stops`);
       if (res.ok) setSelectedBusStops((await res.json()) || []);
     } catch (err) {
       console.error(err);
@@ -296,16 +259,9 @@ export default function AdminStudentTransport() {
       return;
     }
     try {
-      const res = await fetch(
-        `${API_BASE}/api/admin/student-transport/assign`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(assignForm),
-        },
+      const res = await apiPost(
+        "/api/admin/student-transport/assign",
+        assignForm,
       );
       if (res.ok) {
         showToast("Student transport assigned successfully!", "success");
@@ -333,16 +289,9 @@ export default function AdminStudentTransport() {
       return;
     }
     try {
-      const res = await fetch(
-        `${API_BASE}/api/admin/transport-payments/record`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(paymentForm),
-        },
+      const res = await apiPost(
+        "/api/admin/transport-payments/record",
+        paymentForm,
       );
       if (res.ok) {
         showToast("Payment recorded successfully!", "success");
@@ -369,21 +318,11 @@ export default function AdminStudentTransport() {
 
   const handleProcessRequest = async (status) => {
     try {
-      const res = await fetch(
-        `${API_BASE}/api/admin/stop-change-requests/process`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            request_id: processForm.request_id,
-            status: status,
-            admin_remarks: processForm.admin_remarks,
-          }),
-        },
-      );
+      const res = await apiPost("/api/admin/stop-change-requests/process", {
+        request_id: processForm.request_id,
+        status: status,
+        admin_remarks: processForm.admin_remarks,
+      });
       if (res.ok) {
         const data = await res.json();
         const msg = data.settlement
@@ -406,21 +345,11 @@ export default function AdminStudentTransport() {
 
   const handleProcessTransportRequest = async (status) => {
     try {
-      const res = await fetch(
-        `${API_BASE}/api/admin/transport-requests/process`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            request_id: transportProcessForm.request_id,
-            status: status,
-            admin_remarks: transportProcessForm.admin_remarks,
-          }),
-        },
-      );
+      const res = await apiPost("/api/admin/transport-requests/process", {
+        request_id: transportProcessForm.request_id,
+        status: status,
+        admin_remarks: transportProcessForm.admin_remarks,
+      });
       if (res.ok) {
         showToast(`Transport request ${status} successfully!`, "success");
         setShowTransportProcessModal(false);

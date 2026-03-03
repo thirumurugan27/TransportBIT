@@ -2,8 +2,7 @@ import React, {useState, useEffect} from "react";
 import {useNavigate} from "react-router-dom";
 import {useAuth} from "../../../context/AuthContext";
 import Loading from "../../../components/ui/Loading";
-
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
+import {apiGet} from "../../../utils/api";
 
 export default function StudentHome() {
   const {user} = useAuth();
@@ -12,7 +11,6 @@ export default function StudentHome() {
   const [pendingRequest, setPendingRequest] = useState(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const token = localStorage.getItem("token");
 
   useEffect(() => {
     fetchTransport();
@@ -21,9 +19,7 @@ export default function StudentHome() {
 
   const fetchTransport = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/student/transport`, {
-        headers: {Authorization: `Bearer ${token}`},
-      });
+      const res = await apiGet("/api/student/transport");
       if (res.ok) {
         const data = await res.json();
         setTransport(data);
@@ -37,9 +33,7 @@ export default function StudentHome() {
 
   const fetchTransportRequests = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/student/transport/requests`, {
-        headers: {Authorization: `Bearer ${token}`},
-      });
+      const res = await apiGet("/api/student/transport/requests");
       if (res.ok) {
         const data = await res.json();
         // Find pending request
