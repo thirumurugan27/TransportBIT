@@ -166,6 +166,7 @@ func registerAdminRoutes(adm *gin.RouterGroup) {
 	adm.POST("/km-log/reject", admin.RejectKmLog)
 	adm.GET("/km-logs/pending-count", admin.GetPendingKmLogsCount)
 	adm.GET("/km-logs/fuel-by-vehicle", admin.GetFuelByVehicle)
+	adm.GET("/km-datewise-tracker", admin.GetDatewiseKmTracker)
 
 	// Cluster Management
 	adm.GET("/clusters", admin.GetClusters)

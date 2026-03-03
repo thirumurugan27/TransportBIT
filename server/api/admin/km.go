@@ -47,6 +47,7 @@ func GetDriverAssignedVehicles(c *gin.Context) {
 		VehicleName    *string `json:"vehicle_name"`
 		AssignmentID   *int    `json:"assignment_id"`
 		AssignmentType string  `json:"assignment_type"`
+		ShiftID        *int    `json:"shift_id"`
 		ShiftName      *string `json:"shift_name"`
 		StartTime      *string `json:"start_time"`
 		EndTime        *string `json:"end_time"`
@@ -61,6 +62,7 @@ func GetDriverAssignedVehicles(c *gin.Context) {
 		SELECT v.id, v.vehicle_number, COALESCE(v.vehicle_type, 'BUS') as vehicle_type,
 		       NULLIF(COALESCE(v.vehicle_name, ''), '') as vehicle_name,
 		       a.id as assignment_id, 'REGULAR' as assignment_type,
+		       a.shift_id,
 		       s.name as shift_name,
 		       TIME_FORMAT(s.start_time, '%h:%i %p') as start_time,
 		       TIME_FORMAT(s.end_time, '%h:%i %p') as end_time,
@@ -87,7 +89,7 @@ func GetDriverAssignedVehicles(c *gin.Context) {
 		for rows.Next() {
 			var v assignedVehicle
 			if err := rows.Scan(&v.VehicleID, &v.VehicleNumber, &v.VehicleType, &v.VehicleName,
-				&v.AssignmentID, &v.AssignmentType, &v.ShiftName, &v.StartTime, &v.EndTime,
+				&v.AssignmentID, &v.AssignmentType, &v.ShiftID, &v.ShiftName, &v.StartTime, &v.EndTime,
 				&v.StartDate, &v.EndDate); err == nil {
 				log.Printf("[GetDriverAssignedVehicles] Found regular assignment: vehicle_id=%d, vehicle_number=%s", v.VehicleID, v.VehicleNumber)
 				vehicles = append(vehicles, v)
@@ -102,6 +104,7 @@ func GetDriverAssignedVehicles(c *gin.Context) {
 		SELECT v.id, v.vehicle_number, COALESCE(v.vehicle_type, 'BUS') as vehicle_type,
 		       NULLIF(COALESCE(v.vehicle_name, ''), '') as vehicle_name,
 		       ta.id as assignment_id, 'TEMPORARY' as assignment_type,
+		       ta.shift_id,
 		       s.name as shift_name,
 		       TIME_FORMAT(s.start_time, '%h:%i %p') as start_time,
 		       TIME_FORMAT(s.end_time, '%h:%i %p') as end_time,
@@ -127,7 +130,7 @@ func GetDriverAssignedVehicles(c *gin.Context) {
 		for tempRows.Next() {
 			var v assignedVehicle
 			if err := tempRows.Scan(&v.VehicleID, &v.VehicleNumber, &v.VehicleType, &v.VehicleName,
-				&v.AssignmentID, &v.AssignmentType, &v.ShiftName, &v.StartTime, &v.EndTime,
+				&v.AssignmentID, &v.AssignmentType, &v.ShiftID, &v.ShiftName, &v.StartTime, &v.EndTime,
 				&v.StartDate, &v.EndDate); err == nil {
 				vehicles = append(vehicles, v)
 			}
@@ -139,6 +142,7 @@ func GetDriverAssignedVehicles(c *gin.Context) {
 		SELECT v.id, v.vehicle_number, COALESCE(v.vehicle_type, 'EV') as vehicle_type,
 		       NULLIF(COALESCE(v.vehicle_name, ''), '') as vehicle_name,
 		       ev.id as assignment_id, 'EV_CLUSTER' as assignment_type,
+		       ev.shift_id,
 		       COALESCE(s.name, 'EV Duty') as shift_name,
 		       COALESCE(TIME_FORMAT(s.start_time, '%h:%i %p'), TIME_FORMAT(dc.start_time, '%h:%i %p'), '08:00 AM') as start_time,
 		       COALESCE(TIME_FORMAT(s.end_time, '%h:%i %p'), TIME_FORMAT(dc.end_time, '%h:%i %p'), '05:00 PM') as end_time,
@@ -168,7 +172,7 @@ func GetDriverAssignedVehicles(c *gin.Context) {
 		for evRows.Next() {
 			var v assignedVehicle
 			if err := evRows.Scan(&v.VehicleID, &v.VehicleNumber, &v.VehicleType, &v.VehicleName,
-				&v.AssignmentID, &v.AssignmentType, &v.ShiftName, &v.StartTime, &v.EndTime,
+				&v.AssignmentID, &v.AssignmentType, &v.ShiftID, &v.ShiftName, &v.StartTime, &v.EndTime,
 				&v.StartDate, &v.EndDate); err == nil {
 				vehicles = append(vehicles, v)
 			}
@@ -273,6 +277,7 @@ func AdminAddKmLog(c *gin.Context) {
 		DriverID     int      `json:"driver_id"`
 		VehicleID    *int     `json:"vehicle_id"`
 		AssignmentID *int     `json:"assignment_id"`
+		ShiftID      *int     `json:"shift_id"`
 		Date         string   `json:"date"`
 		StartKm      float64  `json:"start_km"`
 		EndKm        float64  `json:"end_km"`
@@ -352,9 +357,18 @@ func AdminAddKmLog(c *gin.Context) {
 		assignmentID = *req.AssignmentID
 	}
 
-	// Check if entry already exists for this driver, date, AND vehicle
+	shiftID := interface{}(nil)
+	if req.ShiftID != nil {
+		shiftID = *req.ShiftID
+	}
+
+	// Check if entry already exists for this driver, date, vehicle, AND shift
 	var existingID int
-	err = config.DB.QueryRow(`SELECT id FROM km_logs WHERE driver_id = ? AND date = ? AND vehicle_id = ?`, req.DriverID, req.Date, vehicleID).Scan(&existingID)
+	if req.ShiftID != nil {
+		err = config.DB.QueryRow(`SELECT id FROM km_logs WHERE driver_id = ? AND date = ? AND vehicle_id = ? AND shift_id = ?`, req.DriverID, req.Date, vehicleID, shiftID).Scan(&existingID)
+	} else {
+		err = config.DB.QueryRow(`SELECT id FROM km_logs WHERE driver_id = ? AND date = ? AND vehicle_id = ?`, req.DriverID, req.Date, vehicleID).Scan(&existingID)
+	}
 
 	var fuelConsumed interface{}
 	if req.FuelConsumed != nil {
@@ -368,11 +382,11 @@ func AdminAddKmLog(c *gin.Context) {
 		result, err = config.DB.Exec(`
             INSERT INTO km_logs (
                 driver_id, date, start_km, end_km, total_km, fuel_consumed, remarks,
-                vehicle_id, assignment_id,
+                vehicle_id, assignment_id, shift_id,
                 recorded_by_user_id, status, approved_by, approved_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved', ?, NOW())
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved', ?, NOW())
         `, req.DriverID, req.Date, req.StartKm, req.EndKm, req.TotalKm, fuelConsumed, req.Remarks,
-			vehicleID, assignmentID, req.AdminUserID, req.AdminUserID)
+			vehicleID, assignmentID, shiftID, req.AdminUserID, req.AdminUserID)
 
 		if err != nil {
 			log.Printf("AdminAddKmLog: Database insert error: %v", err)
@@ -388,11 +402,11 @@ func AdminAddKmLog(c *gin.Context) {
 		result, err = config.DB.Exec(`
             UPDATE km_logs SET
                 start_km = ?, end_km = ?, total_km = ?, fuel_consumed = ?, remarks = ?,
-                vehicle_id = ?, assignment_id = ?,
+                vehicle_id = ?, assignment_id = ?, shift_id = ?,
                 recorded_by_user_id = ?, status = 'approved', approved_by = ?, approved_at = NOW()
             WHERE id = ?
         `, req.StartKm, req.EndKm, req.TotalKm, fuelConsumed, req.Remarks,
-			vehicleID, assignmentID, req.AdminUserID, req.AdminUserID, existingID)
+			vehicleID, assignmentID, shiftID, req.AdminUserID, req.AdminUserID, existingID)
 
 		if err != nil {
 			log.Printf("AdminAddKmLog: Database update error: %v", err)
@@ -492,7 +506,7 @@ func GetAdminKmLogs(c *gin.Context) {
         LEFT JOIN driver_clusters c ON dcm.cluster_id = c.id
         LEFT JOIN vehicles v ON kl.vehicle_id = v.id
         LEFT JOIN assignments a ON kl.assignment_id = a.id
-        LEFT JOIN shifts s ON a.shift_id = s.id
+        LEFT JOIN shifts s ON COALESCE(kl.shift_id, a.shift_id) = s.id
         LEFT JOIN users recorder ON kl.recorded_by_user_id = recorder.id
         ` + whereClause + `
         ORDER BY kl.date DESC, kl.id DESC
@@ -1388,5 +1402,108 @@ func GetFuelByVehicle(c *gin.Context) {
 		"vehicles":         results,
 		"grand_total_fuel": grandTotalFuel,
 		"grand_total_km":   grandTotalKm,
+	})
+}
+
+// GET /api/admin/km-datewise-tracker?date=2026-03-03
+// Returns all active assignments for a date and whether KM log was entered
+func GetDatewiseKmTracker(c *gin.Context) {
+	date := c.Query("date")
+	if date == "" {
+		date = "CURDATE()"
+	}
+
+	rows, err := config.DB.Query(`
+		SELECT
+			a.id AS assignment_id,
+			a.driver_id,
+			COALESCE(u.full_name, u.username, '') AS driver_name,
+			a.vehicle_id,
+			COALESCE(v.vehicle_number, '') AS vehicle_number,
+			COALESCE(v.vehicle_type, '') AS vehicle_type,
+			COALESCE(s.name, '') AS shift_name,
+			a.shift_id,
+			COALESCE(TIME_FORMAT(s.start_time, '%h:%i %p'), '') AS shift_start_time,
+			COALESCE(TIME_FORMAT(s.end_time, '%h:%i %p'), '') AS shift_end_time,
+			CASE WHEN kl.id IS NOT NULL THEN 1 ELSE 0 END AS km_entered,
+			COALESCE(kl.id, 0) AS km_log_id,
+			COALESCE(kl.start_km, 0) AS start_km,
+			COALESCE(kl.end_km, 0) AS end_km,
+			COALESCE(kl.total_km, 0) AS total_km,
+			COALESCE(kl.status, '') AS km_status
+		FROM assignments a
+		JOIN drivers d ON a.driver_id = d.id
+		JOIN users u ON d.user_id = u.id
+		JOIN vehicles v ON a.vehicle_id = v.id
+		LEFT JOIN shifts s ON a.shift_id = s.id
+		LEFT JOIN km_logs kl ON kl.driver_id = a.driver_id
+			AND kl.vehicle_id = a.vehicle_id
+			AND kl.date = ?
+			AND kl.status IN ('pending','approved')
+			AND (kl.shift_id = a.shift_id OR kl.shift_id IS NULL)
+		WHERE a.status IN ('assigned','active')
+		  AND ? BETWEEN a.start_date AND a.end_date
+		ORDER BY u.full_name, s.name
+	`, date, date)
+
+	if err != nil {
+		log.Printf("datewise km tracker error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch data"})
+		return
+	}
+	defer rows.Close()
+
+	type TrackerRow struct {
+		AssignmentID   int     `json:"assignment_id"`
+		DriverID       int     `json:"driver_id"`
+		DriverName     string  `json:"driver_name"`
+		VehicleID      int     `json:"vehicle_id"`
+		VehicleNumber  string  `json:"vehicle_number"`
+		VehicleType    string  `json:"vehicle_type"`
+		ShiftName      string  `json:"shift_name"`
+		ShiftID        int     `json:"shift_id"`
+		ShiftStartTime string  `json:"shift_start_time"`
+		ShiftEndTime   string  `json:"shift_end_time"`
+		KmEntered      bool    `json:"km_entered"`
+		KmLogID        int     `json:"km_log_id"`
+		StartKm        float64 `json:"start_km"`
+		EndKm          float64 `json:"end_km"`
+		TotalKm        float64 `json:"total_km"`
+		KmStatus       string  `json:"km_status"`
+	}
+
+	var results []TrackerRow
+	totalAssignments := 0
+	enteredCount := 0
+
+	for rows.Next() {
+		var r TrackerRow
+		var kmEnteredInt int
+		if err := rows.Scan(
+			&r.AssignmentID, &r.DriverID, &r.DriverName,
+			&r.VehicleID, &r.VehicleNumber, &r.VehicleType,
+			&r.ShiftName, &r.ShiftID, &r.ShiftStartTime, &r.ShiftEndTime,
+			&kmEnteredInt, &r.KmLogID,
+			&r.StartKm, &r.EndKm, &r.TotalKm, &r.KmStatus,
+		); err == nil {
+			r.KmEntered = kmEnteredInt == 1
+			totalAssignments++
+			if r.KmEntered {
+				enteredCount++
+			}
+			results = append(results, r)
+		}
+	}
+
+	if results == nil {
+		results = []TrackerRow{}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"date":              date,
+		"assignments":       results,
+		"total_assignments": totalAssignments,
+		"entered_count":     enteredCount,
+		"pending_count":     totalAssignments - enteredCount,
 	})
 }

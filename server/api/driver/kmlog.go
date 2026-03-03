@@ -37,6 +37,7 @@ type KmLogRequest struct {
 	Remarks      string   `json:"remarks"`
 	VehicleID    *int     `json:"vehicle_id"`
 	AssignmentID *int     `json:"assignment_id"`
+	ShiftID      *int     `json:"shift_id"`
 }
 
 /*
@@ -160,6 +161,11 @@ func AddDriverKmLog(c *gin.Context) {
 		assignmentID = *req.AssignmentID
 	}
 
+	var shiftID interface{}
+	if req.ShiftID != nil {
+		shiftID = *req.ShiftID
+	}
+
 	// Insert into DB with status='pending' - requires admin approval
 	var fuelConsumed interface{}
 	if req.FuelConsumed != nil {
@@ -169,11 +175,11 @@ func AddDriverKmLog(c *gin.Context) {
 	result, err := config.DB.Exec(`
 		INSERT INTO km_logs (
 			driver_id, date, start_km, end_km, total_km, fuel_consumed, remarks,
-			vehicle_id, assignment_id,
+			vehicle_id, assignment_id, shift_id,
 			recorded_by_user_id, status
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
-	`, req.DriverID, req.Date, req.StartKm, req.EndKm, req.TotalKm, fuelConsumed, req.Remarks, vehicleID, assignmentID, recordedByUserID)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+	`, req.DriverID, req.Date, req.StartKm, req.EndKm, req.TotalKm, fuelConsumed, req.Remarks, vehicleID, assignmentID, shiftID, recordedByUserID)
 
 	if err != nil {
 		log.Printf("Add km log error: %v", err)

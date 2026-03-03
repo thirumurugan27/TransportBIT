@@ -348,13 +348,14 @@ func initVehicleReplacementsTable() {
 	config.DB.Exec("ALTER TABLE vehicle_replacements ADD COLUMN replacement_driver_id INT NULL AFTER replacement_type")
 	config.DB.Exec("ALTER TABLE vehicle_replacements ADD INDEX idx_vr_replacement_driver (replacement_driver_id)")
 
-	// ── KM Logs: Add fuel_consumed, status, approved_by, approved_at columns ──
+	// ── KM Logs: Add fuel_consumed, status, approved_by, approved_at, shift_id columns ──
 	config.DB.Exec("ALTER TABLE km_logs ADD COLUMN fuel_consumed FLOAT DEFAULT NULL")
 	config.DB.Exec("ALTER TABLE km_logs ADD COLUMN status VARCHAR(20) DEFAULT 'approved'")
 	config.DB.Exec("ALTER TABLE km_logs ADD COLUMN approved_by INT DEFAULT NULL")
 	config.DB.Exec("ALTER TABLE km_logs ADD COLUMN approved_at DATETIME DEFAULT NULL")
 	config.DB.Exec("ALTER TABLE km_logs ADD INDEX idx_km_status (status)")
-	log.Println("Schema Fix: km_logs fuel/status columns ensured")
+	config.DB.Exec("ALTER TABLE km_logs ADD COLUMN shift_id INT DEFAULT NULL")
+	log.Println("Schema Fix: km_logs fuel/status/shift columns ensured")
 
 	// Migrate existing fc_replacement_requests data if table exists and vehicle_replacements is empty
 	var count int

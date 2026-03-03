@@ -224,6 +224,7 @@ func GetDashboardStats(c *gin.Context) {
 	config.DB.QueryRow(`
 		SELECT COALESCE(SUM(total_km), 0) FROM km_logs
 		WHERE MONTH(date) = MONTH(CURDATE()) AND YEAR(date) = YEAR(CURDATE())
+		AND status IN ('pending','approved')
 	`).Scan(&s.TotalKmMonth)
 
 	// Average mileage
@@ -631,20 +632,35 @@ func GetDriverWorkload(c *gin.Context) {
 		LEFT JOIN (
 			SELECT a.driver_id, COUNT(*) AS cnt
 			FROM assignments a
-			WHERE MONTH(a.start_date) = MONTH(CURDATE()) AND YEAR(a.start_date) = YEAR(CURDATE())
+			WHERE a.start_date <= LAST_DAY(CURDATE())
+			  AND a.end_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
 			GROUP BY a.driver_id
 		) duties_month ON duties_month.driver_id = d.id
 		LEFT JOIN (
 			SELECT kl.driver_id, SUM(kl.total_km) AS total_km
 			FROM km_logs kl
 			WHERE MONTH(kl.date) = MONTH(CURDATE()) AND YEAR(kl.date) = YEAR(CURDATE())
+			  AND kl.status IN ('pending','approved')
 			GROUP BY kl.driver_id
 		) km_month ON km_month.driver_id = d.id
 		LEFT JOIN (
-			SELECT kl.driver_id, COUNT(*) AS cnt
-			FROM km_logs kl
-			WHERE kl.status = 'pending'
-			GROUP BY kl.driver_id
+			SELECT
+				asgn.driver_id,
+				GREATEST(0, asgn.cnt - COALESCE(logs.cnt, 0)) AS cnt
+			FROM (
+				SELECT a.driver_id, COUNT(*) AS cnt
+				FROM assignments a
+				WHERE a.status IN ('assigned','active')
+				  AND CURDATE() BETWEEN a.start_date AND a.end_date
+				GROUP BY a.driver_id
+			) asgn
+			LEFT JOIN (
+				SELECT driver_id, COUNT(*) AS cnt
+				FROM km_logs
+				WHERE date = CURDATE()
+				  AND status IN ('pending','approved')
+				GROUP BY driver_id
+			) logs ON logs.driver_id = asgn.driver_id
 		) pending_km ON pending_km.driver_id = d.id
 		LEFT JOIN (
 			SELECT a.user_id, a.status
@@ -661,7 +677,8 @@ func GetDriverWorkload(c *gin.Context) {
 			SELECT lr.driver_id, COUNT(*) AS cnt
 			FROM leave_requests lr
 			WHERE lr.status = 'approved'
-			AND MONTH(lr.start_date) = MONTH(CURDATE()) AND YEAR(lr.start_date) = YEAR(CURDATE())
+			  AND lr.start_date <= LAST_DAY(CURDATE())
+			  AND lr.end_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
 			GROUP BY lr.driver_id
 		) leaves ON leaves.driver_id = d.id
 		ORDER BY active_asgn.cnt DESC, duties_month.cnt DESC

@@ -66,6 +66,9 @@ export default function KmManagement() {
   const [showEntryModal, setShowEntryModal] = useState(false);
   const [selectedDriverId, setSelectedDriverId] = useState("");
   const [driverInfo, setDriverInfo] = useState(null);
+  const [driverAssignments, setDriverAssignments] = useState([]);
+  const [assignmentsLoading, setAssignmentsLoading] = useState(false);
+  const [selectedAssignment, setSelectedAssignment] = useState(null);
   const [form, setForm] = useState({
     date: getToday(),
     vehicle_id: "",
@@ -129,6 +132,12 @@ export default function KmManagement() {
   // Vehicle search
   const [vehicleSearch, setVehicleSearch] = useState("");
 
+  // Date-wise tracker
+  const [trackerDate, setTrackerDate] = useState(getToday());
+  const [trackerData, setTrackerData] = useState(null);
+  const [trackerLoading, setTrackerLoading] = useState(false);
+  const [trackerFilter, setTrackerFilter] = useState("all"); // all | entered | pending
+
   /* --- Data Fetching --- */
   const loadFilterMeta = async () => {
     try {
@@ -174,6 +183,37 @@ export default function KmManagement() {
     fetchDriverInfo(selectedDriverId);
   }, [selectedDriverId, filterMeta.drivers]);
 
+  // Fetch driver assignments when driver or date changes
+  const fetchDriverAssignments = async (driverId, date) => {
+    if (!driverId || !date) {
+      setDriverAssignments([]);
+      return;
+    }
+    try {
+      setAssignmentsLoading(true);
+      const res = await apiGet(`/api/admin/driver-assigned-vehicles?driver_id=${driverId}&date=${date}`);
+      if (res.ok) {
+        const data = await res.json();
+        setDriverAssignments(Array.isArray(data) ? data : []);
+      } else {
+        setDriverAssignments([]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch driver assignments", err);
+      setDriverAssignments([]);
+    } finally {
+      setAssignmentsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showEntryModal && selectedDriverId && form.date) {
+      fetchDriverAssignments(selectedDriverId, form.date);
+      setSelectedAssignment(null);
+      setForm(prev => ({...prev, vehicle_id: ""}));
+    }
+  }, [selectedDriverId, form.date, showEntryModal]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!selectedDriverId || !form.vehicle_id || !form.date) {
@@ -196,9 +236,6 @@ export default function KmManagement() {
     }
     try {
       setLoading(true);
-      const selectedVehicleMeta = filterMeta.vehicles.find(
-        (v) => String(v.id) === String(form.vehicle_id),
-      );
       const payload = {
         admin_user_id: user?.user_id,
         driver_id: Number(selectedDriverId),
@@ -209,7 +246,9 @@ export default function KmManagement() {
         total_km: endKm - startKm,
         fuel_consumed: form.fuel_consumed ? parseFloat(form.fuel_consumed) : null,
         remarks: form.remarks?.trim() || "",
-        vehicle_type: selectedVehicleMeta?.vehicle_type || "",
+        vehicle_type: selectedAssignment?.vehicle_type || "",
+        shift_id: selectedAssignment?.shift_id || null,
+        assignment_id: selectedAssignment?.assignment_id || null,
       };
       const res = await apiPost("/api/admin/km-log/add", payload);
       const data = await res.json();
@@ -240,6 +279,8 @@ export default function KmManagement() {
     });
     setSelectedDriverId("");
     setDriverInfo(null);
+    setDriverAssignments([]);
+    setSelectedAssignment(null);
   };
 
   const fetchKmLogs = async () => {
@@ -392,6 +433,27 @@ export default function KmManagement() {
       console.error("Failed to fetch pending count", err);
     }
   };
+
+  const fetchDatewiseTracker = async (date) => {
+    try {
+      setTrackerLoading(true);
+      const res = await apiGet(`/api/admin/km-datewise-tracker?date=${date}`);
+      if (res.ok) {
+        const data = await res.json();
+        setTrackerData(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch datewise tracker", err);
+    } finally {
+      setTrackerLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "tracker") {
+      fetchDatewiseTracker(trackerDate);
+    }
+  }, [activeTab, trackerDate]);
 
   const fetchFuelByVehicle = async () => {
     try {
@@ -559,6 +621,17 @@ export default function KmManagement() {
         >
           <User className="w-4 h-4" />
           Individual Analysis
+        </button>
+        <button
+          onClick={() => setActiveTab("tracker")}
+          className={`inline-flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-semibold rounded-md transition-all duration-300 ${
+            activeTab === "tracker"
+              ? "bg-primary text-white shadow-md"
+              : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          <Calendar className="w-4 h-4" />
+          Date-wise Tracker
         </button>
       </div>
 
@@ -961,28 +1034,62 @@ export default function KmManagement() {
                     </div>
                   )}
 
-                  {/* Vehicle */}
+                  {/* Assignment (Vehicle + Shift) */}
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium text-primarytext">
-                      Vehicle <span className="text-red-500">*</span>
+                      Assignment <span className="text-red-500">*</span>
                     </label>
-                    <SearchableSelect
-                      options={filterMeta.vehicles.map((v) => ({
-                        value: v.id,
-                        label:
-                          v.vehicle_name && v.vehicle_name !== v.vehicle_number
-                            ? v.vehicle_name + " (" + v.vehicle_number + ")"
-                            : v.vehicle_number,
-                        subtitle: v.vehicle_type,
-                      }))}
-                      value={form.vehicle_id}
-                      onChange={(val) =>
-                        setForm((prev) => ({...prev, vehicle_id: val}))
-                      }
-                      placeholder="Search and select vehicle"
-                      disabled={metaLoading}
-                      emptyMessage="No vehicles found"
-                    />
+                    {!selectedDriverId ? (
+                      <p className="text-xs text-secondarytext italic py-2">Select a driver first</p>
+                    ) : assignmentsLoading ? (
+                      <div className="flex items-center gap-2 py-2">
+                        <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                        <span className="text-xs text-secondarytext">Loading assignments...</span>
+                      </div>
+                    ) : driverAssignments.length === 0 ? (
+                      <p className="text-xs text-secondarytext italic py-2">No active assignments for this driver on selected date</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {driverAssignments.map((a) => {
+                          const isSelected = selectedAssignment?.vehicle_id === a.vehicle_id && 
+                            selectedAssignment?.shift_name === (a.shift_name || '');
+                          return (
+                            <button
+                              key={`${a.vehicle_id}-${a.shift_name || ''}`}
+                              type="button"
+                              onClick={() => {
+                                setSelectedAssignment(a);
+                                setForm(prev => ({...prev, vehicle_id: String(a.vehicle_id)}));
+                              }}
+                              className={`w-full flex items-center gap-3 p-3 rounded-md border text-left transition-all ${
+                                isSelected
+                                  ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+                                  : "border-gray-200 bg-primarybg hover:border-primary/40"
+                              }`}
+                            >
+                              <div className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${
+                                isSelected ? "bg-primary text-white" : "bg-primary/10 text-primary"
+                              }`}>
+                                {getVehicleIcon(a.vehicle_type)}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-primarytext">{a.vehicle_number}</p>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">{a.vehicle_type}</span>
+                                  {a.shift_name && (
+                                    <span className="text-[10px] bg-pending/10 text-pending px-1.5 py-0.5 rounded-full">{a.shift_name}</span>
+                                  )}
+                                  {a.start_time && a.end_time && (
+                                    <span className="text-[10px] text-secondarytext">{a.start_time} - {a.end_time}</span>
+                                  )}
+                                </div>
+                              </div>
+                              {isSelected && <Check className="w-4 h-4 text-primary shrink-0" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
 
                   {/* KM Inputs */}
@@ -1527,6 +1634,205 @@ export default function KmManagement() {
               <p className="text-secondarytext text-center py-8">
                 No vehicle data available
               </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Date-wise Tracker Tab */}
+      {activeTab === "tracker" && (
+        <div className="space-y-4">
+          {/* Date Picker & Summary */}
+          <div className="bg-secondarybg p-5 rounded-md border border-primarybg shadow-sm">
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-primary" />
+                <span className="text-sm font-semibold text-primarytext">Date:</span>
+                <input
+                  type="date"
+                  value={trackerDate}
+                  onChange={(e) => setTrackerDate(e.target.value)}
+                  className="px-3 py-2 text-sm rounded-md border border-primarybg bg-primarybg text-primarytext focus:ring-2 focus:ring-primary/30 outline-none"
+                />
+              </div>
+              <div className="flex items-center gap-2 ml-auto">
+                <button
+                  onClick={() => {
+                    const d = new Date(trackerDate);
+                    d.setDate(d.getDate() - 1);
+                    setTrackerDate(d.toISOString().split("T")[0]);
+                  }}
+                  className="px-3 py-2 text-sm rounded-md bg-primarybg text-secondarytext hover:bg-primary/10 transition-colors"
+                >
+                  ← Prev
+                </button>
+                <button
+                  onClick={() => setTrackerDate(getToday())}
+                  className="px-3 py-2 text-sm rounded-md bg-primary/10 text-primary font-semibold hover:bg-primary/20 transition-colors"
+                >
+                  Today
+                </button>
+                <button
+                  onClick={() => {
+                    const d = new Date(trackerDate);
+                    d.setDate(d.getDate() + 1);
+                    setTrackerDate(d.toISOString().split("T")[0]);
+                  }}
+                  className="px-3 py-2 text-sm rounded-md bg-primarybg text-secondarytext hover:bg-primary/10 transition-colors"
+                >
+                  Next →
+                </button>
+              </div>
+            </div>
+
+            {/* Summary Badges */}
+            {trackerData && (
+              <div className="flex flex-wrap gap-3 mt-4">
+                <button
+                  onClick={() => setTrackerFilter("all")}
+                  className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
+                    trackerFilter === "all"
+                      ? "bg-primary text-white"
+                      : "bg-primarybg text-secondarytext hover:bg-primary/10"
+                  }`}
+                >
+                  All Assignments
+                  <span className="ml-1.5 inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold rounded-full bg-white/20">
+                    {trackerData.total_assignments}
+                  </span>
+                </button>
+                <button
+                  onClick={() => setTrackerFilter("entered")}
+                  className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
+                    trackerFilter === "entered"
+                      ? "bg-customgreen text-white"
+                      : "bg-customgreen/10 text-customgreen hover:bg-customgreen/20"
+                  }`}
+                >
+                  <Check className="w-3.5 h-3.5 inline mr-1" />
+                  Entered
+                  <span className="ml-1.5 inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold rounded-full bg-white/20">
+                    {trackerData.entered_count}
+                  </span>
+                </button>
+                <button
+                  onClick={() => setTrackerFilter("pending")}
+                  className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
+                    trackerFilter === "pending"
+                      ? "bg-red text-white"
+                      : "bg-red/10 text-red hover:bg-red/20"
+                  }`}
+                >
+                  <AlertCircle className="w-3.5 h-3.5 inline mr-1" />
+                  Not Entered
+                  <span className="ml-1.5 inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold rounded-full bg-white/20">
+                    {trackerData.pending_count}
+                  </span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Tracker Table */}
+          <div className="bg-secondarybg rounded-md border border-primarybg shadow-sm overflow-hidden">
+            {trackerLoading ? (
+              <div className="flex justify-center py-12">
+                <Loading fullScreen={false} />
+              </div>
+            ) : !trackerData || trackerData.assignments.length === 0 ? (
+              <div className="text-center py-12 text-secondarytext">
+                <Calendar className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                <p className="text-sm font-medium">No active assignments for this date</p>
+              </div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-primarybg text-xs text-secondarytext uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left font-semibold">Driver</th>
+                    <th className="px-4 py-3 text-left font-semibold">Vehicle</th>
+                    <th className="px-4 py-3 text-left font-semibold">Shift</th>
+                    <th className="px-4 py-3 text-center font-semibold">Status</th>
+                    <th className="px-4 py-3 text-right font-semibold">Start KM</th>
+                    <th className="px-4 py-3 text-right font-semibold">End KM</th>
+                    <th className="px-4 py-3 text-right font-semibold">Total KM</th>
+                    <th className="px-4 py-3 text-center font-semibold">Approval</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-primarybg">
+                  {trackerData.assignments
+                    .filter((a) => {
+                      if (trackerFilter === "entered") return a.km_entered;
+                      if (trackerFilter === "pending") return !a.km_entered;
+                      return true;
+                    })
+                    .map((a) => (
+                      <tr
+                        key={a.assignment_id}
+                        className={`transition-colors ${
+                          a.km_entered
+                            ? "hover:bg-customgreen/5"
+                            : "bg-red/5 hover:bg-red/10"
+                        }`}
+                      >
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                              <User className="w-3.5 h-3.5 text-primary" />
+                            </div>
+                            <span className="font-medium text-primarytext">{a.driver_name}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            {getVehicleIcon(a.vehicle_type)}
+                            <span className="text-primarytext">{a.vehicle_number}</span>
+                            <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">
+                              {a.vehicle_type}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-secondarytext">
+                          {a.shift_name || "—"}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {a.km_entered ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-bold text-customgreen bg-customgreen/10 px-2.5 py-1 rounded-full">
+                              <Check className="w-3 h-3" /> Entered
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-xs font-bold text-red bg-red/10 px-2.5 py-1 rounded-full">
+                              <XCircle className="w-3 h-3" /> Not Entered
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right text-primarytext">
+                          {a.km_entered ? formatNumber(a.start_km, 1) : "—"}
+                        </td>
+                        <td className="px-4 py-3 text-right text-primarytext">
+                          {a.km_entered ? formatNumber(a.end_km, 1) : "—"}
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold text-primarytext">
+                          {a.km_entered ? formatNumber(a.total_km, 1) : "—"}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {a.km_entered ? (
+                            <span
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                a.km_status === "approved"
+                                  ? "bg-customgreen/10 text-customgreen"
+                                  : "bg-pending/10 text-pending"
+                              }`}
+                            >
+                              {a.km_status === "approved" ? "Approved" : "Pending"}
+                            </span>
+                          ) : (
+                            <span className="text-secondarytext">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
             )}
           </div>
         </div>
