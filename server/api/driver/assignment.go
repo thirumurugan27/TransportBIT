@@ -560,27 +560,33 @@ func GetDriverVehicleAlerts(c *gin.Context) {
 
 	// Get vehicles assigned to this driver with expiring documents
 	rows, err := config.DB.Query(`
-		SELECT DISTINCT v.id, COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name, v.vehicle_number, v.vehicle_type, v.status,
-		       v.insurance_expire_date, v.fc_expire_date, v.permit_expire_date,
-		       DATEDIFF(v.insurance_expire_date, CURDATE()) as insurance_days,
-		       DATEDIFF(v.fc_expire_date, CURDATE()) as fc_days,
-		       DATEDIFF(v.permit_expire_date, CURDATE()) as permit_days
+		SELECT v.id, COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name, v.vehicle_number, v.vehicle_type, v.status,
+		       DATE_FORMAT(ins.expire_date, '%d-%m-%Y'),
+		       DATE_FORMAT(fc.expire_date,  '%d-%m-%Y'),
+		       DATE_FORMAT(pmt.expire_date, '%d-%m-%Y'),
+		       DATEDIFF(ins.expire_date, CURDATE()) as insurance_days,
+		       DATEDIFF(fc.expire_date,  CURDATE()) as fc_days,
+		       DATEDIFF(pmt.expire_date, CURDATE()) as permit_days
 		FROM vehicles v
-		LEFT JOIN buses b ON b.vehicle_id = v.id
+		LEFT JOIN vehicle_documents ins ON ins.vehicle_id = v.id AND ins.document_type = 'insurance'
+		LEFT JOIN vehicle_documents fc  ON fc.vehicle_id  = v.id AND fc.document_type  = 'fc'
+		LEFT JOIN vehicle_documents pmt ON pmt.vehicle_id = v.id AND pmt.document_type = 'permit'
 		INNER JOIN assignments a ON a.vehicle_id = v.id
 		WHERE a.driver_id = ?
 		  AND CURDATE() BETWEEN a.start_date AND a.end_date
-		  AND v.status = 'active'
+		  AND v.status IN ('active', 'available', 'in_service')
 		  AND (
-		    (v.insurance_expire_date IS NOT NULL AND DATEDIFF(v.insurance_expire_date, CURDATE()) <= 10)
-		    OR (v.fc_expire_date IS NOT NULL AND DATEDIFF(v.fc_expire_date, CURDATE()) <= 10)
-		    OR (v.permit_expire_date IS NOT NULL AND DATEDIFF(v.permit_expire_date, CURDATE()) <= 10)
+		    (ins.expire_date IS NOT NULL AND DATEDIFF(ins.expire_date, CURDATE()) <= 10)
+		    OR (fc.expire_date  IS NOT NULL AND DATEDIFF(fc.expire_date,  CURDATE()) <= 10)
+		    OR (pmt.expire_date IS NOT NULL AND DATEDIFF(pmt.expire_date, CURDATE()) <= 10)
 		  )
-		ORDER BY 
+		GROUP BY v.id, v.vehicle_name, v.vehicle_number, v.vehicle_type, v.status,
+		         ins.expire_date, fc.expire_date, pmt.expire_date
+		ORDER BY
 		  LEAST(
-		    COALESCE(DATEDIFF(v.insurance_expire_date, CURDATE()), 999),
-		    COALESCE(DATEDIFF(v.fc_expire_date, CURDATE()), 999),
-		    COALESCE(DATEDIFF(v.permit_expire_date, CURDATE()), 999)
+		    COALESCE(DATEDIFF(ins.expire_date, CURDATE()), 999),
+		    COALESCE(DATEDIFF(fc.expire_date,  CURDATE()), 999),
+		    COALESCE(DATEDIFF(pmt.expire_date, CURDATE()), 999)
 		  ) ASC
 	`, driverID)
 

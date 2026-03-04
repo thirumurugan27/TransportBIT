@@ -5,8 +5,6 @@ import (
 	"os"
 	"strings"
 	"transport-server/api/admin"
-	"transport-server/api/bus"
-	"transport-server/api/student"
 	"transport-server/config"
 	"transport-server/routes"
 
@@ -24,18 +22,6 @@ func main() {
 
 	// 2. Initialize Database
 	config.InitDB()
-
-	// Fix database schema issues (ENUM truncation)
-	admin.FixDatabaseSchema()
-
-	// Initialize member tables for groups/clusters
-	admin.InitClusterMemberTables()
-	admin.InitVehicleGroupMemberTables()
-
-	bus.InitBusStopsTable()
-	student.InitStudentTransportTables()
-	admin.EnsureVehicleRequestOTPColumns()
-	admin.InitPurchaseInvoiceTable()
 
 	// 3. Initialize Gin Router
 	r := gin.Default()

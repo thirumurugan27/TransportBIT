@@ -1,7 +1,6 @@
 package bus
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -70,76 +69,6 @@ type UpdateBusRouteRequest struct {
 	StartPoint  string `json:"start_point"`
 	EndPoint    string `json:"end_point"`
 	VehicleName string `json:"vehicle_name"`
-}
-
-/*
-=========================
-
-	Initialize buses table (for bus-specific info)
-
-=========================
-*/
-func InitBusStopsTable() {
-	// Create buses table for bus-specific information
-	_, err := config.DB.Exec(`
-		CREATE TABLE IF NOT EXISTS buses (
-			id INT AUTO_INCREMENT PRIMARY KEY,
-			vehicle_id INT NOT NULL UNIQUE,
-			name VARCHAR(100),
-			start_point VARCHAR(100),
-			end_point VARCHAR(100),
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-			FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE
-		)
-	`)
-	if err != nil {
-		log.Printf("Error creating buses table: %v", err)
-	} else {
-		log.Println("✅ buses table ready")
-	}
-
-	// Ensure `name` column exists (older deployments may not have it).
-	if cols, colErr := config.HasColumns("buses", "name"); colErr == nil {
-		if !cols["name"] {
-			if _, alterErr := config.DB.Exec("ALTER TABLE buses ADD COLUMN name VARCHAR(100) NULL"); alterErr != nil {
-				log.Printf("Error adding buses.name column: %v", alterErr)
-			} else {
-				log.Println("Schema Fix: Added buses.name column")
-			}
-		}
-	}
-
-	// Create bus_stops table
-	_, err = config.DB.Exec(`
-		CREATE TABLE IF NOT EXISTS bus_stops (
-			id INT AUTO_INCREMENT PRIMARY KEY,
-			vehicle_id INT NOT NULL,
-			stop_name VARCHAR(100) NOT NULL,
-			stop_order INT NOT NULL DEFAULT 1,
-			fee DECIMAL(10,2) NOT NULL DEFAULT 0,
-			distance_km DECIMAL(10,2) DEFAULT 0,
-			arrival_time TIME NULL,
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-			FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE,
-			UNIQUE KEY unique_stop (vehicle_id, stop_order)
-		)
-	`)
-	if err != nil {
-		log.Printf("Error creating bus_stops table: %v", err)
-	} else {
-		log.Println("✅ bus_stops table ready")
-	}
-
-	// Ensure arrival_time column exists for older deployments
-	if err := ensureArrivalTimeColumn(); err != nil {
-		log.Printf("Error ensuring arrival_time column: %v", err)
-	}
-
-	// Auto-populate buses table with existing BUS vehicles
-	config.DB.Exec(`
-		INSERT IGNORE INTO buses (vehicle_id)
-		SELECT id FROM vehicles WHERE vehicle_type = 'BUS'
-	`)
 }
 
 /*
@@ -402,23 +331,4 @@ func UpdateBusRoute(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Route updated successfully"})
 }
 
-func ensureArrivalTimeColumn() error {
-	var count int
-	query := `
-		SELECT COUNT(*)
-		FROM information_schema.columns
-		WHERE table_schema = DATABASE()
-		  AND table_name = 'bus_stops'
-		  AND column_name = 'arrival_time'
-	`
-	if err := config.DB.QueryRow(query).Scan(&count); err != nil {
-		return fmt.Errorf("check arrival_time column: %w", err)
-	}
-	if count > 0 {
-		return nil
-	}
-	if _, err := config.DB.Exec(`ALTER TABLE bus_stops ADD COLUMN arrival_time TIME NULL`); err != nil {
-		return fmt.Errorf("add arrival_time column: %w", err)
-	}
-	return nil
-}
+

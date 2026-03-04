@@ -15,32 +15,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// InitPurchaseInvoiceTable creates the purchase_invoices table if it doesn't exist
-func InitPurchaseInvoiceTable() {
-	_, err := config.DB.Exec(`
-		CREATE TABLE IF NOT EXISTS purchase_invoices (
-			id INT AUTO_INCREMENT PRIMARY KEY,
-			purchase_order_id INT NOT NULL,
-			file_name VARCHAR(255) NOT NULL,
-			original_name VARCHAR(255) NOT NULL,
-			file_type ENUM('pdf', 'image') NOT NULL DEFAULT 'pdf',
-			file_size BIGINT NOT NULL DEFAULT 0,
-			file_path VARCHAR(500) NOT NULL,
-			uploaded_by INT DEFAULT NULL,
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-			UNIQUE KEY uq_purchase_order_invoice (purchase_order_id),
-			CONSTRAINT fk_pi_purchase_order FOREIGN KEY (purchase_order_id) 
-				REFERENCES purchase_orders(id) ON DELETE CASCADE,
-			CONSTRAINT fk_pi_uploaded_by FOREIGN KEY (uploaded_by) 
-				REFERENCES users(id) ON DELETE SET NULL
-		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-	`)
-	if err != nil {
-		fmt.Printf("Warning: Could not create purchase_invoices table: %v\n", err)
-	}
-}
-
 // UploadPurchaseInvoice handles uploading an invoice document (PDF or image) for a purchase order
 func UploadPurchaseInvoice(c *gin.Context) {
 	orderID := c.Param("id")

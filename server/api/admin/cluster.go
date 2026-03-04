@@ -16,28 +16,6 @@ import (
 	=========================
 */
 
-// InitClusterMemberTables creates the driver_cluster_members table
-func InitClusterMemberTables() {
-	_, err := config.DB.Exec(`
-		CREATE TABLE IF NOT EXISTS driver_cluster_members (
-			id INT AUTO_INCREMENT PRIMARY KEY,
-			cluster_id INT NOT NULL,
-			driver_id INT NOT NULL,
-			valid_from DATE NOT NULL,
-			valid_to DATE NOT NULL,
-			added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-			FOREIGN KEY (cluster_id) REFERENCES driver_clusters(id) ON DELETE CASCADE,
-			FOREIGN KEY (driver_id) REFERENCES drivers(id) ON DELETE CASCADE,
-			CHECK (valid_from <= valid_to)
-		)
-	`)
-	if err != nil {
-		log.Printf("Error creating driver_cluster_members table: %v", err)
-	} else {
-		log.Println("✅ driver_cluster_members table ready")
-	}
-}
-
 // DriverCluster - cluster struct
 type DriverCluster struct {
 	ID          int     `json:"id"`

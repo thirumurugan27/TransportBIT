@@ -25,6 +25,10 @@ import {
   ChevronDown,
   Wrench,
   RefreshCw,
+  Clock,
+  History,
+  MessageSquare,
+  User,
 } from "lucide-react";
 
 import {apiGet, apiPost, apiDelete} from "../../../utils/api";
@@ -101,6 +105,22 @@ export default function Vehicles() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
 
+  // Document Detail Modal State (for expiry table row click)
+  const [showDocDetailModal, setShowDocDetailModal] = useState(false);
+  const [docDetailVehicle, setDocDetailVehicle] = useState(null);
+
+  // History Modal State
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [historyVehicle, setHistoryVehicle] = useState(null);
+  const [historyLogs, setHistoryLogs] = useState([]);
+  const [historyGrouped, setHistoryGrouped] = useState({
+    insurance: [],
+    fc: [],
+    permit: [],
+  });
+  const [historyFilter, setHistoryFilter] = useState("all");
+  const [historyLoading, setHistoryLoading] = useState(false);
+
   // Form State
   const initialFormState = {
     vehicle_type: "BUS",
@@ -111,8 +131,14 @@ export default function Vehicles() {
     start_point: "",
     end_point: "",
     insurance_expire_date: "",
+    insurance_start_date: "",
+    insurance_remarks: "",
     fc_expire_date: "",
+    fc_start_date: "",
+    fc_remarks: "",
     permit_expire_date: "",
+    permit_start_date: "",
+    permit_remarks: "",
     status: "available",
   };
   const [vehicleForm, setVehicleForm] = useState(initialFormState);
@@ -169,6 +195,12 @@ export default function Vehicles() {
     setShowDetailModal(true);
   };
 
+  // Open document detail modal (from expiry table row click)
+  const openDocDetailModal = (vehicle) => {
+    setDocDetailVehicle(vehicle);
+    setShowDocDetailModal(true);
+  };
+
   // Get vehicle type display name
   const getVehicleTypeLabel = (type) => {
     switch (type) {
@@ -216,8 +248,14 @@ export default function Vehicles() {
       start_point: vehicle.start_point || "",
       end_point: vehicle.end_point || "",
       insurance_expire_date: formatDateForInput(vehicle.insurance_expire_date),
+      insurance_start_date: formatDateForInput(vehicle.insurance_start_date),
+      insurance_remarks: vehicle.insurance_remarks || "",
       fc_expire_date: formatDateForInput(vehicle.fc_expire_date),
+      fc_start_date: formatDateForInput(vehicle.fc_start_date),
+      fc_remarks: vehicle.fc_remarks || "",
       permit_expire_date: formatDateForInput(vehicle.permit_expire_date),
+      permit_start_date: formatDateForInput(vehicle.permit_start_date),
+      permit_remarks: vehicle.permit_remarks || "",
     });
     setEditingId(vehicle.id);
     setIsEditing(true);
@@ -337,14 +375,21 @@ export default function Vehicles() {
     // Format all dates to YYYY-MM-DD
     const updatedVehicle = {
       id: vehicle.id,
+      vehicle_name: vehicle.vehicle_name || "",
       vehicle_number: vehicle.vehicle_number,
       vehicle_type: vehicle.vehicle_type,
       fuel_type: vehicle.fuel_type,
       seating_capacity: vehicle.seating_capacity,
       status: vehicle.status,
       insurance_expire_date: formatDateForAPI(vehicle.insurance_expire_date),
+      insurance_start_date: formatDateForAPI(vehicle.insurance_start_date),
+      insurance_remarks: vehicle.insurance_remarks || "",
       fc_expire_date: formatDateForAPI(vehicle.fc_expire_date),
+      fc_start_date: formatDateForAPI(vehicle.fc_start_date),
+      fc_remarks: vehicle.fc_remarks || "",
       permit_expire_date: formatDateForAPI(vehicle.permit_expire_date),
+      permit_start_date: formatDateForAPI(vehicle.permit_start_date),
+      permit_remarks: vehicle.permit_remarks || "",
       [editingExpiry.field]: expiryFormValue || null,
     };
 
@@ -370,6 +415,116 @@ export default function Vehicles() {
   const cancelExpiryEdit = () => {
     setEditingExpiry(null);
     setExpiryFormValue("");
+  };
+
+  // Fetch document history for a specific vehicle
+  const fetchDocumentHistory = async (vehicle) => {
+    setHistoryVehicle(vehicle);
+    setHistoryLoading(true);
+    setShowHistoryModal(true);
+    setHistoryFilter("all");
+    try {
+      const res = await apiGet(
+        `/api/admin/vehicles/${vehicle.id}/document-history`,
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setHistoryLogs(data.logs || []);
+        setHistoryGrouped(data.grouped || {insurance: [], fc: [], permit: []});
+      } else {
+        setHistoryLogs([]);
+        setHistoryGrouped({insurance: [], fc: [], permit: []});
+      }
+    } catch (err) {
+      console.error("Error fetching document history:", err);
+      setHistoryLogs([]);
+      setHistoryGrouped({insurance: [], fc: [], permit: []});
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  // Get filtered history logs based on selected filter tab
+  const getFilteredHistoryLogs = () => {
+    if (historyFilter === "all") return historyLogs;
+    return historyGrouped[historyFilter] || [];
+  };
+
+  // Format field name for display
+  const formatFieldName = (fieldName) => {
+    switch (fieldName) {
+      case "start_date":
+        return "Start Date";
+      case "expire_date":
+        return "Expiry Date";
+      case "remarks":
+        return "Remarks";
+      default:
+        return fieldName;
+    }
+  };
+
+  // Format document type for display
+  const formatDocType = (docType) => {
+    switch (docType) {
+      case "insurance":
+        return "Insurance";
+      case "fc":
+        return "FC";
+      case "permit":
+        return "Permit";
+      default:
+        return docType;
+    }
+  };
+
+  // Get doc type color
+  const getDocTypeColor = (docType) => {
+    switch (docType) {
+      case "insurance":
+        return "bg-skyblue/10 text-skyblue";
+      case "fc":
+        return "bg-green/10 text-green";
+      case "permit":
+        return "bg-primary/10 text-primary";
+      default:
+        return "bg-primarybg text-secondarytext";
+    }
+  };
+
+  // Group history logs by date (changed_at format: "dd-mm-yyyy HH:MM:SS")
+  const groupLogsByDate = (logs) => {
+    const groups = {};
+    logs.forEach((log) => {
+      const datePart = log.changed_at
+        ? log.changed_at.split(" ")[0]
+        : "Unknown";
+      if (!groups[datePart]) groups[datePart] = [];
+      groups[datePart].push(log);
+    });
+    return Object.entries(groups).map(([date, items]) => ({date, items}));
+  };
+
+  // Format "dd-mm-yyyy" → "04 Mar 2026"
+  const formatGroupDate = (dateStr) => {
+    const MONTHS = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    const match = dateStr.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+    if (!match) return dateStr;
+    const [, d, m, y] = match;
+    return `${d} ${MONTHS[parseInt(m, 10) - 1]} ${y}`;
   };
 
   // Get expiry stats
@@ -633,122 +788,129 @@ export default function Vehicles() {
         <>
           {/* Expiry Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-secondarybg rounded-md p-5 shadow-sm border border-primary/10">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-skyblue/10 text-skyblue rounded-md">
-                  <Shield size={20} />
+            {[
+              {
+                key: "insurance",
+                label: "Insurance",
+                icon: Shield,
+                color: "skyblue",
+                stats: expiryStats.insurance,
+              },
+              {
+                key: "fc",
+                label: "FC (Fitness Certificate)",
+                icon: FileCheck,
+                color: "green",
+                stats: expiryStats.fc,
+              },
+              {
+                key: "permit",
+                label: "Permit",
+                icon: FileText,
+                color: "primary",
+                stats: expiryStats.permit,
+              },
+            ].map((doc) => {
+              const Icon = doc.icon;
+              const hasIssues = doc.stats.expired > 0 || doc.stats.critical > 0;
+              return (
+                <div
+                  key={doc.key}
+                  className={`bg-secondarybg rounded-md p-5 shadow-sm border-l-4 ${
+                    doc.stats.expired > 0
+                      ? "border-l-red"
+                      : doc.stats.critical > 0
+                        ? "border-l-pending"
+                        : `border-l-${doc.color}`
+                  } border border-primary/10`}
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`p-2 bg-${doc.color}/10 text-${doc.color} rounded-md`}
+                      >
+                        <Icon size={20} />
+                      </div>
+                      <h4 className="font-bold text-primarytext text-sm">
+                        {doc.label}
+                      </h4>
+                    </div>
+                    {hasIssues && (
+                      <div className="flex items-center gap-1">
+                        <AlertCircle size={14} className="text-red" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div
+                      className={`flex flex-col items-center p-3 rounded-md ${doc.stats.expired > 0 ? "bg-red/10" : "bg-primarybg"}`}
+                    >
+                      <p
+                        className={`text-2xl font-bold ${doc.stats.expired > 0 ? "text-red" : "text-secondarytext"}`}
+                      >
+                        {doc.stats.expired}
+                      </p>
+                      <p
+                        className={`text-xs font-medium ${doc.stats.expired > 0 ? "text-red" : "text-secondarytext"}`}
+                      >
+                        Expired
+                      </p>
+                    </div>
+                    <div
+                      className={`flex flex-col items-center p-3 rounded-md ${doc.stats.critical > 0 ? "bg-pending/10" : "bg-primarybg"}`}
+                    >
+                      <p
+                        className={`text-2xl font-bold ${doc.stats.critical > 0 ? "text-pending" : "text-secondarytext"}`}
+                      >
+                        {doc.stats.critical}
+                      </p>
+                      <p
+                        className={`text-xs font-medium ${doc.stats.critical > 0 ? "text-pending" : "text-secondarytext"}`}
+                      >
+                        {"< 30 days"}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <h4 className="font-bold text-primarytext">Insurance</h4>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-center">
-                <div className="bg-red/5 p-3 rounded-md">
-                  <p className="text-2xl font-bold text-red">
-                    {expiryStats.insurance.expired}
-                  </p>
-                  <p className="text-xs text-red font-medium">Expired</p>
-                </div>
-                <div className="bg-pending/10 p-3 rounded-md">
-                  <p className="text-2xl font-bold text-pending">
-                    {expiryStats.insurance.critical}
-                  </p>
-                  <p className="text-xs text-pending font-medium">
-                    {"< 30 days"}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-secondarybg rounded-md p-5 shadow-sm border border-primary/10">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-green/10 text-green rounded-md">
-                  <FileCheck size={20} />
-                </div>
-                <h4 className="font-bold text-primarytext">
-                  FC (Fitness Certificate)
-                </h4>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-center">
-                <div className="bg-red/5 p-3 rounded-md">
-                  <p className="text-2xl font-bold text-red">
-                    {expiryStats.fc.expired}
-                  </p>
-                  <p className="text-xs text-red font-medium">Expired</p>
-                </div>
-                <div className="bg-pending/10 p-3 rounded-md">
-                  <p className="text-2xl font-bold text-pending">
-                    {expiryStats.fc.critical}
-                  </p>
-                  <p className="text-xs text-pending font-medium">
-                    {"< 30 days"}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-secondarybg rounded-md p-5 shadow-sm border border-primary/10">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-primary/10 text-primary rounded-md">
-                  <FileText size={20} />
-                </div>
-                <h4 className="font-bold text-primarytext">Permit</h4>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-center">
-                <div className="bg-red/5 p-3 rounded-md">
-                  <p className="text-2xl font-bold text-red">
-                    {expiryStats.permit.expired}
-                  </p>
-                  <p className="text-xs text-red font-medium">Expired</p>
-                </div>
-                <div className="bg-pending/10 p-3 rounded-md">
-                  <p className="text-2xl font-bold text-pending">
-                    {expiryStats.permit.critical}
-                  </p>
-                  <p className="text-xs text-pending font-medium">
-                    {"< 30 days"}
-                  </p>
-                </div>
-              </div>
-            </div>
+              );
+            })}
           </div>
 
           {/* Expiry Table */}
           <div className="bg-secondarybg rounded-md shadow-sm border border-primary/10 overflow-hidden">
-            <div className="px-6 py-4 border-b border-primary/5 bg-primarybg/50">
+            <div className="px-6 py-3 border-b border-primary/5 bg-primarybg/50 flex items-center justify-between">
               <p className="text-sm text-secondarytext">
-                <span className="font-medium text-primarytext">Tip:</span> Click
-                on any expiry date cell to update it directly
+                Click on a row to view full document details, edit, or see
+                change history.
               </p>
+              <span className="text-xs text-secondarytext bg-primarybg px-3 py-1 rounded-md">
+                {filteredVehicles.length} vehicles
+              </span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-primarybg/50 border-b border-primary/5">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
-                      S.No
+                    <th className="px-3 py-3 text-left text-xs font-bold text-secondarytext uppercase tracking-wider w-10">
+                      #
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
                       Vehicle
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
-                      Type
+                    <th className="px-3 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">
+                      <div className="flex items-center justify-center gap-1">
+                        <Shield size={12} /> Insurance
+                      </div>
                     </th>
-                    <th className="px-4 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">
-                      Insurance Expire
+                    <th className="px-3 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">
+                      <div className="flex items-center justify-center gap-1">
+                        <FileCheck size={12} /> FC
+                      </div>
                     </th>
-                    <th className="px-4 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">
-                      Days
-                    </th>
-                    <th className="px-4 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">
-                      FC Expire
-                    </th>
-                    <th className="px-4 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">
-                      Days
-                    </th>
-                    <th className="px-4 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">
-                      Permit Expire
-                    </th>
-                    <th className="px-4 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">
-                      Days
+                    <th className="px-3 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">
+                      <div className="flex items-center justify-center gap-1">
+                        <FileText size={12} /> Permit
+                      </div>
                     </th>
                   </tr>
                 </thead>
@@ -773,197 +935,80 @@ export default function Vehicles() {
                         const fcDays = getDaysUntil(v.fc_expire_date);
                         const permitDays = getDaysUntil(v.permit_expire_date);
 
+                        // Render expiry date + days badge (table cell)
+                        const renderExpiryCell = (expireDate, days) => (
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="text-xs font-medium text-primarytext">
+                              {expireDate || (
+                                <span className="text-secondarytext/40 italic">
+                                  Not set
+                                </span>
+                              )}
+                            </span>
+                            {days !== null && (
+                              <span
+                                className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${getStatusColor(days)}`}
+                              >
+                                {days < 0
+                                  ? `${Math.abs(days)}d overdue`
+                                  : `${days}d left`}
+                              </span>
+                            )}
+                          </div>
+                        );
+
                         return (
                           <tr
                             key={v.id}
-                            className="hover:bg-primarybg/50 transition-colors"
+                            onClick={() => openDocDetailModal(v)}
+                            className="hover:bg-primarybg/50 transition-colors cursor-pointer group"
                           >
-                            <td className="px-4 py-3 text-sm text-secondarytext font-medium">
+                            <td className="px-3 py-3 text-sm text-secondarytext font-medium">
                               {idx + 1}
                             </td>
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-2">
                                 {v.vehicle_type === "BUS" ? (
-                                  <Bus size={16} className="text-primary" />
+                                  <Bus size={15} className="text-primary" />
                                 ) : v.vehicle_type === "CAR" ? (
-                                  <Car size={16} className="text-green" />
+                                  <Car size={15} className="text-green" />
                                 ) : v.vehicle_type === "BATTERY_VEHICLE" ? (
-                                  <Zap size={16} className="text-pending" />
+                                  <Zap size={15} className="text-pending" />
                                 ) : (
                                   <Truck
-                                    size={16}
+                                    size={15}
                                     className="text-secondarytext"
                                   />
                                 )}
-                                <span className="font-semibold text-primarytext">
-                                  {v.vehicle_name || v.vehicle_number}
-                                </span>
+                                <div>
+                                  <span className="font-semibold text-primarytext text-sm group-hover:text-primary transition-colors">
+                                    {v.vehicle_name || v.vehicle_number}
+                                  </span>
+                                  <p className="text-[10px] text-secondarytext font-mono">
+                                    {v.vehicle_number}
+                                  </p>
+                                </div>
                               </div>
                             </td>
-                            <td className="px-4 py-3 text-sm text-secondarytext">
-                              {getVehicleTypeLabel(v.vehicle_type)}
-                            </td>
 
-                            {/* Insurance Expire - Clickable */}
-                            <td className="px-4 py-3 text-center">
-                              {editingExpiry?.vehicleId === v.id &&
-                              editingExpiry?.field ===
-                                "insurance_expire_date" ? (
-                                <div className="flex items-center gap-1 justify-center">
-                                  <input
-                                    type="date"
-                                    value={expiryFormValue}
-                                    onChange={(e) =>
-                                      setExpiryFormValue(e.target.value)
-                                    }
-                                    className="px-2 py-1 text-sm border border-primary rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
-                                    autoFocus
-                                  />
-                                  <button
-                                    onClick={handleExpiryUpdate}
-                                    className="p-1 text-green hover:bg-green/10 rounded-md"
-                                  >
-                                    <Save size={14} />
-                                  </button>
-                                  <button
-                                    onClick={cancelExpiryEdit}
-                                    className="p-1 text-secondarytext hover:bg-primarybg rounded-md"
-                                  >
-                                    <X size={14} />
-                                  </button>
-                                </div>
-                              ) : (
-                                <button
-                                  onClick={() =>
-                                    handleExpiryClick(
-                                      v,
-                                      "insurance_expire_date",
-                                    )
-                                  }
-                                  className="px-2 py-1 text-sm text-primarytext hover:bg-skyblue/10 rounded-md border border-transparent hover:border-skyblue/20 transition-all cursor-pointer"
-                                  title="Click to update"
-                                >
-                                  {formatDate(v.insurance_expire_date)}
-                                </button>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              {insDays !== null ? (
-                                <span
-                                  className={`px-2 py-1 rounded-md text-xs font-bold ${getStatusColor(insDays)}`}
-                                >
-                                  {insDays < 0
-                                    ? `${Math.abs(insDays)} overdue`
-                                    : insDays}
-                                </span>
-                              ) : (
-                                <span className="text-secondarytext/60">-</span>
+                            <td className="px-3 py-3 text-center">
+                              {renderExpiryCell(
+                                formatDate(v.insurance_expire_date),
+                                insDays,
                               )}
                             </td>
 
-                            {/* FC Expire - Clickable */}
-                            <td className="px-4 py-3 text-center">
-                              {editingExpiry?.vehicleId === v.id &&
-                              editingExpiry?.field === "fc_expire_date" ? (
-                                <div className="flex items-center gap-1 justify-center">
-                                  <input
-                                    type="date"
-                                    value={expiryFormValue}
-                                    onChange={(e) =>
-                                      setExpiryFormValue(e.target.value)
-                                    }
-                                    className="px-2 py-1 text-sm border border-primary rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
-                                    autoFocus
-                                  />
-                                  <button
-                                    onClick={handleExpiryUpdate}
-                                    className="p-1 text-green hover:bg-green/10 rounded-md"
-                                  >
-                                    <Save size={14} />
-                                  </button>
-                                  <button
-                                    onClick={cancelExpiryEdit}
-                                    className="p-1 text-secondarytext hover:bg-primarybg rounded-md"
-                                  >
-                                    <X size={14} />
-                                  </button>
-                                </div>
-                              ) : (
-                                <button
-                                  onClick={() =>
-                                    handleExpiryClick(v, "fc_expire_date")
-                                  }
-                                  className="px-2 py-1 text-sm text-primarytext hover:bg-green/10 rounded-md border border-transparent hover:border-green/20 transition-all cursor-pointer"
-                                  title="Click to update"
-                                >
-                                  {formatDate(v.fc_expire_date)}
-                                </button>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              {fcDays !== null ? (
-                                <span
-                                  className={`px-2 py-1 rounded-md text-xs font-bold ${getStatusColor(fcDays)}`}
-                                >
-                                  {fcDays < 0
-                                    ? `${Math.abs(fcDays)} overdue`
-                                    : fcDays}
-                                </span>
-                              ) : (
-                                <span className="text-secondarytext/60">-</span>
+                            <td className="px-3 py-3 text-center">
+                              {renderExpiryCell(
+                                formatDate(v.fc_expire_date),
+                                fcDays,
                               )}
                             </td>
 
-                            {/* Permit Expire - Clickable */}
-                            <td className="px-4 py-3 text-center">
-                              {editingExpiry?.vehicleId === v.id &&
-                              editingExpiry?.field === "permit_expire_date" ? (
-                                <div className="flex items-center gap-1 justify-center">
-                                  <input
-                                    type="date"
-                                    value={expiryFormValue}
-                                    onChange={(e) =>
-                                      setExpiryFormValue(e.target.value)
-                                    }
-                                    className="px-2 py-1 text-sm border border-primary rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
-                                    autoFocus
-                                  />
-                                  <button
-                                    onClick={handleExpiryUpdate}
-                                    className="p-1 text-green hover:bg-green/10 rounded-md"
-                                  >
-                                    <Save size={14} />
-                                  </button>
-                                  <button
-                                    onClick={cancelExpiryEdit}
-                                    className="p-1 text-secondarytext hover:bg-primarybg rounded-md"
-                                  >
-                                    <X size={14} />
-                                  </button>
-                                </div>
-                              ) : (
-                                <button
-                                  onClick={() =>
-                                    handleExpiryClick(v, "permit_expire_date")
-                                  }
-                                  className="px-2 py-1 text-sm text-primarytext hover:bg-primary/5 rounded-md border border-transparent hover:border-primary/20 transition-all cursor-pointer"
-                                  title="Click to update"
-                                >
-                                  {formatDate(v.permit_expire_date)}
-                                </button>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              {permitDays !== null ? (
-                                <span
-                                  className={`px-2 py-1 rounded-md text-xs font-bold ${getStatusColor(permitDays)}`}
-                                >
-                                  {permitDays < 0
-                                    ? `${Math.abs(permitDays)} overdue`
-                                    : permitDays}
-                                </span>
-                              ) : (
-                                <span className="text-secondarytext/60">-</span>
+                            <td className="px-3 py-3 text-center">
+                              {renderExpiryCell(
+                                formatDate(v.permit_expire_date),
+                                permitDays,
                               )}
                             </td>
                           </tr>
@@ -972,7 +1017,7 @@ export default function Vehicles() {
                   ) : (
                     <tr>
                       <td
-                        colSpan="9"
+                        colSpan="5"
                         className="px-6 py-12 text-center text-secondarytext"
                       >
                         No vehicles found.
@@ -1439,34 +1484,74 @@ export default function Vehicles() {
                   selectedVehicle.fc_expire_date ||
                   selectedVehicle.permit_expire_date) && (
                   <div className="bg-primarybg rounded-md p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Shield size={16} className="text-primary" />
-                      <h4 className="text-sm font-bold text-secondarytext uppercase tracking-wide">
-                        Documents & Expiry
-                      </h4>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Shield size={16} className="text-primary" />
+                        <h4 className="text-sm font-bold text-secondarytext uppercase tracking-wide">
+                          Documents & Expiry
+                        </h4>
+                      </div>
+                      <button
+                        onClick={() => fetchDocumentHistory(selectedVehicle)}
+                        className="flex items-center gap-1 text-xs text-primary hover:underline font-medium"
+                      >
+                        <History size={12} /> View History
+                      </button>
                     </div>
                     <div className="grid grid-cols-3 gap-3">
-                      <div className="text-center p-3 bg-secondarybg rounded-md border border-primary/10">
+                      <div className="p-3 bg-secondarybg rounded-md border border-primary/10">
                         <p className="text-xs text-secondarytext mb-1">
                           Insurance
                         </p>
+                        {selectedVehicle.insurance_start_date && (
+                          <p className="text-[10px] text-secondarytext mb-0.5">
+                            From:{" "}
+                            {formatDate(selectedVehicle.insurance_start_date)}
+                          </p>
+                        )}
                         <p className="text-sm font-semibold text-primarytext">
                           {formatDate(selectedVehicle.insurance_expire_date)}
                         </p>
+                        {selectedVehicle.insurance_remarks && (
+                          <p className="text-[10px] text-secondarytext mt-1 italic">
+                            {selectedVehicle.insurance_remarks}
+                          </p>
+                        )}
                       </div>
-                      <div className="text-center p-3 bg-secondarybg rounded-md border border-primary/10">
+                      <div className="p-3 bg-secondarybg rounded-md border border-primary/10">
                         <p className="text-xs text-secondarytext mb-1">FC</p>
+                        {selectedVehicle.fc_start_date && (
+                          <p className="text-[10px] text-secondarytext mb-0.5">
+                            From: {formatDate(selectedVehicle.fc_start_date)}
+                          </p>
+                        )}
                         <p className="text-sm font-semibold text-primarytext">
                           {formatDate(selectedVehicle.fc_expire_date)}
                         </p>
+                        {selectedVehicle.fc_remarks && (
+                          <p className="text-[10px] text-secondarytext mt-1 italic">
+                            {selectedVehicle.fc_remarks}
+                          </p>
+                        )}
                       </div>
-                      <div className="text-center p-3 bg-secondarybg rounded-md border border-primary/10">
+                      <div className="p-3 bg-secondarybg rounded-md border border-primary/10">
                         <p className="text-xs text-secondarytext mb-1">
                           Permit
                         </p>
+                        {selectedVehicle.permit_start_date && (
+                          <p className="text-[10px] text-secondarytext mb-0.5">
+                            From:{" "}
+                            {formatDate(selectedVehicle.permit_start_date)}
+                          </p>
+                        )}
                         <p className="text-sm font-semibold text-primarytext">
                           {formatDate(selectedVehicle.permit_expire_date)}
                         </p>
+                        {selectedVehicle.permit_remarks && (
+                          <p className="text-[10px] text-secondarytext mt-1 italic">
+                            {selectedVehicle.permit_remarks}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1771,36 +1856,108 @@ export default function Vehicles() {
                       </h3>
                     </div>
                     <div className="space-y-3">
-                      <div>
-                        <label className="block text-sm font-semibold text-primarytext mb-1">
-                          Insurance Expire Date
-                        </label>
-                        <input
-                          type="date"
-                          value={vehicleForm.insurance_expire_date}
-                          onChange={(e) =>
-                            setVehicleForm({
-                              ...vehicleForm,
-                              insurance_expire_date: e.target.value,
-                            })
-                          }
-                          className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium"
-                        />
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-semibold text-primarytext mb-1">
+                            Insurance Start Date
+                          </label>
+                          <input
+                            type="date"
+                            value={vehicleForm.insurance_start_date}
+                            onChange={(e) =>
+                              setVehicleForm({
+                                ...vehicleForm,
+                                insurance_start_date: e.target.value,
+                              })
+                            }
+                            className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-primarytext mb-1">
+                            Insurance Expiry Date
+                          </label>
+                          <input
+                            type="date"
+                            value={vehicleForm.insurance_expire_date}
+                            onChange={(e) =>
+                              setVehicleForm({
+                                ...vehicleForm,
+                                insurance_expire_date: e.target.value,
+                              })
+                            }
+                            className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium"
+                          />
+                        </div>
                       </div>
                       <div>
                         <label className="block text-sm font-semibold text-primarytext mb-1">
-                          FC (Fitness Certificate) Expire Date
+                          Insurance Remarks
                         </label>
-                        <input
-                          type="date"
-                          value={vehicleForm.fc_expire_date}
+                        <textarea
+                          placeholder="e.g., Policy number, provider name..."
+                          value={vehicleForm.insurance_remarks}
                           onChange={(e) =>
                             setVehicleForm({
                               ...vehicleForm,
-                              fc_expire_date: e.target.value,
+                              insurance_remarks: e.target.value,
                             })
                           }
-                          className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium"
+                          rows={2}
+                          className="w-full px-4 py-2 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext text-sm resize-none"
+                        />
+                      </div>
+                      <div className="border-t border-primarybg pt-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-sm font-semibold text-primarytext mb-1">
+                              FC Start Date
+                            </label>
+                            <input
+                              type="date"
+                              value={vehicleForm.fc_start_date}
+                              onChange={(e) =>
+                                setVehicleForm({
+                                  ...vehicleForm,
+                                  fc_start_date: e.target.value,
+                                })
+                              }
+                              className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-semibold text-primarytext mb-1">
+                              FC Expiry Date
+                            </label>
+                            <input
+                              type="date"
+                              value={vehicleForm.fc_expire_date}
+                              onChange={(e) =>
+                                setVehicleForm({
+                                  ...vehicleForm,
+                                  fc_expire_date: e.target.value,
+                                })
+                              }
+                              className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-primarytext mb-1">
+                          FC Remarks
+                        </label>
+                        <textarea
+                          placeholder="e.g., Certificate number, agency..."
+                          value={vehicleForm.fc_remarks}
+                          onChange={(e) =>
+                            setVehicleForm({
+                              ...vehicleForm,
+                              fc_remarks: e.target.value,
+                            })
+                          }
+                          rows={2}
+                          className="w-full px-4 py-2 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext text-sm resize-none"
                         />
                       </div>
                     </div>
@@ -1815,30 +1972,66 @@ export default function Vehicles() {
                       </h3>
                     </div>
                     <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-semibold text-primarytext mb-1">
+                            Permit Start Date
+                          </label>
+                          <input
+                            type="date"
+                            value={vehicleForm.permit_start_date}
+                            onChange={(e) =>
+                              setVehicleForm({
+                                ...vehicleForm,
+                                permit_start_date: e.target.value,
+                              })
+                            }
+                            className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-primarytext mb-1">
+                            Permit Expiry Date
+                          </label>
+                          <input
+                            type="date"
+                            value={vehicleForm.permit_expire_date}
+                            onChange={(e) =>
+                              setVehicleForm({
+                                ...vehicleForm,
+                                permit_expire_date: e.target.value,
+                              })
+                            }
+                            className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium"
+                          />
+                        </div>
+                      </div>
                       <div>
                         <label className="block text-sm font-semibold text-primarytext mb-1">
-                          Permit Expire Date
+                          Permit Remarks
                         </label>
-                        <input
-                          type="date"
-                          value={vehicleForm.permit_expire_date}
+                        <textarea
+                          placeholder="e.g., Permit type, issuing authority..."
+                          value={vehicleForm.permit_remarks}
                           onChange={(e) =>
                             setVehicleForm({
                               ...vehicleForm,
-                              permit_expire_date: e.target.value,
+                              permit_remarks: e.target.value,
                             })
                           }
-                          className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium"
+                          rows={2}
+                          className="w-full px-4 py-2 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext text-sm resize-none"
                         />
                       </div>
-                      <div className="mt-4 p-3 bg-primary/5 border border-primary/10 rounded-md">
+                      <div className="p-3 bg-primary/5 border border-primary/10 rounded-md">
                         <p className="text-xs text-secondarytext">
                           <Calendar
                             size={14}
                             className="inline mr-1.5 text-primary"
                           />
-                          Expiry dates help track document renewals. You'll get
-                          alerts when documents are about to expire.
+                          All changes to document dates are tracked in the audit
+                          log. You'll get alerts when documents are about to
+                          expire.
                         </p>
                       </div>
                     </div>
@@ -1868,6 +2061,406 @@ export default function Vehicles() {
                     {isEditing ? "Update Vehicle" : "Create Vehicle"}
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Document Detail Modal (opened from expiry table row click) */}
+      {showDocDetailModal && docDetailVehicle && (
+        <div
+          className="fixed inset-0 bg-black/60 overflow-y-auto z-50 animate-overlayFadeIn"
+          onClick={() => setShowDocDetailModal(false)}
+        >
+          <div className="flex items-start justify-center min-h-full p-4">
+            <div
+              className="bg-secondarybg rounded-md shadow-2xl w-full max-w-xl overflow-hidden my-8 animate-modalSlideIn"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="px-6 py-5 border-b border-primary/10">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`p-2.5 rounded-md ${
+                        docDetailVehicle.vehicle_type === "BUS"
+                          ? "bg-primary text-white"
+                          : docDetailVehicle.vehicle_type === "CAR"
+                            ? "bg-green text-white"
+                            : docDetailVehicle.vehicle_type ===
+                                "BATTERY_VEHICLE"
+                              ? "bg-pending text-white"
+                              : "bg-secondarytext text-white"
+                      }`}
+                    >
+                      {docDetailVehicle.vehicle_type === "BUS" ? (
+                        <Bus size={20} />
+                      ) : docDetailVehicle.vehicle_type === "CAR" ? (
+                        <Car size={20} />
+                      ) : docDetailVehicle.vehicle_type ===
+                        "BATTERY_VEHICLE" ? (
+                        <Zap size={20} />
+                      ) : (
+                        <Truck size={20} />
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-primarytext">
+                        {docDetailVehicle.vehicle_name ||
+                          docDetailVehicle.vehicle_number}
+                      </h3>
+                      <p className="text-sm text-secondarytext">
+                        {docDetailVehicle.vehicle_number} — Document Details
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowDocDetailModal(false)}
+                    className="p-2 text-secondarytext hover:text-primarytext hover:bg-primarybg rounded-md transition-colors"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Document Cards */}
+              <div className="p-6 space-y-4">
+                {[
+                  {
+                    key: "insurance",
+                    label: "Insurance",
+                    icon: Shield,
+                    color: "skyblue",
+                    startDate: docDetailVehicle.insurance_start_date,
+                    expiryDate: docDetailVehicle.insurance_expire_date,
+                    remarks: docDetailVehicle.insurance_remarks,
+                    days: getDaysUntil(docDetailVehicle.insurance_expire_date),
+                  },
+                  {
+                    key: "fc",
+                    label: "FC (Fitness Certificate)",
+                    icon: FileCheck,
+                    color: "green",
+                    startDate: docDetailVehicle.fc_start_date,
+                    expiryDate: docDetailVehicle.fc_expire_date,
+                    remarks: docDetailVehicle.fc_remarks,
+                    days: getDaysUntil(docDetailVehicle.fc_expire_date),
+                  },
+                  {
+                    key: "permit",
+                    label: "Permit",
+                    icon: FileText,
+                    color: "primary",
+                    startDate: docDetailVehicle.permit_start_date,
+                    expiryDate: docDetailVehicle.permit_expire_date,
+                    remarks: docDetailVehicle.permit_remarks,
+                    days: getDaysUntil(docDetailVehicle.permit_expire_date),
+                  },
+                ].map((doc) => {
+                  const Icon = doc.icon;
+                  return (
+                    <div
+                      key={doc.key}
+                      className={`bg-primarybg rounded-md p-4 border-l-4 ${
+                        doc.days !== null && doc.days < 0
+                          ? "border-l-red"
+                          : doc.days !== null && doc.days <= 30
+                            ? "border-l-pending"
+                            : `border-l-${doc.color}`
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <Icon size={16} className={`text-${doc.color}`} />
+                          <h4 className="font-bold text-primarytext text-sm">
+                            {doc.label}
+                          </h4>
+                        </div>
+                        {doc.days !== null && (
+                          <span
+                            className={`px-2.5 py-1 rounded-md text-xs font-bold ${getStatusColor(doc.days)}`}
+                          >
+                            {doc.days < 0
+                              ? `${Math.abs(doc.days)} days overdue`
+                              : `${doc.days} days left`}
+                          </span>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-[10px] text-secondarytext uppercase tracking-wide font-semibold mb-0.5">
+                            Start Date
+                          </p>
+                          <p className="text-sm font-medium text-primarytext">
+                            {formatDate(doc.startDate)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-secondarytext uppercase tracking-wide font-semibold mb-0.5">
+                            Expiry Date
+                          </p>
+                          <p className="text-sm font-medium text-primarytext">
+                            {formatDate(doc.expiryDate)}
+                          </p>
+                        </div>
+                      </div>
+                      {doc.remarks && (
+                        <div className="mt-2 pt-2 border-t border-primary/5">
+                          <div className="flex items-start gap-1.5">
+                            <MessageSquare
+                              size={11}
+                              className="text-secondarytext mt-0.5 shrink-0"
+                            />
+                            <p className="text-xs text-secondarytext italic">
+                              {doc.remarks}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Footer Actions */}
+              <div className="px-6 py-4 border-t border-primary/10 flex justify-between items-center">
+                <button
+                  onClick={() => {
+                    setShowDocDetailModal(false);
+                    fetchDocumentHistory(docDetailVehicle);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-secondarytext hover:text-primary hover:bg-primary/5 rounded-md transition-colors"
+                >
+                  <History size={15} />
+                  View History
+                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowDocDetailModal(false)}
+                    className="px-4 py-2 text-sm font-semibold text-secondarytext hover:text-primarytext hover:bg-primarybg rounded-md transition-colors"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowDocDetailModal(false);
+                      handleEdit(docDetailVehicle);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-md hover:bg-primarydull transition-colors text-sm font-semibold"
+                  >
+                    <Edit2 size={15} />
+                    Edit Documents
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Document History Modal */}
+      {showHistoryModal && historyVehicle && (
+        <div
+          className="fixed inset-0 bg-black/60 overflow-y-auto z-50 animate-overlayFadeIn"
+          onClick={() => setShowHistoryModal(false)}
+        >
+          <div className="flex items-start justify-center min-h-full p-4">
+            <div
+              className="bg-secondarybg rounded-md shadow-2xl w-full max-w-2xl overflow-hidden my-8 animate-modalSlideIn"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="px-6 py-5 border-b border-primary/10">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-primary/10 rounded-md">
+                      <History size={20} className="text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-primarytext">
+                        Document Change History
+                      </h3>
+                      <p className="text-sm text-secondarytext">
+                        {historyVehicle.vehicle_name ||
+                          historyVehicle.vehicle_number}{" "}
+                        — {historyVehicle.vehicle_number}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowHistoryModal(false)}
+                    className="p-2 text-secondarytext hover:text-primarytext hover:bg-primarybg rounded-md transition-colors"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                {/* Filter Tabs */}
+                <div className="flex gap-1 mt-4 bg-primarybg rounded-md p-1">
+                  {[
+                    {key: "all", label: "All"},
+                    {key: "insurance", label: "Insurance"},
+                    {key: "fc", label: "FC"},
+                    {key: "permit", label: "Permit"},
+                  ].map((tab) => (
+                    <button
+                      key={tab.key}
+                      onClick={() => setHistoryFilter(tab.key)}
+                      className={`flex-1 px-3 py-2 text-xs font-semibold rounded-md transition-all ${
+                        historyFilter === tab.key
+                          ? "bg-primary text-white shadow-sm"
+                          : "text-secondarytext hover:text-primarytext hover:bg-secondarybg"
+                      }`}
+                    >
+                      {tab.label}
+                      {tab.key !== "all" &&
+                        historyGrouped[tab.key]?.length > 0 && (
+                          <span
+                            className={`ml-1 px-1.5 py-0.5 rounded-md text-[10px] ${
+                              historyFilter === tab.key
+                                ? "bg-white/20"
+                                : "bg-primarybg"
+                            }`}
+                          >
+                            {historyGrouped[tab.key].length}
+                          </span>
+                        )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="p-5 max-h-[62vh] overflow-y-auto space-y-1">
+                {historyLoading ? (
+                  <div className="flex items-center justify-center py-14">
+                    <Loading fullScreen={false} text="Loading history..." />
+                  </div>
+                ) : getFilteredHistoryLogs().length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-14 text-secondarytext">
+                    <div className="p-4 bg-primarybg rounded-full mb-3">
+                      <History size={28} className="opacity-25" />
+                    </div>
+                    <p className="font-semibold text-sm">
+                      No change history found
+                    </p>
+                    <p className="text-xs mt-1 text-secondarytext/60">
+                      Changes will appear here after document details are
+                      updated.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {groupLogsByDate(getFilteredHistoryLogs()).map(
+                      ({date, items: dateLogs}) => (
+                        <div key={date}>
+                          {/* ── Date Group Header ── */}
+                          <div className="flex items-center gap-3 mb-3">
+                            <div className="flex items-center gap-1.5 px-3 py-1 bg-primary/10 rounded-full shrink-0">
+                              <Calendar size={11} className="text-primary" />
+                              <span className="text-[11px] font-bold text-primary uppercase tracking-wide">
+                                {formatGroupDate(date)}
+                              </span>
+                            </div>
+                            <div className="flex-1 h-px bg-primary/10" />
+                            <span className="text-[10px] text-secondarytext shrink-0">
+                              {dateLogs.length} change
+                              {dateLogs.length !== 1 ? "s" : ""}
+                            </span>
+                          </div>
+
+                          {/* ── Column header row (shown once per group) ── */}
+                          <div className="grid grid-cols-[1fr_auto_1fr] items-center mb-1.5 px-1">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-secondarytext/50 text-left pl-3">
+                              Previous
+                            </span>
+                            <span className="w-px" />
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-secondarytext/50 text-left pl-3">
+                              Changed to
+                            </span>
+                          </div>
+
+                          {/* ── Cards for this date ── */}
+                          <div className="space-y-2">
+                            {dateLogs.map((log) => (
+                              <div
+                                key={log.id}
+                                className="rounded-md border border-primary/10 bg-secondarybg overflow-hidden shadow-sm"
+                              >
+                                {/* Card header: doc type + field + time + user */}
+                                <div className="flex items-center justify-between px-4 py-2 bg-primarybg border-b border-primary/10">
+                                  <div className="flex items-center gap-2">
+                                    <span
+                                      className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide ${getDocTypeColor(log.document_type)}`}
+                                    >
+                                      {formatDocType(log.document_type)}
+                                    </span>
+                                    <span className="text-xs font-semibold text-primarytext">
+                                      {formatFieldName(log.field_name)}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 text-[10px] text-secondarytext">
+                                    <Clock size={10} />
+                                    <span>
+                                      {log.changed_at?.split(" ")[1] || ""}
+                                    </span>
+                                    <span className="opacity-30 mx-0.5">·</span>
+                                    <User size={10} />
+                                    <span>{log.changed_by_name}</span>
+                                  </div>
+                                </div>
+
+                                {/* Two-column value row */}
+                                <div className="grid grid-cols-2 divide-x divide-primary/10">
+                                  {/* Left — Previous value */}
+                                  <div className="px-4 py-2.5">
+                                    {log.old_value ? (
+                                      <p className="text-sm font-medium text-red/80 line-through">
+                                        {log.old_value}
+                                      </p>
+                                    ) : (
+                                      <p className="text-sm italic text-secondarytext/35">
+                                        —
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  {/* Right — Changed to value */}
+                                  <div className="px-4 py-2.5 bg-green/4">
+                                    {log.new_value ? (
+                                      <p className="text-sm font-semibold text-green">
+                                        {log.new_value}
+                                      </p>
+                                    ) : (
+                                      <p className="text-sm italic text-secondarytext/35">
+                                        —
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ),
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 py-4 border-t border-primary/10 flex justify-between items-center">
+                <p className="text-xs text-secondarytext">
+                  {getFilteredHistoryLogs().length} change
+                  {getFilteredHistoryLogs().length !== 1 ? "s" : ""} recorded
+                </p>
+                <button
+                  onClick={() => setShowHistoryModal(false)}
+                  className="px-5 py-2 text-secondarytext hover:text-primarytext hover:bg-primarybg rounded-md font-semibold transition-colors text-sm"
+                >
+                  Close
+                </button>
               </div>
             </div>
           </div>

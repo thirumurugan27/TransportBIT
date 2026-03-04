@@ -76,32 +76,71 @@ type DriverResponse struct {
 ========================= */
 
 type Vehicle struct {
-	ID                  int     `json:"id"`
-	VehicleNumber       string  `json:"vehicle_number"`
-	VehicleType         string  `json:"vehicle_type"`
-	FuelType            string  `json:"fuel_type"`
-	SeatingCapacity     int     `json:"seating_capacity"`
-	Status              string  `json:"status"`
+	ID              int    `json:"id"`
+	VehicleNumber   string `json:"vehicle_number"`
+	VehicleType     string `json:"vehicle_type"`
+	FuelType        string `json:"fuel_type"`
+	SeatingCapacity int    `json:"seating_capacity"`
+	Status          string `json:"status"`
+	VehicleName     string `json:"vehicle_name"`
+	StartPoint      string `json:"start_point"`
+	EndPoint        string `json:"end_point"`
+	// Document fields (flattened from vehicle_documents table — populated via JOIN)
 	InsuranceExpireDate *string `json:"insurance_expire_date"`
+	InsuranceStartDate  *string `json:"insurance_start_date"`
+	InsuranceRemarks    *string `json:"insurance_remarks"`
 	FCExpireDate        *string `json:"fc_expire_date"`
+	FCStartDate         *string `json:"fc_start_date"`
+	FCRemarks           *string `json:"fc_remarks"`
 	PermitExpireDate    *string `json:"permit_expire_date"`
-	VehicleName         string  `json:"vehicle_name"`
-	StartPoint          string  `json:"start_point"`
-	EndPoint            string  `json:"end_point"`
+	PermitStartDate     *string `json:"permit_start_date"`
+	PermitRemarks       *string `json:"permit_remarks"`
+}
+
+// VehicleDocument represents a single document row in vehicle_documents table.
+type VehicleDocument struct {
+	ID           int     `json:"id"`
+	VehicleID    int     `json:"vehicle_id"`
+	DocumentType string  `json:"document_type"` // insurance | fc | permit
+	StartDate    *string `json:"start_date"`
+	ExpireDate   *string `json:"expire_date"`
+	Remarks      *string `json:"remarks"`
+	CreatedAt    string  `json:"created_at"`
+	UpdatedAt    string  `json:"updated_at"`
 }
 
 type CreateVehicleRequest struct {
-	VehicleNumber       string  `json:"vehicle_number"`
-	VehicleType         string  `json:"vehicle_type"`
-	FuelType            string  `json:"fuel_type"`
-	SeatingCapacity     int     `json:"seating_capacity"`
-	InsuranceExpireDate *string `json:"insurance_expire_date"`
-	FCExpireDate        *string `json:"fc_expire_date"`
-	PermitExpireDate    *string `json:"permit_expire_date"`
+	VehicleNumber string `json:"vehicle_number"`
+	VehicleType   string `json:"vehicle_type"`
+	FuelType      string `json:"fuel_type"`
+	SeatingCapacity int  `json:"seating_capacity"`
 	// Vehicle-specific fields
 	VehicleName string `json:"vehicle_name"`
 	StartPoint  string `json:"start_point"`
 	EndPoint    string `json:"end_point"`
+	// Document fields (optional at creation)
+	InsuranceExpireDate *string `json:"insurance_expire_date"`
+	InsuranceStartDate  *string `json:"insurance_start_date"`
+	InsuranceRemarks    *string `json:"insurance_remarks"`
+	FCExpireDate        *string `json:"fc_expire_date"`
+	FCStartDate         *string `json:"fc_start_date"`
+	FCRemarks           *string `json:"fc_remarks"`
+	PermitExpireDate    *string `json:"permit_expire_date"`
+	PermitStartDate     *string `json:"permit_start_date"`
+	PermitRemarks       *string `json:"permit_remarks"`
+}
+
+// VehicleDocumentAuditLog represents a single field-level change to a vehicle document
+type VehicleDocumentAuditLog struct {
+	ID            int    `json:"id"`
+	VehicleID     int    `json:"vehicle_id"`
+	DocumentType  string `json:"document_type"`
+	FieldName     string `json:"field_name"`
+	OldValue      *string `json:"old_value"`
+	NewValue      *string `json:"new_value"`
+	ChangedBy     int    `json:"changed_by"`
+	ChangedByName string `json:"changed_by_name"`
+	ChangedAt     string `json:"changed_at"`
 }
 
 /* =========================

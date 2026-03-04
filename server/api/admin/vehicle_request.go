@@ -23,30 +23,6 @@ func generateOTP() string {
 	return fmt.Sprintf("%06d", r.Intn(1000000))
 }
 
-// EnsureVehicleRequestOTPColumns ensures OTP columns exist in vehiclerequests table
-func EnsureVehicleRequestOTPColumns() {
-	cols := []struct {
-		name string
-		ddl  string
-	}{
-		{"start_otp", "ALTER TABLE vehiclerequests ADD COLUMN start_otp VARCHAR(6) DEFAULT NULL"},
-		{"end_otp", "ALTER TABLE vehiclerequests ADD COLUMN end_otp VARCHAR(6) DEFAULT NULL"},
-		{"start_otp_generated_at", "ALTER TABLE vehiclerequests ADD COLUMN start_otp_generated_at TIMESTAMP NULL"},
-		{"end_otp_generated_at", "ALTER TABLE vehiclerequests ADD COLUMN end_otp_generated_at TIMESTAMP NULL"},
-		{"trip_started_at", "ALTER TABLE vehiclerequests ADD COLUMN trip_started_at TIMESTAMP NULL"},
-		{"trip_ended_at", "ALTER TABLE vehiclerequests ADD COLUMN trip_ended_at TIMESTAMP NULL"},
-	}
-	for _, col := range cols {
-		exists, _ := config.HasColumns("vehiclerequests", col.name)
-		if !exists[col.name] {
-			config.DB.Exec(col.ddl)
-		}
-	}
-	// Update ENUM to include trip_started
-	config.DB.Exec(`ALTER TABLE vehiclerequests MODIFY COLUMN status ENUM('pending','approved','rejected','assigned','trip_started','completed','cancelled') DEFAULT 'pending'`)
-	log.Println("Vehicle request OTP columns ensured")
-}
-
 // GET /api/admin/vehicle-requests
 func GetAllVehicleRequests(c *gin.Context) {
 	statusFilter := c.Query("status")

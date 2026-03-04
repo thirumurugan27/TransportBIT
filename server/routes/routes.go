@@ -106,6 +106,8 @@ func registerAdminRoutes(adm *gin.RouterGroup) {
 	adm.POST("/vehicles/update", admin.UpdateVehicle)
 	adm.DELETE("/vehicles/delete", admin.DeleteVehicle)
 	adm.GET("/vehicles/alerts", admin.GetVehicleDocumentAlerts)
+	adm.GET("/vehicles/audit-log", admin.GetVehicleDocumentAuditSummary)
+	adm.GET("/vehicles/:id/document-history", admin.GetVehicleDocumentHistory)
 	adm.GET("/vehicles/unassigned-ev", admin.GetUnassignedEVVehicles)
 	adm.GET("/vehicles/available-for-group", admin.GetAvailableVehiclesForGroup)
 

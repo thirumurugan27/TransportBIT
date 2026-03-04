@@ -17,28 +17,6 @@ import (
 =========================
 */
 
-// InitVehicleGroupMemberTables creates the vehicle_group_members table
-func InitVehicleGroupMemberTables() {
-	_, err := config.DB.Exec(`
-		CREATE TABLE IF NOT EXISTS vehicle_group_members (
-			id INT AUTO_INCREMENT PRIMARY KEY,
-			group_id INT NOT NULL,
-			vehicle_id INT NOT NULL,
-			valid_from DATE NOT NULL,
-			valid_to DATE NOT NULL,
-			added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-			FOREIGN KEY (group_id) REFERENCES vehicle_groups(id) ON DELETE CASCADE,
-			FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE,
-			CHECK (valid_from <= valid_to)
-		)
-	`)
-	if err != nil {
-		log.Printf("Error creating vehicle_group_members table: %v", err)
-	} else {
-		log.Println("✅ vehicle_group_members table ready")
-	}
-}
-
 // VehicleGroup - vehicle group struct
 type VehicleGroup struct {
 	ID           int     `json:"id"`
