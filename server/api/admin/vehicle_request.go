@@ -23,11 +23,110 @@ func generateOTP() string {
 	return fmt.Sprintf("%06d", r.Intn(1000000))
 }
 
+func optionalTextExpr(colExists map[string]bool, column, alias string) string {
+	if colExists[column] {
+		return fmt.Sprintf("COALESCE(vr.%s, '') as %s", column, alias)
+	}
+	return fmt.Sprintf("'' as %s", alias)
+}
+
+func optionalIntExpr(colExists map[string]bool, column, alias string, fallback int) string {
+	if colExists[column] {
+		return fmt.Sprintf("COALESCE(vr.%s, %d) as %s", column, fallback, alias)
+	}
+	return fmt.Sprintf("%d as %s", fallback, alias)
+}
+
+func optionalBoolExpr(colExists map[string]bool, column, alias string) string {
+	if colExists[column] {
+		return fmt.Sprintf("COALESCE(vr.%s, 0) as %s", column, alias)
+	}
+	return fmt.Sprintf("0 as %s", alias)
+}
+
+func optionalDateExpr(colExists map[string]bool, column, alias string) string {
+	if colExists[column] {
+		return fmt.Sprintf("COALESCE(DATE_FORMAT(vr.%s, '%%d-%%m-%%Y %%h:%%i %%p'), '') as %s", column, alias)
+	}
+	return fmt.Sprintf("'' as %s", alias)
+}
+
+func pickExistingColumn(colExists map[string]bool, candidates ...string) string {
+	for _, candidate := range candidates {
+		if colExists[candidate] {
+			return candidate
+		}
+	}
+	return ""
+}
+
+func loadVehicleRequestSchedule(requestID int) (sql.NullString, sql.NullString, sql.NullString, sql.NullString, error) {
+	var onwardFrom, onwardTo, returnFrom, returnTo sql.NullString
+	dateCols, _ := config.HasColumns("vehiclerequests", "OnwardFromDateTime", "OnwardTodateTime", "OnwardToDateTime", "ReturnFromDateTime", "ReturnTodateTime", "ReturnToDateTime")
+	onwardFromCol := pickExistingColumn(dateCols, "OnwardFromDateTime")
+	onwardToCol := pickExistingColumn(dateCols, "OnwardTodateTime", "OnwardToDateTime")
+	returnFromCol := pickExistingColumn(dateCols, "ReturnFromDateTime")
+	returnToCol := pickExistingColumn(dateCols, "ReturnTodateTime", "ReturnToDateTime")
+
+	onwardFromExpr := "NULL"
+	if onwardFromCol != "" {
+		onwardFromExpr = "vr." + onwardFromCol
+	}
+	onwardToExpr := "NULL"
+	if onwardToCol != "" {
+		onwardToExpr = "vr." + onwardToCol
+	}
+	returnFromExpr := "NULL"
+	if returnFromCol != "" {
+		returnFromExpr = "vr." + returnFromCol
+	}
+	returnToExpr := "NULL"
+	if returnToCol != "" {
+		returnToExpr = "vr." + returnToCol
+	}
+
+	query := fmt.Sprintf(`
+		SELECT %s, %s, %s, %s
+		FROM vehiclerequests vr
+		WHERE vr.id = ?
+	`, onwardFromExpr, onwardToExpr, returnFromExpr, returnToExpr)
+
+	err := config.DB.QueryRow(query, requestID).Scan(&onwardFrom, &onwardTo, &returnFrom, &returnTo)
+	return onwardFrom, onwardTo, returnFrom, returnTo, err
+}
+
 // GET /api/admin/vehicle-requests
 func GetAllVehicleRequests(c *gin.Context) {
 	statusFilter := c.Query("status")
 
-	colExists, _ := config.HasColumns("vehiclerequests", "Purpose", "PurposeOfVisit", "RequestUnder", "Vertical", "OralApproval", "TaskID", "OutcomeExpected", "OutcomeAuditable", "approved_by", "approved_at", "assigned_at", "start_otp", "end_otp", "start_otp_generated_at", "end_otp_generated_at", "trip_started_at", "trip_ended_at", "TravellerName", "MobileNumber", "Address")
+	colExists, _ := config.HasColumns("vehiclerequests",
+		"id", "faculty_id", "BookingType", "TripType", "TripMode", "CountPerson",
+		"OnwardFromPlace", "OnwardToPlace", "OnwardFromDateTime", "OnwardTodateTime",
+		"ReturnFromPlace", "ReturnToPlace", "ReturnFromDateTime", "ReturnTodateTime",
+		"ContactName", "ContactPhone", "status", "admin_remarks", "created_at", "vehicle_id", "driver_id",
+		"Purpose", "PurposeOfVisit", "RequestUnder", "Vertical", "OralApproval", "TaskID", "OutcomeExpected", "OutcomeAuditable",
+		"approved_by", "approved_at", "assigned_at", "start_otp", "end_otp", "start_otp_generated_at", "end_otp_generated_at", "trip_started_at", "trip_ended_at",
+		"TravellerName", "MobileNumber", "Address",
+	)
+	idExpr := optionalIntExpr(colExists, "id", "id", 0)
+	facultyIDExpr := optionalIntExpr(colExists, "faculty_id", "faculty_id", 0)
+	bookingTypeExpr := optionalTextExpr(colExists, "BookingType", "BookingType")
+	tripTypeExpr := optionalTextExpr(colExists, "TripType", "TripType")
+	tripModeExpr := optionalTextExpr(colExists, "TripMode", "TripMode")
+	countPersonExpr := optionalIntExpr(colExists, "CountPerson", "CountPerson", 1)
+	onwardFromPlaceExpr := optionalTextExpr(colExists, "OnwardFromPlace", "OnwardFromPlace")
+	onwardToPlaceExpr := optionalTextExpr(colExists, "OnwardToPlace", "OnwardToPlace")
+	onwardFromDateExpr := optionalDateExpr(colExists, "OnwardFromDateTime", "OnwardFromDateTime")
+	onwardToDateExpr := optionalDateExpr(colExists, "OnwardTodateTime", "OnwardTodateTime")
+	returnFromPlaceExpr := optionalTextExpr(colExists, "ReturnFromPlace", "ReturnFromPlace")
+	returnToPlaceExpr := optionalTextExpr(colExists, "ReturnToPlace", "ReturnToPlace")
+	returnFromDateExpr := optionalDateExpr(colExists, "ReturnFromDateTime", "ReturnFromDateTime")
+	returnToDateExpr := optionalDateExpr(colExists, "ReturnTodateTime", "ReturnTodateTime")
+	contactNameExpr := optionalTextExpr(colExists, "ContactName", "ContactName")
+	contactPhoneExpr := optionalTextExpr(colExists, "ContactPhone", "ContactPhone")
+	statusExpr := optionalTextExpr(colExists, "status", "status")
+	adminRemarksExpr := optionalTextExpr(colExists, "admin_remarks", "admin_remarks")
+	createdAtExpr := optionalDateExpr(colExists, "created_at", "created_at")
 	purposeExpr := "'' as Purpose"
 	if colExists["Purpose"] && colExists["PurposeOfVisit"] {
 		purposeExpr = "COALESCE(vr.Purpose, vr.PurposeOfVisit, '') as Purpose"
@@ -44,10 +143,7 @@ func GetAllVehicleRequests(c *gin.Context) {
 	if colExists["Vertical"] {
 		verticalExpr = "COALESCE(vr.Vertical, '') as Vertical"
 	}
-	oralApprovalExpr := "0 as OralApproval"
-	if colExists["OralApproval"] {
-		oralApprovalExpr = "COALESCE(vr.OralApproval, 0) as OralApproval"
-	}
+	oralApprovalExpr := optionalBoolExpr(colExists, "OralApproval", "OralApproval")
 	taskIDExpr := "'' as TaskID"
 	if colExists["TaskID"] {
 		taskIDExpr = "COALESCE(vr.TaskID, '') as TaskID"
@@ -109,68 +205,54 @@ func GetAllVehicleRequests(c *gin.Context) {
 		tripEndedAtExpr = "DATE_FORMAT(vr.trip_ended_at, '%%d-%%m-%%Y %%h:%%i %%p') as trip_ended_at"
 	}
 
-	query := fmt.Sprintf(`
-		SELECT 
-			vr.id, vr.faculty_id,
-			COALESCE(vr.BookingType, 'faculty') as BookingType,
-			COALESCE(vr.TripType, 'one_way') as TripType,
-			COALESCE(vr.TripMode, 'official') as TripMode,
-			%s,
-			%s,
-			%s,
-			%s,
-			COALESCE(vr.CountPerson, 1) as CountPerson,
-			COALESCE(vr.OnwardFromPlace, '') as OnwardFromPlace,
-			COALESCE(vr.OnwardToPlace, '') as OnwardToPlace,
-			COALESCE(DATE_FORMAT(vr.OnwardFromDateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as OnwardFromDateTime,
-			COALESCE(DATE_FORMAT(vr.OnwardTodateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as OnwardTodateTime,
-			COALESCE(vr.ReturnFromPlace, '') as ReturnFromPlace,
-			COALESCE(vr.ReturnToPlace, '') as ReturnToPlace,
-			COALESCE(DATE_FORMAT(vr.ReturnFromDateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as ReturnFromDateTime,
-			COALESCE(DATE_FORMAT(vr.ReturnTodateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as ReturnTodateTime,
-			COALESCE(vr.ContactName, '') as ContactName,
-			COALESCE(vr.ContactPhone, '') as ContactPhone,
-			%s,
-			%s,
-			%s,
-			%s,
-			%s,
-			%s,
-			vr.status,
-			COALESCE(vr.admin_remarks, '') as admin_remarks,
-			%s,
-			%s,
-			%s,
-			%s,
-			%s,
-			%s,
-			%s,
-			%s,
-			%s,
-			u.full_name as faculty_name,
-			COALESCE(u.email, '') as faculty_email,
-			COALESCE(u.phone, '') as faculty_phone,
-			COALESCE(f.department, '') as faculty_department,
-			COALESCE(v.vehicle_number, '') as vehicle_number,
-			COALESCE(v.vehicle_type, '') as vehicle_type,
-			COALESCE(v.vehicle_name, v.vehicle_number, '') as vehicle_name,
-			COALESCE(ud.full_name, '') as driver_name,
-			COALESCE(ud.phone, '') as driver_phone,
-			DATE_FORMAT(vr.created_at, '%%d-%%m-%%Y %%h:%%i %%p') as created_at
-		FROM vehiclerequests vr
-		JOIN faculty f ON vr.faculty_id = f.id
-		JOIN users u ON f.user_id = u.id
-		LEFT JOIN vehicles v ON vr.vehicle_id = v.id
-		LEFT JOIN drivers d ON vr.driver_id = d.id
-		LEFT JOIN users ud ON d.user_id = ud.id
-	`, requestUnderExpr, purposeExpr, verticalExpr, oralApprovalExpr, taskIDExpr, outcomeExpectedExpr, outcomeAuditableExpr, travellerNameExpr, mobileNumberExpr, addressExpr, approvedByExpr, approvedAtExpr, assignedAtExpr, startOtpExpr, endOtpExpr, startOtpGeneratedAtExpr, endOtpGeneratedAtExpr, tripStartedAtExpr, tripEndedAtExpr)
+	facultyJoin := "LEFT JOIN faculty f ON 1=0 LEFT JOIN users u ON 1=0"
+	if colExists["faculty_id"] {
+		facultyJoin = "LEFT JOIN faculty f ON vr.faculty_id = f.id LEFT JOIN users u ON f.user_id = u.id"
+	}
+	vehicleJoin := "LEFT JOIN vehicles v ON 1=0"
+	if colExists["vehicle_id"] {
+		vehicleJoin = "LEFT JOIN vehicles v ON vr.vehicle_id = v.id"
+	}
+	driverJoin := "LEFT JOIN drivers d ON 1=0 LEFT JOIN users ud ON 1=0"
+	if colExists["driver_id"] {
+		driverJoin = "LEFT JOIN drivers d ON vr.driver_id = d.id LEFT JOIN users ud ON d.user_id = ud.id"
+	}
+
+	selectCols := []string{
+		idExpr, facultyIDExpr, bookingTypeExpr, tripTypeExpr, tripModeExpr,
+		requestUnderExpr, purposeExpr, verticalExpr, oralApprovalExpr, countPersonExpr,
+		onwardFromPlaceExpr, onwardToPlaceExpr, onwardFromDateExpr, onwardToDateExpr,
+		returnFromPlaceExpr, returnToPlaceExpr, returnFromDateExpr, returnToDateExpr,
+		contactNameExpr, contactPhoneExpr,
+		taskIDExpr, outcomeExpectedExpr, outcomeAuditableExpr,
+		travellerNameExpr, mobileNumberExpr, addressExpr,
+		statusExpr, adminRemarksExpr,
+		approvedByExpr, approvedAtExpr, assignedAtExpr,
+		startOtpExpr, endOtpExpr, startOtpGeneratedAtExpr, endOtpGeneratedAtExpr, tripStartedAtExpr, tripEndedAtExpr,
+		"u.full_name as faculty_name",
+		"COALESCE(u.email, '') as faculty_email",
+		"COALESCE(u.phone, '') as faculty_phone",
+		"COALESCE(f.department, '') as faculty_department",
+		"COALESCE(v.vehicle_number, '') as vehicle_number",
+		"COALESCE(v.vehicle_type, '') as vehicle_type",
+		"COALESCE(v.vehicle_name, v.vehicle_number, '') as vehicle_name",
+		"COALESCE(ud.full_name, '') as driver_name",
+		"COALESCE(ud.phone, '') as driver_phone",
+		createdAtExpr,
+	}
+
+	query := fmt.Sprintf("SELECT %s FROM vehiclerequests vr %s %s %s", strings.Join(selectCols, ", "), facultyJoin, vehicleJoin, driverJoin)
 
 	var args []interface{}
-	if statusFilter != "" {
+	if statusFilter != "" && colExists["status"] {
 		query += " WHERE vr.status = ?"
 		args = append(args, statusFilter)
 	}
-	query += " ORDER BY vr.created_at DESC"
+	if colExists["created_at"] {
+		query += " ORDER BY vr.created_at DESC"
+	} else {
+		query += " ORDER BY 1 DESC"
+	}
 
 	rows, err := config.DB.Query(query, args...)
 	if err != nil {
@@ -220,7 +302,34 @@ func GetVehicleRequestDetails(c *gin.Context) {
 
 	var r models.VehicleRequest
 
-	colExists, _ := config.HasColumns("vehiclerequests", "Purpose", "PurposeOfVisit", "RequestUnder", "Vertical", "OralApproval", "TaskID", "OutcomeExpected", "OutcomeAuditable", "approved_by", "approved_at", "assigned_at", "start_otp", "end_otp", "start_otp_generated_at", "end_otp_generated_at", "trip_started_at", "trip_ended_at", "TravellerName", "MobileNumber", "Address")
+	colExists, _ := config.HasColumns("vehiclerequests",
+		"id", "faculty_id", "BookingType", "TripType", "TripMode", "CountPerson",
+		"OnwardFromPlace", "OnwardToPlace", "OnwardFromDateTime", "OnwardTodateTime",
+		"ReturnFromPlace", "ReturnToPlace", "ReturnFromDateTime", "ReturnTodateTime",
+		"ContactName", "ContactPhone", "status", "admin_remarks", "created_at", "vehicle_id", "driver_id",
+		"Purpose", "PurposeOfVisit", "RequestUnder", "Vertical", "OralApproval", "TaskID", "OutcomeExpected", "OutcomeAuditable",
+		"approved_by", "approved_at", "assigned_at", "start_otp", "end_otp", "start_otp_generated_at", "end_otp_generated_at", "trip_started_at", "trip_ended_at",
+		"TravellerName", "MobileNumber", "Address",
+	)
+	idExpr := optionalIntExpr(colExists, "id", "id", 0)
+	facultyIDExpr := optionalIntExpr(colExists, "faculty_id", "faculty_id", 0)
+	bookingTypeExpr := optionalTextExpr(colExists, "BookingType", "BookingType")
+	tripTypeExpr := optionalTextExpr(colExists, "TripType", "TripType")
+	tripModeExpr := optionalTextExpr(colExists, "TripMode", "TripMode")
+	countPersonExpr := optionalIntExpr(colExists, "CountPerson", "CountPerson", 1)
+	onwardFromPlaceExpr := optionalTextExpr(colExists, "OnwardFromPlace", "OnwardFromPlace")
+	onwardToPlaceExpr := optionalTextExpr(colExists, "OnwardToPlace", "OnwardToPlace")
+	onwardFromDateExpr := optionalDateExpr(colExists, "OnwardFromDateTime", "OnwardFromDateTime")
+	onwardToDateExpr := optionalDateExpr(colExists, "OnwardTodateTime", "OnwardTodateTime")
+	returnFromPlaceExpr := optionalTextExpr(colExists, "ReturnFromPlace", "ReturnFromPlace")
+	returnToPlaceExpr := optionalTextExpr(colExists, "ReturnToPlace", "ReturnToPlace")
+	returnFromDateExpr := optionalDateExpr(colExists, "ReturnFromDateTime", "ReturnFromDateTime")
+	returnToDateExpr := optionalDateExpr(colExists, "ReturnTodateTime", "ReturnTodateTime")
+	contactNameExpr := optionalTextExpr(colExists, "ContactName", "ContactName")
+	contactPhoneExpr := optionalTextExpr(colExists, "ContactPhone", "ContactPhone")
+	statusExpr := optionalTextExpr(colExists, "status", "status")
+	adminRemarksExpr := optionalTextExpr(colExists, "admin_remarks", "admin_remarks")
+	createdAtExpr := optionalDateExpr(colExists, "created_at", "created_at")
 	purposeExpr := "'' as Purpose"
 	if colExists["Purpose"] && colExists["PurposeOfVisit"] {
 		purposeExpr = "COALESCE(vr.Purpose, vr.PurposeOfVisit, '') as Purpose"
@@ -237,10 +346,7 @@ func GetVehicleRequestDetails(c *gin.Context) {
 	if colExists["Vertical"] {
 		verticalExpr = "COALESCE(vr.Vertical, '') as Vertical"
 	}
-	oralApprovalExpr := "0 as OralApproval"
-	if colExists["OralApproval"] {
-		oralApprovalExpr = "COALESCE(vr.OralApproval, 0) as OralApproval"
-	}
+	oralApprovalExpr := optionalBoolExpr(colExists, "OralApproval", "OralApproval")
 	taskIDExpr := "'' as TaskID"
 	if colExists["TaskID"] {
 		taskIDExpr = "COALESCE(vr.TaskID, '') as TaskID"
@@ -302,62 +408,43 @@ func GetVehicleRequestDetails(c *gin.Context) {
 		tripEndedAtExpr = "DATE_FORMAT(vr.trip_ended_at, '%%d-%%m-%%Y %%h:%%i %%p') as trip_ended_at"
 	}
 
-	query := fmt.Sprintf(`
-		SELECT 
-			vr.id, vr.faculty_id,
-			COALESCE(vr.BookingType, 'faculty') as BookingType,
-			COALESCE(vr.TripType, 'one_way') as TripType,
-			COALESCE(vr.TripMode, 'official') as TripMode,
-			%s,
-			%s,
-			%s,
-			%s,
-			COALESCE(vr.CountPerson, 1) as CountPerson,
-			COALESCE(vr.OnwardFromPlace, '') as OnwardFromPlace,
-			COALESCE(vr.OnwardToPlace, '') as OnwardToPlace,
-			COALESCE(DATE_FORMAT(vr.OnwardFromDateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as OnwardFromDateTime,
-			COALESCE(DATE_FORMAT(vr.OnwardTodateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as OnwardTodateTime,
-			COALESCE(vr.ReturnFromPlace, '') as ReturnFromPlace,
-			COALESCE(vr.ReturnToPlace, '') as ReturnToPlace,
-			COALESCE(DATE_FORMAT(vr.ReturnFromDateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as ReturnFromDateTime,
-			COALESCE(DATE_FORMAT(vr.ReturnTodateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as ReturnTodateTime,
-			COALESCE(vr.ContactName, '') as ContactName,
-			COALESCE(vr.ContactPhone, '') as ContactPhone,
-			%s,
-			%s,
-			%s,
-			%s,
-			%s,
-			%s,
-			vr.status,
-			COALESCE(vr.admin_remarks, '') as admin_remarks,
-			%s,
-			%s,
-			%s,
-			%s,
-			%s,
-			%s,
-			%s,
-			%s,
-			%s,
-			u.full_name as faculty_name,
-			COALESCE(u.email, '') as faculty_email,
-			COALESCE(u.phone, '') as faculty_phone,
-			COALESCE(f.department, '') as faculty_department,
-			COALESCE(v.vehicle_number, '') as vehicle_number,
-			COALESCE(v.vehicle_type, '') as vehicle_type,
-			COALESCE(v.vehicle_name, v.vehicle_number, '') as vehicle_name,
-			COALESCE(ud.full_name, '') as driver_name,
-			COALESCE(ud.phone, '') as driver_phone,
-			DATE_FORMAT(vr.created_at, '%%d-%%m-%%Y %%h:%%i %%p') as created_at
-		FROM vehiclerequests vr
-		JOIN faculty f ON vr.faculty_id = f.id
-		JOIN users u ON f.user_id = u.id
-		LEFT JOIN vehicles v ON vr.vehicle_id = v.id
-		LEFT JOIN drivers d ON vr.driver_id = d.id
-		LEFT JOIN users ud ON d.user_id = ud.id
-		WHERE vr.id = ?
-	`, requestUnderExpr, purposeExpr, verticalExpr, oralApprovalExpr, taskIDExpr, outcomeExpectedExpr, outcomeAuditableExpr, travellerNameExpr, mobileNumberExpr, addressExpr, approvedByExpr, approvedAtExpr, assignedAtExpr, startOtpExpr, endOtpExpr, startOtpGeneratedAtExpr, endOtpGeneratedAtExpr, tripStartedAtExpr, tripEndedAtExpr)
+	facultyJoin := "LEFT JOIN faculty f ON 1=0 LEFT JOIN users u ON 1=0"
+	if colExists["faculty_id"] {
+		facultyJoin = "LEFT JOIN faculty f ON vr.faculty_id = f.id LEFT JOIN users u ON f.user_id = u.id"
+	}
+	vehicleJoin := "LEFT JOIN vehicles v ON 1=0"
+	if colExists["vehicle_id"] {
+		vehicleJoin = "LEFT JOIN vehicles v ON vr.vehicle_id = v.id"
+	}
+	driverJoin := "LEFT JOIN drivers d ON 1=0 LEFT JOIN users ud ON 1=0"
+	if colExists["driver_id"] {
+		driverJoin = "LEFT JOIN drivers d ON vr.driver_id = d.id LEFT JOIN users ud ON d.user_id = ud.id"
+	}
+
+	selectCols := []string{
+		idExpr, facultyIDExpr, bookingTypeExpr, tripTypeExpr, tripModeExpr,
+		requestUnderExpr, purposeExpr, verticalExpr, oralApprovalExpr, countPersonExpr,
+		onwardFromPlaceExpr, onwardToPlaceExpr, onwardFromDateExpr, onwardToDateExpr,
+		returnFromPlaceExpr, returnToPlaceExpr, returnFromDateExpr, returnToDateExpr,
+		contactNameExpr, contactPhoneExpr,
+		taskIDExpr, outcomeExpectedExpr, outcomeAuditableExpr,
+		travellerNameExpr, mobileNumberExpr, addressExpr,
+		statusExpr, adminRemarksExpr,
+		approvedByExpr, approvedAtExpr, assignedAtExpr,
+		startOtpExpr, endOtpExpr, startOtpGeneratedAtExpr, endOtpGeneratedAtExpr, tripStartedAtExpr, tripEndedAtExpr,
+		"u.full_name as faculty_name",
+		"COALESCE(u.email, '') as faculty_email",
+		"COALESCE(u.phone, '') as faculty_phone",
+		"COALESCE(f.department, '') as faculty_department",
+		"COALESCE(v.vehicle_number, '') as vehicle_number",
+		"COALESCE(v.vehicle_type, '') as vehicle_type",
+		"COALESCE(v.vehicle_name, v.vehicle_number, '') as vehicle_name",
+		"COALESCE(ud.full_name, '') as driver_name",
+		"COALESCE(ud.phone, '') as driver_phone",
+		createdAtExpr,
+	}
+
+	query := fmt.Sprintf("SELECT %s FROM vehiclerequests vr %s %s %s WHERE vr.id = ?", strings.Join(selectCols, ", "), facultyJoin, vehicleJoin, driverJoin)
 
 	err = config.DB.QueryRow(query, id).Scan(
 		&r.ID, &r.FacultyID,
@@ -421,7 +508,7 @@ func ApproveVehicleRequest(c *gin.Context) {
 		return
 	}
 
-	colExists, _ := config.HasColumns("vehiclerequests", "approved_by", "approved_at", "assigned_at")
+	colExists, _ := config.HasColumns("vehiclerequests", "approved_by", "approved_at", "assigned_at", "start_otp", "start_otp_generated_at")
 	approvedBy := interface{}(nil)
 	if adminID != nil {
 		approvedBy = *adminID
@@ -430,10 +517,7 @@ func ApproveVehicleRequest(c *gin.Context) {
 	// If vehicle and driver are provided, approve and assign in one step
 	if req.VehicleID > 0 && req.DriverID > 0 {
 		// Get request details for conflict checking
-		var onwardFrom, onwardTo, returnFrom, returnTo sql.NullString
-		err = config.DB.QueryRow(`
-			SELECT OnwardFromDateTime, OnwardTodateTime, ReturnFromDateTime, ReturnTodateTime FROM vehiclerequests WHERE id = ?
-		`, req.RequestID).Scan(&onwardFrom, &onwardTo, &returnFrom, &returnTo)
+		onwardFrom, onwardTo, returnFrom, returnTo, err := loadVehicleRequestSchedule(req.RequestID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 			return
@@ -486,8 +570,15 @@ func ApproveVehicleRequest(c *gin.Context) {
 		// Generate start OTP
 		startOTP := generateOTP()
 
-		setParts := []string{"status = 'assigned'", "admin_remarks = ?", "vehicle_id = ?", "driver_id = ?", "start_otp = ?", "start_otp_generated_at = NOW()"}
-		args := []interface{}{req.AdminRemarks, req.VehicleID, req.DriverID, startOTP}
+		setParts := []string{"status = 'assigned'", "admin_remarks = ?", "vehicle_id = ?", "driver_id = ?"}
+		args := []interface{}{req.AdminRemarks, req.VehicleID, req.DriverID}
+		if colExists["start_otp"] {
+			setParts = append(setParts, "start_otp = ?")
+			args = append(args, startOTP)
+		}
+		if colExists["start_otp_generated_at"] {
+			setParts = append(setParts, "start_otp_generated_at = NOW()")
+		}
 		if colExists["approved_by"] {
 			setParts = append(setParts, "approved_by = ?")
 			args = append(args, approvedBy)
@@ -696,16 +787,27 @@ func AssignVehicleToRequest(c *gin.Context) {
 	}
 
 	var status string
-	var onwardFrom, onwardTo, returnFrom, returnTo sql.NullString
-	err := config.DB.QueryRow(`SELECT status, OnwardFromDateTime, OnwardTodateTime, ReturnFromDateTime, ReturnTodateTime FROM vehiclerequests WHERE id = ?`, req.RequestID).Scan(&status, &onwardFrom, &onwardTo, &returnFrom, &returnTo)
+	err := config.DB.QueryRow(`SELECT status FROM vehiclerequests WHERE id = ?`, req.RequestID).Scan(&status)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Request not found"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
 	if status != "approved" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Only approved requests can be assigned a vehicle"})
 		return
 	}
+
+	onwardFrom, onwardTo, returnFrom, returnTo, err := loadVehicleRequestSchedule(req.RequestID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+
+	assignCols, _ := config.HasColumns("vehiclerequests", "assigned_at", "start_otp", "start_otp_generated_at")
 
 	// Check for conflicts before assigning (skip if force_assign)
 	if onwardFrom.Valid && !req.ForceAssign {
@@ -753,12 +855,21 @@ func AssignVehicleToRequest(c *gin.Context) {
 	// Generate start OTP
 	startOTP := generateOTP()
 
-	_, err = config.DB.Exec(`
-		UPDATE vehiclerequests 
-		SET vehicle_id = ?, driver_id = ?, status = 'assigned', assigned_at = NOW(),
-			start_otp = ?, start_otp_generated_at = NOW()
-		WHERE id = ?
-	`, req.VehicleID, req.DriverID, startOTP, req.RequestID)
+	setParts := []string{"vehicle_id = ?", "driver_id = ?", "status = 'assigned'"}
+	args := []interface{}{req.VehicleID, req.DriverID}
+	if assignCols["assigned_at"] {
+		setParts = append(setParts, "assigned_at = NOW()")
+	}
+	if assignCols["start_otp"] {
+		setParts = append(setParts, "start_otp = ?")
+		args = append(args, startOTP)
+	}
+	if assignCols["start_otp_generated_at"] {
+		setParts = append(setParts, "start_otp_generated_at = NOW()")
+	}
+	updateQuery := fmt.Sprintf("UPDATE vehiclerequests SET %s WHERE id = ?", strings.Join(setParts, ", "))
+	args = append(args, req.RequestID)
+	_, err = config.DB.Exec(updateQuery, args...)
 	if err != nil {
 		log.Printf("Error assigning vehicle: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to assign vehicle"})
@@ -862,9 +973,35 @@ func checkDriverConflict(driverID int, onwardFrom, onwardTo, returnFrom, returnT
 	}
 
 	// 1️⃣  Conflicting vehicle requests (status assigned / trip_started)
-	vrRows, err := config.DB.Query(`
+	dateCols, _ := config.HasColumns("vehiclerequests", "OnwardFromDateTime", "OnwardTodateTime", "OnwardToDateTime", "ReturnFromDateTime", "ReturnTodateTime", "ReturnToDateTime")
+	onwardFromCol := pickExistingColumn(dateCols, "OnwardFromDateTime")
+	onwardToCol := pickExistingColumn(dateCols, "OnwardTodateTime", "OnwardToDateTime")
+	returnFromCol := pickExistingColumn(dateCols, "ReturnFromDateTime")
+	returnToCol := pickExistingColumn(dateCols, "ReturnTodateTime", "ReturnToDateTime")
+
+	onwardFromExpr := "NULL"
+	if onwardFromCol != "" {
+		onwardFromExpr = "vr." + onwardFromCol
+	}
+	onwardToExpr := "''"
+	onwardToRangeExpr := "NULL"
+	if onwardToCol != "" {
+		onwardToExpr = fmt.Sprintf("COALESCE(vr.%s,'')", onwardToCol)
+		onwardToRangeExpr = fmt.Sprintf("NULLIF(vr.%s,'')", onwardToCol)
+	}
+	returnFromRangeExpr := "NULL"
+	if returnFromCol != "" {
+		returnFromRangeExpr = fmt.Sprintf("NULLIF(vr.%s,'')", returnFromCol)
+	}
+	returnToRangeExpr := "NULL"
+	if returnToCol != "" {
+		returnToRangeExpr = fmt.Sprintf("NULLIF(vr.%s,'')", returnToCol)
+	}
+	tripEndExpr := fmt.Sprintf("COALESCE(%s, %s, %s, %s)", returnToRangeExpr, returnFromRangeExpr, onwardToRangeExpr, onwardFromExpr)
+
+	vrConflictQuery := fmt.Sprintf(`
 		SELECT vr.id, COALESCE(v.vehicle_number,'N/A'), COALESCE(v.vehicle_type,''),
-			   vr.OnwardFromDateTime, COALESCE(vr.OnwardTodateTime,''),
+			   %s, %s,
 			   COALESCE(u.full_name,'') as faculty_name
 		FROM vehiclerequests vr
 		LEFT JOIN vehicles v ON vr.vehicle_id = v.id
@@ -872,17 +1009,14 @@ func checkDriverConflict(driverID int, onwardFrom, onwardTo, returnFrom, returnT
 		LEFT JOIN users u ON f.user_id = u.id
 		WHERE vr.driver_id = ?
 		AND vr.status IN ('assigned','trip_started')
-		AND vr.OnwardFromDateTime IS NOT NULL
-		AND TRIM(vr.OnwardFromDateTime) != ''
-		AND CHAR_LENGTH(TRIM(vr.OnwardFromDateTime)) >= 10
+		AND %s IS NOT NULL
+		AND TRIM(%s) != ''
+		AND CHAR_LENGTH(TRIM(%s)) >= 10
 		AND (
-			(vr.OnwardFromDateTime <= ? AND COALESCE(
-				NULLIF(vr.ReturnTodateTime,''),
-				NULLIF(vr.ReturnFromDateTime,''),
-				NULLIF(vr.OnwardTodateTime,''),
-				vr.OnwardFromDateTime) >= ?)
+			(%s <= ? AND %s >= ?)
 		)
-	`, driverID, tripEnd, tripStart)
+	`, onwardFromExpr, onwardToExpr, onwardFromExpr, onwardFromExpr, onwardFromExpr, onwardFromExpr, tripEndExpr)
+	vrRows, err := config.DB.Query(vrConflictQuery, driverID, tripEnd, tripStart)
 	if err != nil {
 		log.Printf("Error checking VR conflict: %v", err)
 	} else {
@@ -909,12 +1043,10 @@ func checkDriverConflict(driverID int, onwardFrom, onwardTo, returnFrom, returnT
 	rows, err := config.DB.Query(`
 		SELECT a.id, v.vehicle_number, v.vehicle_type, s.name as shift_name,
 		       s.start_time, s.end_time,
-		       ss.start_time as slot_start, ss.end_time as slot_end,
 		       a.start_date, a.end_date
 		FROM assignments a
 		JOIN vehicles v ON a.vehicle_id = v.id
 		JOIN shifts s ON a.shift_id = s.id
-		LEFT JOIN shift_slots ss ON s.id = ss.shift_id
 		WHERE a.driver_id = ?
 		AND ? BETWEEN a.start_date AND a.end_date
 		AND a.status IN ('assigned','active')
@@ -927,16 +1059,9 @@ func checkDriverConflict(driverID int, onwardFrom, onwardTo, returnFrom, returnT
 			var aID int
 			var vehNum, vehType, shiftName string
 			var startTime, endTime sql.NullString
-			var slotStart, slotEnd sql.NullString
 			var startDate, endDate string
-			rows.Scan(&aID, &vehNum, &vehType, &shiftName, &startTime, &endTime, &slotStart, &slotEnd, &startDate, &endDate)
-			effStart := startTime
-			effEnd := endTime
-			if slotStart.Valid && slotEnd.Valid {
-				effStart = slotStart
-				effEnd = slotEnd
-			}
-			if effStart.Valid && effEnd.Valid && timesOverlap(tripStartTime, tripEndTime, effStart.String, effEnd.String) {
+			rows.Scan(&aID, &vehNum, &vehType, &shiftName, &startTime, &endTime, &startDate, &endDate)
+			if startTime.Valid && endTime.Valid && timesOverlap(tripStartTime, tripEndTime, startTime.String, endTime.String) {
 				key := fmt.Sprintf("REGULAR_%d", aID)
 				if !seen[key] {
 					seen[key] = true
@@ -946,8 +1071,8 @@ func checkDriverConflict(driverID int, onwardFrom, onwardTo, returnFrom, returnT
 						"shift_name":      shiftName,
 						"vehicle_number":  vehNum,
 						"vehicle_type":    vehType,
-						"start_time":      effStart.String,
-						"end_time":        effEnd.String,
+						"start_time":      startTime.String,
+						"end_time":        endTime.String,
 						"start_date":      startDate,
 						"end_date":        endDate,
 					})
@@ -960,12 +1085,10 @@ func checkDriverConflict(driverID int, onwardFrom, onwardTo, returnFrom, returnT
 	rows2, err := config.DB.Query(`
 		SELECT ta.id, v.vehicle_number, v.vehicle_type, s.name as shift_name,
 		       s.start_time, s.end_time,
-		       ss.start_time as slot_start, ss.end_time as slot_end,
 		       ta.start_date, ta.end_date
 		FROM temporary_assignments ta
 		JOIN vehicles v ON ta.vehicle_id = v.id
 		JOIN shifts s ON ta.shift_id = s.id
-		LEFT JOIN shift_slots ss ON s.id = ss.shift_id
 		WHERE ta.replacement_driver_id = ?
 		AND ? BETWEEN ta.start_date AND ta.end_date
 	`, driverID, tripDate)
@@ -977,16 +1100,9 @@ func checkDriverConflict(driverID int, onwardFrom, onwardTo, returnFrom, returnT
 			var taID int
 			var vehNum, vehType, shiftName string
 			var startTime, endTime sql.NullString
-			var slotStart, slotEnd sql.NullString
 			var startDate, endDate string
-			rows2.Scan(&taID, &vehNum, &vehType, &shiftName, &startTime, &endTime, &slotStart, &slotEnd, &startDate, &endDate)
-			effStart := startTime
-			effEnd := endTime
-			if slotStart.Valid && slotEnd.Valid {
-				effStart = slotStart
-				effEnd = slotEnd
-			}
-			if effStart.Valid && effEnd.Valid && timesOverlap(tripStartTime, tripEndTime, effStart.String, effEnd.String) {
+			rows2.Scan(&taID, &vehNum, &vehType, &shiftName, &startTime, &endTime, &startDate, &endDate)
+			if startTime.Valid && endTime.Valid && timesOverlap(tripStartTime, tripEndTime, startTime.String, endTime.String) {
 				key := fmt.Sprintf("TEMP_%d", taID)
 				if !seen[key] {
 					seen[key] = true
@@ -996,8 +1112,8 @@ func checkDriverConflict(driverID int, onwardFrom, onwardTo, returnFrom, returnT
 						"shift_name":      shiftName + " (Temp)",
 						"vehicle_number":  vehNum,
 						"vehicle_type":    vehType,
-						"start_time":      effStart.String,
-						"end_time":        effEnd.String,
+						"start_time":      startTime.String,
+						"end_time":        endTime.String,
 						"start_date":      startDate,
 						"end_date":        endDate,
 					})
@@ -1010,7 +1126,6 @@ func checkDriverConflict(driverID int, onwardFrom, onwardTo, returnFrom, returnT
 	rows3, err := config.DB.Query(`
 		SELECT ev.id, COALESCE(vg.name, 'EV Group') as vehicle_number, 'EV' as vehicle_type, dc.name as cluster_name,
 		       s.start_time, s.end_time,
-		       ss.start_time as slot_start, ss.end_time as slot_end,
 		       ev.start_date, ev.end_date
 		FROM ev_assignments ev
 		LEFT JOIN vehicle_groups vg ON ev.vehicle_group_id = vg.id
@@ -1019,7 +1134,6 @@ func checkDriverConflict(driverID int, onwardFrom, onwardTo, returnFrom, returnT
 		  AND ? BETWEEN dcm.valid_from AND dcm.valid_to
 		JOIN drivers d ON d.id = dcm.driver_id
 		JOIN shifts s ON ev.shift_id = s.id
-		LEFT JOIN shift_slots ss ON s.id = ss.shift_id
 		WHERE d.id = ?
 		AND ? BETWEEN ev.start_date AND ev.end_date
 		AND ev.status IN ('active')
@@ -1032,16 +1146,9 @@ func checkDriverConflict(driverID int, onwardFrom, onwardTo, returnFrom, returnT
 			var evID int
 			var vehNum, vehType, clusterName string
 			var startTime, endTime sql.NullString
-			var slotStart, slotEnd sql.NullString
 			var startDate, endDate string
-			rows3.Scan(&evID, &vehNum, &vehType, &clusterName, &startTime, &endTime, &slotStart, &slotEnd, &startDate, &endDate)
-			effStart := startTime
-			effEnd := endTime
-			if slotStart.Valid && slotEnd.Valid {
-				effStart = slotStart
-				effEnd = slotEnd
-			}
-			if effStart.Valid && effEnd.Valid && timesOverlap(tripStartTime, tripEndTime, effStart.String, effEnd.String) {
+			rows3.Scan(&evID, &vehNum, &vehType, &clusterName, &startTime, &endTime, &startDate, &endDate)
+			if startTime.Valid && endTime.Valid && timesOverlap(tripStartTime, tripEndTime, startTime.String, endTime.String) {
 				key := fmt.Sprintf("EV_%d", evID)
 				if !seen[key] {
 					seen[key] = true
@@ -1051,8 +1158,8 @@ func checkDriverConflict(driverID int, onwardFrom, onwardTo, returnFrom, returnT
 						"shift_name":      "EV: " + clusterName,
 						"vehicle_number":  vehNum,
 						"vehicle_type":    vehType,
-						"start_time":      effStart.String,
-						"end_time":        effEnd.String,
+						"start_time":      startTime.String,
+						"end_time":        endTime.String,
 						"start_date":      startDate,
 						"end_date":        endDate,
 					})
@@ -1105,8 +1212,34 @@ func checkVehicleConflict(vehicleID int, onwardFrom, onwardTo, returnFrom, retur
 	}
 
 	// 1️⃣  Conflicting vehicle requests
-	vrRows, err := config.DB.Query(`
-		SELECT vr.id, vr.OnwardFromDateTime, COALESCE(vr.OnwardTodateTime,''),
+	dateCols, _ := config.HasColumns("vehiclerequests", "OnwardFromDateTime", "OnwardTodateTime", "OnwardToDateTime", "ReturnFromDateTime", "ReturnTodateTime", "ReturnToDateTime")
+	onwardFromCol := pickExistingColumn(dateCols, "OnwardFromDateTime")
+	onwardToCol := pickExistingColumn(dateCols, "OnwardTodateTime", "OnwardToDateTime")
+	returnFromCol := pickExistingColumn(dateCols, "ReturnFromDateTime")
+	returnToCol := pickExistingColumn(dateCols, "ReturnTodateTime", "ReturnToDateTime")
+
+	onwardFromExpr := "NULL"
+	if onwardFromCol != "" {
+		onwardFromExpr = "vr." + onwardFromCol
+	}
+	onwardToExpr := "''"
+	onwardToRangeExpr := "NULL"
+	if onwardToCol != "" {
+		onwardToExpr = fmt.Sprintf("COALESCE(vr.%s,'')", onwardToCol)
+		onwardToRangeExpr = fmt.Sprintf("NULLIF(vr.%s,'')", onwardToCol)
+	}
+	returnFromRangeExpr := "NULL"
+	if returnFromCol != "" {
+		returnFromRangeExpr = fmt.Sprintf("NULLIF(vr.%s,'')", returnFromCol)
+	}
+	returnToRangeExpr := "NULL"
+	if returnToCol != "" {
+		returnToRangeExpr = fmt.Sprintf("NULLIF(vr.%s,'')", returnToCol)
+	}
+	tripEndExpr := fmt.Sprintf("COALESCE(%s, %s, %s, %s)", returnToRangeExpr, returnFromRangeExpr, onwardToRangeExpr, onwardFromExpr)
+
+	vrConflictQuery := fmt.Sprintf(`
+		SELECT vr.id, %s, %s,
 		       COALESCE(d.full_name,'') as driver_name,
 		       COALESCE(u.full_name,'') as faculty_name
 		FROM vehiclerequests vr
@@ -1116,17 +1249,14 @@ func checkVehicleConflict(vehicleID int, onwardFrom, onwardTo, returnFrom, retur
 		LEFT JOIN users u ON f.user_id = u.id
 		WHERE vr.vehicle_id = ?
 		AND vr.status IN ('assigned','trip_started')
-		AND vr.OnwardFromDateTime IS NOT NULL
-		AND TRIM(vr.OnwardFromDateTime) != ''
-		AND CHAR_LENGTH(TRIM(vr.OnwardFromDateTime)) >= 10
+		AND %s IS NOT NULL
+		AND TRIM(%s) != ''
+		AND CHAR_LENGTH(TRIM(%s)) >= 10
 		AND (
-			(vr.OnwardFromDateTime <= ? AND COALESCE(
-				NULLIF(vr.ReturnTodateTime,''),
-				NULLIF(vr.ReturnFromDateTime,''),
-				NULLIF(vr.OnwardTodateTime,''),
-				vr.OnwardFromDateTime) >= ?)
+			(%s <= ? AND %s >= ?)
 		)
-	`, vehicleID, tripEnd, tripStart)
+	`, onwardFromExpr, onwardToExpr, onwardFromExpr, onwardFromExpr, onwardFromExpr, onwardFromExpr, tripEndExpr)
+	vrRows, err := config.DB.Query(vrConflictQuery, vehicleID, tripEnd, tripStart)
 	if err != nil {
 		log.Printf("Error checking VR vehicle conflict: %v", err)
 	} else {
@@ -1152,12 +1282,10 @@ func checkVehicleConflict(vehicleID int, onwardFrom, onwardTo, returnFrom, retur
 	rows, err := config.DB.Query(`
 		SELECT a.id, v.vehicle_number, v.vehicle_type, s.name as shift_name,
 		       s.start_time, s.end_time,
-		       ss.start_time as slot_start, ss.end_time as slot_end,
 		       a.start_date, a.end_date, COALESCE(u.full_name,'') as driver_name
 		FROM assignments a
 		JOIN vehicles v ON a.vehicle_id = v.id
 		JOIN shifts s ON a.shift_id = s.id
-		LEFT JOIN shift_slots ss ON s.id = ss.shift_id AND ss.slot_order = 1
 		LEFT JOIN drivers d ON a.driver_id = d.id
 		LEFT JOIN users u ON d.user_id = u.id
 		WHERE a.vehicle_id = ?
@@ -1172,24 +1300,17 @@ func checkVehicleConflict(vehicleID int, onwardFrom, onwardTo, returnFrom, retur
 			var aID int
 			var vehNum, vehType, shiftName string
 			var startTime, endTime sql.NullString
-			var slotStart, slotEnd sql.NullString
 			var startDate, endDate, driverName string
-			rows.Scan(&aID, &vehNum, &vehType, &shiftName, &startTime, &endTime, &slotStart, &slotEnd, &startDate, &endDate, &driverName)
-			effStart := startTime
-			effEnd := endTime
-			if slotStart.Valid && slotEnd.Valid {
-				effStart = slotStart
-				effEnd = slotEnd
-			}
-			if effStart.Valid && effEnd.Valid && timesOverlap(tripStartTime, tripEndTime, effStart.String, effEnd.String) {
+			rows.Scan(&aID, &vehNum, &vehType, &shiftName, &startTime, &endTime, &startDate, &endDate, &driverName)
+			if startTime.Valid && endTime.Valid && timesOverlap(tripStartTime, tripEndTime, startTime.String, endTime.String) {
 				conflicts = append(conflicts, map[string]interface{}{
 					"assignment_type": "REGULAR",
 					"assignment_id":   aID,
 					"shift_name":      shiftName,
 					"vehicle_number":  vehNum,
 					"vehicle_type":    vehType,
-					"start_time":      effStart.String,
-					"end_time":        effEnd.String,
+					"start_time":      startTime.String,
+					"end_time":        endTime.String,
 					"start_date":      startDate,
 					"end_date":        endDate,
 					"driver_name":     driverName,
@@ -1202,14 +1323,12 @@ func checkVehicleConflict(vehicleID int, onwardFrom, onwardTo, returnFrom, retur
 	rows2, err := config.DB.Query(`
 		SELECT ev.id, COALESCE(vg.name, 'EV Group') as vehicle_number, 'EV' as vehicle_type, dc.name as cluster_name,
 		       s.start_time, s.end_time,
-		       ss.start_time as slot_start, ss.end_time as slot_end,
 		       ev.start_date, ev.end_date
 		FROM ev_assignments ev
 		LEFT JOIN vehicle_groups vg ON ev.vehicle_group_id = vg.id
 		JOIN vehicle_group_members vgm ON vg.id = vgm.group_id
 		JOIN driver_clusters dc ON ev.cluster_id = dc.id
 		JOIN shifts s ON ev.shift_id = s.id
-		LEFT JOIN shift_slots ss ON s.id = ss.shift_id
 		WHERE vgm.vehicle_id = ?
 		AND ? BETWEEN ev.start_date AND ev.end_date
 		AND ev.status IN ('active')
@@ -1222,24 +1341,17 @@ func checkVehicleConflict(vehicleID int, onwardFrom, onwardTo, returnFrom, retur
 			var evID int
 			var vehNum, vehType, clusterName string
 			var startTime, endTime sql.NullString
-			var slotStart, slotEnd sql.NullString
 			var startDate, endDate string
-			rows2.Scan(&evID, &vehNum, &vehType, &clusterName, &startTime, &endTime, &slotStart, &slotEnd, &startDate, &endDate)
-			effStart := startTime
-			effEnd := endTime
-			if slotStart.Valid && slotEnd.Valid {
-				effStart = slotStart
-				effEnd = slotEnd
-			}
-			if effStart.Valid && effEnd.Valid && timesOverlap(tripStartTime, tripEndTime, effStart.String, effEnd.String) {
+			rows2.Scan(&evID, &vehNum, &vehType, &clusterName, &startTime, &endTime, &startDate, &endDate)
+			if startTime.Valid && endTime.Valid && timesOverlap(tripStartTime, tripEndTime, startTime.String, endTime.String) {
 				conflicts = append(conflicts, map[string]interface{}{
 					"assignment_type": "EV_CLUSTER",
 					"assignment_id":   evID,
 					"shift_name":      "EV: " + clusterName,
 					"vehicle_number":  vehNum,
 					"vehicle_type":    vehType,
-					"start_time":      effStart.String,
-					"end_time":        effEnd.String,
+					"start_time":      startTime.String,
+					"end_time":        endTime.String,
 					"start_date":      startDate,
 					"end_date":        endDate,
 				})

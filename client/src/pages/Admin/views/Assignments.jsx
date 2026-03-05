@@ -73,36 +73,16 @@ const timesOverlap = (s1, e1, s2, e2) => {
   return start1 < end2 && start2 < end1;
 };
 
-// Get all time ranges for a shift (handles multi-slot shifts)
-const getShiftTimeRanges = (shift) => {
-  if (shift.slots && shift.slots.length > 0) {
-    return shift.slots.map((slot) => ({
-      start: slot.start_time,
-      end: slot.end_time,
-    }));
-  }
-  return [{start: shift.start_time, end: shift.end_time}];
-};
-
 // Detect time conflicts between selected shifts
 // Returns array of [shiftName1, shiftName2] pairs that conflict
 const detectInterShiftConflicts = (selectedShifts) => {
   const conflictPairs = [];
   for (let i = 0; i < selectedShifts.length; i++) {
     for (let j = i + 1; j < selectedShifts.length; j++) {
-      const ranges1 = getShiftTimeRanges(selectedShifts[i]);
-      const ranges2 = getShiftTimeRanges(selectedShifts[j]);
-      let hasOverlap = false;
-      for (const r1 of ranges1) {
-        for (const r2 of ranges2) {
-          if (timesOverlap(r1.start, r1.end, r2.start, r2.end)) {
-            hasOverlap = true;
-            break;
-          }
-        }
-        if (hasOverlap) break;
-      }
-      if (hasOverlap) {
+      if (timesOverlap(
+        selectedShifts[i].start_time, selectedShifts[i].end_time,
+        selectedShifts[j].start_time, selectedShifts[j].end_time,
+      )) {
         conflictPairs.push([selectedShifts[i].name, selectedShifts[j].name]);
       }
     }
@@ -133,15 +113,7 @@ function MultiShiftSelect({shifts, selectedIds, onChange, formatTimeAMPM}) {
   const filteredShifts = shifts.filter((s) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
-    const timeDisplay =
-      s.slots && s.slots.length > 0
-        ? s.slots
-            .map(
-              (slot) =>
-                `${formatTimeAMPM(slot.start_time)}-${formatTimeAMPM(slot.end_time)}`,
-            )
-            .join(", ")
-        : `${formatTimeAMPM(s.start_time)}-${formatTimeAMPM(s.end_time)}`;
+    const timeDisplay = `${formatTimeAMPM(s.start_time)}-${formatTimeAMPM(s.end_time)}`;
     return (
       (s.name || "").toLowerCase().includes(q) ||
       timeDisplay.toLowerCase().includes(q)
@@ -227,15 +199,7 @@ function MultiShiftSelect({shifts, selectedIds, onChange, formatTimeAMPM}) {
             ) : (
               filteredShifts.map((s) => {
                 const isSelected = selectedIds.includes(s.id);
-                const timeDisplay =
-                  s.slots && s.slots.length > 0
-                    ? s.slots
-                        .map(
-                          (slot) =>
-                            `${formatTimeAMPM(slot.start_time)}-${formatTimeAMPM(slot.end_time)}`,
-                        )
-                        .join(", ")
-                    : `${formatTimeAMPM(s.start_time)}-${formatTimeAMPM(s.end_time)}`;
+                const timeDisplay = `${formatTimeAMPM(s.start_time)}-${formatTimeAMPM(s.end_time)}`;
 
                 // Check if this shift would conflict with already selected shifts
                 const wouldConflict =
@@ -245,15 +209,9 @@ function MultiShiftSelect({shifts, selectedIds, onChange, formatTimeAMPM}) {
                     const selectedShifts = shifts.filter((sh) =>
                       selectedIds.includes(sh.id),
                     );
-                    const ranges1 = getShiftTimeRanges(s);
-                    return selectedShifts.some((sel) => {
-                      const ranges2 = getShiftTimeRanges(sel);
-                      return ranges1.some((r1) =>
-                        ranges2.some((r2) =>
-                          timesOverlap(r1.start, r1.end, r2.start, r2.end),
-                        ),
-                      );
-                    });
+                    return selectedShifts.some((sel) =>
+                      timesOverlap(s.start_time, s.end_time, sel.start_time, sel.end_time),
+                    );
                   })();
 
                 return (
@@ -292,13 +250,6 @@ function MultiShiftSelect({shifts, selectedIds, onChange, formatTimeAMPM}) {
                         {timeDisplay}
                       </span>
                     </div>
-
-                    {/* Slot count badge */}
-                    {s.slots && s.slots.length > 0 && (
-                      <span className="text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded font-medium shrink-0">
-                        {s.slots.length} slots
-                      </span>
-                    )}
                   </button>
                 );
               })
@@ -373,6 +324,12 @@ export default function Assignments() {
   const [filterDate, setFilterDate] = useState(
     new Date().toISOString().split("T")[0],
   ); // YYYY-MM-DD, defaults to today
+
+  // Lifted search state for Temporary and Replacements tabs
+  const [tempSearchQuery, setTempSearchQuery] = useState("");
+  const [replSearchQuery, setReplSearchQuery] = useState("");
+  const [replStatusFilter, setReplStatusFilter] = useState("all");
+  const [replOpenCreateModal, setReplOpenCreateModal] = useState(false);
 
   // EV Reassignment Modal States
   const [showEvReassignModal, setShowEvReassignModal] = useState(false);
@@ -703,15 +660,25 @@ export default function Assignments() {
         setConflictPendingForm(null);
         fetchAllData();
       } else if (res.status === 409) {
-        // Time conflict detected
+        // Driver or vehicle conflict detected
         const data = await res.json();
         if (data.error === "time_conflict") {
           setConflictPendingForm({...assignmentForm});
           setConflictModal({
+            conflict_type: "driver",
             message:
               data.message || "Driver is already assigned during this time",
             conflicts: data.conflicts || [],
             conflicting_drivers: data.conflicting_drivers || null,
+          });
+        } else if (data.error === "vehicle_conflict") {
+          setConflictPendingForm({...assignmentForm});
+          setConflictModal({
+            conflict_type: "vehicle",
+            message:
+              data.message ||
+              "Vehicle is already assigned during this time range",
+            conflicts: data.conflicts || [],
           });
         } else {
           showToast(data.message || "Conflict error", "error");
@@ -801,16 +768,18 @@ export default function Assignments() {
     const shiftIdsParam = Array.isArray(shiftIds)
       ? shiftIds.join(",")
       : shiftIds;
+    const end = endDate || startDate;
 
     const availabilityPromises = drivers.map(async (driver) => {
       try {
         const response = await apiGet(
-          `/api/admin/assignments/check-driver-conflict?driver_id=${driver.driver_id || driver.id}&shift_ids=${shiftIdsParam}&date=${startDate}`,
+          `/api/admin/assignments/check-driver-conflict?driver_id=${driver.driver_id || driver.id}&shift_ids=${shiftIdsParam}&start_date=${startDate}&end_date=${end}`,
         );
         const data = await response.json();
         return {
           driverId: driver.driver_id || driver.id,
           available: !data.conflict,
+          conflict_date: data.conflict_date || "",
           conflicts: data.conflicts || [],
         };
       } catch (error) {
@@ -818,6 +787,7 @@ export default function Assignments() {
         return {
           driverId: driver.driver_id || driver.id,
           available: true,
+          conflict_date: "",
           conflicts: [],
         };
       }
@@ -832,7 +802,12 @@ export default function Assignments() {
   };
 
   // Check vehicle availability and update availability map
-  const checkVehicleAvailability = async (vehicleList, shiftIds, startDate) => {
+  const checkVehicleAvailability = async (
+    vehicleList,
+    shiftIds,
+    startDate,
+    endDate,
+  ) => {
     if (
       !shiftIds ||
       (Array.isArray(shiftIds) ? shiftIds.length === 0 : !shiftIds) ||
@@ -843,16 +818,18 @@ export default function Assignments() {
     const shiftIdsParam = Array.isArray(shiftIds)
       ? shiftIds.join(",")
       : shiftIds;
+    const end = endDate || startDate;
 
     const availabilityPromises = vehicleList.map(async (vehicle) => {
       try {
         const response = await apiGet(
-          `/api/admin/assignments/check-vehicle-conflict?vehicle_id=${vehicle.id}&shift_ids=${shiftIdsParam}&date=${startDate}`,
+          `/api/admin/assignments/check-vehicle-conflict?vehicle_id=${vehicle.id}&shift_ids=${shiftIdsParam}&start_date=${startDate}&end_date=${end}`,
         );
         const data = await response.json();
         return {
           vehicleId: vehicle.id,
           available: !data.conflict,
+          conflict_date: data.conflict_date || "",
           conflicts: data.conflicts || [],
         };
       } catch (error) {
@@ -860,6 +837,7 @@ export default function Assignments() {
         return {
           vehicleId: vehicle.id,
           available: true,
+          conflict_date: "",
           conflicts: [],
         };
       }
@@ -926,6 +904,7 @@ export default function Assignments() {
         filteredVehicles,
         assignmentForm.shift_ids,
         assignmentForm.start_date,
+        assignmentForm.end_date,
       );
     }
   }, [
@@ -1017,7 +996,6 @@ export default function Assignments() {
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* Header */}
-      
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1149,10 +1127,59 @@ export default function Assignments() {
               <Plus size={16} /> Create Temporary Assignment
             </button>
           )}
+          {activeTab === "replacements" && (
+            <button
+              onClick={() => {
+                setReplOpenCreateModal(true);
+                setTimeout(() => setReplOpenCreateModal(false), 100);
+              }}
+              className="px-4 py-2.5 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors font-medium shadow-sm flex items-center gap-2"
+            >
+              <Plus size={16} /> New Replacement
+            </button>
+          )}
         </div>
       </div>
 
       {/* Search, Sort, and Filter Bar */}
+      {activeTab === "temporary" && (
+        <div className="bg-white rounded-md border border-gray-100 shadow-sm p-5 mb-6">
+          <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
+            <CustomSearch
+              value={tempSearchQuery}
+              onChange={setTempSearchQuery}
+              placeholder="Search by vehicle, driver, shift..."
+              className="flex-1"
+            />
+          </div>
+        </div>
+      )}
+      {activeTab === "replacements" && (
+        <div className="bg-white rounded-md border border-gray-100 shadow-sm p-5 mb-6">
+          <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
+            <CustomSearch
+              value={replSearchQuery}
+              onChange={setReplSearchQuery}
+              placeholder="Search by vehicle, driver, reason..."
+              className="flex-1"
+            />
+            <div className="lg:w-48">
+              <CustomDropdown
+                value={replStatusFilter}
+                onChange={setReplStatusFilter}
+                options={[
+                  {value: "all", label: "All Status"},
+                  {value: "pending", label: "Pending"},
+                  {value: "approved", label: "Active"},
+                  {value: "completed", label: "Completed"},
+                  {value: "rejected", label: "Rejected"},
+                ]}
+                width="w-full"
+              />
+            </div>
+          </div>
+        </div>
+      )}
       {activeTab !== "temporary" && activeTab !== "replacements" && (
         <div className="bg-white rounded-md border border-gray-100 shadow-sm p-5 mb-6">
           <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
@@ -1295,11 +1322,20 @@ export default function Assignments() {
 
       {/* Content */}
       {activeTab === "replacements" ? (
-        <VehicleReplacements />
+        <div className="bg-secondarybg rounded-md border border-gray-100 shadow-sm overflow-hidden min-h-[400px]">
+          <VehicleReplacements
+            searchQuery={replSearchQuery}
+            statusFilter={replStatusFilter}
+            openCreateModal={replOpenCreateModal}
+          />
+        </div>
       ) : (
         <div className="bg-secondarybg rounded-md border border-gray-100 shadow-sm overflow-hidden min-h-[400px]">
           {activeTab === "temporary" ? (
-            <TemporaryAssignments openModal={openTempModal} />
+            <TemporaryAssignments
+              openModal={openTempModal}
+              searchQuery={tempSearchQuery}
+            />
           ) : loading ? (
             <Loading fullScreen={false} text="Loading assignments..." />
           ) : (
@@ -1365,10 +1401,21 @@ export default function Assignments() {
                           )}
                           <p className="text-xs text-secondarytext">
                             {activeTab === "ev" ? (
-                              <span className="flex items-center gap-1">
-                                {a.cluster_name}{" "}
-                                <span className="opacity-50">•</span>{" "}
-                                {a.shift_name || "Default Schedule"}
+                              <span className="flex items-center gap-1 flex-wrap">
+                                {a.cluster_name}
+                                {a.shifts && a.shifts.length > 0 ? (
+                                  a.shifts.map((s, i) => (
+                                    <span key={s.shift_id || i} className="flex items-center gap-0.5">
+                                      <span className="opacity-50">•</span>
+                                      <span>{s.shift_name}</span>
+                                    </span>
+                                  ))
+                                ) : (
+                                  <>
+                                    <span className="opacity-50">•</span>
+                                    <span>Default Schedule</span>
+                                  </>
+                                )}
                               </span>
                             ) : (
                               a.vehicle_number
@@ -1385,27 +1432,33 @@ export default function Assignments() {
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        {a.shift_name && (
+                        {activeTab !== "ev" && a.shift_name && (
                           <span className="px-3 py-1.5 rounded-md bg-primary/10 text-primary text-sm font-medium">
                             {a.shift_name}
                           </span>
                         )}
                         <div className="flex flex-wrap gap-1">
-                          {a.slots && a.slots.length > 0 ? (
-                            a.slots.map((slot, idx) => (
-                              <span
-                                key={idx}
-                                className="text-xs text-secondarytext px-2 py-0.5 rounded-md bg-gray-100"
-                              >
-                                {formatTimeAMPM(slot.start_time)} -{" "}
-                                {formatTimeAMPM(slot.end_time)}
-                              </span>
-                            ))
+                          {activeTab === "ev" ? (
+                            a.shifts && a.shifts.length > 0 ? (
+                              a.shifts.map((s, idx) => (
+                                <span
+                                  key={s.shift_id || idx}
+                                  className="text-xs px-2 py-1 rounded-md bg-primary/10 text-primary font-medium border border-primary/20"
+                                >
+                                  {s.shift_name}
+                                  {s.start_time && (
+                                    <span className="text-secondarytext ml-1 font-normal">
+                                      {s.start_time}–{s.end_time}
+                                    </span>
+                                  )}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-xs text-secondarytext">Default Schedule</span>
+                            )
                           ) : (
                             <span className="text-xs text-secondarytext">
-                              {formatTimeAMPM(
-                                a.start_time || a.shift_start_time,
-                              )}{" "}
+                              {formatTimeAMPM(a.start_time || a.shift_start_time)}{" "}
                               - {formatTimeAMPM(a.end_time || a.shift_end_time)}
                             </span>
                           )}
@@ -1691,72 +1744,7 @@ export default function Assignments() {
                     );
                   })()}
 
-                {/* Selected Shifts Details Display */}
-                {assignmentForm.shift_ids.length > 0 && (
-                  <div className="mt-3 space-y-2">
-                    {assignmentForm.shift_ids.map((sid) => {
-                      const selectedShift = shifts.find((s) => s.id === sid);
-                      if (!selectedShift) return null;
-                      const hasSlots =
-                        selectedShift.slots && selectedShift.slots.length > 0;
-                      return (
-                        <div
-                          key={sid}
-                          className="p-3 bg-primary/5 border border-primary/20 rounded-md"
-                        >
-                          <div className="flex items-start justify-between mb-2">
-                            <div>
-                              <h4 className="text-sm font-bold text-primarytext">
-                                {selectedShift.name}
-                              </h4>
-                              {selectedShift.description && (
-                                <p className="text-xs text-secondarytext mt-0.5">
-                                  {selectedShift.description}
-                                </p>
-                              )}
-                            </div>
-                            <span className="text-xs font-semibold text-primary bg-white px-2 py-1 rounded-md">
-                              {hasSlots
-                                ? `${selectedShift.slots.length} Slots`
-                                : "Single Shift"}
-                            </span>
-                          </div>
 
-                          {hasSlots ? (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                              {selectedShift.slots.map((slot, idx) => (
-                                <div
-                                  key={idx}
-                                  className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-md border border-primary/10"
-                                >
-                                  <Clock
-                                    size={12}
-                                    className="text-primary shrink-0"
-                                  />
-                                  <span className="text-xs font-medium text-primarytext">
-                                    {formatTimeAMPM(slot.start_time)} -{" "}
-                                    {formatTimeAMPM(slot.end_time)}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-md border border-primary/10">
-                              <Clock
-                                size={12}
-                                className="text-primary shrink-0"
-                              />
-                              <span className="text-xs font-medium text-primarytext">
-                                {formatTimeAMPM(selectedShift.start_time)} -{" "}
-                                {formatTimeAMPM(selectedShift.end_time)}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
               </div>
 
               {createModalType === "ev" ? (
@@ -1820,7 +1808,10 @@ export default function Assignments() {
                           availability?.conflicts?.length > 0
                         ) {
                           const conflict = availability.conflicts[0];
-                          conflictInfo = `${v.vehicle_number} • Assigned: ${conflict.start_date} to ${conflict.end_date}`;
+                          const conflictDate = availability.conflict_date
+                            ? `on ${availability.conflict_date}`
+                            : `from ${conflict.start_date} to ${conflict.end_date}`;
+                          conflictInfo = `${v.vehicle_number} • Conflict ${conflictDate}`;
                         }
 
                         return {
@@ -1830,7 +1821,7 @@ export default function Assignments() {
                           available: isAvailable,
                           availableText:
                             hasAvailabilityData && !isAvailable
-                              ? `Assigned to ${availability.conflicts?.[0]?.driver_name || "driver"}`
+                              ? `Conflict: ${availability.conflicts?.[0]?.shift_name || "Same shift"}`
                               : undefined,
                         };
                       })}
@@ -1894,7 +1885,9 @@ export default function Assignments() {
                         availableText:
                           hasAvailabilityData &&
                           availability?.available === false
-                            ? "Has Conflict"
+                            ? availability.conflict_date
+                              ? `Conflict on ${availability.conflict_date}`
+                              : "Has Conflict"
                             : undefined,
                       };
                     })}
@@ -2019,7 +2012,9 @@ export default function Assignments() {
               </div>
               <div className="flex-1">
                 <h3 className="text-lg font-bold text-primarytext">
-                  Time Conflict Detected
+                  {conflictModal.conflict_type === "vehicle"
+                    ? "Vehicle Conflict Detected"
+                    : "Driver Time Conflict Detected"}
                 </h3>
                 <p className="text-sm text-secondarytext mt-1">
                   {conflictModal.message}
@@ -2095,7 +2090,9 @@ export default function Assignments() {
               conflictModal.conflicts.length > 0 ? (
               <div className="mb-6">
                 <h4 className="text-sm font-semibold text-primarytext mb-3">
-                  Conflicting Assignments:
+                  {conflictModal.conflict_type === "vehicle"
+                    ? "Vehicle Already Assigned:"
+                    : "Conflicting Assignments:"}
                 </h4>
                 <div className="space-y-2">
                   {conflictModal.conflicts.map((conflict, idx) => (
@@ -2109,11 +2106,14 @@ export default function Assignments() {
                           {conflict.shift_name || "Shift"}
                         </span>
                         <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-md">
-                          {conflict.assignment_type === "REGULAR"
+                          {conflict.assignment_type === "REGULAR" ||
+                          conflict.assignment_type === "assignment"
                             ? "Bus/Car Assignment"
                             : conflict.assignment_type === "EV_CLUSTER"
                               ? "EV Assignment"
-                              : conflict.assignment_type === "TEMP_REPLACEMENT"
+                              : conflict.assignment_type ===
+                                    "TEMP_REPLACEMENT" ||
+                                  conflict.assignment_type === "temporary"
                                 ? "Temp Replacement"
                                 : conflict.assignment_type === "VEHICLE_REQUEST"
                                   ? "Vehicle Request"
@@ -2126,10 +2126,16 @@ export default function Assignments() {
                           {formatTimeAMPM(conflict.start_time)} -{" "}
                           {formatTimeAMPM(conflict.end_time)}
                         </p>
-                        <p>
-                          <strong>Vehicle:</strong>{" "}
-                          {conflict.vehicle_number || "N/A"}
-                        </p>
+                        {conflict.driver_name && (
+                          <p>
+                            <strong>Driver:</strong> {conflict.driver_name}
+                          </p>
+                        )}
+                        {conflict.vehicle_number && (
+                          <p>
+                            <strong>Vehicle:</strong> {conflict.vehicle_number}
+                          </p>
+                        )}
                         <p>
                           <strong>Dates:</strong> {conflict.start_date} to{" "}
                           {conflict.end_date}
@@ -2161,8 +2167,9 @@ export default function Assignments() {
                       Assign Anyway (Override)
                     </h5>
                     <p className="text-xs text-red-600 mt-1">
-                      This will create a new assignment even though the driver
-                      has conflicting schedules. Use this only if necessary.
+                      {conflictModal.conflict_type === "vehicle"
+                        ? "This will assign the vehicle even though it already has a conflicting schedule. Use only when necessary."
+                        : "This will create a new assignment even though the driver has conflicting schedules. Use this only if necessary."}
                     </p>
                   </div>
                   <button
@@ -2174,85 +2181,86 @@ export default function Assignments() {
                 </div>
               </div>
 
-              {/* Option 2: Choose Different Driver (only for non-EV assignments) */}
-              {createModalType !== "ev" && (
-                <div className="bg-green-50 border border-green-200 rounded-md p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-1">
-                      <h5 className="font-medium text-green-800 flex items-center gap-2">
-                        <CheckCircle size={16} /> Choose a Different Driver
-                      </h5>
-                      <p className="text-xs text-green-600 mt-1 mb-3">
-                        Select an available driver who doesn't have conflicting
-                        assignments:
-                      </p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto">
-                        {getAvailableDriversForSelection().map((d) => {
-                          const driverId = d.driver_id || d.id;
-                          const availability = driverAvailabilityMap[
-                            driverId
-                          ] || {available: true, conflicts: []};
-                          const isAvailable = availability.available;
+              {/* Option 2: Choose Different Driver (only for driver conflicts, non-EV) */}
+              {conflictModal.conflict_type !== "vehicle" &&
+                createModalType !== "ev" && (
+                  <div className="bg-green-50 border border-green-200 rounded-md p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1">
+                        <h5 className="font-medium text-green-800 flex items-center gap-2">
+                          <CheckCircle size={16} /> Choose a Different Driver
+                        </h5>
+                        <p className="text-xs text-green-600 mt-1 mb-3">
+                          Select an available driver who doesn't have
+                          conflicting assignments:
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto">
+                          {getAvailableDriversForSelection().map((d) => {
+                            const driverId = d.driver_id || d.id;
+                            const availability = driverAvailabilityMap[
+                              driverId
+                            ] || {available: true, conflicts: []};
+                            const isAvailable = availability.available;
 
-                          return (
-                            <button
-                              key={driverId}
-                              onClick={() =>
-                                handleSelectAlternateDriver(driverId)
-                              }
-                              className={`flex items-center gap-2 p-3 border rounded-md transition-all text-left ${
-                                isAvailable
-                                  ? "bg-green-50 border-green-300 hover:bg-green-100 hover:border-green-400"
-                                  : "bg-gray-100 border-gray-300 hover:bg-gray-200 opacity-75"
-                              }`}
-                              title={
-                                isAvailable
-                                  ? "Available - No conflicts"
-                                  : "Has conflicting assignments"
-                              }
-                            >
-                              <div
-                                className={`w-2 h-2 rounded-md flex-shrink-0 ${
-                                  isAvailable ? "bg-green-500" : "bg-gray-400"
-                                }`}
-                              />
-                              <User
-                                size={16}
-                                className={
-                                  isAvailable
-                                    ? "text-green-600"
-                                    : "text-gray-500"
+                            return (
+                              <button
+                                key={driverId}
+                                onClick={() =>
+                                  handleSelectAlternateDriver(driverId)
                                 }
-                              />
-                              <span
-                                className={`text-sm font-medium truncate flex-1 ${
+                                className={`flex items-center gap-2 p-3 border rounded-md transition-all text-left ${
                                   isAvailable
-                                    ? "text-green-800"
-                                    : "text-gray-600"
+                                    ? "bg-green-50 border-green-300 hover:bg-green-100 hover:border-green-400"
+                                    : "bg-gray-100 border-gray-300 hover:bg-gray-200 opacity-75"
                                 }`}
+                                title={
+                                  isAvailable
+                                    ? "Available - No conflicts"
+                                    : "Has conflicting assignments"
+                                }
                               >
-                                {d.driver_name || d.full_name}
-                              </span>
-                              {isAvailable && (
-                                <CheckCircle
-                                  size={14}
-                                  className="text-green-600 flex-shrink-0"
+                                <div
+                                  className={`w-2 h-2 rounded-md flex-shrink-0 ${
+                                    isAvailable ? "bg-green-500" : "bg-gray-400"
+                                  }`}
                                 />
-                              )}
-                              {!isAvailable && (
-                                <AlertTriangle
-                                  size={14}
-                                  className="text-gray-500 flex-shrink-0"
+                                <User
+                                  size={16}
+                                  className={
+                                    isAvailable
+                                      ? "text-green-600"
+                                      : "text-gray-500"
+                                  }
                                 />
-                              )}
-                            </button>
-                          );
-                        })}
+                                <span
+                                  className={`text-sm font-medium truncate flex-1 ${
+                                    isAvailable
+                                      ? "text-green-800"
+                                      : "text-gray-600"
+                                  }`}
+                                >
+                                  {d.driver_name || d.full_name}
+                                </span>
+                                {isAvailable && (
+                                  <CheckCircle
+                                    size={14}
+                                    className="text-green-600 flex-shrink-0"
+                                  />
+                                )}
+                                {!isAvailable && (
+                                  <AlertTriangle
+                                    size={14}
+                                    className="text-gray-500 flex-shrink-0"
+                                  />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
             </div>
 
             {/* Cancel Button */}
@@ -2307,8 +2315,19 @@ export default function Assignments() {
                           <span className="font-medium text-primary">
                             {evDetails.cluster_name}
                           </span>
-                          <span>•</span>
-                          <span>{evDetails.shift_name || "Shift"}</span>
+                          {evDetails.shifts && evDetails.shifts.length > 0 ? (
+                            evDetails.shifts.map((s, i) => (
+                              <span key={s.shift_id || i} className="flex items-center gap-1">
+                                <span className="text-gray-400">•</span>
+                                <span>{s.shift_name}</span>
+                              </span>
+                            ))
+                          ) : (
+                            <>
+                              <span>•</span>
+                              <span>{evDetails.shift_name || "Default Schedule"}</span>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -2330,33 +2349,54 @@ export default function Assignments() {
                   <div className="bg-primarybg rounded-md p-4">
                     <h4 className="text-xs text-secondarytext uppercase tracking-wider mb-3 font-bold flex items-center gap-2">
                       <Clock size={14} /> Shift Details
+                      {evDetails.shifts && evDetails.shifts.length > 1 && (
+                        <span className="ml-auto text-[10px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-md">
+                          {evDetails.shifts.length} SHIFTS
+                        </span>
+                      )}
                     </h4>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-secondarytext">
-                          Shift Name
-                        </span>
-                        <span className="font-semibold text-primarytext">
-                          {evDetails.shift_name || "N/A"}
-                        </span>
+                    {evDetails.shifts && evDetails.shifts.length > 0 ? (
+                      <div className="space-y-2">
+                        {evDetails.shifts.map((s, idx) => (
+                          <div
+                            key={s.shift_id || idx}
+                            className="bg-white rounded-md p-3 border border-primary/10 flex items-center justify-between gap-3"
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                                <Clock size={13} className="text-primary" />
+                              </div>
+                              <span className="text-sm font-semibold text-primarytext">
+                                {s.shift_name}
+                              </span>
+                            </div>
+                            {s.start_time ? (
+                              <span className="text-xs font-medium text-secondarytext bg-gray-100 px-2.5 py-1 rounded-md whitespace-nowrap">
+                                {s.start_time} – {s.end_time}
+                              </span>
+                            ) : null}
+                          </div>
+                        ))}
                       </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-secondarytext">
-                          Start Time
-                        </span>
-                        <span className="font-semibold text-primarytext">
-                          {formatTimeAMPM(evDetails.shift_start_time)}
-                        </span>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-secondarytext">Shift Name</span>
+                          <span className="font-semibold text-primarytext">
+                            {evDetails.shift_name || "Default"}
+                          </span>
+                        </div>
+                        {evDetails.shift_start_time && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-secondarytext">Time</span>
+                            <span className="font-semibold text-primarytext">
+                              {formatTimeAMPM(evDetails.shift_start_time)} –{" "}
+                              {formatTimeAMPM(evDetails.shift_end_time)}
+                            </span>
+                          </div>
+                        )}
                       </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-secondarytext">
-                          End Time
-                        </span>
-                        <span className="font-semibold text-primarytext">
-                          {formatTimeAMPM(evDetails.shift_end_time)}
-                        </span>
-                      </div>
-                    </div>
+                    )}
                   </div>
 
                   {/* Assignment Period */}
@@ -2385,8 +2425,15 @@ export default function Assignments() {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-secondarytext">Status</span>
-                        <span className="font-medium px-2 py-0.5 rounded-md text-xs bg-green/20 text-green">
-                          assigned
+                        <span
+                          className={`font-medium px-2 py-0.5 rounded-md text-xs ${
+                            evDetails.status === "active" ||
+                            evDetails.status === "assigned"
+                              ? "bg-green/20 text-green"
+                              : "bg-gray-200 text-gray-600"
+                          }`}
+                        >
+                          {evDetails.status || "active"}
                         </span>
                       </div>
                     </div>

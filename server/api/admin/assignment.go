@@ -241,38 +241,8 @@ func CreateAssignment(c *gin.Context) {
 		return
 	}
 
-	// Shared error variable for this handler
-	var err error
-
-	// Coarse date-range guard: block if driver already has any assignment on overlapping dates (assignments, temporary, EV)
-	var coarseCount int
-	_ = config.DB.QueryRow(`
-		SELECT (
-			SELECT COUNT(*) FROM assignments a
-			WHERE a.driver_id = ?
-			AND a.status IN ('assigned','active')
-			AND a.start_date <= ? AND a.end_date >= ?
-		) + (
-			SELECT COUNT(*) FROM temporary_assignments ta
-			WHERE ta.replacement_driver_id = ?
-			AND ta.start_date <= ? AND ta.end_date >= ?
-		) + (
-			SELECT COUNT(*) FROM ev_assignments ev
-			JOIN driver_clusters dc ON ev.cluster_id = dc.id
-			JOIN driver_cluster_members dcm ON dcm.cluster_id = dc.id
-			JOIN drivers d ON d.id = dcm.driver_id
-			WHERE d.id = ?
-			AND ev.status IN ('active')
-			AND ev.start_date <= ? AND ev.end_date >= ?
-			AND ? BETWEEN dcm.valid_from AND dcm.valid_to
-		)
-	`, req.DriverID, req.EndDate, req.StartDate,
-		req.DriverID, req.EndDate, req.StartDate,
-		req.DriverID, req.EndDate, req.StartDate, req.StartDate).
-		Scan(&coarseCount)
-
-	// Time-conflict validation using shift times (including multi-slot shifts)
-	// Gather the time ranges to validate for ALL selected shifts
+	// --- Time-conflict validation ---
+	// Gather the time ranges for ALL selected shifts (using slots if available)
 	type timeRange struct{ start, end string }
 	allRanges := make(map[int][]timeRange) // shiftID -> time ranges
 
@@ -373,16 +343,62 @@ func CreateAssignment(c *gin.Context) {
 		return
 	}
 
+	// --- Vehicle conflict check across each day in the date range ---
+	if !req.ForceAssign {
+		vehicleConflictFound := false
+		vehicleConflictDate := ""
+		var vehicleConflictDetails []map[string]interface{}
+
+	vehicleDateLoop:
+		for d_iter := mustParseDate(req.StartDate); !d_iter.After(mustParseDate(req.EndDate)); d_iter = d_iter.Add(24 * time.Hour) {
+			checkDate := d_iter.Format("2006-01-02")
+			for _, sid := range shiftIDs {
+				for _, r := range allRanges[sid] {
+					hasVC, vcDetails, vcErr := CheckVehicleTimeConflict(req.VehicleID, r.start, r.end, checkDate)
+					if vcErr != nil {
+						log.Printf("Error during vehicle time conflict check: %v", vcErr)
+						c.JSON(http.StatusInternalServerError, gin.H{"error": "Error checking vehicle conflict"})
+						return
+					}
+					if hasVC {
+						vehicleConflictFound = true
+						vehicleConflictDate = checkDate
+						vehicleConflictDetails = vcDetails
+						break vehicleDateLoop
+					}
+				}
+			}
+		}
+
+		if vehicleConflictFound {
+			c.JSON(http.StatusConflict, gin.H{
+				"error":     "vehicle_conflict",
+				"message":   fmt.Sprintf("Vehicle is already assigned during this time range (conflict on %s)", vehicleConflictDate),
+				"conflicts": vehicleConflictDetails,
+			})
+			return
+		}
+	}
+
 	// Create one assignment per selected shift
 	for _, sid := range shiftIDs {
-		_, err = config.DB.Exec(`
-			INSERT INTO assignments (shift_id, vehicle_id, driver_id, assigned_date, start_date, end_date, status, created_by, description)
-			VALUES (?, ?, ?, ?, ?, ?, 'assigned', ?, ?)
-		`, sid, req.VehicleID, req.DriverID, req.StartDate, req.StartDate, req.EndDate, createdBy, req.Description)
+		var execErr error
+		if req.ForceAssign {
+			_, execErr = config.DB.Exec(`
+				INSERT INTO assignments (shift_id, vehicle_id, driver_id, assigned_date, start_date, end_date, status, created_by, description)
+				VALUES (?, ?, ?, ?, ?, ?, 'assigned', ?, ?)
+				ON DUPLICATE KEY UPDATE driver_id=VALUES(driver_id), start_date=VALUES(start_date), end_date=VALUES(end_date), status='assigned', created_by=VALUES(created_by), description=VALUES(description)
+			`, sid, req.VehicleID, req.DriverID, req.StartDate, req.StartDate, req.EndDate, createdBy, req.Description)
+		} else {
+			_, execErr = config.DB.Exec(`
+				INSERT INTO assignments (shift_id, vehicle_id, driver_id, assigned_date, start_date, end_date, status, created_by, description)
+				VALUES (?, ?, ?, ?, ?, ?, 'assigned', ?, ?)
+			`, sid, req.VehicleID, req.DriverID, req.StartDate, req.StartDate, req.EndDate, createdBy, req.Description)
+		}
 
-		if err != nil {
-			log.Printf("Create assignment error for shift %d: %v", sid, err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		if execErr != nil {
+			log.Printf("Create assignment error for shift %d: %v", sid, execErr)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": execErr.Error()})
 			return
 		}
 	}
@@ -540,36 +556,30 @@ func CheckDriverTimeConflict(driverID int, shiftStartTime, shiftEndTime, checkDa
 	// Query to get all active assignments for this driver on the given date
 	// across all assignment types (bus, car, EV, temporary)
 	query := `
-		SELECT s.start_time, s.end_time, ss.start_time as slot_start, ss.end_time as slot_end
+		SELECT s.start_time, s.end_time
 		FROM assignments a
 		JOIN shifts s ON a.shift_id = s.id
-		LEFT JOIN shift_slots ss ON s.id = ss.shift_id
 		WHERE a.driver_id = ?
 		AND ? BETWEEN a.start_date AND a.end_date
 		AND a.status IN ('assigned','active')
 		
 		UNION ALL
 		
-		SELECT s.start_time, s.end_time, ss.start_time as slot_start, ss.end_time as slot_end
+		SELECT s.start_time, s.end_time
 		FROM temporary_assignments ta
 		JOIN shifts s ON ta.shift_id = s.id
-		LEFT JOIN shift_slots ss ON s.id = ss.shift_id
 		WHERE ta.replacement_driver_id = ?
 		AND ? BETWEEN ta.start_date AND ta.end_date
+		AND ta.status = 'active'
 
 		UNION ALL
 
-		SELECT 
-			s.start_time,
-			s.end_time,
-			ss.start_time as slot_start,
-			ss.end_time as slot_end
+		SELECT s.start_time, s.end_time
 		FROM ev_assignments ev
 		JOIN driver_clusters dc ON ev.cluster_id = dc.id
 		JOIN driver_cluster_members dcm ON dcm.cluster_id = dc.id AND ? BETWEEN dcm.valid_from AND dcm.valid_to
 		JOIN drivers d ON d.id = dcm.driver_id
 		JOIN shifts s ON ev.shift_id = s.id
-		LEFT JOIN shift_slots ss ON s.id = ss.shift_id
 		WHERE d.id = ?
 		AND ? BETWEEN ev.start_date AND ev.end_date
 		AND ev.status IN ('active')
@@ -588,23 +598,14 @@ func CheckDriverTimeConflict(driverID int, shiftStartTime, shiftEndTime, checkDa
 
 	for rows.Next() {
 		var startTime, endTime sql.NullString
-		var slotStart, slotEnd sql.NullString
 
-		err := rows.Scan(&startTime, &endTime, &slotStart, &slotEnd)
+		err := rows.Scan(&startTime, &endTime)
 		if err != nil {
 			log.Printf("Error scanning time conflict row: %v", err)
 			continue
 		}
 
-		// If shift has slots, check each slot for conflicts
-		if slotStart.Valid && slotEnd.Valid {
-			if timesOverlap(checkStart, checkEnd, slotStart.String, slotEnd.String) {
-				log.Printf("Time conflict found for driver %d: slot %s-%s overlaps with %s-%s",
-					driverID, slotStart.String, slotEnd.String, checkStart, checkEnd)
-				return true, nil
-			}
-		} else if startTime.Valid && endTime.Valid {
-			// Single time slot
+		if startTime.Valid && endTime.Valid {
 			if timesOverlap(checkStart, checkEnd, startTime.String, endTime.String) {
 				log.Printf("Time conflict found for driver %d: %s-%s overlaps with %s-%s",
 					driverID, startTime.String, endTime.String, checkStart, checkEnd)
@@ -657,6 +658,90 @@ func CheckDriverTimeConflict(driverID int, shiftStartTime, shiftEndTime, checkDa
 	return false, nil
 }
 
+// CheckVehicleTimeConflict checks if a vehicle has a time-overlapping assignment on a given date.
+// Returns (hasConflict bool, conflicts []map, error).
+func CheckVehicleTimeConflict(vehicleID int, checkStart, checkEnd, checkDate string) (bool, []map[string]interface{}, error) {
+	var conflicts []map[string]interface{}
+	seen := make(map[string]bool)
+
+	// Query both regular and temporary assignments
+	rows, err := config.DB.Query(`
+		SELECT a.id, s.name AS shift_name,
+		       s.start_time, s.end_time,
+		       DATE_FORMAT(a.start_date,'%d-%m-%Y') AS start_date,
+		       DATE_FORMAT(a.end_date,'%d-%m-%Y') AS end_date,
+		       u.full_name AS driver_name,
+		       'assignment' AS assignment_type
+		FROM assignments a
+		JOIN shifts s ON a.shift_id = s.id
+		JOIN drivers d ON a.driver_id = d.id
+		JOIN users u ON d.user_id = u.id
+		WHERE a.vehicle_id = ?
+		  AND a.status IN ('active','assigned')
+		  AND ? BETWEEN a.start_date AND a.end_date
+
+		UNION ALL
+
+		SELECT ta.id, s.name AS shift_name,
+		       s.start_time, s.end_time,
+		       DATE_FORMAT(ta.start_date,'%d-%m-%Y') AS start_date,
+		       DATE_FORMAT(ta.end_date,'%d-%m-%Y') AS end_date,
+		       u.full_name AS driver_name,
+		       'temporary' AS assignment_type
+		FROM temporary_assignments ta
+		JOIN shifts s ON ta.shift_id = s.id
+		JOIN drivers d ON ta.replacement_driver_id = d.id
+		JOIN users u ON d.user_id = u.id
+		WHERE ta.vehicle_id = ?
+		  AND ta.status IN ('active','assigned')
+		  AND ? BETWEEN ta.start_date AND ta.end_date
+	`, vehicleID, checkDate, vehicleID, checkDate)
+	if err != nil {
+		return false, nil, err
+	}
+	defer rows.Close()
+
+	hasConflict := false
+	for rows.Next() {
+		var id int
+		var shiftName, driverName, startDate, endDate, assignType string
+		var shiftStart, shiftEnd sql.NullString
+
+		if err := rows.Scan(&id, &shiftName, &shiftStart, &shiftEnd,
+			&startDate, &endDate, &driverName, &assignType); err != nil {
+			continue
+		}
+
+		var existStart, existEnd string
+		if shiftStart.Valid && shiftEnd.Valid {
+			existStart, existEnd = shiftStart.String, shiftEnd.String
+		} else {
+			continue
+		}
+
+		if timesOverlap(checkStart, checkEnd, existStart, existEnd) {
+			key := fmt.Sprintf("%s_%d", assignType, id)
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			hasConflict = true
+			conflicts = append(conflicts, map[string]interface{}{
+				"assignment_id":   id,
+				"shift_name":      shiftName,
+				"start_time":      existStart,
+				"end_time":        existEnd,
+				"start_date":      startDate,
+				"end_date":        endDate,
+				"driver_name":     driverName,
+				"assignment_type": assignType,
+			})
+		}
+	}
+
+	return hasConflict, conflicts, nil
+}
+
 // timesOverlap checks if two time ranges overlap
 // Times are in HH:MM:SS format
 func timesOverlap(start1, end1, start2, end2 string) bool {
@@ -695,16 +780,14 @@ func getDriverConflictsDetails(driverID int, checkDate string, checkRanges []str
 	seen := make(map[string]bool) // Track already added assignments to avoid duplicates
 
 	// Query assignments for the given driver and date (regular + temp + EV)
-	// Join ALL shift slots (not just slot 1) to check all time ranges
 	rows, err := config.DB.Query(`
 		SELECT a.id, v.vehicle_number, v.vehicle_type, s.name as shift_name,
 		       s.start_time, s.end_time,
-		       ss.start_time as slot_start, ss.end_time as slot_end,
-		       a.start_date, a.end_date, 'REGULAR' as assignment_type
+		       DATE_FORMAT(a.start_date, '%d-%m-%Y') as start_date,
+		       DATE_FORMAT(a.end_date, '%d-%m-%Y') as end_date, 'REGULAR' as assignment_type
 		FROM assignments a
 		JOIN vehicles v ON a.vehicle_id = v.id
 		JOIN shifts s ON a.shift_id = s.id
-		LEFT JOIN shift_slots ss ON s.id = ss.shift_id
 		WHERE a.driver_id = ?
 		AND ? BETWEEN a.start_date AND a.end_date
 		AND a.status IN ('assigned','active')
@@ -713,28 +796,27 @@ func getDriverConflictsDetails(driverID int, checkDate string, checkRanges []str
 		
 		SELECT ta.id, v.vehicle_number, v.vehicle_type, CONCAT(s.name, ' (Temp)') as shift_name,
 		       s.start_time, s.end_time,
-		       ss.start_time as slot_start, ss.end_time as slot_end,
-		       ta.start_date, ta.end_date, 'TEMP_REPLACEMENT' as assignment_type
+		       DATE_FORMAT(ta.start_date, '%d-%m-%Y') as start_date,
+		       DATE_FORMAT(ta.end_date, '%d-%m-%Y') as end_date, 'TEMP_REPLACEMENT' as assignment_type
 		FROM temporary_assignments ta
 		JOIN vehicles v ON ta.vehicle_id = v.id
 		JOIN shifts s ON ta.shift_id = s.id
-		LEFT JOIN shift_slots ss ON s.id = ss.shift_id
 		WHERE ta.replacement_driver_id = ?
 		AND ? BETWEEN ta.start_date AND ta.end_date
+		AND ta.status = 'active'
 		
 		UNION ALL
 		
 		SELECT ev.id, COALESCE(vg.name, 'EV Group') as vehicle_number, 'EV' as vehicle_type, CONCAT('EV: ', dc.name) as shift_name,
 		       s.start_time, s.end_time,
-		       ss.start_time as slot_start, ss.end_time as slot_end,
-		       ev.start_date, ev.end_date, 'EV_CLUSTER' as assignment_type
+		       DATE_FORMAT(ev.start_date, '%d-%m-%Y') as start_date,
+		       DATE_FORMAT(ev.end_date, '%d-%m-%Y') as end_date, 'EV_CLUSTER' as assignment_type
 		FROM ev_assignments ev
 		LEFT JOIN vehicle_groups vg ON ev.vehicle_group_id = vg.id
 		JOIN driver_clusters dc ON ev.cluster_id = dc.id
 		JOIN driver_cluster_members dcm ON dcm.cluster_id = dc.id AND ? BETWEEN dcm.valid_from AND dcm.valid_to
 		JOIN drivers d ON d.id = dcm.driver_id
 		JOIN shifts s ON ev.shift_id = s.id
-		LEFT JOIN shift_slots ss ON s.id = ss.shift_id
 		WHERE d.id = ?
 		AND ? BETWEEN ev.start_date AND ev.end_date
 		AND ev.status IN ('active')
@@ -752,69 +834,48 @@ func getDriverConflictsDetails(driverID int, checkDate string, checkRanges []str
 
 	for rows.Next() {
 		var id int
-		var vehicleNumber, vehicleType, shiftName string
+		var vehicleNumber, vehicleType, shiftName, startDate, endDate, assignmentType string
 		var startTime, endTime sql.NullString
-		var slotStart, slotEnd sql.NullString
-		var startDate, endDate, assignmentType string
 
-		if err := rows.Scan(&id, &vehicleNumber, &vehicleType, &shiftName, &startTime, &endTime, &slotStart, &slotEnd, &startDate, &endDate, &assignmentType); err != nil {
+		if err := rows.Scan(&id, &vehicleNumber, &vehicleType, &shiftName, &startTime, &endTime, &startDate, &endDate, &assignmentType); err != nil {
 			log.Printf("Error scanning row: %v", err)
 			continue
 		}
 
-		log.Printf("Found existing assignment: ID=%d type=%s shift=%s vehicle=%s dates=%s to %s times=%v-%v slot=%v-%v",
-			id, assignmentType, shiftName, vehicleNumber, startDate, endDate,
-			startTime, endTime, slotStart, slotEnd)
+		log.Printf("Found existing assignment: ID=%d type=%s shift=%s vehicle=%s dates=%s to %s times=%v-%v",
+			id, assignmentType, shiftName, vehicleNumber, startDate, endDate, startTime, endTime)
 
-		// Determine the effective time range(s) of the existing assignment
-		candidateRanges := []struct{ start, end string }{}
-		if slotStart.Valid && slotEnd.Valid {
-			candidateRanges = append(candidateRanges, struct{ start, end string }{start: slotStart.String, end: slotEnd.String})
-		} else if startTime.Valid && endTime.Valid {
-			candidateRanges = append(candidateRanges, struct{ start, end string }{start: startTime.String, end: endTime.String})
+		if !startTime.Valid || !endTime.Valid {
+			continue
 		}
 
 		// Compare against all provided check ranges
 		conflicted := false
 		for _, cr := range checkRanges {
-			for _, er := range candidateRanges {
-				if timesOverlap(cr.start, cr.end, er.start, er.end) {
-					conflicted = true
-					log.Printf("  -> CONFLICT: %s-%s overlaps with %s-%s", cr.start, cr.end, er.start, er.end)
-					break
-				}
-			}
-			if conflicted {
+			if timesOverlap(cr.start, cr.end, startTime.String, endTime.String) {
+				conflicted = true
+				log.Printf("  -> CONFLICT: %s-%s overlaps with %s-%s", cr.start, cr.end, startTime.String, endTime.String)
 				break
 			}
 		}
 
 		if conflicted {
-			// Use a unique key to avoid duplicate entries for same assignment
 			key := fmt.Sprintf("%s_%d", assignmentType, id)
 			if seen[key] {
 				continue
 			}
 			seen[key] = true
-
-			item := map[string]interface{}{
+			out = append(out, map[string]interface{}{
 				"assignment_id":   id,
 				"vehicle_number":  vehicleNumber,
 				"vehicle_type":    vehicleType,
 				"shift_name":      shiftName,
+				"start_time":      startTime.String,
+				"end_time":        endTime.String,
 				"start_date":      startDate,
 				"end_date":        endDate,
 				"assignment_type": assignmentType,
-			}
-			// Prefer slot times if present, else base shift times
-			if slotStart.Valid && slotEnd.Valid {
-				item["start_time"] = slotStart.String
-				item["end_time"] = slotEnd.String
-			} else if startTime.Valid && endTime.Valid {
-				item["start_time"] = startTime.String
-				item["end_time"] = endTime.String
-			}
-			out = append(out, item)
+			})
 		}
 	}
 
@@ -911,10 +972,20 @@ func CheckDriverConflictAPI(c *gin.Context) {
 	driverIDStr := c.Query("driver_id")
 	shiftIDStr := c.Query("shift_id")
 	shiftIDsStr := c.Query("shift_ids")
-	checkDate := c.Query("date")
 
-	if driverIDStr == "" || checkDate == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "driver_id and date are required"})
+	// Support both single "date" (backward compat) and "start_date"/"end_date"
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
+	legacyDate := c.Query("date")
+	if startDate == "" {
+		startDate = legacyDate
+	}
+	if endDate == "" {
+		endDate = startDate
+	}
+
+	if driverIDStr == "" || startDate == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "driver_id and date (or start_date) are required"})
 		return
 	}
 
@@ -945,30 +1016,11 @@ func CheckDriverConflictAPI(c *gin.Context) {
 		return
 	}
 
-	// Get shift time ranges for all shifts (including slots)
+	// Get shift time ranges for all shifts
 	type timeRange struct{ start, end string }
 	var ranges []timeRange
 
 	for _, sid := range shiftIDs {
-		// Try slots first (multi-slot shifts)
-		slotRows, slotErr := config.DB.Query(`SELECT start_time, end_time FROM shift_slots WHERE shift_id = ? ORDER BY slot_order ASC`, sid)
-		if slotErr == nil {
-			hasSlots := false
-			for slotRows.Next() {
-				var s, e sql.NullString
-				slotRows.Scan(&s, &e)
-				if s.Valid && e.Valid {
-					ranges = append(ranges, timeRange{start: s.String, end: e.String})
-					hasSlots = true
-				}
-			}
-			slotRows.Close()
-			if hasSlots {
-				continue
-			}
-		}
-
-		// If no slots, fall back to the main shift times
 		var s, e sql.NullString
 		_ = config.DB.QueryRow(`SELECT start_time, end_time FROM shifts WHERE id = ?`, sid).Scan(&s, &e)
 		if s.Valid && e.Valid {
@@ -981,41 +1033,51 @@ func CheckDriverConflictAPI(c *gin.Context) {
 		return
 	}
 
-	// Check for conflicts
+	// Check for conflicts across the full date range
 	hasConflict := false
-	for _, r := range ranges {
-		conflict, err := CheckDriverTimeConflict(driverID, r.start, r.end, checkDate)
-		if err != nil {
-			log.Printf("Error checking driver conflict: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error checking conflict"})
-			return
+	conflictDate := ""
+	for d := mustParseDate(startDate); !d.After(mustParseDate(endDate)); d = d.Add(24 * time.Hour) {
+		checkDate := d.Format("2006-01-02")
+		for _, r := range ranges {
+			conflict, err := CheckDriverTimeConflict(driverID, r.start, r.end, checkDate)
+			if err != nil {
+				log.Printf("Error checking driver conflict: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Error checking conflict"})
+				return
+			}
+			if conflict {
+				hasConflict = true
+				conflictDate = checkDate
+				break
+			}
 		}
-		if conflict {
-			hasConflict = true
+		if hasConflict {
 			break
 		}
 	}
 
-	// Get conflict details if there are conflicts
+	// Get conflict details for the first conflicting date
 	var conflicts []map[string]interface{}
 	if hasConflict {
 		checkRanges := make([]struct{ start, end string }, len(ranges))
 		for i, r := range ranges {
 			checkRanges[i] = struct{ start, end string }{start: r.start, end: r.end}
 		}
-		conflicts, _ = getDriverConflictsDetails(driverID, checkDate, checkRanges)
+		conflicts, _ = getDriverConflictsDetails(driverID, conflictDate, checkRanges)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"conflict":  hasConflict,
-		"conflicts": conflicts,
+		"conflict":       hasConflict,
+		"conflict_date":  conflictDate,
+		"conflicts":      conflicts,
 	})
 }
 
 /*
 	=========================
 	  GET /api/admin/assignments/check-vehicle-conflict
-	  Check if a specific vehicle has conflicts for a given shift and date
+	  Check if a specific vehicle has conflicts for given shifts across a date range.
+	  Supports: vehicle_id, shift_id / shift_ids, start_date (or date), end_date
 
 =========================
 */
@@ -1023,10 +1085,20 @@ func CheckVehicleConflictAPI(c *gin.Context) {
 	vehicleIDStr := c.Query("vehicle_id")
 	shiftIDStr := c.Query("shift_id")
 	shiftIDsStr := c.Query("shift_ids")
-	checkDate := c.Query("date")
 
-	if vehicleIDStr == "" || checkDate == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "vehicle_id and date are required"})
+	// Support both single "date" (backward compat) and "start_date"/"end_date"
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
+	legacyDate := c.Query("date")
+	if startDate == "" {
+		startDate = legacyDate
+	}
+	if endDate == "" {
+		endDate = startDate
+	}
+
+	if vehicleIDStr == "" || startDate == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "vehicle_id and date (or start_date) are required"})
 		return
 	}
 
@@ -1036,11 +1108,10 @@ func CheckVehicleConflictAPI(c *gin.Context) {
 		return
 	}
 
-	// Parse shift IDs - support both shift_id and shift_ids parameters
+	// Parse shift IDs
 	var shiftIDs []int
 	if shiftIDsStr != "" {
-		parts := strings.Split(shiftIDsStr, ",")
-		for _, p := range parts {
+		for _, p := range strings.Split(shiftIDsStr, ",") {
 			p = strings.TrimSpace(p)
 			if id, err := strconv.Atoi(p); err == nil && id > 0 {
 				shiftIDs = append(shiftIDs, id)
@@ -1057,30 +1128,11 @@ func CheckVehicleConflictAPI(c *gin.Context) {
 		return
 	}
 
-	// Get shift time ranges for all shifts (including slots)
+	// Collect time ranges for all selected shifts
 	type timeRange struct{ start, end string }
 	var ranges []timeRange
 
 	for _, sid := range shiftIDs {
-		// Try slots first (multi-slot shifts)
-		slotRows, slotErr := config.DB.Query(`SELECT start_time, end_time FROM shift_slots WHERE shift_id = ? ORDER BY slot_order ASC`, sid)
-		if slotErr == nil {
-			hasSlots := false
-			for slotRows.Next() {
-				var s, e sql.NullString
-				slotRows.Scan(&s, &e)
-				if s.Valid && e.Valid {
-					ranges = append(ranges, timeRange{start: s.String, end: e.String})
-					hasSlots = true
-				}
-			}
-			slotRows.Close()
-			if hasSlots {
-				continue
-			}
-		}
-
-		// If no slots, fall back to the main shift times
 		var s, e sql.NullString
 		_ = config.DB.QueryRow(`SELECT start_time, end_time FROM shifts WHERE id = ?`, sid).Scan(&s, &e)
 		if s.Valid && e.Valid {
@@ -1093,111 +1145,34 @@ func CheckVehicleConflictAPI(c *gin.Context) {
 		return
 	}
 
-	// Check for conflicts - vehicle already assigned during the same time range
+	// Check conflicts across the full date range using the helper
 	hasConflict := false
+	conflictDate := ""
 	var conflicts []map[string]interface{}
 
-	for _, r := range ranges {
-		// Check regular assignments
-		rows, err := config.DB.Query(`
-			SELECT a.id, s.name as shift_name, s.start_time, s.end_time, 
-			       a.start_date, a.end_date, u.full_name as driver_name,
-			       'assignment' as assignment_type
-			FROM assignments a
-			JOIN shifts s ON a.shift_id = s.id
-			JOIN drivers d ON a.driver_id = d.id
-			JOIN users u ON d.user_id = u.id
-			WHERE a.vehicle_id = ?
-			  AND a.status IN ('active', 'assigned')
-			  AND ? BETWEEN a.start_date AND a.end_date
-			  AND (
-			    (s.start_time < ? AND s.end_time > ?) OR
-			    (s.start_time < ? AND s.end_time > ?) OR
-			    (s.start_time >= ? AND s.end_time <= ?)
-			  )
-		`, vehicleID, checkDate, r.end, r.start, r.end, r.start, r.start, r.end)
-
-		if err == nil {
-			defer rows.Close()
-			for rows.Next() {
-				var conflict struct {
-					ID             int
-					ShiftName      string
-					StartTime      string
-					EndTime        string
-					StartDate      string
-					EndDate        string
-					DriverName     string
-					AssignmentType string
-				}
-				rows.Scan(&conflict.ID, &conflict.ShiftName, &conflict.StartTime, &conflict.EndTime,
-					&conflict.StartDate, &conflict.EndDate, &conflict.DriverName, &conflict.AssignmentType)
-				hasConflict = true
-				conflicts = append(conflicts, map[string]interface{}{
-					"id":              conflict.ID,
-					"shift_name":      conflict.ShiftName,
-					"start_time":      conflict.StartTime,
-					"end_time":        conflict.EndTime,
-					"start_date":      conflict.StartDate,
-					"end_date":        conflict.EndDate,
-					"driver_name":     conflict.DriverName,
-					"assignment_type": conflict.AssignmentType,
-				})
+vehicleDateLoop:
+	for d := mustParseDate(startDate); !d.After(mustParseDate(endDate)); d = d.Add(24 * time.Hour) {
+		checkDate := d.Format("2006-01-02")
+		for _, r := range ranges {
+			hc, details, vcErr := CheckVehicleTimeConflict(vehicleID, r.start, r.end, checkDate)
+			if vcErr != nil {
+				log.Printf("Error checking vehicle conflict: %v", vcErr)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Error checking vehicle conflict"})
+				return
 			}
-		}
-
-		// Check temporary assignments
-		tempRows, err := config.DB.Query(`
-			SELECT ta.id, s.name as shift_name, s.start_time, s.end_time,
-			       ta.start_date, ta.end_date, u.full_name as driver_name,
-			       'temporary' as assignment_type
-			FROM temporary_assignments ta
-			JOIN shifts s ON ta.shift_id = s.id
-			JOIN drivers d ON ta.replacement_driver_id = d.id
-			JOIN users u ON d.user_id = u.id
-			WHERE ta.vehicle_id = ?
-			  AND ta.status = 'active'
-			  AND ? BETWEEN ta.start_date AND ta.end_date
-			  AND (
-			    (s.start_time < ? AND s.end_time > ?) OR
-			    (s.start_time < ? AND s.end_time > ?) OR
-			    (s.start_time >= ? AND s.end_time <= ?)
-			  )
-		`, vehicleID, checkDate, r.end, r.start, r.end, r.start, r.start, r.end)
-
-		if err == nil {
-			defer tempRows.Close()
-			for tempRows.Next() {
-				var conflict struct {
-					ID             int
-					ShiftName      string
-					StartTime      string
-					EndTime        string
-					StartDate      string
-					EndDate        string
-					DriverName     string
-					AssignmentType string
-				}
-				tempRows.Scan(&conflict.ID, &conflict.ShiftName, &conflict.StartTime, &conflict.EndTime,
-					&conflict.StartDate, &conflict.EndDate, &conflict.DriverName, &conflict.AssignmentType)
+			if hc {
 				hasConflict = true
-				conflicts = append(conflicts, map[string]interface{}{
-					"id":              conflict.ID,
-					"shift_name":      conflict.ShiftName,
-					"start_time":      conflict.StartTime,
-					"end_time":        conflict.EndTime,
-					"start_date":      conflict.StartDate,
-					"end_date":        conflict.EndDate,
-					"driver_name":     conflict.DriverName,
-					"assignment_type": conflict.AssignmentType,
-				})
+				conflictDate = checkDate
+				conflicts = details
+				break vehicleDateLoop
 			}
 		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"conflict":  hasConflict,
-		"conflicts": conflicts,
+		"conflict":      hasConflict,
+		"conflict_date": conflictDate,
+		"conflicts":     conflicts,
 	})
 }
 

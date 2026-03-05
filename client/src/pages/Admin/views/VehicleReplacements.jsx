@@ -2,7 +2,6 @@ import React, {useState, useEffect} from "react";
 import Loading from "../../../components/ui/Loading";
 import SearchableSelect from "../../../components/ui/SearchableSelect";
 import CustomDropdown from "../../../components/ui/CustomDropdown";
-import CustomSearch from "../../../components/ui/CustomSearch";
 import {
   RefreshCw,
   Calendar,
@@ -10,12 +9,9 @@ import {
   User,
   CheckCircle,
   XCircle,
-  AlertTriangle,
   Plus,
   FileText,
-  ChevronRight,
   X,
-  Play,
   Trash2,
   Edit2,
   Car,
@@ -179,7 +175,11 @@ const initialForm = {
   notes: "",
 };
 
-export default function VehicleReplacements() {
+export default function VehicleReplacements({
+  searchQuery: searchQueryProp,
+  statusFilter: statusFilterProp,
+  openCreateModal,
+}) {
   const {showToast} = useToast();
   const [replacements, setReplacements] = useState([]);
   const [stats, setStats] = useState(null);
@@ -187,6 +187,12 @@ export default function VehicleReplacements() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Use parent-controlled values when provided
+  const effectiveSearch =
+    searchQueryProp !== undefined ? searchQueryProp : searchQuery;
+  const effectiveStatus =
+    statusFilterProp !== undefined ? statusFilterProp : statusFilter;
 
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -201,12 +207,22 @@ export default function VehicleReplacements() {
   const [approveReplacementId, setApproveReplacementId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Listen to openCreateModal prop to open create modal
+  useEffect(() => {
+    if (openCreateModal) {
+      setForm(initialForm);
+      setVehicleDrivers([]);
+      setAvailableVehicles([]);
+      setShowCreateModal(true);
+    }
+  }, [openCreateModal]);
+
   useEffect(() => {
     fetchAll();
   }, []);
   useEffect(() => {
     fetchReplacements();
-  }, [statusFilter]);
+  }, [effectiveStatus]);
 
   const fetchAll = () => {
     fetchReplacements();
@@ -218,8 +234,8 @@ export default function VehicleReplacements() {
     setLoading(true);
     try {
       const url =
-        statusFilter !== "all"
-          ? `/api/admin/vehicle-replacements?status=${statusFilter}`
+        effectiveStatus !== "all"
+          ? `/api/admin/vehicle-replacements?status=${effectiveStatus}`
           : "/api/admin/vehicle-replacements";
       const res = await apiGet(url);
       if (res.ok) setReplacements(await res.json());
@@ -323,7 +339,10 @@ export default function VehicleReplacements() {
         replacement_vehicle_id: parseInt(approveReplacementId),
         approved_by_id: 0,
       };
-      const res = await apiPost("/api/admin/vehicle-replacements/approve", body);
+      const res = await apiPost(
+        "/api/admin/vehicle-replacements/approve",
+        body,
+      );
       const data = await res.json();
       if (res.ok) {
         showToast(data.message, "success");
@@ -429,8 +448,8 @@ export default function VehicleReplacements() {
 
   // Filter
   const filtered = replacements.filter((r) => {
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
+    if (effectiveSearch) {
+      const q = effectiveSearch.toLowerCase();
       const match =
         r.vehicle_number?.toLowerCase().includes(q) ||
         r.driver_name?.toLowerCase().includes(q) ||
@@ -444,193 +463,73 @@ export default function VehicleReplacements() {
   if (loading && replacements.length === 0) return <Loading />;
 
   return (
-    <div
-      className="p-4 md:p-6 space-y-5"
-      style={{background: C.primarybg, minHeight: "100vh"}}
-    >
-      {/* ─── Stats Cards ─── */}
-      {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          {[
-            {
-              label: "Total",
-              value: stats.total,
-              color: C.primary,
-              icon: <FileText size={18} />,
-            },
-            {
-              label: "Active",
-              value: stats.active,
-              color: C.green,
-              icon: <RefreshCw size={18} />,
-            },
-            {
-              label: "Pending",
-              value: stats.pending,
-              color: C.pending,
-              icon: <Clock size={18} />,
-            },
-            {
-              label: "Completed",
-              value: stats.completed,
-              color: C.skyblue,
-              icon: <CheckCircle size={18} />,
-            },
-            {
-              label: "This Month",
-              value: stats.this_month,
-              color: "#9C27B0",
-              icon: <Calendar size={18} />,
-            },
-          ].map((s, i) => (
-            <div
-              key={i}
-              className="p-4 rounded-xl"
-              style={{
-                background: C.secondarybg,
-                boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-              }}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <span
-                  className="text-[11px] font-bold uppercase tracking-widest"
-                  style={{color: C.secondarytext}}
-                >
-                  {s.label}
-                </span>
-                <span style={{color: s.color}}>{s.icon}</span>
-              </div>
-              <span
-                className="text-2xl font-extrabold"
-                style={{color: s.color}}
-              >
-                {s.value}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* ─── Toolbar ─── */}
-      <div
-        className="flex flex-wrap items-center gap-3 p-4 rounded-xl"
-        style={{
-          background: C.secondarybg,
-          boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-        }}
-      >
-        <div className="flex-1 min-w-[200px]">
-          <CustomSearch
-            value={searchQuery}
-            onChange={setSearchQuery}
-            placeholder="Search by vehicle, driver, reason..."
-          />
-        </div>
-        <div className="w-44">
-          <CustomDropdown
-            value={statusFilter}
-            onChange={setStatusFilter}
-            options={STATUS_FILTER_OPTIONS}
-          />
-        </div>
-        <ActionBtn
-          color={C.primary}
-          onClick={() => {
-            setForm(initialForm);
-            setVehicleDrivers([]);
-            setAvailableVehicles([]);
-            setShowCreateModal(true);
-          }}
-        >
-          <Plus size={16} /> New Replacement
-        </ActionBtn>
-      </div>
-
+    <div className="space-y-0">
       {/* ─── Replacement Cards ─── */}
       {filtered.length === 0 ? (
-        <div className="text-center py-16" style={{color: C.secondarytext}}>
-          <RefreshCw size={48} className="mx-auto mb-4 opacity-30" />
-          <p className="text-lg font-semibold">No vehicle replacements found</p>
+        <div className="p-12 text-center text-gray-400">
+          <RefreshCw size={48} className="mx-auto mb-3 opacity-20" />
+          <p className="font-semibold text-gray-500">
+            No vehicle replacements found
+          </p>
           <p className="text-sm mt-1">
             Create a new replacement request to get started
           </p>
         </div>
       ) : (
-        <div className="grid gap-3">
+        <div className="p-4 grid gap-4">
           {filtered.map((r) => (
             <div
               key={r.id}
-              className="p-4 rounded-xl cursor-pointer hover:shadow-md transition-shadow"
-              style={{
-                background: C.secondarybg,
-                boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-              }}
+              className="rounded-md border border-gray-100 bg-primarybg p-4 hover:shadow-lg hover:border-primary/30 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer active:scale-[0.99]"
               onClick={() => setShowDetailModal(r)}
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                    <Car size={16} style={{color: C.primary}} />
-                    <span
-                      className="text-sm font-bold"
-                      style={{color: C.primarytext}}
-                    >
-                      {r.vehicle_number}
-                    </span>
-                    {r.replacement_vehicle_number && (
-                      <>
-                        <RefreshCw size={13} style={{color: C.secondarytext}} />
-                        <span
-                          className="text-sm font-bold"
-                          style={{color: C.green}}
-                        >
-                          {r.replacement_vehicle_number}
-                        </span>
-                      </>
-                    )}
-                    <Pill label={r.status} style={STATUS_STYLE[r.status]} />
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-md flex items-center justify-center text-white bg-primary shrink-0">
+                    <RefreshCw size={20} />
                   </div>
-                  <div
-                    className="flex items-center gap-4 text-xs flex-wrap"
-                    style={{color: C.secondarytext}}
-                  >
-                    <span className="flex items-center gap-1">
-                      <User size={12} /> {r.driver_name}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Calendar size={12} /> {r.start_date} → {r.end_date}
-                    </span>
-                    <span
-                      className="px-2 py-0.5 rounded text-[10px] font-bold"
-                      style={{background: C.primarybg}}
-                    >
-                      {REASON_LABELS[r.reason] || r.reason}
-                    </span>
-                    {r.service_title && (
-                      <span className="flex items-center gap-1">
-                        <Wrench size={12} /> {r.service_title}
-                      </span>
-                    )}
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-semibold text-primarytext">
+                        {r.vehicle_number}
+                      </p>
+                      {r.replacement_vehicle_number && (
+                        <>
+                          <RefreshCw size={13} className="text-secondarytext" />
+                          <span className="font-semibold text-green">
+                            {r.replacement_vehicle_number}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    <p className="text-xs text-secondarytext">
+                      {r.driver_name}
+                    </p>
+                    <p className="text-sm text-secondarytext">
+                      {r.start_date} → {r.end_date}
+                    </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="px-3 py-1.5 rounded-md bg-white text-secondarytext text-xs font-bold uppercase border border-gray-200">
+                    {REASON_LABELS[r.reason] || r.reason}
+                  </span>
+                  {r.service_title && (
+                    <span className="px-3 py-1.5 rounded-md bg-white text-secondarytext text-xs font-medium border border-gray-200 flex items-center gap-1">
+                      <Wrench size={12} /> {r.service_title}
+                    </span>
+                  )}
+                  <Pill label={r.status} style={STATUS_STYLE[r.status]} />
                   {r.days_remaining > 0 && r.status === "approved" && (
-                    <span
-                      className="text-xs font-bold px-2 py-1 rounded"
-                      style={{background: "#E8F5E9", color: "#2E7D32"}}
-                    >
+                    <span className="text-xs font-bold px-2 py-1 rounded bg-green-50 text-green">
                       {r.days_remaining}d left
                     </span>
                   )}
                   {r.days_remaining <= 0 && r.status === "approved" && (
-                    <span
-                      className="text-xs font-bold px-2 py-1 rounded"
-                      style={{background: "#FFEBEE", color: "#B71C1C"}}
-                    >
+                    <span className="text-xs font-bold px-2 py-1 rounded bg-red-50 text-red">
                       Overdue
                     </span>
                   )}
-                  <ChevronRight size={16} style={{color: C.secondarytext}} />
                 </div>
               </div>
             </div>
@@ -724,9 +623,19 @@ export default function VehicleReplacements() {
                       setShowApproveModal(showDetailModal);
                       setShowDetailModal(null);
                       // Convert dd-mm-yyyy to yyyy-mm-dd for API
-                      const sd = showDetailModal.start_date?.split("-").reverse().join("-");
-                      const ed = showDetailModal.end_date?.split("-").reverse().join("-");
-                      fetchAvailableVehicles(sd, ed, showDetailModal.vehicle_id);
+                      const sd = showDetailModal.start_date
+                        ?.split("-")
+                        .reverse()
+                        .join("-");
+                      const ed = showDetailModal.end_date
+                        ?.split("-")
+                        .reverse()
+                        .join("-");
+                      fetchAvailableVehicles(
+                        sd,
+                        ed,
+                        showDetailModal.vehicle_id,
+                      );
                     }}
                   >
                     <CheckCircle size={15} /> Approve
@@ -854,7 +763,11 @@ export default function VehicleReplacements() {
                   onChange={(e) => {
                     setForm({...form, start_date: e.target.value});
                     if (form.end_date && form.vehicle_id)
-                      fetchAvailableVehicles(e.target.value, form.end_date, form.vehicle_id);
+                      fetchAvailableVehicles(
+                        e.target.value,
+                        form.end_date,
+                        form.vehicle_id,
+                      );
                   }}
                   className={inputCls}
                 />
@@ -867,7 +780,11 @@ export default function VehicleReplacements() {
                   onChange={(e) => {
                     setForm({...form, end_date: e.target.value});
                     if (form.start_date && form.vehicle_id)
-                      fetchAvailableVehicles(form.start_date, e.target.value, form.vehicle_id);
+                      fetchAvailableVehicles(
+                        form.start_date,
+                        e.target.value,
+                        form.vehicle_id,
+                      );
                   }}
                   className={inputCls}
                 />
@@ -879,7 +796,9 @@ export default function VehicleReplacements() {
                 <Label>Replacement Vehicle *</Label>
                 <SearchableSelect
                   value={form.replacement_vehicle_id}
-                  onChange={(val) => setForm({...form, replacement_vehicle_id: val})}
+                  onChange={(val) =>
+                    setForm({...form, replacement_vehicle_id: val})
+                  }
                   options={availableVehicles.map((v) => ({
                     value: v.id,
                     label: `${v.vehicle_number} – ${v.vehicle_name || v.vehicle_type}`,
@@ -887,8 +806,12 @@ export default function VehicleReplacements() {
                   placeholder="Select replacement vehicle..."
                 />
                 {form.replacement_vehicle_id && (
-                  <p className="text-xs mt-1 flex items-center gap-1" style={{color: C.green}}>
-                    <RefreshCw size={12} /> Driver will be temporarily assigned to this vehicle
+                  <p
+                    className="text-xs mt-1 flex items-center gap-1"
+                    style={{color: C.green}}
+                  >
+                    <RefreshCw size={12} /> Driver will be temporarily assigned
+                    to this vehicle
                   </p>
                 )}
               </div>

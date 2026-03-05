@@ -8,7 +8,6 @@ import (
 	"transport-server/api/faculty"
 	"transport-server/api/student"
 	"transport-server/middleware"
-	"transport-server/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -26,17 +25,6 @@ func RegisterRoutes(r *gin.Engine) {
 	// Google OAuth
 	r.GET("/auth/google/login", auth.GoogleLogin)
 	r.GET("/auth/google/callback", auth.GoogleCallback)
-
-	// DEBUG: Test PDF endpoint (remove after testing)
-	r.GET("/test-pdf", func(c *gin.Context) {
-		pr := utils.NewPDFReport("TEST REPORT", "Generated for testing", false)
-		pr.AddTable(
-			[]string{"S.No", "Name", "Status"},
-			[][]string{{"1", "Test Item", "Active"}, {"2", "Another Item", "Done"}},
-			[]float64{20, 80, 40},
-		)
-		pr.Send(c, "test_report.pdf")
-	})
 
 	// ========================================
 	// AUTHENTICATED ROUTES

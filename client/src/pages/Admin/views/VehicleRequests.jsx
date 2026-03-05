@@ -517,11 +517,15 @@ export default function VehicleRequests() {
     return matchesStatus && matchesSearch;
   });
 
-  // Stats
-  const statusCounts = {};
-  requests.forEach((r) => {
-    statusCounts[r.status] = (statusCounts[r.status] || 0) + 1;
-  });
+  // Stat counts
+  const pendingCount = requests.filter((r) => r.status === "pending").length;
+  const approvedCount = requests.filter((r) => r.status === "approved").length;
+  const ongoingCount = requests.filter((r) =>
+    ["assigned", "trip_started"].includes(r.status),
+  ).length;
+  const completedCount = requests.filter(
+    (r) => r.status === "completed",
+  ).length;
 
   if (loading) return <Loading fullScreen={false} />;
 
@@ -530,47 +534,90 @@ export default function VehicleRequests() {
       <h1 className="text-secondarytext text-xl font-normal">
         Vehicle Requests
       </h1>
-      {/* Status Tabs */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        {Object.entries(STATUS_CONFIG).map(([key, cfg]) => {
-          const StatusIcon = cfg.icon;
-          const isActive = filterStatus === key;
-          return (
-            <button
-              key={key}
-              onClick={() => setFilterStatus(isActive ? "" : key)}
-              className={`p-4 rounded-md border text-left transition-all ${
-                isActive
-                  ? "bg-secondarybg ring-2 ring-primary border-primary shadow-md"
-                  : "bg-secondarybg border-primarybg hover:border-primary/30"
-              }`}
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <div className={`p-1.5 rounded-md ${cfg.color}`}>
-                  <StatusIcon size={14} />
-                </div>
-                <span className="text-[10px] font-bold text-secondarytext uppercase tracking-wider">
-                  {cfg.label}
-                </span>
-              </div>
-              <p className="text-2xl font-black text-primarytext">
-                {statusCounts[key] || 0}
-              </p>
-            </button>
-          );
-        })}
+
+      {/* Summary Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {/* Pending */}
+        <div className="bg-secondarybg rounded-md border border-primarybg shadow-sm p-5 flex items-center gap-4">
+          <div className="p-3 rounded-md bg-amber-50 text-amber-500 shrink-0">
+            <Clock size={20} />
+          </div>
+          <div>
+            <p className="text-xs text-secondarytext font-medium mb-0.5">
+              Pending
+            </p>
+            <p className="text-2xl font-bold text-primarytext leading-none">
+              {pendingCount}
+            </p>
+          </div>
+        </div>
+        {/* Approved */}
+        <div className="bg-secondarybg rounded-md border border-primarybg shadow-sm p-5 flex items-center gap-4">
+          <div className="p-3 rounded-md bg-purple-50 text-purple-500 shrink-0">
+            <CheckCircle size={20} />
+          </div>
+          <div>
+            <p className="text-xs text-secondarytext font-medium mb-0.5">
+              Approved
+            </p>
+            <p className="text-2xl font-bold text-primarytext leading-none">
+              {approvedCount}
+            </p>
+          </div>
+        </div>
+        {/* Ongoing */}
+        <div className="bg-secondarybg rounded-md border border-primarybg shadow-sm p-5 flex items-center gap-4">
+          <div className="p-3 rounded-md bg-blue-50 text-blue-500 shrink-0">
+            <Truck size={20} />
+          </div>
+          <div>
+            <p className="text-xs text-secondarytext font-medium mb-0.5">
+              Ongoing
+            </p>
+            <p className="text-2xl font-bold text-primarytext leading-none">
+              {ongoingCount}
+            </p>
+          </div>
+        </div>
+        {/* Completed */}
+        <div className="bg-secondarybg rounded-md border border-primarybg shadow-sm p-5 flex items-center gap-4">
+          <div className="p-3 rounded-md bg-green-50 text-green-500 shrink-0">
+            <CheckCircle size={20} />
+          </div>
+          <div>
+            <p className="text-xs text-secondarytext font-medium mb-0.5">
+              Completed
+            </p>
+            <p className="text-2xl font-bold text-primarytext leading-none">
+              {completedCount}
+            </p>
+          </div>
+        </div>
       </div>
 
-      {/* Search */}
-      <div className="bg-secondarybg rounded-md border border-primarybg shadow-sm p-4">
+      {/* Search & Filter */}
+      <div className="bg-secondarybg rounded-md border border-primarybg shadow-sm p-4 flex flex-col sm:flex-row gap-3">
         <CustomSearch
           value={searchQuery}
           onChange={setSearchQuery}
           placeholder="Search by name, department, purpose, or ID..."
-          className="max-w-md"
+          className="flex-1"
+        />
+        <CustomDropdown
+          value={filterStatus}
+          onChange={setFilterStatus}
+          options={[
+            {value: "", label: "All Statuses"},
+            ...Object.entries(STATUS_CONFIG).map(([key, cfg]) => ({
+              value: key,
+              label: cfg.label,
+            })),
+          ]}
+          placeholder="All Statuses"
+          width="w-full sm:w-48"
         />
       </div>
-
+ 
       {/* Table */}
       {filtered.length === 0 ? (
         <div className="bg-secondarybg rounded-md border border-primarybg p-12 text-center">

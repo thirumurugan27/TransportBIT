@@ -163,13 +163,12 @@ type CreateStopRequest struct {
 ========================= */
 
 type Shift struct {
-	ID          int         `json:"id"`
-	Name        string      `json:"name"`
-	StartTime   string      `json:"start_time"`
-	EndTime     string      `json:"end_time"`
-	Description string      `json:"description"`
-	CreatedBy   *int        `json:"created_by"`
-	Slots       []ShiftSlot `json:"slots,omitempty"`
+	ID          int    `json:"id"`
+	Name        string `json:"name"`
+	StartTime   string `json:"start_time"`
+	EndTime     string `json:"end_time"`
+	Description string `json:"description"`
+	CreatedBy   *int   `json:"created_by"`
 }
 
 type CreateShiftRequest struct {
@@ -179,27 +178,12 @@ type CreateShiftRequest struct {
 	Description string `json:"description"`
 }
 
-type ShiftSlot struct {
-	ID        int    `json:"id"`
-	ShiftID   int    `json:"shift_id"`
-	StartTime string `json:"start_time"`
-	EndTime   string `json:"end_time"`
-	SlotOrder int    `json:"slot_order"`
-	CreatedBy *int   `json:"created_by,omitempty"`
-}
-
-type SlotInput struct {
-	StartTime string `json:"start_time"`
-	EndTime   string `json:"end_time"`
-}
-
 type CreateShiftWithSlotsRequest struct {
-	ID          int         `json:"id"`
-	Name        string      `json:"name"`
-	Description string      `json:"description"`
-	StartTime   string      `json:"start_time"`
-	EndTime     string      `json:"end_time"`
-	Slots       []SlotInput `json:"slots"`
+	ID          int    `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	StartTime   string `json:"start_time"`
+	EndTime     string `json:"end_time"`
 }
 
 /* =========================
@@ -263,15 +247,14 @@ type TemporaryAssignment struct {
 	Status              string `json:"status"`
 	CreatedAt           string `json:"created_at"`
 	// Joined fields
-	OriginalDriverName    string      `json:"original_driver_name"`
-	ReplacementDriverName string      `json:"replacement_driver_name"`
-	ShiftName             string      `json:"shift_name"`
-	StartTime             string      `json:"start_time"`
-	EndTime               string      `json:"end_time"`
-	Slots                 []ShiftSlot `json:"slots,omitempty"`
-	VehicleNumber         string      `json:"vehicle_number"`
-	VehicleType           string      `json:"vehicle_type"`
-	VehicleName           string      `json:"vehicle_name"`
+	OriginalDriverName    string `json:"original_driver_name"`
+	ReplacementDriverName string `json:"replacement_driver_name"`
+	ShiftName             string `json:"shift_name"`
+	StartTime             string `json:"start_time"`
+	EndTime               string `json:"end_time"`
+	VehicleNumber         string `json:"vehicle_number"`
+	VehicleType           string `json:"vehicle_type"`
+	VehicleName           string `json:"vehicle_name"`
 }
 
 type CreateTemporaryAssignmentRequest struct {

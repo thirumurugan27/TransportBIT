@@ -7,7 +7,6 @@ import (
 	"transport-server/api/admin"
 	"transport-server/config"
 	"transport-server/routes"
-
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -19,15 +18,14 @@ func main() {
 	if err := godotenv.Load(); err != nil {
 		log.Println("Warning: No .env file found")
 	}
-
 	// 2. Initialize Database
 	config.InitDB()
-
+	// 3. Run database migrations (e.g., ev_assignment_shifts junction table)
+	admin.RunEVMigrations()
 	// 3. Initialize Gin Router
 	r := gin.Default()
 	r.Static("/uploads", "./uploads")
 	r.Static("/documents", "./Documents")
-
 	// 4. Configure CORS
 	allowedOrigins := os.Getenv("CORS_ORIGINS")
 	if allowedOrigins == "" {

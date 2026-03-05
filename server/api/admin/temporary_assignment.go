@@ -65,25 +65,6 @@ func GetTemporaryAssignments(c *gin.Context) {
 			continue
 		}
 		
-		// Fetch shift slots if shift_id is available
-		if ta.ShiftID != nil && *ta.ShiftID > 0 {
-			slotRows, slotErr := config.DB.Query(`
-				SELECT TIME_FORMAT(start_time, '%h:%i %p'), TIME_FORMAT(end_time, '%h:%i %p')
-				FROM shift_slots
-				WHERE shift_id = ?
-				ORDER BY slot_order ASC
-			`, *ta.ShiftID)
-			if slotErr == nil {
-				for slotRows.Next() {
-					var slot models.ShiftSlot
-					if err := slotRows.Scan(&slot.StartTime, &slot.EndTime); err == nil {
-						ta.Slots = append(ta.Slots, slot)
-					}
-				}
-				slotRows.Close()
-			}
-		}
-		
 		log.Printf("Found temporary assignment: ID=%d, ShiftID=%v, VehicleID=%d", ta.ID, ta.ShiftID, ta.VehicleID)
 		list = append(list, ta)
 	}

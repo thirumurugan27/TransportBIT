@@ -273,7 +273,13 @@ func GetMyVehicleRequests(c *gin.Context) {
 		return
 	}
 
-	colExists, _ := config.HasColumns("vehiclerequests", "Purpose", "PurposeOfVisit", "RequestUnder", "Vertical", "OralApproval", "TaskID", "OutcomeExpected", "OutcomeAuditable", "TravellerName", "MobileNumber", "Address")
+	colExists, _ := config.HasColumns("vehiclerequests",
+		"Purpose", "PurposeOfVisit", "RequestUnder", "Vertical", "OralApproval",
+		"TaskID", "OutcomeExpected", "OutcomeAuditable",
+		"TravellerName", "MobileNumber", "Address",
+		"ReturnFromPlace", "ReturnToPlace", "ReturnFromDateTime", "ReturnTodateTime",
+		"ContactName", "ContactPhone",
+	)
 	purposeExpr := "'' as Purpose"
 	if colExists["Purpose"] && colExists["PurposeOfVisit"] {
 		purposeExpr = "COALESCE(vr.Purpose, vr.PurposeOfVisit, '') as Purpose"
@@ -306,6 +312,30 @@ func GetMyVehicleRequests(c *gin.Context) {
 	if colExists["OutcomeAuditable"] {
 		outcomeAuditableExpr = "COALESCE(vr.OutcomeAuditable, '') as OutcomeAuditable"
 	}
+	returnFromPlaceExpr := "'' as ReturnFromPlace"
+	if colExists["ReturnFromPlace"] {
+		returnFromPlaceExpr = "COALESCE(vr.ReturnFromPlace, '') as ReturnFromPlace"
+	}
+	returnToPlaceExpr := "'' as ReturnToPlace"
+	if colExists["ReturnToPlace"] {
+		returnToPlaceExpr = "COALESCE(vr.ReturnToPlace, '') as ReturnToPlace"
+	}
+	returnFromDateTimeExpr := "'' as ReturnFromDateTime"
+	if colExists["ReturnFromDateTime"] {
+		returnFromDateTimeExpr = "COALESCE(DATE_FORMAT(vr.ReturnFromDateTime, '%d-%m-%Y %h:%i %p'), '') as ReturnFromDateTime"
+	}
+	returnToDateTimeExpr := "'' as ReturnTodateTime"
+	if colExists["ReturnTodateTime"] {
+		returnToDateTimeExpr = "COALESCE(DATE_FORMAT(vr.ReturnTodateTime, '%d-%m-%Y %h:%i %p'), '') as ReturnTodateTime"
+	}
+	contactNameExpr := "'' as ContactName"
+	if colExists["ContactName"] {
+		contactNameExpr = "COALESCE(vr.ContactName, '') as ContactName"
+	}
+	contactPhoneExpr := "'' as ContactPhone"
+	if colExists["ContactPhone"] {
+		contactPhoneExpr = "COALESCE(vr.ContactPhone, '') as ContactPhone"
+	}
 	travellerNameExpr := "'' as TravellerName"
 	if colExists["TravellerName"] {
 		travellerNameExpr = "COALESCE(vr.TravellerName, '') as TravellerName"
@@ -332,14 +362,14 @@ func GetMyVehicleRequests(c *gin.Context) {
 			COALESCE(vr.CountPerson, 1) as CountPerson,
 			COALESCE(vr.OnwardFromPlace, '') as OnwardFromPlace,
 			COALESCE(vr.OnwardToPlace, '') as OnwardToPlace,
-		COALESCE(DATE_FORMAT(vr.OnwardFromDateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as OnwardFromDateTime,
-		COALESCE(DATE_FORMAT(vr.OnwardTodateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as OnwardTodateTime,
-		COALESCE(vr.ReturnFromPlace, '') as ReturnFromPlace,
-		COALESCE(vr.ReturnToPlace, '') as ReturnToPlace,
-		COALESCE(DATE_FORMAT(vr.ReturnFromDateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as ReturnFromDateTime,
-		COALESCE(DATE_FORMAT(vr.ReturnTodateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as ReturnTodateTime,
-			COALESCE(vr.ContactName, '') as ContactName,
-			COALESCE(vr.ContactPhone, '') as ContactPhone,
+			COALESCE(DATE_FORMAT(vr.OnwardFromDateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as OnwardFromDateTime,
+			COALESCE(DATE_FORMAT(vr.OnwardTodateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as OnwardTodateTime,
+			%s,
+			%s,
+			%s,
+			%s,
+			%s,
+			%s,
 			%s,
 			%s,
 			%s,
@@ -356,7 +386,7 @@ func GetMyVehicleRequests(c *gin.Context) {
 			COALESCE(uf.full_name, '') as faculty_name,
 			COALESCE(uf.phone, '') as faculty_phone,
 			COALESCE(f.department, '') as faculty_department,
-		DATE_FORMAT(COALESCE(vr.created_at, NOW()), '%%d-%%m-%%Y %%h:%%i %%p') as created_at
+			DATE_FORMAT(COALESCE(vr.created_at, NOW()), '%%d-%%m-%%Y %%h:%%i %%p') as created_at
 		FROM vehiclerequests vr
 		LEFT JOIN vehicles v ON vr.vehicle_id = v.id
 		LEFT JOIN drivers d ON vr.driver_id = d.id
@@ -365,7 +395,13 @@ func GetMyVehicleRequests(c *gin.Context) {
 		LEFT JOIN users uf ON f.user_id = uf.id
 		WHERE vr.faculty_id = ?
 		ORDER BY vr.created_at DESC
-	`, requestUnderExpr, purposeExpr, verticalExpr, oralApprovalExpr, taskIDExpr, outcomeExpectedExpr, outcomeAuditableExpr, travellerNameExpr, mobileNumberExpr, addressExpr)
+	`,
+		requestUnderExpr, purposeExpr, verticalExpr, oralApprovalExpr,
+		returnFromPlaceExpr, returnToPlaceExpr, returnFromDateTimeExpr, returnToDateTimeExpr,
+		contactNameExpr, contactPhoneExpr,
+		taskIDExpr, outcomeExpectedExpr, outcomeAuditableExpr,
+		travellerNameExpr, mobileNumberExpr, addressExpr,
+	)
 
 	rows, err := config.DB.Query(query, facultyID)
 	if err != nil {

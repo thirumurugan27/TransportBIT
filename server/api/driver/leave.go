@@ -98,9 +98,7 @@ func ApplyLeave(c *gin.Context) {
 
 	if err != nil {
 		log.Println("ApplyLeave DB Error:", err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(), // TEMP: keep during debugging
-		})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to apply leave"})
 		return
 	}
 

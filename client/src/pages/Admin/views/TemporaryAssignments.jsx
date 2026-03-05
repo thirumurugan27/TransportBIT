@@ -12,7 +12,6 @@ import {
   Clock,
   ArrowRight,
   Truck,
-  FileText,
   AlertCircle,
 } from "lucide-react";
 
@@ -45,7 +44,7 @@ const formatTimeAMPM = (time24) => {
   return `${h12}:${minutes} ${ampm}`;
 };
 
-export default function TemporaryAssignments({openModal}) {
+export default function TemporaryAssignments({openModal, searchQuery = ""}) {
   const [tempAssignments, setTempAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -204,96 +203,127 @@ export default function TemporaryAssignments({openModal}) {
   };
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-0">
       {/* List */}
       {loading ? (
         <Loading fullScreen={false} text="Loading temporary assignments..." />
-      ) : tempAssignments.length === 0 ? (
-        <div className="bg-white rounded-md shadow-sm border border-gray-100 p-12 text-center text-gray-400">
-          <FileText size={48} className="mx-auto mb-3 opacity-20" />
-          <p>No temporary substitutions active.</p>
-        </div>
       ) : (
-        <div className="p-4 grid gap-4">
-          {tempAssignments.map((t) => (
-            <div
-              key={t.id}
-              className="rounded-md border border-gray-100 bg-primarybg p-4 hover:shadow-md transition-all cursor-pointer"
-              onClick={() => {
-                setSelectedDetail(t);
-                setShowDetailModal(true);
-              }}
-            >
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-md flex items-center justify-center text-white bg-pending">
-                    <Clock size={20} />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-primarytext">
-                      {formatVehicleLabel(t)}
-                    </p>
-                    <p className="text-xs text-secondarytext">
-                      {t.vehicle_number}
-                    </p>
-                    <p className="text-sm text-secondarytext">
-                      {t.start_date === t.end_date
-                        ? t.start_date
-                        : `${t.start_date} to ${t.end_date}`}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  {t.shift_name && (
-                    <span className="px-3 py-1.5 rounded-md bg-primary/10 text-primary text-sm font-medium">
-                      {t.shift_name}
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-4">
-                  <div className="flex flex-col items-start">
-                    <div className="flex items-center gap-2">
-                      <div className="w-10 h-10 rounded-md bg-red-100 flex items-center justify-center">
-                        <User size={18} className="text-red-600" />
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Original</p>
-                        <p className="font-medium text-gray-900 ">
-                          {t.original_driver_name}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  <ArrowRight size={20} className="text-gray-400" />
-                  <div className="flex flex-col items-start">
-                    <div className="flex items-center gap-2">
-                      <div className="w-10 h-10 rounded-md bg-green-100 flex items-center justify-center">
-                        <User size={18} className="text-green-600" />
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Replacement</p>
-                        <p className="font-medium text-primary">
-                          {t.replacement_driver_name}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleCancel(t.id);
-                    }}
-                    className="ml-4 p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                    title="Cancel Assignment"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                </div>
+        (() => {
+          const filtered = tempAssignments.filter((t) => {
+            if (!searchQuery) return true;
+            const q = searchQuery.toLowerCase();
+            return (
+              formatVehicleLabel(t)?.toLowerCase().includes(q) ||
+              t.vehicle_number?.toLowerCase().includes(q) ||
+              t.original_driver_name?.toLowerCase().includes(q) ||
+              t.replacement_driver_name?.toLowerCase().includes(q) ||
+              t.shift_name?.toLowerCase().includes(q)
+            );
+          });
+          if (filtered.length === 0)
+            return (
+              <div className="p-12 text-center text-gray-400">
+                <Clock size={48} className="mx-auto mb-3 opacity-20" />
+                <p className="font-semibold text-gray-500">
+                  {searchQuery
+                    ? "No results matching your search."
+                    : "No temporary substitutions active."}
+                </p>
+                {!searchQuery && (
+                  <p className="text-sm mt-1">
+                    Create a temporary assignment to get started
+                  </p>
+                )}
               </div>
+            );
+          return (
+            <div className="p-4 grid gap-4">
+              {filtered.map((t) => (
+                <div
+                  key={t.id}
+                  className="rounded-md border border-gray-100 bg-primarybg p-4 hover:shadow-lg hover:border-primary/30 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer active:scale-[0.99]"
+                  onClick={() => {
+                    setSelectedDetail(t);
+                    setShowDetailModal(true);
+                  }}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    {/* Left: icon + vehicle info */}
+                    <div className="flex items-center gap-4 min-w-0">
+                      <div className="w-12 h-12 rounded-md flex items-center justify-center text-white bg-pending shrink-0">
+                        <Clock size={20} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-primarytext truncate">
+                          {formatVehicleLabel(t)}
+                        </p>
+                        <p className="text-xs text-secondarytext font-mono">
+                          {t.vehicle_number}
+                        </p>
+                        <p className="text-sm text-secondarytext">
+                          {t.start_date === t.end_date
+                            ? t.start_date
+                            : `${t.start_date} → ${t.end_date}`}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Middle: shift badge */}
+                    {t.shift_name && (
+                      <span className="px-3 py-1.5 rounded-md bg-primary/10 text-primary text-sm font-semibold">
+                        {t.shift_name}
+                      </span>
+                    )}
+
+                    {/* Right: driver substitution */}
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div className="flex items-center gap-2">
+                        <div className="w-9 h-9 rounded-md bg-red-100 flex items-center justify-center shrink-0">
+                          <User size={16} className="text-red-600" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">
+                            Original
+                          </p>
+                          <p className="text-sm font-semibold text-primarytext">
+                            {t.original_driver_name}
+                          </p>
+                        </div>
+                      </div>
+                      <ArrowRight
+                        size={18}
+                        className="text-gray-300 shrink-0"
+                      />
+                      <div className="flex items-center gap-2">
+                        <div className="w-9 h-9 rounded-md bg-green-100 flex items-center justify-center shrink-0">
+                          <User size={16} className="text-green-600" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">
+                            Substitute
+                          </p>
+                          <p className="text-sm font-semibold text-primary">
+                            {t.replacement_driver_name}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCancel(t.id);
+                        }}
+                        className="ml-2 p-2 text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                        title="Cancel Assignment"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          );
+        })()
       )}
 
       {/* Create Modal */}

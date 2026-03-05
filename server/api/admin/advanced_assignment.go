@@ -38,13 +38,23 @@ func GetAvailableDrivers(c *gin.Context) {
 		           THEN 1 ELSE 0 
 		       END as on_leave,
 		       CASE 
-		           WHEN EXISTS(SELECT 1 FROM assignments a 
-		                       WHERE a.driver_id = d.id 
-		                       AND a.assigned_date = ` + date + `
-		                       AND a.status != 'cancelled'`
+		           WHEN EXISTS(
+		               SELECT 1 FROM assignments a
+		               JOIN shifts s ON a.shift_id = s.id
+		               WHERE a.driver_id = d.id
+		               AND ` + date + ` BETWEEN a.start_date AND a.end_date
+		               AND a.status NOT IN ('cancelled', 'completed')`
 
 	if shiftID != "" {
-		query += ` AND a.shift_id = ` + shiftID
+		// When a specific shift is provided, check for TIME overlap rather than just same shift_id
+		// This correctly detects if the driver is already busy during the same time range
+		query += ` AND EXISTS (
+		               SELECT 1 FROM shifts ns
+		               WHERE ns.id = ` + shiftID + `
+		               AND (
+		                   (s.start_time < ns.end_time AND s.end_time > ns.start_time)
+		               )
+		           )`
 	}
 
 	query += `)
