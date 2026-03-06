@@ -92,23 +92,6 @@ const ACTION_COLORS = {
   },
 };
 
-const PRIORITY_CONFIG = {
-  high: {bg: "bg-red/10", text: "text-red", label: "High", dot: "bg-red"},
-  medium: {
-    bg: "bg-pending/10",
-    text: "text-pending",
-    label: "Medium",
-    dot: "bg-pending",
-  },
-  low: {bg: "bg-green/10", text: "text-green", label: "Low", dot: "bg-green"},
-};
-
-const TASK_TYPE_CONFIG = {
-  vehicle_request: {icon: Truck, label: "Vehicle Request"},
-  document_expiry: {icon: Shield, label: "Document Expiry"},
-  license_expiry: {icon: IdCard, label: "License Expiry"},
-};
-
 const ACTIVITY_ICONS = {
   leave: Calendar,
   service: Wrench,
@@ -909,20 +892,6 @@ export default function AdminHome() {
     {value: stats.not_marked, color: "#D1D5DB", label: "Not Marked"},
   ];
 
-  const requestDonutSegments = [
-    {value: stats.vehicle_requests_pending, color: "#F0B041", label: "Pending"},
-    {
-      value: stats.vehicle_requests_approved,
-      color: "#7D53F6",
-      label: "Approved",
-    },
-    {
-      value: stats.vehicle_requests_completed,
-      color: "#008000",
-      label: "Completed",
-    },
-  ];
-
   return (
     <div className="space-y-6 pb-8 animate-fadeIn">
       {/* Welcome Header + Quick Summary */}
@@ -1473,208 +1442,53 @@ export default function AdminHome() {
         </div>
       </div>
 
-      {/* Row 4: Upcoming Tasks + Recent Activity + Vehicle Requests */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Upcoming Important Tasks */}
-        <div className="bg-secondarybg rounded-md border border-gray-100 shadow-sm overflow-hidden">
-          <div className="p-5 pb-3 border-b border-gray-50">
-            <h2 className="text-base font-bold text-primarytext flex items-center gap-2">
-              <span className="w-1.5 h-5 bg-customblue rounded-full" />
-              Upcoming Tasks
-            </h2>
-            <p className="text-xs text-secondarytext mt-1">
-              Deadlines &amp; upcoming events
-            </p>
-          </div>
-          <div className="p-4 max-h-[350px] overflow-y-auto">
-            {workloadData?.upcoming_tasks?.length > 0 ? (
-              <div className="space-y-2.5">
-                {workloadData.upcoming_tasks.map((task, i) => {
-                  const taskConf = TASK_TYPE_CONFIG[task.type] || {
-                    icon: Clock,
-                    label: task.type,
-                  };
-                  const priority =
-                    PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.medium;
-                  const TaskIcon = taskConf.icon;
-                  return (
-                    <div
-                      key={i}
-                      onClick={() => navigate(task.route)}
-                      className="p-3 rounded-md border border-gray-100 hover:border-primary/20 hover:shadow-sm cursor-pointer transition-all group"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div
-                          className={`w-9 h-9 rounded-md flex items-center justify-center shrink-0 ${ACTION_COLORS[task.color]?.bg || "bg-primarybg"}`}
-                        >
-                          <TaskIcon
-                            className={`w-4 h-4 ${ACTION_COLORS[task.color]?.text || "text-secondarytext"}`}
-                          />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-primarytext truncate">
-                            {task.title}
-                          </p>
-                          <p className="text-xs text-secondarytext mt-0.5">
-                            {task.description}
-                          </p>
-                          <div className="flex items-center gap-2 mt-1.5">
-                            <span className="flex items-center gap-1 text-[10px] text-secondarytext">
-                              <Clock className="w-3 h-3" />
-                              {task.due_date}
-                            </span>
-                            <span
-                              className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${priority.bg} ${priority.text}`}
-                            >
-                              {priority.label}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-10 text-secondarytext">
-                <CheckCircle2 className="w-10 h-10 mb-2 text-green/30" />
-                <p className="text-sm font-medium">No upcoming tasks</p>
-              </div>
-            )}
-          </div>
+      {/* Row 4: Recent Activity + Vehicle Requests */}
+      {/* Row 4: Recent Activity */}
+      <div className="bg-secondarybg rounded-md border border-gray-100 shadow-sm overflow-hidden">
+        <div className="p-5 pb-3 border-b border-gray-50">
+          <h2 className="text-base font-bold text-primarytext flex items-center gap-2">
+            <span className="w-1.5 h-5 bg-primarydull rounded-full" />
+            Recent Activity
+          </h2>
+          <p className="text-xs text-secondarytext mt-1">
+            Latest system events
+          </p>
         </div>
-
-        {/* Recent Activity Feed */}
-        <div className="bg-secondarybg rounded-md border border-gray-100 shadow-sm overflow-hidden">
-          <div className="p-5 pb-3 border-b border-gray-50">
-            <h2 className="text-base font-bold text-primarytext flex items-center gap-2">
-              <span className="w-1.5 h-5 bg-primarydull rounded-full" />
-              Recent Activity
-            </h2>
-            <p className="text-xs text-secondarytext mt-1">
-              Latest system events
-            </p>
-          </div>
-          <div className="p-4 max-h-[350px] overflow-y-auto">
-            {stats.recent_activity?.length > 0 ? (
-              <div className="space-y-1">
-                {stats.recent_activity.map((item, i) => {
-                  const ActIcon = ACTIVITY_ICONS[item.type] || Activity;
-                  const colors =
-                    ACTION_COLORS[item.color] || ACTION_COLORS.primary;
-                  return (
+        <div className="p-4 max-h-[350px] overflow-y-auto">
+          {stats.recent_activity?.length > 0 ? (
+            <div className="space-y-1">
+              {stats.recent_activity.map((item, i) => {
+                const ActIcon = ACTIVITY_ICONS[item.type] || Activity;
+                const colors =
+                  ACTION_COLORS[item.color] || ACTION_COLORS.primary;
+                return (
+                  <div
+                    key={i}
+                    className="flex items-start gap-3 p-2.5 rounded-md hover:bg-primarybg/50 transition-colors"
+                  >
                     <div
-                      key={i}
-                      className="flex items-start gap-3 p-2.5 rounded-md hover:bg-primarybg/50 transition-colors"
+                      className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 mt-0.5 ${colors.bg}`}
                     >
-                      <div
-                        className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 mt-0.5 ${colors.bg}`}
-                      >
-                        <ActIcon className={`w-4 h-4 ${colors.text}`} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-primarytext leading-snug">
-                          {item.message}
-                        </p>
-                        <p className="text-[10px] text-secondarytext mt-1">
-                          {timeAgo(item.timestamp)}
-                        </p>
-                      </div>
+                      <ActIcon className={`w-4 h-4 ${colors.text}`} />
                     </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-10 text-secondarytext">
-                <Activity className="w-10 h-10 mb-2 opacity-20" />
-                <p className="text-sm">No recent activity</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Vehicle Requests Summary */}
-        <div className="bg-secondarybg rounded-md border border-gray-100 shadow-sm overflow-hidden">
-          <div className="p-5 pb-3 border-b border-gray-50">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-primarytext flex items-center gap-2">
-                <span className="w-1.5 h-5 bg-skyblue rounded-full" />
-                Vehicle Requests
-              </h2>
-              <button
-                onClick={() => navigate("/admin-dashboard/vehicle-requests")}
-                className="text-xs font-semibold text-primary hover:text-primarydull transition-colors flex items-center gap-1"
-              >
-                View <ArrowRight className="w-3 h-3" />
-              </button>
-            </div>
-          </div>
-          <div className="p-5">
-            <div className="flex items-center gap-5 mb-4">
-              <DonutRing
-                segments={requestDonutSegments}
-                size={100}
-                strokeWidth={14}
-                centerLabel="THIS MONTH"
-              />
-              <div className="space-y-2 flex-1">
-                {requestDonutSegments.map((seg, i) => (
-                  <div key={i} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="w-2.5 h-2.5 rounded-full"
-                        style={{backgroundColor: seg.color}}
-                      />
-                      <span className="text-xs text-secondarytext">
-                        {seg.label}
-                      </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-primarytext leading-snug">
+                        {item.message}
+                      </p>
+                      <p className="text-[10px] text-secondarytext mt-1">
+                        {timeAgo(item.timestamp)}
+                      </p>
                     </div>
-                    <span className="text-sm font-bold text-primarytext">
-                      {seg.value}
-                    </span>
                   </div>
-                ))}
-              </div>
+                );
+              })}
             </div>
-            {stats.recent_vehicle_requests?.length > 0 && (
-              <div className="border-t border-gray-100 pt-3 mt-3">
-                <p className="text-xs font-bold text-secondarytext uppercase tracking-wide mb-2.5">
-                  Recent Requests
-                </p>
-                <div className="space-y-2">
-                  {stats.recent_vehicle_requests.slice(0, 3).map((req, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center justify-between p-2 rounded-md bg-primarybg/40"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-primarytext truncate">
-                          {req.faculty_name}
-                        </p>
-                        <p className="text-[10px] text-secondarytext truncate">
-                          {req.purpose || "General purpose"}
-                        </p>
-                      </div>
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          req.status === "pending"
-                            ? "bg-pending/10 text-pending"
-                            : req.status === "approved" ||
-                                req.status === "assigned"
-                              ? "bg-primary/10 text-primary"
-                              : req.status === "completed"
-                                ? "bg-green/10 text-green"
-                                : "bg-red/10 text-red"
-                        }`}
-                      >
-                        {req.status}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-10 text-secondarytext">
+              <Activity className="w-10 h-10 mb-2 opacity-20" />
+              <p className="text-sm">No recent activity</p>
+            </div>
+          )}
         </div>
       </div>
 

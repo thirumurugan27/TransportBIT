@@ -32,6 +32,14 @@ function formatTimeAMPM(time24) {
   return `${h12}:${minutes} ${period}`;
 }
 
+// Parse dd-mm-yyyy to Date object for comparison
+function parseDMY(dateStr) {
+  if (!dateStr) return null;
+  const [d, m, y] = dateStr.split("-");
+  if (!d || !m || !y) return null;
+  return new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
+}
+
 function formatDateForInput(dateStr) {
   if (!dateStr) return "";
   const d = new Date(dateStr);
@@ -64,8 +72,12 @@ export default function ScheduleManagement() {
   // Search, filter, sort states for tabs
   const [groupSearch, setGroupSearch] = useState("");
   const [groupSort, setGroupSort] = useState("name-asc");
+  const [groupDateFilter, setGroupDateFilter] = useState("active"); // "active" | "all" | "custom"
+  const [groupDateRange, setGroupDateRange] = useState({ start: "", end: "" });
   const [vehicleGroupSearch, setVehicleGroupSearch] = useState("");
   const [vehicleGroupSort, setVehicleGroupSort] = useState("name-asc");
+  const [vgDateFilter, setVgDateFilter] = useState("active"); // "active" | "all" | "custom"
+  const [vgDateRange, setVgDateRange] = useState({ start: "", end: "" });
   const [shiftSearch, setShiftSearch] = useState("");
   const [shiftSort, setShiftSort] = useState("name-asc");
 
@@ -771,13 +783,35 @@ export default function ScheduleManagement() {
 
   // Filtered and sorted clusters (driver groups)
   const filteredClusters = useMemo(() => {
-    let result = clusters.filter(
-      (cluster) =>
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let result = clusters.filter((cluster) => {
+      // Search filter
+      const matchesSearch =
         cluster.name.toLowerCase().includes(groupSearch.toLowerCase()) ||
         (cluster.description || "")
           .toLowerCase()
-          .includes(groupSearch.toLowerCase()),
-    );
+          .includes(groupSearch.toLowerCase());
+      if (!matchesSearch) return false;
+
+      // Date filter
+      if (groupDateFilter === "active") {
+        const from = parseDMY(cluster.valid_from);
+        const to = parseDMY(cluster.valid_to);
+        if (from && to) return from <= today && to >= today;
+        return true; // permanent groups are always active
+      }
+      if (groupDateFilter === "custom" && groupDateRange.start && groupDateRange.end) {
+        const from = parseDMY(cluster.valid_from);
+        const to = parseDMY(cluster.valid_to);
+        const rangeStart = new Date(groupDateRange.start);
+        const rangeEnd = new Date(groupDateRange.end);
+        if (from && to) return from <= rangeEnd && to >= rangeStart;
+        return true;
+      }
+      return true; // "all"
+    });
 
     result.sort((a, b) => {
       switch (groupSort) {
@@ -794,17 +828,39 @@ export default function ScheduleManagement() {
       }
     });
     return result;
-  }, [clusters, groupSearch, groupSort]);
+  }, [clusters, groupSearch, groupSort, groupDateFilter, groupDateRange]);
 
   // Filtered and sorted vehicle groups
   const filteredVehicleGroups = useMemo(() => {
-    let result = vehicleGroups.filter(
-      (group) =>
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let result = vehicleGroups.filter((group) => {
+      // Search filter
+      const matchesSearch =
         group.name.toLowerCase().includes(vehicleGroupSearch.toLowerCase()) ||
         (group.description || "")
           .toLowerCase()
-          .includes(vehicleGroupSearch.toLowerCase()),
-    );
+          .includes(vehicleGroupSearch.toLowerCase());
+      if (!matchesSearch) return false;
+
+      // Date filter
+      if (vgDateFilter === "active") {
+        const from = parseDMY(group.valid_from);
+        const to = parseDMY(group.valid_to);
+        if (from && to) return from <= today && to >= today;
+        return true;
+      }
+      if (vgDateFilter === "custom" && vgDateRange.start && vgDateRange.end) {
+        const from = parseDMY(group.valid_from);
+        const to = parseDMY(group.valid_to);
+        const rangeStart = new Date(vgDateRange.start);
+        const rangeEnd = new Date(vgDateRange.end);
+        if (from && to) return from <= rangeEnd && to >= rangeStart;
+        return true;
+      }
+      return true; // "all"
+    });
 
     result.sort((a, b) => {
       switch (vehicleGroupSort) {
@@ -821,7 +877,7 @@ export default function ScheduleManagement() {
       }
     });
     return result;
-  }, [vehicleGroups, vehicleGroupSearch, vehicleGroupSort]);
+  }, [vehicleGroups, vehicleGroupSearch, vehicleGroupSort, vgDateFilter, vgDateRange]);
 
   // Filtered and sorted shifts
   const filteredShifts = useMemo(() => {
@@ -1031,54 +1087,139 @@ export default function ScheduleManagement() {
         </div>
 
         {/* Search and Sort Controls */}
-        <div className="bg-white rounded-md border border-gray-100 shadow-sm p-5 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+        <div className="bg-white rounded-md border border-gray-100 shadow-sm p-5 space-y-3">
           {/* Driver Groups Tab Controls */}
           {activeTab === "groups" && (
             <>
-              <CustomSearch
-                value={groupSearch}
-                onChange={setGroupSearch}
-                placeholder="Search driver groups..."
-                className="flex-1 max-w-md"
-              />
-              <CustomDropdown
-                value={groupSort}
-                onChange={setGroupSort}
-                options={[
-                  {value: "name-asc", label: "Name (A-Z)"},
-                  {value: "name-desc", label: "Name (Z-A)"},
-                  {value: "drivers-desc", label: "Most Drivers"},
-                  {value: "drivers-asc", label: "Least Drivers"},
-                ]}
-              />
+              <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+                <CustomSearch
+                  value={groupSearch}
+                  onChange={setGroupSearch}
+                  placeholder="Search driver groups..."
+                  className="flex-1 max-w-md"
+                />
+                <div className="flex items-center gap-2">
+                  <CustomDropdown
+                    value={groupDateFilter}
+                    onChange={(val) => {
+                      setGroupDateFilter(val);
+                      if (val !== "custom") setGroupDateRange({ start: "", end: "" });
+                    }}
+                    options={[
+                      {value: "active", label: "Active Groups"},
+                      {value: "all", label: "All Groups"},
+                      {value: "custom", label: "Custom Date Range"},
+                    ]}
+                  />
+                  <CustomDropdown
+                    value={groupSort}
+                    onChange={setGroupSort}
+                    options={[
+                      {value: "name-asc", label: "Name (A-Z)"},
+                      {value: "name-desc", label: "Name (Z-A)"},
+                      {value: "drivers-desc", label: "Most Drivers"},
+                      {value: "drivers-asc", label: "Least Drivers"},
+                    ]}
+                  />
+                </div>
+              </div>
+              {groupDateFilter === "custom" && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Calendar className="w-4 h-4 text-secondarytext shrink-0" />
+                  <input
+                    type="date"
+                    value={groupDateRange.start}
+                    onChange={(e) => setGroupDateRange(prev => ({ ...prev, start: e.target.value }))}
+                    className="px-3 py-1.5 text-sm border border-gray-200 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                  />
+                  <span className="text-sm text-secondarytext">to</span>
+                  <input
+                    type="date"
+                    value={groupDateRange.end}
+                    onChange={(e) => setGroupDateRange(prev => ({ ...prev, end: e.target.value }))}
+                    className="px-3 py-1.5 text-sm border border-gray-200 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                  />
+                  {groupDateRange.start && groupDateRange.end && (
+                    <button
+                      onClick={() => { setGroupDateFilter("active"); setGroupDateRange({ start: "", end: "" }); }}
+                      className="text-xs text-red hover:text-red/80 font-medium ml-1"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              )}
             </>
           )}
 
           {/* Vehicle Groups Tab Controls */}
           {activeTab === "vehicle-groups" && (
             <>
-              <CustomSearch
-                value={vehicleGroupSearch}
-                onChange={setVehicleGroupSearch}
-                placeholder="Search vehicle groups..."
-                className="flex-1 max-w-md"
-              />
-              <CustomDropdown
-                value={vehicleGroupSort}
-                onChange={setVehicleGroupSort}
-                options={[
-                  {value: "name-asc", label: "Name (A-Z)"},
-                  {value: "name-desc", label: "Name (Z-A)"},
-                  {value: "vehicles-desc", label: "Most Vehicles"},
-                  {value: "vehicles-asc", label: "Least Vehicles"},
-                ]}
-              />
+              <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+                <CustomSearch
+                  value={vehicleGroupSearch}
+                  onChange={setVehicleGroupSearch}
+                  placeholder="Search vehicle groups..."
+                  className="flex-1 max-w-md"
+                />
+                <div className="flex items-center gap-2">
+                  <CustomDropdown
+                    value={vgDateFilter}
+                    onChange={(val) => {
+                      setVgDateFilter(val);
+                      if (val !== "custom") setVgDateRange({ start: "", end: "" });
+                    }}
+                    options={[
+                      {value: "active", label: "Active Groups"},
+                      {value: "all", label: "All Groups"},
+                      {value: "custom", label: "Custom Date Range"},
+                    ]}
+                  />
+                  <CustomDropdown
+                    value={vehicleGroupSort}
+                    onChange={setVehicleGroupSort}
+                    options={[
+                      {value: "name-asc", label: "Name (A-Z)"},
+                      {value: "name-desc", label: "Name (Z-A)"},
+                      {value: "vehicles-desc", label: "Most Vehicles"},
+                      {value: "vehicles-asc", label: "Least Vehicles"},
+                    ]}
+                  />
+                </div>
+              </div>
+              {vgDateFilter === "custom" && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Calendar className="w-4 h-4 text-secondarytext shrink-0" />
+                  <input
+                    type="date"
+                    value={vgDateRange.start}
+                    onChange={(e) => setVgDateRange(prev => ({ ...prev, start: e.target.value }))}
+                    className="px-3 py-1.5 text-sm border border-gray-200 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                  />
+                  <span className="text-sm text-secondarytext">to</span>
+                  <input
+                    type="date"
+                    value={vgDateRange.end}
+                    onChange={(e) => setVgDateRange(prev => ({ ...prev, end: e.target.value }))}
+                    className="px-3 py-1.5 text-sm border border-gray-200 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                  />
+                  {vgDateRange.start && vgDateRange.end && (
+                    <button
+                      onClick={() => { setVgDateFilter("active"); setVgDateRange({ start: "", end: "" }); }}
+                      className="text-xs text-red hover:text-red/80 font-medium ml-1"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              )}
             </>
           )}
 
           {/* Shifts Tab Controls */}
           {activeTab === "shifts" && (
             <>
+              <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
               <CustomSearch
                 value={shiftSearch}
                 onChange={setShiftSearch}
@@ -1095,6 +1236,7 @@ export default function ScheduleManagement() {
                   {value: "time-desc", label: "Start Time (Late)"},
                 ]}
               />
+              </div>
             </>
           )}
         </div>
@@ -1193,12 +1335,16 @@ export default function ScheduleManagement() {
                     <p className="text-lg font-bold text-secondarytext mb-1">
                       {groupSearch
                         ? "No matching driver groups"
-                        : "No driver groups found"}
+                        : groupDateFilter === "active"
+                          ? "No active driver groups"
+                          : "No driver groups found"}
                     </p>
                     <p className="text-sm text-secondarytext">
                       {groupSearch
                         ? "Try a different search term"
-                        : "Create a group to organize your drivers and schedules"}
+                        : groupDateFilter === "active"
+                          ? "No groups are currently active. Select 'All Groups' to view all."
+                          : "Create a group to organize your drivers and schedules"}
                     </p>
                   </div>
                 )}
@@ -1312,12 +1458,16 @@ export default function ScheduleManagement() {
                     <p className="text-lg font-bold text-secondarytext mb-1">
                       {vehicleGroupSearch
                         ? "No matching vehicle groups"
-                        : "No vehicle groups found"}
+                        : vgDateFilter === "active"
+                          ? "No active vehicle groups"
+                          : "No vehicle groups found"}
                     </p>
                     <p className="text-sm text-secondarytext">
                       {vehicleGroupSearch
                         ? "Try a different search term"
-                        : "Create a group to organize your EV vehicles"}
+                        : vgDateFilter === "active"
+                          ? "No groups are currently active. Select 'All Groups' to view all."
+                          : "Create a group to organize your EV vehicles"}
                     </p>
                   </div>
                 )}

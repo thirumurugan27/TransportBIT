@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from "react";
+import React, {useState, useEffect, useMemo} from "react";
 import {useNavigate} from "react-router-dom";
 import {useAuth} from "../../../context/AuthContext";
 import Loading from "../../../components/ui/Loading";
@@ -14,6 +14,7 @@ import {
   Users,
   XCircle,
   Play,
+  Eye,
 } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
@@ -65,6 +66,13 @@ export default function FacultyHome() {
   const {user} = useAuth();
   const navigate = useNavigate();
   const [requests, setRequests] = useState([]);
+  const [dismissedRejections, setDismissedRejections] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("faculty_dismissed_rejections") || "[]");
+    } catch {
+      return [];
+    }
+  });
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     pending: 0,
@@ -127,6 +135,36 @@ export default function FacultyHome() {
   const activeRequests = requests.filter(
     (r) => !["completed", "cancelled", "rejected"].includes(r.status),
   );
+
+  // Get unread rejected requests
+  const unreadRejections = useMemo(
+    () =>
+      requests.filter(
+        (r) =>
+          r.status === "rejected" && !dismissedRejections.includes(r.id),
+      ),
+    [requests, dismissedRejections],
+  );
+
+  const dismissRejection = (id) => {
+    const updated = [...dismissedRejections, id];
+    setDismissedRejections(updated);
+    localStorage.setItem(
+      "faculty_dismissed_rejections",
+      JSON.stringify(updated),
+    );
+  };
+
+  const dismissAllRejections = () => {
+    const allIds = requests
+      .filter((r) => r.status === "rejected")
+      .map((r) => r.id);
+    setDismissedRejections(allIds);
+    localStorage.setItem(
+      "faculty_dismissed_rejections",
+      JSON.stringify(allIds),
+    );
+  };
 
   const statCards = [
     {
@@ -197,6 +235,68 @@ export default function FacultyHome() {
         ))}
       </div>
 
+      {/* Rejected Request Notifications */}
+      {!loading && unreadRejections.length > 0 && (
+        <div className="bg-white rounded-md shadow-sm border border-red/20">
+          <div className="flex justify-between items-center p-4 border-b border-red/10">
+            <h2 className="text-lg font-bold text-red flex items-center gap-2">
+              <span className="w-1 h-5 bg-red rounded-full"></span>
+              Rejected Requests
+              <span className="text-xs font-bold bg-red/10 text-red px-2 py-0.5 rounded-full">
+                {unreadRejections.length}
+              </span>
+            </h2>
+            {unreadRejections.length > 1 && (
+              <button
+                onClick={dismissAllRejections}
+                className="text-xs font-semibold text-secondarytext hover:text-primarytext transition-colors"
+              >
+                Mark all as read
+              </button>
+            )}
+          </div>
+          <div className="p-4 space-y-3">
+            {unreadRejections.map((request) => (
+              <div
+                key={request.id}
+                className="flex items-start justify-between p-4 bg-red/5 rounded-md border border-red/10"
+              >
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <div className="w-10 h-10 rounded-md flex items-center justify-center bg-red/10 shrink-0 mt-0.5">
+                    <XCircle className="w-5 h-5 text-red" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-primarytext">
+                      {request.onward_from_place} → {request.onward_to_place}
+                    </p>
+                    <div className="flex items-center gap-2 text-xs text-secondarytext mt-1">
+                      <Calendar size={12} />
+                      <span>
+                        {request.onward_from_datetime?.split(" ")[0] || "N/A"}
+                      </span>
+                    </div>
+                    {request.admin_remarks && (
+                      <p className="text-xs text-red mt-1.5">
+                        <span className="font-semibold">Reason:</span>{" "}
+                        {request.admin_remarks}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <button
+                  onClick={() => dismissRejection(request.id)}
+                  className="flex items-center gap-1 text-xs font-semibold text-secondarytext hover:text-primarytext bg-white px-3 py-1.5 rounded-md border border-gray-200 hover:border-gray-300 transition-colors shrink-0 ml-3"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  Mark as read
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 
       {/* Active Requests Section */}
       <div className="bg-white rounded-md shadow-sm border border-gray-100">
         <div className="flex justify-between items-center p-4 border-b border-gray-100">
