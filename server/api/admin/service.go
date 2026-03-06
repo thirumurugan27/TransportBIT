@@ -886,16 +886,16 @@ func GetServiceStats(c *gin.Context) {
 	// Pending requests (reported)
 	config.DB.QueryRow(`SELECT COUNT(*) FROM service_records WHERE status = 'reported'`).Scan(&stats.PendingRequests)
 
-	// Completed this month
+	// Completed in last 30 days
 	config.DB.QueryRow(`
 		SELECT COUNT(*) FROM service_records 
-		WHERE status = 'completed' AND MONTH(completed_at) = MONTH(NOW()) AND YEAR(completed_at) = YEAR(NOW())
+		WHERE status = 'completed' AND completed_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
 	`).Scan(&stats.CompletedMonth)
 
-	// Total cost this month
+	// Total cost in last 30 days
 	config.DB.QueryRow(`
 		SELECT COALESCE(SUM(total_cost), 0) FROM service_records 
-		WHERE status = 'completed' AND MONTH(completed_at) = MONTH(NOW()) AND YEAR(completed_at) = YEAR(NOW())
+		WHERE status = 'completed' AND completed_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
 	`).Scan(&stats.TotalCostMonth)
 
 	// Overdue reminders (KM-based: where current_km >= next_service_km)

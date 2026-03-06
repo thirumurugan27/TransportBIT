@@ -614,14 +614,14 @@ export default function ServiceRecords() {
           bg: "#FFF8E7",
         },
         {
-          label: "Completed (Month)",
+          label: "Completed (30 Days)",
           value: stats.completed_this_month || 0,
           icon: CheckCircle,
           color: C.green,
           bg: "#E8F5E9",
         },
         {
-          label: "Monthly Cost",
+          label: "Cost (30 Days)",
           value: `₹${(stats.total_cost_this_month || 0).toLocaleString()}`,
           icon: DollarSign,
           color: C.skyblue,

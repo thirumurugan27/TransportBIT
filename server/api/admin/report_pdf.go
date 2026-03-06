@@ -965,3 +965,274 @@ func generateBusDetailReportPDF(c *gin.Context) {
 
 	pr.Send(c, fmt.Sprintf("Bus_Detail_%s_%s.pdf", strings.ReplaceAll(displayName, " ", "_"), time.Now().Format("02-01-2006")))
 }
+
+// ── 14. DRIVER GROUP (CLUSTER) REPORT ──
+
+func generateDriverGroupReportPDF(c *gin.Context) {
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
+
+	query := `
+		SELECT c.id, c.name, COALESCE(c.description, '-'),
+			(SELECT COUNT(DISTINCT dcm.driver_id) FROM driver_cluster_members dcm WHERE dcm.cluster_id = c.id),
+			COALESCE(DATE_FORMAT(c.valid_from, '%d-%m-%Y'), '-'),
+			COALESCE(DATE_FORMAT(c.valid_to, '%d-%m-%Y'), '-'),
+			DATE_FORMAT(c.created_at, '%d-%m-%Y %h:%i %p')
+		FROM driver_clusters c`
+	var args []interface{}
+	if startDate != "" && endDate != "" {
+		query += ` WHERE c.valid_from <= ? AND c.valid_to >= ?`
+		args = append(args, endDate, startDate)
+	}
+	query += ` ORDER BY c.name`
+
+	groupRows, err := config.DB.Query(query, args...)
+	if err != nil {
+		log.Printf("PDF driver group report error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate report"})
+		return
+	}
+	defer groupRows.Close()
+
+	type groupInfo struct {
+		ID   int
+		Name string
+	}
+	var groups []groupInfo
+
+	headers := []string{"S.No", "Group Name", "Description", "Drivers", "Valid From", "Valid To", "Created At"}
+	widths := []float64{10, 35, 50, 15, 24, 24, 32}
+	var data [][]string
+	sno := 1
+	for groupRows.Next() {
+		var id, driverCount int
+		var name, description, validFrom, validTo, createdAt string
+		if err := groupRows.Scan(&id, &name, &description, &driverCount, &validFrom, &validTo, &createdAt); err != nil {
+			continue
+		}
+		data = append(data, []string{fmt.Sprintf("%d", sno), name, description, fmt.Sprintf("%d", driverCount), validFrom, validTo, createdAt})
+		groups = append(groups, groupInfo{ID: id, Name: name})
+		sno++
+	}
+
+	period := fmt.Sprintf("Generated: %s", time.Now().Format("02-01-2006 03:04 PM"))
+	if startDate != "" && endDate != "" {
+		period = fmt.Sprintf("Period: %s to %s | Generated: %s", startDate, endDate, time.Now().Format("02-01-2006 03:04 PM"))
+	}
+	pr := utils.NewPDFReport("DRIVER GROUP REPORT", period, true)
+	pr.AddTable(headers, data, widths)
+
+	// Members section
+	pr.AddSection("Driver Group Members")
+	memberHeaders := []string{"S.No", "Group Name", "Driver Name", "License No", "Phone", "Valid From", "Valid To", "Added At"}
+	memberWidths := []float64{10, 30, 35, 28, 22, 24, 24, 32}
+	var memberData [][]string
+	msno := 1
+	for _, g := range groups {
+		mRows, err := config.DB.Query(`
+			SELECT COALESCE(u.full_name, '-'), COALESCE(d.license_number, '-'), COALESCE(u.phone, '-'),
+				COALESCE(DATE_FORMAT(dcm.valid_from, '%d-%m-%Y'), '-'),
+				COALESCE(DATE_FORMAT(dcm.valid_to, '%d-%m-%Y'), '-'),
+				DATE_FORMAT(dcm.added_at, '%d-%m-%Y %h:%i %p')
+			FROM driver_cluster_members dcm
+			JOIN drivers d ON dcm.driver_id = d.id
+			JOIN users u ON d.user_id = u.id
+			WHERE dcm.cluster_id = ?
+			ORDER BY u.full_name
+		`, g.ID)
+		if err != nil {
+			continue
+		}
+		for mRows.Next() {
+			var driverName, licenseNo, phone, validFrom, validTo, addedAt string
+			if err := mRows.Scan(&driverName, &licenseNo, &phone, &validFrom, &validTo, &addedAt); err != nil {
+				continue
+			}
+			memberData = append(memberData, []string{fmt.Sprintf("%d", msno), g.Name, driverName, licenseNo, phone, validFrom, validTo, addedAt})
+			msno++
+		}
+		mRows.Close()
+	}
+	pr.AddTable(memberHeaders, memberData, memberWidths)
+
+	pr.Send(c, fmt.Sprintf("Driver_Group_Report_%s.pdf", time.Now().Format("02-01-2006")))
+}
+
+// ── 15. VEHICLE GROUP REPORT ──
+
+func generateVehicleGroupReportPDF(c *gin.Context) {
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
+
+	query := `
+		SELECT vg.id, vg.name, COALESCE(vg.description, '-'),
+			(SELECT COUNT(DISTINCT vgm.vehicle_id) FROM vehicle_group_members vgm WHERE vgm.group_id = vg.id),
+			COALESCE(DATE_FORMAT(vg.valid_from, '%d-%m-%Y'), '-'),
+			COALESCE(DATE_FORMAT(vg.valid_to, '%d-%m-%Y'), '-'),
+			DATE_FORMAT(vg.created_at, '%d-%m-%Y %h:%i %p'),
+			DATE_FORMAT(vg.updated_at, '%d-%m-%Y %h:%i %p')
+		FROM vehicle_groups vg`
+	var args []interface{}
+	if startDate != "" && endDate != "" {
+		query += ` WHERE vg.valid_from <= ? AND vg.valid_to >= ?`
+		args = append(args, endDate, startDate)
+	}
+	query += ` ORDER BY vg.name`
+
+	groupRows, err := config.DB.Query(query, args...)
+	if err != nil {
+		log.Printf("PDF vehicle group report error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate report"})
+		return
+	}
+	defer groupRows.Close()
+
+	type groupInfo struct {
+		ID   int
+		Name string
+	}
+	var groups []groupInfo
+
+	headers := []string{"S.No", "Group Name", "Description", "Vehicles", "Valid From", "Valid To", "Created At", "Updated At"}
+	widths := []float64{10, 30, 40, 16, 22, 22, 26, 26}
+	var data [][]string
+	sno := 1
+	for groupRows.Next() {
+		var id, vehicleCount int
+		var name, description, validFrom, validTo, createdAt, updatedAt string
+		if err := groupRows.Scan(&id, &name, &description, &vehicleCount, &validFrom, &validTo, &createdAt, &updatedAt); err != nil {
+			continue
+		}
+		data = append(data, []string{fmt.Sprintf("%d", sno), name, description, fmt.Sprintf("%d", vehicleCount), validFrom, validTo, createdAt, updatedAt})
+		groups = append(groups, groupInfo{ID: id, Name: name})
+		sno++
+	}
+
+	period := fmt.Sprintf("Generated: %s", time.Now().Format("02-01-2006 03:04 PM"))
+	if startDate != "" && endDate != "" {
+		period = fmt.Sprintf("Period: %s to %s | Generated: %s", startDate, endDate, time.Now().Format("02-01-2006 03:04 PM"))
+	}
+	pr := utils.NewPDFReport("VEHICLE GROUP REPORT", period, true)
+	pr.AddTable(headers, data, widths)
+
+	// Members section
+	pr.AddSection("Vehicle Group Members")
+	memberHeaders := []string{"S.No", "Group Name", "Vehicle Number", "Vehicle Type", "Status", "Valid From", "Valid To", "Added At"}
+	memberWidths := []float64{10, 30, 30, 22, 18, 24, 24, 32}
+	var memberData [][]string
+	msno := 1
+	for _, g := range groups {
+		mRows, err := config.DB.Query(`
+			SELECT COALESCE(v.vehicle_number, '-'), COALESCE(v.vehicle_type, '-'), COALESCE(v.status, '-'),
+				COALESCE(DATE_FORMAT(vgm.valid_from, '%d-%m-%Y'), '-'),
+				COALESCE(DATE_FORMAT(vgm.valid_to, '%d-%m-%Y'), '-'),
+				DATE_FORMAT(vgm.added_at, '%d-%m-%Y %h:%i %p')
+			FROM vehicle_group_members vgm
+			JOIN vehicles v ON vgm.vehicle_id = v.id
+			WHERE vgm.group_id = ?
+			ORDER BY v.vehicle_number
+		`, g.ID)
+		if err != nil {
+			continue
+		}
+		for mRows.Next() {
+			var vehicleNumber, vehicleType, vehicleStatus, validFrom, validTo, addedAt string
+			if err := mRows.Scan(&vehicleNumber, &vehicleType, &vehicleStatus, &validFrom, &validTo, &addedAt); err != nil {
+				continue
+			}
+			memberData = append(memberData, []string{fmt.Sprintf("%d", msno), g.Name, vehicleNumber, vehicleType, vehicleStatus, validFrom, validTo, addedAt})
+			msno++
+		}
+		mRows.Close()
+	}
+	pr.AddTable(memberHeaders, memberData, memberWidths)
+
+	pr.Send(c, fmt.Sprintf("Vehicle_Group_Report_%s.pdf", time.Now().Format("02-01-2006")))
+}
+
+// ── 16. SHIFTS & TIMINGS REPORT ──
+
+func generateShiftReportPDF(c *gin.Context) {
+	rows, err := config.DB.Query(`
+		SELECT s.id, s.name,
+			TIME_FORMAT(s.start_time, '%h:%i %p'),
+			TIME_FORMAT(s.end_time, '%h:%i %p'),
+			COALESCE(s.description, '-'),
+			COALESCE(u.full_name, '-') as created_by,
+			(SELECT COUNT(DISTINCT a.driver_id) FROM assignments a
+			 WHERE a.shift_id = s.id AND a.status = 'active'
+			 AND CURDATE() BETWEEN a.start_date AND a.end_date) as active_drivers,
+			(SELECT COUNT(DISTINCT a.vehicle_id) FROM assignments a
+			 WHERE a.shift_id = s.id AND a.status = 'active'
+			 AND CURDATE() BETWEEN a.start_date AND a.end_date) as active_vehicles
+		FROM shifts s
+		LEFT JOIN users u ON s.created_by = u.id
+		ORDER BY s.start_time, s.name
+	`)
+	if err != nil {
+		log.Printf("PDF shift report error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate report"})
+		return
+	}
+	defer rows.Close()
+
+	type shiftInfo struct {
+		ID   int
+		Name string
+	}
+	var shifts []shiftInfo
+
+	headers := []string{"S.No", "Shift Name", "Start Time", "End Time", "Description", "Created By", "Active Drivers", "Active Vehicles"}
+	widths := []float64{10, 28, 20, 20, 40, 28, 22, 22}
+	var data [][]string
+	sno := 1
+	for rows.Next() {
+		var id, activeDrivers, activeVehicles int
+		var name, startTime, endTime, description, createdBy string
+		if err := rows.Scan(&id, &name, &startTime, &endTime, &description, &createdBy, &activeDrivers, &activeVehicles); err != nil {
+			continue
+		}
+		data = append(data, []string{fmt.Sprintf("%d", sno), name, startTime, endTime, description, createdBy, fmt.Sprintf("%d", activeDrivers), fmt.Sprintf("%d", activeVehicles)})
+		shifts = append(shifts, shiftInfo{ID: id, Name: name})
+		sno++
+	}
+
+	period := fmt.Sprintf("Generated: %s", time.Now().Format("02-01-2006 03:04 PM"))
+	pr := utils.NewPDFReport("SHIFTS & TIMINGS REPORT", period, true)
+	pr.AddTable(headers, data, widths)
+
+	// Shift assignments section
+	pr.AddSection("Current Shift-wise Assignments")
+	assignHeaders := []string{"S.No", "Shift Name", "Driver Name", "Vehicle Number", "Vehicle Name", "Start Date", "End Date"}
+	assignWidths := []float64{10, 30, 35, 28, 30, 28, 28}
+	var assignData [][]string
+	asno := 1
+	for _, s := range shifts {
+		aRows, err := config.DB.Query(`
+			SELECT COALESCE(u.full_name, '-'),
+				COALESCE(v.vehicle_number, '-'), COALESCE(v.vehicle_name, '-'),
+				DATE_FORMAT(a.start_date, '%d-%m-%Y'), DATE_FORMAT(a.end_date, '%d-%m-%Y')
+			FROM assignments a
+			JOIN drivers d ON a.driver_id = d.id
+			JOIN users u ON d.user_id = u.id
+			JOIN vehicles v ON a.vehicle_id = v.id
+			WHERE a.shift_id = ? AND a.status = 'active' AND CURDATE() BETWEEN a.start_date AND a.end_date
+			ORDER BY u.full_name
+		`, s.ID)
+		if err != nil {
+			continue
+		}
+		for aRows.Next() {
+			var driverName, vehicleNum, vehicleName, startDate, endDate string
+			if err := aRows.Scan(&driverName, &vehicleNum, &vehicleName, &startDate, &endDate); err != nil {
+				continue
+			}
+			assignData = append(assignData, []string{fmt.Sprintf("%d", asno), s.Name, driverName, vehicleNum, vehicleName, startDate, endDate})
+			asno++
+		}
+		aRows.Close()
+	}
+	pr.AddTable(assignHeaders, assignData, assignWidths)
+
+	pr.Send(c, fmt.Sprintf("Shifts_Timings_Report_%s.pdf", time.Now().Format("02-01-2006")))
+}

@@ -298,7 +298,7 @@ export default function VehicleReplacements({
     try {
       const body = {
         vehicle_id: parseInt(form.vehicle_id),
-        driver_id: form.driver_id ? parseInt(form.driver_id) : 0,
+        driver_id: form.driver_id ? parseInt(form.driver_id.split("_")[0]) : 0,
         replacement_vehicle_id: form.replacement_vehicle_id
           ? parseInt(form.replacement_vehicle_id)
           : null,
@@ -737,8 +737,8 @@ export default function VehicleReplacements({
                   value={form.driver_id}
                   onChange={(val) => setForm({...form, driver_id: val})}
                   options={vehicleDrivers.map((d) => ({
-                    value: d.id,
-                    label: `${d.full_name}${d.is_ev ? " (EV)" : ""}`,
+                    value: `${d.id}_${d.shift_id || 0}`,
+                    label: `${d.full_name}${d.shift_name ? ` — ${d.shift_name}` : ""}${d.shift_time ? ` (${d.shift_time})` : ""}${d.is_ev ? " [EV]" : ""}`,
                   }))}
                   placeholder="Select driver..."
                 />

@@ -968,7 +968,7 @@ func buildAdminKmWhereClause(f adminKmFilters) (string, []interface{}) {
 		case "week":
 			clauses = append(clauses, "YEARWEEK(kl.date) = YEARWEEK(CURDATE())")
 		default:
-			clauses = append(clauses, "MONTH(kl.date) = MONTH(CURDATE()) AND YEAR(kl.date) = YEAR(CURDATE())")
+			clauses = append(clauses, "kl.date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)")
 		}
 	}
 
@@ -1049,9 +1049,9 @@ func GetDriverKmHistory(c *gin.Context) {
 		case "week":
 			dateClause = " AND YEARWEEK(kl.date) = YEARWEEK(CURDATE())"
 		case "month":
-			dateClause = " AND MONTH(kl.date) = MONTH(CURDATE()) AND YEAR(kl.date) = YEAR(CURDATE())"
+			dateClause = " AND kl.date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)"
 		case "year":
-			dateClause = " AND YEAR(kl.date) = YEAR(CURDATE())"
+			dateClause = " AND kl.date >= DATE_SUB(CURDATE(), INTERVAL 365 DAY)"
 			// "all" - no date filter
 		}
 	}
@@ -1339,11 +1339,11 @@ func GetFuelByVehicle(c *gin.Context) {
 	case "week":
 		dateFilter = "AND kl.date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)"
 	case "month":
-		dateFilter = "AND MONTH(kl.date) = MONTH(CURDATE()) AND YEAR(kl.date) = YEAR(CURDATE())"
+		dateFilter = "AND kl.date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)"
 	case "year":
-		dateFilter = "AND YEAR(kl.date) = YEAR(CURDATE())"
+		dateFilter = "AND kl.date >= DATE_SUB(CURDATE(), INTERVAL 365 DAY)"
 	default:
-		dateFilter = "AND MONTH(kl.date) = MONTH(CURDATE()) AND YEAR(kl.date) = YEAR(CURDATE())"
+		dateFilter = "AND kl.date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)"
 	}
 
 	rows, err := config.DB.Query(`

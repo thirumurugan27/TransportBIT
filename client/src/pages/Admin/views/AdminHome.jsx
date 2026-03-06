@@ -37,6 +37,7 @@ import {
   ChevronDown,
   ChevronUp,
   CheckCheck,
+  Layers,
 } from "lucide-react";
 
 import { apiGet } from "../../../utils/api";
@@ -61,6 +62,8 @@ const ICON_MAP = {
   bus: Bus,
   graduation: GraduationCap,
   replace: Truck,
+  users: Users,
+  layers: Layers,
 };
 
 const ACTION_COLORS = {
@@ -476,6 +479,8 @@ export default function AdminHome() {
       vehicles_by_type: [], vehicles_by_fuel: [],
       weekly_attendance: [], pending_actions: [],
       expiring_licenses: 0, expired_licenses: 0,
+      expiring_driver_groups: 0, expired_driver_groups: 0,
+      expiring_vehicle_groups: 0, expired_vehicle_groups: 0,
       recent_vehicle_requests: [], recent_activity: [],
       pending_km_logs: 0, pending_stop_changes: 0,
       pending_transport_requests: 0, active_replacements: 0,
@@ -616,7 +621,7 @@ export default function AdminHome() {
       </div>
 
       {/* Critical Alerts */}
-      {(stats.absent_drivers > 0 || stats.expired_documents > 0 || stats.expired_licenses > 0) && (
+      {(stats.absent_drivers > 0 || stats.expired_documents > 0 || stats.expired_licenses > 0 || (stats.expiring_driver_groups + stats.expired_driver_groups) > 0 || (stats.expiring_vehicle_groups + stats.expired_vehicle_groups) > 0) && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {stats.absent_drivers > 0 && (
             <div
@@ -661,6 +666,36 @@ export default function AdminHome() {
                 <p className="text-xs text-pending/60 truncate">{stats.expired_licenses} expired, {stats.expiring_licenses} expiring</p>
               </div>
               <ChevronRight className="w-4 h-4 text-pending/30 group-hover:text-pending transition-colors shrink-0" />
+            </div>
+          )}
+          {(stats.expiring_driver_groups + stats.expired_driver_groups) > 0 && (
+            <div
+              onClick={() => navigate("/admin-dashboard/schedule-management")}
+              className="flex items-center gap-3 bg-gradient-to-r from-red/5 to-red/10 border border-red/15 rounded-xl px-4 py-3.5 cursor-pointer hover:shadow-md transition-all group"
+            >
+              <div className="w-10 h-10 bg-red/15 rounded-lg flex items-center justify-center shrink-0">
+                <Users className="w-5 h-5 text-red" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-red">{stats.expiring_driver_groups + stats.expired_driver_groups} Driver Group Alerts</p>
+                <p className="text-xs text-red/60 truncate">{stats.expired_driver_groups} expired, {stats.expiring_driver_groups} expiring soon</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-red/30 group-hover:text-red transition-colors shrink-0" />
+            </div>
+          )}
+          {(stats.expiring_vehicle_groups + stats.expired_vehicle_groups) > 0 && (
+            <div
+              onClick={() => navigate("/admin-dashboard/schedule-management")}
+              className="flex items-center gap-3 bg-gradient-to-r from-red/5 to-red/10 border border-red/15 rounded-xl px-4 py-3.5 cursor-pointer hover:shadow-md transition-all group"
+            >
+              <div className="w-10 h-10 bg-red/15 rounded-lg flex items-center justify-center shrink-0">
+                <Layers className="w-5 h-5 text-red" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-red">{stats.expiring_vehicle_groups + stats.expired_vehicle_groups} Vehicle Group Alerts</p>
+                <p className="text-xs text-red/60 truncate">{stats.expired_vehicle_groups} expired, {stats.expiring_vehicle_groups} expiring soon</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-red/30 group-hover:text-red transition-colors shrink-0" />
             </div>
           )}
         </div>

@@ -12,13 +12,17 @@ import {
   Fuel,
   GraduationCap,
   FileText,
-  ChevronDown,
   Loader2,
   ArrowRightLeft,
   MapPin,
   FileDown,
+  Clock,
+  Layers,
+  ChevronDown,
+  Filter,
 } from "lucide-react";
 import { API_BASE } from "../../../utils/api";
+import { useToast } from "../../../context/ToastContext";
 
 /* ─── Report Definitions ─── */
 const REPORTS = [
@@ -139,6 +143,33 @@ const REPORTS = [
     endpoint: "/api/admin/reports/bus-detail",
     filters: ["busSelect"],
   },
+  {
+    key: "driver-groups",
+    title: "Driver Group Report",
+    description: "Driver group configurations with member details, validity periods & assignment history",
+    icon: Users,
+    color: "bg-green/10 text-green",
+    endpoint: "/api/admin/reports/driver-groups",
+    filters: ["dateRange"],
+  },
+  {
+    key: "vehicle-groups",
+    title: "Vehicle Group Report",
+    description: "Vehicle group configurations with assigned vehicles, types & validity periods",
+    icon: Layers,
+    color: "bg-primary/10 text-primary",
+    endpoint: "/api/admin/reports/vehicle-groups",
+    filters: ["dateRange"],
+  },
+  {
+    key: "shifts",
+    title: "Shifts & Timings Report",
+    description: "All shift definitions with timings, active driver/vehicle counts & current assignments",
+    icon: Clock,
+    color: "bg-customblue/10 text-customblue",
+    endpoint: "/api/admin/reports/shifts",
+    filters: [],
+  },
 ];
 
 const SERVICE_STATUSES = [
@@ -173,19 +204,26 @@ function getDefaultDates() {
 
 export default function Reports() {
   const defaults = getDefaultDates();
-  const [filters, setFilters] = useState({
-    start_date: defaults.start_date,
-    end_date: defaults.end_date,
-    academic_year: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
-    status: "all",
-    bus_id: "",
+  // Per-card filters: { [reportKey]: { start_date, end_date, academic_year, status, bus_id } }
+  const [cardFilters, setCardFilters] = useState(() => {
+    const initial = {};
+    REPORTS.forEach((r) => {
+      initial[r.key] = {
+        start_date: defaults.start_date,
+        end_date: defaults.end_date,
+        academic_year: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
+        status: "all",
+        bus_id: "",
+      };
+    });
+    return initial;
   });
   const [downloading, setDownloading] = useState(null);
   const [expandedCard, setExpandedCard] = useState(null);
   const [buses, setBuses] = useState([]);
-  const [reportFormat, setReportFormat] = useState({}); // { [reportKey]: "excel" | "pdf" }
+  const [reportFormat, setReportFormat] = useState({});
+  const { showToast } = useToast();
 
-  // Fetch buses for bus-detail report
   useEffect(() => {
     const fetchBuses = async () => {
       try {
@@ -203,16 +241,28 @@ export default function Reports() {
     fetchBuses();
   }, []);
 
-  const handleFilterChange = (key, value) => {
-    setFilters((prev) => ({ ...prev, [key]: value }));
+  const handleCardFilterChange = (reportKey, filterKey, value) => {
+    setCardFilters((prev) => ({
+      ...prev,
+      [reportKey]: { ...prev[reportKey], [filterKey]: value },
+    }));
+  };
+
+  const toggleCard = (reportKey) => {
+    setExpandedCard((prev) => (prev === reportKey ? null : reportKey));
   };
 
   const getFormat = (reportKey) => reportFormat[reportKey] || "excel";
 
   const handleDownload = async (report) => {
-    // For bus-detail, require bus selection
+    const filters = cardFilters[report.key];
+
     if (report.filters.includes("busSelect") && !filters.bus_id) {
-      alert("Please select a bus first");
+      showToast("Please select a bus first", "error");
+      return;
+    }
+    if (report.filters.includes("dateRange") && filters.start_date > filters.end_date) {
+      showToast("Start date must be before or equal to end date", "error");
       return;
     }
 
@@ -238,8 +288,8 @@ export default function Reports() {
         params.set("format", "pdf");
       }
 
-      const url = `${API_BASE}${report.endpoint}?${params.toString()}`;
-      const res = await fetch(url, {
+      const fetchUrl = `${API_BASE}${report.endpoint}?${params.toString()}`;
+      const res = await fetch(fetchUrl, {
         credentials: "include",
         headers: { "X-Tunnel-Skip-Efficiency-Check": "true" },
       });
@@ -247,15 +297,14 @@ export default function Reports() {
       if (!res.ok) {
         try {
           const err = await res.json();
-          alert(err.error || "Failed to generate report");
+          showToast(err.error || "Failed to generate report", "error");
         } catch {
-          alert("Failed to generate report");
+          showToast("Failed to generate report", "error");
         }
         return;
       }
 
       const blob = await res.blob();
-      console.log("Report blob size:", blob.size, "type:", blob.type);
       const disposition = res.headers.get("Content-Disposition");
       const ext = format === "pdf" ? ".pdf" : ".xlsx";
       let filename = `${report.key}_report${ext}`;
@@ -264,19 +313,18 @@ export default function Reports() {
         if (match) filename = match[1];
       }
 
+      const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      const blobWithType = format === "pdf" 
-        ? new Blob([await blob.arrayBuffer()], { type: "application/pdf" })
-        : blob;
-      link.href = URL.createObjectURL(blobWithType);
+      link.href = url;
       link.download = filename;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      URL.revokeObjectURL(link.href);
+      URL.revokeObjectURL(url);
+      showToast(`${report.title} downloaded successfully`, "success");
     } catch (err) {
       console.error("Report download error:", err);
-      alert("Failed to download report. Please try again.");
+      showToast("Failed to download report. Please try again.", "error");
     } finally {
       setDownloading(null);
     }
@@ -292,80 +340,8 @@ export default function Reports() {
             Reports
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            Generate and download Excel reports for attendance, service, billing & more
+            Generate and download Excel or PDF reports for attendance, service, billing & more
           </p>
-        </div>
-      </div>
-
-      {/* Global Filters */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-5">
-        <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-primary" />
-          Report Filters
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          {/* Start Date */}
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Start Date</label>
-            <input
-              type="date"
-              value={filters.start_date}
-              onChange={(e) => handleFilterChange("start_date", e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-            />
-          </div>
-          {/* End Date */}
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">End Date</label>
-            <input
-              type="date"
-              value={filters.end_date}
-              onChange={(e) => handleFilterChange("end_date", e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-            />
-          </div>
-          {/* Academic Year */}
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Academic Year</label>
-            <select
-              value={filters.academic_year}
-              onChange={(e) => handleFilterChange("academic_year", e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white"
-            >
-              {getAcademicYears().map((y) => (
-                <option key={y} value={y}>{y}</option>
-              ))}
-            </select>
-          </div>
-          {/* Service Status */}
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Service Status</label>
-            <select
-              value={filters.status}
-              onChange={(e) => handleFilterChange("status", e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white"
-            >
-              {SERVICE_STATUSES.map((s) => (
-                <option key={s.value} value={s.value}>{s.label}</option>
-              ))}
-            </select>
-          </div>
-          {/* Bus Select */}
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Bus (for Bus Detail)</label>
-            <select
-              value={filters.bus_id}
-              onChange={(e) => handleFilterChange("bus_id", e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white"
-            >
-              <option value="">Select a bus</option>
-              {buses.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name || `Bus #${b.id}`}{b.route ? ` (${b.route})` : ""}
-                </option>
-              ))}
-            </select>
-          </div>
         </div>
       </div>
 
@@ -375,15 +351,22 @@ export default function Reports() {
           const Icon = report.icon;
           const isDownloading = downloading === report.key;
           const isExpanded = expandedCard === report.key;
+          const filters = cardFilters[report.key];
+          const hasFilters = report.filters.length > 0;
 
           return (
             <div
               key={report.key}
-              className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md hover:border-gray-200 transition-all duration-200 overflow-hidden"
+              className={`bg-white rounded-xl shadow-sm border transition-all duration-200 overflow-hidden ${
+                isExpanded ? "border-primary/30 shadow-md ring-1 ring-primary/10" : "border-gray-100 hover:shadow-md hover:border-gray-200"
+              }`}
             >
               <div className="p-5">
-                {/* Header */}
-                <div className="flex items-start justify-between mb-3">
+                {/* Header — clickable to expand */}
+                <div
+                  className={`flex items-start justify-between mb-3 ${hasFilters ? "cursor-pointer" : ""}`}
+                  onClick={() => hasFilters && toggleCard(report.key)}
+                >
                   <div className="flex items-center gap-3">
                     <div className={`p-2.5 rounded-lg ${report.color}`}>
                       <Icon className="w-5 h-5" />
@@ -395,42 +378,137 @@ export default function Reports() {
                       </p>
                     </div>
                   </div>
+                  {hasFilters && (
+                    <button
+                      className={`p-1 rounded-md hover:bg-gray-100 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+                      onClick={(e) => { e.stopPropagation(); toggleCard(report.key); }}
+                    >
+                      <ChevronDown className="w-4 h-4 text-gray-400" />
+                    </button>
+                  )}
                 </div>
 
-                {/* Filter Chips */}
-                <div className="flex flex-wrap gap-1.5 mb-4">
-                  {report.filters.includes("dateRange") && (
-                    <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-gray-50 text-gray-600 border border-gray-100">
-                      <Calendar className="w-3 h-3" />
-                      {filters.start_date} → {filters.end_date}
-                    </span>
-                  )}
-                  {report.filters.includes("academicYear") && (
-                    <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-gray-50 text-gray-600 border border-gray-100">
-                      <GraduationCap className="w-3 h-3" />
-                      {filters.academic_year}
-                    </span>
-                  )}
-                  {report.filters.includes("serviceStatus") && filters.status !== "all" && (
-                    <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-gray-50 text-gray-600 border border-gray-100">
-                      <Wrench className="w-3 h-3" />
-                      {filters.status}
-                    </span>
-                  )}
-                  {report.filters.includes("busSelect") && (
-                    <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-gray-50 text-gray-600 border border-gray-100">
-                      <Bus className="w-3 h-3" />
-                      {filters.bus_id
-                        ? buses.find((b) => String(b.id) === String(filters.bus_id))?.name || `Bus #${filters.bus_id}`
-                        : "Select a bus"}
-                    </span>
-                  )}
-                  {report.filters.length === 0 && (
-                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-green/5 text-green border border-green/10">
-                      No filters needed — full data
-                    </span>
-                  )}
-                </div>
+                {/* Collapsed: show filter summary chips */}
+                {!isExpanded && (
+                  <div className="flex flex-wrap gap-1.5 mb-4">
+                    {report.filters.includes("dateRange") && (
+                      <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-gray-50 text-gray-600 border border-gray-100">
+                        <Calendar className="w-3 h-3" />
+                        {filters.start_date} → {filters.end_date}
+                      </span>
+                    )}
+                    {report.filters.includes("academicYear") && (
+                      <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-gray-50 text-gray-600 border border-gray-100">
+                        <GraduationCap className="w-3 h-3" />
+                        {filters.academic_year}
+                      </span>
+                    )}
+                    {report.filters.includes("serviceStatus") && filters.status !== "all" && (
+                      <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-gray-50 text-gray-600 border border-gray-100">
+                        <Wrench className="w-3 h-3" />
+                        {SERVICE_STATUSES.find((s) => s.value === filters.status)?.label || filters.status}
+                      </span>
+                    )}
+                    {report.filters.includes("busSelect") && (
+                      <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-gray-50 text-gray-600 border border-gray-100">
+                        <Bus className="w-3 h-3" />
+                        {filters.bus_id
+                          ? buses.find((b) => String(b.id) === String(filters.bus_id))?.name || `Bus #${filters.bus_id}`
+                          : "Select a bus"}
+                      </span>
+                    )}
+                    {report.filters.length === 0 && (
+                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-green/5 text-green border border-green/10">
+                        No filters needed — full data
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Expanded: show inline filter controls */}
+                {isExpanded && (
+                  <div className="mb-4 p-3 bg-gray-50/80 rounded-lg border border-gray-100 space-y-3">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 mb-1">
+                      <Filter className="w-3.5 h-3.5 text-primary" />
+                      Filters
+                    </div>
+
+                    {/* Date Range */}
+                    {report.filters.includes("dateRange") && (
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[11px] font-medium text-gray-500 mb-1">Start Date</label>
+                          <input
+                            type="date"
+                            value={filters.start_date}
+                            onChange={(e) => handleCardFilterChange(report.key, "start_date", e.target.value)}
+                            className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-medium text-gray-500 mb-1">End Date</label>
+                          <input
+                            type="date"
+                            value={filters.end_date}
+                            onChange={(e) => handleCardFilterChange(report.key, "end_date", e.target.value)}
+                            className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Academic Year */}
+                    {report.filters.includes("academicYear") && (
+                      <div>
+                        <label className="block text-[11px] font-medium text-gray-500 mb-1">Academic Year</label>
+                        <select
+                          value={filters.academic_year}
+                          onChange={(e) => handleCardFilterChange(report.key, "academic_year", e.target.value)}
+                          className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white"
+                        >
+                          {getAcademicYears().map((y) => (
+                            <option key={y} value={y}>{y}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {/* Service Status */}
+                    {report.filters.includes("serviceStatus") && (
+                      <div>
+                        <label className="block text-[11px] font-medium text-gray-500 mb-1">Service Status</label>
+                        <select
+                          value={filters.status}
+                          onChange={(e) => handleCardFilterChange(report.key, "status", e.target.value)}
+                          className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white"
+                        >
+                          {SERVICE_STATUSES.map((s) => (
+                            <option key={s.value} value={s.value}>{s.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {/* Bus Select */}
+                    {report.filters.includes("busSelect") && (
+                      <div>
+                        <label className="block text-[11px] font-medium text-gray-500 mb-1">Select Bus</label>
+                        <select
+                          value={filters.bus_id}
+                          onChange={(e) => handleCardFilterChange(report.key, "bus_id", e.target.value)}
+                          className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white"
+                        >
+                          <option value="">Select a bus</option>
+                          {buses.map((b) => (
+                            <option key={b.id} value={b.id}>
+                              {b.name || `Bus #${b.id}`}{b.route ? ` (${b.route})` : ""}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Format Toggle + Download */}
                 <div className="flex items-center gap-2">
@@ -494,7 +572,7 @@ export default function Reports() {
           <p className="text-xs text-blue-600 mt-1 leading-relaxed">
             Reports can be generated as Excel (.xlsx) or PDF files with formatted headers, styled columns and auto-calculated totals.
             PDF reports include the institution header with Bannari Amman Institute of Technology branding.
-            Adjust the date range or filters above before downloading. Vehicle Fleet and Driver reports export the complete current data.
+            Click on any report card to adjust its filters before downloading.
           </p>
         </div>
       </div>

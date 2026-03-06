@@ -231,6 +231,7 @@ func registerAdminRoutes(adm *gin.RouterGroup) {
 	adm.GET("/notifications", admin.GetAdminNotifications)
 	adm.POST("/notifications/:id/mark-read", admin.MarkAdminNotificationRead)
 	adm.POST("/notifications/mark-all-read", admin.MarkAllAdminNotificationsRead)
+	adm.GET("/group-expiry-check", admin.CheckGroupExpiry)
 
 	// Student Transport (Admin)
 	adm.GET("/students", admin.GetAllStudents)
@@ -334,6 +335,9 @@ func registerAdminRoutes(adm *gin.RouterGroup) {
 	adm.GET("/reports/vendor", admin.GenerateVendorReport)
 	adm.GET("/reports/stop-changes", admin.GenerateStopChangeReport)
 	adm.GET("/reports/bus-detail", admin.GenerateBusDetailReport)
+	adm.GET("/reports/driver-groups", admin.GenerateDriverGroupReport)
+	adm.GET("/reports/vehicle-groups", admin.GenerateVehicleGroupReport)
+	adm.GET("/reports/shifts", admin.GenerateShiftReport)
 }
 
 // registerDriverRoutes sets up all driver endpoints under /api/driver

@@ -714,6 +714,7 @@ func GetVehicleDriversNew(c *gin.Context) {
 		FullName  string `json:"full_name"`
 		ShiftID   *int   `json:"shift_id"`
 		ShiftName string `json:"shift_name"`
+		ShiftTime string `json:"shift_time"`
 		IsEV      bool   `json:"is_ev"`
 	}
 
@@ -722,7 +723,9 @@ func GetVehicleDriversNew(c *gin.Context) {
 	// Regular assignments
 	rows, err := config.DB.Query(`
 		SELECT DISTINCT d.id, u.full_name,
-			   a.shift_id, COALESCE(s.name, ''), FALSE
+			   a.shift_id, COALESCE(s.name, ''),
+			   COALESCE(CONCAT(TIME_FORMAT(s.start_time, '%h:%i %p'), ' - ', TIME_FORMAT(s.end_time, '%h:%i %p')), ''),
+			   FALSE
 		FROM assignments a
 		JOIN drivers d ON a.driver_id = d.id
 		JOIN users u ON d.user_id = u.id
@@ -733,7 +736,7 @@ func GetVehicleDriversNew(c *gin.Context) {
 		defer rows.Close()
 		for rows.Next() {
 			var d DriverInfo
-			rows.Scan(&d.ID, &d.FullName, &d.ShiftID, &d.ShiftName, &d.IsEV)
+			rows.Scan(&d.ID, &d.FullName, &d.ShiftID, &d.ShiftName, &d.ShiftTime, &d.IsEV)
 			drivers = append(drivers, d)
 		}
 	}
@@ -741,7 +744,9 @@ func GetVehicleDriversNew(c *gin.Context) {
 	// EV cluster assignments
 	evRows, err := config.DB.Query(`
 		SELECT DISTINCT d.id, u.full_name,
-			   ev.shift_id, COALESCE(s.name, 'EV Duty'), TRUE
+			   ev.shift_id, COALESCE(s.name, 'EV Duty'),
+			   COALESCE(CONCAT(TIME_FORMAT(s.start_time, '%h:%i %p'), ' - ', TIME_FORMAT(s.end_time, '%h:%i %p')), ''),
+			   TRUE
 		FROM ev_assignments ev
 		JOIN driver_clusters dc ON ev.cluster_id = dc.id
 		JOIN driver_cluster_members dcm ON dcm.cluster_id = dc.id AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to
@@ -754,7 +759,7 @@ func GetVehicleDriversNew(c *gin.Context) {
 		defer evRows.Close()
 		for evRows.Next() {
 			var d DriverInfo
-			evRows.Scan(&d.ID, &d.FullName, &d.ShiftID, &d.ShiftName, &d.IsEV)
+			evRows.Scan(&d.ID, &d.FullName, &d.ShiftID, &d.ShiftName, &d.ShiftTime, &d.IsEV)
 			d.IsEV = true
 			drivers = append(drivers, d)
 		}

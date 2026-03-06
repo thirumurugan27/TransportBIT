@@ -1612,3 +1612,402 @@ func nullStr(ns sql.NullString, fallback string) string {
 	}
 	return fallback
 }
+
+// ===================================
+// 14. DRIVER GROUP (CLUSTER) REPORT
+// ===================================
+
+// GET /api/admin/reports/driver-groups
+func GenerateDriverGroupReport(c *gin.Context) {
+	if c.Query("format") == "pdf" {
+		generateDriverGroupReportPDF(c)
+		return
+	}
+
+	// ── Date range filter ──
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
+
+	// ── Sheet 1: Driver Groups ──
+	query := `
+		SELECT c.id, c.name, COALESCE(c.description, '-'),
+			(SELECT COUNT(DISTINCT dcm.driver_id) FROM driver_cluster_members dcm WHERE dcm.cluster_id = c.id),
+			COALESCE(DATE_FORMAT(c.valid_from, '%d-%m-%Y'), '-'),
+			COALESCE(DATE_FORMAT(c.valid_to, '%d-%m-%Y'), '-'),
+			DATE_FORMAT(c.created_at, '%d-%m-%Y %h:%i %p')
+		FROM driver_clusters c`
+	var args []interface{}
+	if startDate != "" && endDate != "" {
+		query += ` WHERE c.valid_from <= ? AND c.valid_to >= ?`
+		args = append(args, endDate, startDate)
+	}
+	query += ` ORDER BY c.name`
+
+	groupRows, err := config.DB.Query(query, args...)
+	if err != nil {
+		log.Printf("Driver group report error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate report"})
+		return
+	}
+	defer groupRows.Close()
+
+	f := excelize.NewFile()
+	sheet1 := "Driver Groups"
+	f.SetSheetName("Sheet1", sheet1)
+
+	period := fmt.Sprintf("Generated: %s", time.Now().Format("02-01-2006 03:04 PM"))
+	if startDate != "" && endDate != "" {
+		period = fmt.Sprintf("Period: %s to %s | Generated: %s", startDate, endDate, time.Now().Format("02-01-2006 03:04 PM"))
+	}
+	headers1 := []string{"S.No", "Group Name", "Description", "Driver Count", "Valid From", "Valid To", "Created At"}
+	styleTitleRow(f, sheet1, "DRIVER GROUP REPORT", period, len(headers1))
+
+	for i, h := range headers1 {
+		cell, _ := excelize.CoordinatesToCellName(i+1, 4)
+		f.SetCellValue(sheet1, cell, h)
+	}
+	styleHeader(f, sheet1, len(headers1), 4)
+
+	row := 5
+	sno := 1
+	var groupIDs []int
+	var groupNames []string
+	for groupRows.Next() {
+		var id, driverCount int
+		var name, description, validFrom, validTo, createdAt string
+		if err := groupRows.Scan(&id, &name, &description, &driverCount, &validFrom, &validTo, &createdAt); err != nil {
+			continue
+		}
+		f.SetCellValue(sheet1, fmt.Sprintf("A%d", row), sno)
+		f.SetCellValue(sheet1, fmt.Sprintf("B%d", row), name)
+		f.SetCellValue(sheet1, fmt.Sprintf("C%d", row), description)
+		f.SetCellValue(sheet1, fmt.Sprintf("D%d", row), driverCount)
+		f.SetCellValue(sheet1, fmt.Sprintf("E%d", row), validFrom)
+		f.SetCellValue(sheet1, fmt.Sprintf("F%d", row), validTo)
+		f.SetCellValue(sheet1, fmt.Sprintf("G%d", row), createdAt)
+		groupIDs = append(groupIDs, id)
+		groupNames = append(groupNames, name)
+		row++
+		sno++
+	}
+
+	setColWidths(f, sheet1, map[string]float64{"A": 6, "B": 22, "C": 28, "D": 14, "E": 14, "F": 14, "G": 22})
+
+	// ── Sheet 2: Driver Group Members ──
+	sheet2 := "Group Members"
+	f.NewSheet(sheet2)
+
+	headers2 := []string{"S.No", "Group Name", "Driver Name", "License No", "Phone", "Valid From", "Valid To", "Added At"}
+	styleTitleRow(f, sheet2, "DRIVER GROUP MEMBERS", period, len(headers2))
+
+	for i, h := range headers2 {
+		cell, _ := excelize.CoordinatesToCellName(i+1, 4)
+		f.SetCellValue(sheet2, cell, h)
+	}
+	styleHeader(f, sheet2, len(headers2), 4)
+
+	mrow := 5
+	msno := 1
+	for idx, gID := range groupIDs {
+		memberRows, err := config.DB.Query(`
+			SELECT COALESCE(u.full_name, '-'), COALESCE(d.license_number, '-'), COALESCE(u.phone, '-'),
+				COALESCE(DATE_FORMAT(dcm.valid_from, '%d-%m-%Y'), '-'),
+				COALESCE(DATE_FORMAT(dcm.valid_to, '%d-%m-%Y'), '-'),
+				DATE_FORMAT(dcm.added_at, '%d-%m-%Y %h:%i %p')
+			FROM driver_cluster_members dcm
+			JOIN drivers d ON dcm.driver_id = d.id
+			JOIN users u ON d.user_id = u.id
+			WHERE dcm.cluster_id = ?
+			ORDER BY u.full_name
+		`, gID)
+		if err != nil {
+			continue
+		}
+		for memberRows.Next() {
+			var driverName, licenseNo, phone, validFrom, validTo, addedAt string
+			if err := memberRows.Scan(&driverName, &licenseNo, &phone, &validFrom, &validTo, &addedAt); err != nil {
+				continue
+			}
+			f.SetCellValue(sheet2, fmt.Sprintf("A%d", mrow), msno)
+			f.SetCellValue(sheet2, fmt.Sprintf("B%d", mrow), groupNames[idx])
+			f.SetCellValue(sheet2, fmt.Sprintf("C%d", mrow), driverName)
+			f.SetCellValue(sheet2, fmt.Sprintf("D%d", mrow), licenseNo)
+			f.SetCellValue(sheet2, fmt.Sprintf("E%d", mrow), phone)
+			f.SetCellValue(sheet2, fmt.Sprintf("F%d", mrow), validFrom)
+			f.SetCellValue(sheet2, fmt.Sprintf("G%d", mrow), validTo)
+			f.SetCellValue(sheet2, fmt.Sprintf("H%d", mrow), addedAt)
+			mrow++
+			msno++
+		}
+		memberRows.Close()
+	}
+
+	setColWidths(f, sheet2, map[string]float64{"A": 6, "B": 22, "C": 22, "D": 18, "E": 14, "F": 14, "G": 14, "H": 22})
+
+	filename := fmt.Sprintf("Driver_Group_Report_%s.xlsx", time.Now().Format("2006-01-02"))
+	sendExcel(c, f, filename)
+}
+
+// ===================================
+// 15. VEHICLE GROUP REPORT
+// ===================================
+
+// GET /api/admin/reports/vehicle-groups
+func GenerateVehicleGroupReport(c *gin.Context) {
+	if c.Query("format") == "pdf" {
+		generateVehicleGroupReportPDF(c)
+		return
+	}
+
+	// ── Date range filter ──
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
+
+	// ── Sheet 1: Vehicle Groups ──
+	query := `
+		SELECT vg.id, vg.name, COALESCE(vg.description, '-'),
+			(SELECT COUNT(DISTINCT vgm.vehicle_id) FROM vehicle_group_members vgm WHERE vgm.group_id = vg.id),
+			COALESCE(DATE_FORMAT(vg.valid_from, '%d-%m-%Y'), '-'),
+			COALESCE(DATE_FORMAT(vg.valid_to, '%d-%m-%Y'), '-'),
+			DATE_FORMAT(vg.created_at, '%d-%m-%Y %h:%i %p'),
+			DATE_FORMAT(vg.updated_at, '%d-%m-%Y %h:%i %p')
+		FROM vehicle_groups vg`
+	var args []interface{}
+	if startDate != "" && endDate != "" {
+		query += ` WHERE vg.valid_from <= ? AND vg.valid_to >= ?`
+		args = append(args, endDate, startDate)
+	}
+	query += ` ORDER BY vg.name`
+
+	groupRows, err := config.DB.Query(query, args...)
+	if err != nil {
+		log.Printf("Vehicle group report error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate report"})
+		return
+	}
+	defer groupRows.Close()
+
+	f := excelize.NewFile()
+	sheet1 := "Vehicle Groups"
+	f.SetSheetName("Sheet1", sheet1)
+
+	period := fmt.Sprintf("Generated: %s", time.Now().Format("02-01-2006 03:04 PM"))
+	if startDate != "" && endDate != "" {
+		period = fmt.Sprintf("Period: %s to %s | Generated: %s", startDate, endDate, time.Now().Format("02-01-2006 03:04 PM"))
+	}
+	headers1 := []string{"S.No", "Group Name", "Description", "Vehicle Count", "Valid From", "Valid To", "Created At", "Updated At"}
+	styleTitleRow(f, sheet1, "VEHICLE GROUP REPORT", period, len(headers1))
+
+	for i, h := range headers1 {
+		cell, _ := excelize.CoordinatesToCellName(i+1, 4)
+		f.SetCellValue(sheet1, cell, h)
+	}
+	styleHeader(f, sheet1, len(headers1), 4)
+
+	row := 5
+	sno := 1
+	var groupIDs []int
+	var groupNames []string
+	for groupRows.Next() {
+		var id, vehicleCount int
+		var name, description, validFrom, validTo, createdAt, updatedAt string
+		if err := groupRows.Scan(&id, &name, &description, &vehicleCount, &validFrom, &validTo, &createdAt, &updatedAt); err != nil {
+			continue
+		}
+		f.SetCellValue(sheet1, fmt.Sprintf("A%d", row), sno)
+		f.SetCellValue(sheet1, fmt.Sprintf("B%d", row), name)
+		f.SetCellValue(sheet1, fmt.Sprintf("C%d", row), description)
+		f.SetCellValue(sheet1, fmt.Sprintf("D%d", row), vehicleCount)
+		f.SetCellValue(sheet1, fmt.Sprintf("E%d", row), validFrom)
+		f.SetCellValue(sheet1, fmt.Sprintf("F%d", row), validTo)
+		f.SetCellValue(sheet1, fmt.Sprintf("G%d", row), createdAt)
+		f.SetCellValue(sheet1, fmt.Sprintf("H%d", row), updatedAt)
+		groupIDs = append(groupIDs, id)
+		groupNames = append(groupNames, name)
+		row++
+		sno++
+	}
+
+	setColWidths(f, sheet1, map[string]float64{"A": 6, "B": 22, "C": 28, "D": 14, "E": 14, "F": 14, "G": 22, "H": 22})
+
+	// ── Sheet 2: Vehicle Group Members ──
+	sheet2 := "Group Members"
+	f.NewSheet(sheet2)
+
+	headers2 := []string{"S.No", "Group Name", "Vehicle Number", "Vehicle Type", "Vehicle Status", "Valid From", "Valid To", "Added At"}
+	styleTitleRow(f, sheet2, "VEHICLE GROUP MEMBERS", period, len(headers2))
+
+	for i, h := range headers2 {
+		cell, _ := excelize.CoordinatesToCellName(i+1, 4)
+		f.SetCellValue(sheet2, cell, h)
+	}
+	styleHeader(f, sheet2, len(headers2), 4)
+
+	mrow := 5
+	msno := 1
+	for idx, gID := range groupIDs {
+		memberRows, err := config.DB.Query(`
+			SELECT COALESCE(v.vehicle_number, '-'), COALESCE(v.vehicle_type, '-'), COALESCE(v.status, '-'),
+				COALESCE(DATE_FORMAT(vgm.valid_from, '%d-%m-%Y'), '-'),
+				COALESCE(DATE_FORMAT(vgm.valid_to, '%d-%m-%Y'), '-'),
+				DATE_FORMAT(vgm.added_at, '%d-%m-%Y %h:%i %p')
+			FROM vehicle_group_members vgm
+			JOIN vehicles v ON vgm.vehicle_id = v.id
+			WHERE vgm.group_id = ?
+			ORDER BY v.vehicle_number
+		`, gID)
+		if err != nil {
+			continue
+		}
+		for memberRows.Next() {
+			var vehicleNumber, vehicleType, vehicleStatus, validFrom, validTo, addedAt string
+			if err := memberRows.Scan(&vehicleNumber, &vehicleType, &vehicleStatus, &validFrom, &validTo, &addedAt); err != nil {
+				continue
+			}
+			f.SetCellValue(sheet2, fmt.Sprintf("A%d", mrow), msno)
+			f.SetCellValue(sheet2, fmt.Sprintf("B%d", mrow), groupNames[idx])
+			f.SetCellValue(sheet2, fmt.Sprintf("C%d", mrow), vehicleNumber)
+			f.SetCellValue(sheet2, fmt.Sprintf("D%d", mrow), vehicleType)
+			f.SetCellValue(sheet2, fmt.Sprintf("E%d", mrow), vehicleStatus)
+			f.SetCellValue(sheet2, fmt.Sprintf("F%d", mrow), validFrom)
+			f.SetCellValue(sheet2, fmt.Sprintf("G%d", mrow), validTo)
+			f.SetCellValue(sheet2, fmt.Sprintf("H%d", mrow), addedAt)
+			mrow++
+			msno++
+		}
+		memberRows.Close()
+	}
+
+	setColWidths(f, sheet2, map[string]float64{"A": 6, "B": 22, "C": 18, "D": 14, "E": 14, "F": 14, "G": 14, "H": 22})
+
+	filename := fmt.Sprintf("Vehicle_Group_Report_%s.xlsx", time.Now().Format("2006-01-02"))
+	sendExcel(c, f, filename)
+}
+
+// ===================================
+// 16. SHIFTS & TIMINGS REPORT
+// ===================================
+
+// GET /api/admin/reports/shifts
+func GenerateShiftReport(c *gin.Context) {
+	if c.Query("format") == "pdf" {
+		generateShiftReportPDF(c)
+		return
+	}
+
+	rows, err := config.DB.Query(`
+		SELECT s.id, s.name, 
+			TIME_FORMAT(s.start_time, '%h:%i %p'), 
+			TIME_FORMAT(s.end_time, '%h:%i %p'),
+			COALESCE(s.description, '-'),
+			COALESCE(u.full_name, '-') as created_by,
+			(SELECT COUNT(DISTINCT a.driver_id) FROM assignments a 
+			 WHERE a.shift_id = s.id AND a.status = 'active' 
+			 AND CURDATE() BETWEEN a.start_date AND a.end_date) as active_drivers,
+			(SELECT COUNT(DISTINCT a.vehicle_id) FROM assignments a 
+			 WHERE a.shift_id = s.id AND a.status = 'active' 
+			 AND CURDATE() BETWEEN a.start_date AND a.end_date) as active_vehicles
+		FROM shifts s
+		LEFT JOIN users u ON s.created_by = u.id
+		ORDER BY s.start_time, s.name
+	`)
+	if err != nil {
+		log.Printf("Shift report error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate report"})
+		return
+	}
+	defer rows.Close()
+
+	f := excelize.NewFile()
+	sheet1 := "Shifts & Timings"
+	f.SetSheetName("Sheet1", sheet1)
+
+	period := fmt.Sprintf("Generated: %s", time.Now().Format("02-01-2006 03:04 PM"))
+	headers := []string{"S.No", "Shift Name", "Start Time", "End Time", "Description", "Created By", "Active Drivers", "Active Vehicles"}
+	styleTitleRow(f, sheet1, "SHIFTS & TIMINGS REPORT", period, len(headers))
+
+	for i, h := range headers {
+		cell, _ := excelize.CoordinatesToCellName(i+1, 4)
+		f.SetCellValue(sheet1, cell, h)
+	}
+	styleHeader(f, sheet1, len(headers), 4)
+
+	row := 5
+	sno := 1
+	var shiftIDs []int
+	var shiftNames []string
+	for rows.Next() {
+		var id, activeDrivers, activeVehicles int
+		var name, startTime, endTime, description, createdBy string
+		if err := rows.Scan(&id, &name, &startTime, &endTime, &description, &createdBy, &activeDrivers, &activeVehicles); err != nil {
+			continue
+		}
+		f.SetCellValue(sheet1, fmt.Sprintf("A%d", row), sno)
+		f.SetCellValue(sheet1, fmt.Sprintf("B%d", row), name)
+		f.SetCellValue(sheet1, fmt.Sprintf("C%d", row), startTime)
+		f.SetCellValue(sheet1, fmt.Sprintf("D%d", row), endTime)
+		f.SetCellValue(sheet1, fmt.Sprintf("E%d", row), description)
+		f.SetCellValue(sheet1, fmt.Sprintf("F%d", row), createdBy)
+		f.SetCellValue(sheet1, fmt.Sprintf("G%d", row), activeDrivers)
+		f.SetCellValue(sheet1, fmt.Sprintf("H%d", row), activeVehicles)
+		shiftIDs = append(shiftIDs, id)
+		shiftNames = append(shiftNames, name)
+		row++
+		sno++
+	}
+
+	setColWidths(f, sheet1, map[string]float64{"A": 6, "B": 22, "C": 14, "D": 14, "E": 28, "F": 20, "G": 16, "H": 16})
+
+	// ── Sheet 2: Shift Assignments (current active assignments per shift) ──
+	sheet2 := "Shift Assignments"
+	f.NewSheet(sheet2)
+
+	headers2 := []string{"S.No", "Shift Name", "Driver Name", "Vehicle Number", "Vehicle Name", "Start Date", "End Date"}
+	styleTitleRow(f, sheet2, "CURRENT SHIFT-WISE ASSIGNMENTS", period, len(headers2))
+
+	for i, h := range headers2 {
+		cell, _ := excelize.CoordinatesToCellName(i+1, 4)
+		f.SetCellValue(sheet2, cell, h)
+	}
+	styleHeader(f, sheet2, len(headers2), 4)
+
+	arow := 5
+	asno := 1
+	for idx, sID := range shiftIDs {
+		assignRows, err := config.DB.Query(`
+			SELECT COALESCE(u.full_name, '-'), 
+				COALESCE(v.vehicle_number, '-'), COALESCE(v.vehicle_name, '-'),
+				DATE_FORMAT(a.start_date, '%d-%m-%Y'), DATE_FORMAT(a.end_date, '%d-%m-%Y')
+			FROM assignments a
+			JOIN drivers d ON a.driver_id = d.id
+			JOIN users u ON d.user_id = u.id
+			JOIN vehicles v ON a.vehicle_id = v.id
+			WHERE a.shift_id = ? AND a.status = 'active' AND CURDATE() BETWEEN a.start_date AND a.end_date
+			ORDER BY u.full_name
+		`, sID)
+		if err != nil {
+			continue
+		}
+		for assignRows.Next() {
+			var driverName, vehicleNum, vehicleName, startDate, endDate string
+			if err := assignRows.Scan(&driverName, &vehicleNum, &vehicleName, &startDate, &endDate); err != nil {
+				continue
+			}
+			f.SetCellValue(sheet2, fmt.Sprintf("A%d", arow), asno)
+			f.SetCellValue(sheet2, fmt.Sprintf("B%d", arow), shiftNames[idx])
+			f.SetCellValue(sheet2, fmt.Sprintf("C%d", arow), driverName)
+			f.SetCellValue(sheet2, fmt.Sprintf("D%d", arow), vehicleNum)
+			f.SetCellValue(sheet2, fmt.Sprintf("E%d", arow), vehicleName)
+			f.SetCellValue(sheet2, fmt.Sprintf("F%d", arow), startDate)
+			f.SetCellValue(sheet2, fmt.Sprintf("G%d", arow), endDate)
+			arow++
+			asno++
+		}
+		assignRows.Close()
+	}
+
+	setColWidths(f, sheet2, map[string]float64{"A": 6, "B": 22, "C": 22, "D": 16, "E": 18, "F": 14, "G": 14})
+
+	filename := fmt.Sprintf("Shifts_Timings_Report_%s.xlsx", time.Now().Format("2006-01-02"))
+	sendExcel(c, f, filename)
+}

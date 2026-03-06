@@ -116,6 +116,12 @@ type EnhancedDashboardStats struct {
 	ExpiringLicenses int `json:"expiring_licenses"`
 	ExpiredLicenses  int `json:"expired_licenses"`
 
+	// Group expiry alerts
+	ExpiringDriverGroups  int `json:"expiring_driver_groups"`
+	ExpiredDriverGroups   int `json:"expired_driver_groups"`
+	ExpiringVehicleGroups int `json:"expiring_vehicle_groups"`
+	ExpiredVehicleGroups  int `json:"expired_vehicle_groups"`
+
 	// Recent vehicle requests (last 5)
 	RecentVehicleRequests []RecentVehicleRequest `json:"recent_vehicle_requests"`
 
@@ -208,11 +214,11 @@ func GetDashboardStats(c *gin.Context) {
 	config.DB.QueryRow(`
 		SELECT COALESCE(SUM(fuel_filled), 0) FROM fuel_indents
 		WHERE status = 'completed'
-		AND MONTH(completed_at) = MONTH(CURDATE()) AND YEAR(completed_at) = YEAR(CURDATE())
+		AND completed_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
 	`).Scan(&fuelFromIndents)
 	config.DB.QueryRow(`
 		SELECT COALESCE(SUM(fuel_consumed), 0) FROM km_logs
-		WHERE MONTH(date) = MONTH(CURDATE()) AND YEAR(date) = YEAR(CURDATE())
+		WHERE date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
 		AND status = 'approved'
 	`).Scan(&fuelFromKmLogs)
 	if fuelFromKmLogs > fuelFromIndents {
@@ -223,7 +229,7 @@ func GetDashboardStats(c *gin.Context) {
 
 	config.DB.QueryRow(`
 		SELECT COALESCE(SUM(total_km), 0) FROM km_logs
-		WHERE MONTH(date) = MONTH(CURDATE()) AND YEAR(date) = YEAR(CURDATE())
+		WHERE date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
 		AND status IN ('pending','approved')
 	`).Scan(&s.TotalKmMonth)
 
@@ -235,20 +241,20 @@ func GetDashboardStats(c *gin.Context) {
 	config.DB.QueryRow(`
 		SELECT COALESCE(SUM(total_cost), 0) FROM service_records
 		WHERE status = 'completed'
-		AND MONTH(completed_at) = MONTH(CURDATE()) AND YEAR(completed_at) = YEAR(CURDATE())
+		AND completed_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
 	`).Scan(&s.ServiceCostMonth)
 
 	config.DB.QueryRow(`
 		SELECT COALESCE(SUM(quantity * unit_price), 0) FROM parts_purchased
 		WHERE status = 'received'
-		AND MONTH(purchased_date) = MONTH(CURDATE()) AND YEAR(purchased_date) = YEAR(CURDATE())
+		AND purchased_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
 	`).Scan(&s.PartsCostMonth)
 
 	// ── Vehicle Requests Breakdown ──
-	config.DB.QueryRow(`SELECT COUNT(*) FROM vehiclerequests WHERE MONTH(created_at) = MONTH(CURDATE()) AND YEAR(created_at) = YEAR(CURDATE())`).Scan(&s.VehicleRequestsTotal)
+	config.DB.QueryRow(`SELECT COUNT(*) FROM vehiclerequests WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)`).Scan(&s.VehicleRequestsTotal)
 	config.DB.QueryRow(`SELECT COUNT(*) FROM vehiclerequests WHERE status = 'pending'`).Scan(&s.VehicleRequestsPending)
 	config.DB.QueryRow(`SELECT COUNT(*) FROM vehiclerequests WHERE status IN ('approved','assigned')`).Scan(&s.VehicleRequestsApproved)
-	config.DB.QueryRow(`SELECT COUNT(*) FROM vehiclerequests WHERE status = 'completed' AND MONTH(created_at) = MONTH(CURDATE()) AND YEAR(created_at) = YEAR(CURDATE())`).Scan(&s.VehicleRequestsCompleted)
+	config.DB.QueryRow(`SELECT COUNT(*) FROM vehiclerequests WHERE status = 'completed' AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)`).Scan(&s.VehicleRequestsCompleted)
 
 	// ── Vehicles by Type ──
 	s.VehiclesByType = queryTypeCount(`SELECT COALESCE(vehicle_type,'Other'), COUNT(*) FROM vehicles GROUP BY vehicle_type ORDER BY COUNT(*) DESC`)
@@ -271,6 +277,29 @@ func GetDashboardStats(c *gin.Context) {
 		WHERE d.license_expiry IS NOT NULL AND d.license_expiry != ''
 		AND STR_TO_DATE(d.license_expiry, '%d-%m-%Y') BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY)
 	`).Scan(&s.ExpiringLicenses)
+
+	// ── Group Expiry Alerts ──
+	config.DB.QueryRow(`
+		SELECT COUNT(*) FROM driver_clusters
+		WHERE valid_to IS NOT NULL AND valid_to < CURDATE()
+	`).Scan(&s.ExpiredDriverGroups)
+
+	config.DB.QueryRow(`
+		SELECT COUNT(*) FROM driver_clusters
+		WHERE valid_to IS NOT NULL AND valid_to >= CURDATE()
+		AND valid_to <= DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+	`).Scan(&s.ExpiringDriverGroups)
+
+	config.DB.QueryRow(`
+		SELECT COUNT(*) FROM vehicle_groups
+		WHERE valid_to IS NOT NULL AND valid_to < CURDATE()
+	`).Scan(&s.ExpiredVehicleGroups)
+
+	config.DB.QueryRow(`
+		SELECT COUNT(*) FROM vehicle_groups
+		WHERE valid_to IS NOT NULL AND valid_to >= CURDATE()
+		AND valid_to <= DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+	`).Scan(&s.ExpiringVehicleGroups)
 
 	// ── Build Pending Actions list ──
 	s.PendingActions = []PendingAction{}
@@ -326,6 +355,18 @@ func GetDashboardStats(c *gin.Context) {
 		s.PendingActions = append(s.PendingActions, PendingAction{
 			Label: "License Expiring", Count: s.ExpiringLicenses + s.ExpiredLicenses,
 			Route: "/admin-dashboard/drivers", Color: "red", Icon: "id-card",
+		})
+	}
+	if s.ExpiringDriverGroups > 0 || s.ExpiredDriverGroups > 0 {
+		s.PendingActions = append(s.PendingActions, PendingAction{
+			Label: "Driver Group Expiring", Count: s.ExpiringDriverGroups + s.ExpiredDriverGroups,
+			Route: "/admin-dashboard/schedule-management", Color: "red", Icon: "users",
+		})
+	}
+	if s.ExpiringVehicleGroups > 0 || s.ExpiredVehicleGroups > 0 {
+		s.PendingActions = append(s.PendingActions, PendingAction{
+			Label: "Vehicle Group Expiring", Count: s.ExpiringVehicleGroups + s.ExpiredVehicleGroups,
+			Route: "/admin-dashboard/schedule-management", Color: "red", Icon: "layers",
 		})
 	}
 
@@ -639,7 +680,7 @@ func GetDriverWorkload(c *gin.Context) {
 		LEFT JOIN (
 			SELECT kl.driver_id, SUM(kl.total_km) AS total_km
 			FROM km_logs kl
-			WHERE MONTH(kl.date) = MONTH(CURDATE()) AND YEAR(kl.date) = YEAR(CURDATE())
+			WHERE kl.date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
 			  AND kl.status IN ('pending','approved')
 			GROUP BY kl.driver_id
 		) km_month ON km_month.driver_id = d.id

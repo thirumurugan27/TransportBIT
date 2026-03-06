@@ -130,6 +130,9 @@ func GetAssignmentsByCategory(c *gin.Context) {
 	var whereClause string
 	var args []interface{}
 
+	// filterDate arg for the attendance JOIN (must come first in args)
+	args = append(args, filterDate)
+
 	if category == "OTHER" {
 		// OTHER = vehicles that are not BUS, CAR, or BATTERY_VEHICLE (EV)
 		whereClause = "v.vehicle_type NOT IN ('BUS', 'CAR', 'BATTERY_VEHICLE')"
@@ -173,7 +176,7 @@ func GetAssignmentsByCategory(c *gin.Context) {
 		JOIN vehicles v ON a.vehicle_id = v.id
 		LEFT JOIN buses b ON v.id = b.vehicle_id
 		JOIN shifts s ON a.shift_id = s.id
-		LEFT JOIN attendance att ON att.user_id = d.user_id AND att.date = a.assigned_date
+		LEFT JOIN attendance att ON att.user_id = d.user_id AND att.date = ?
 		WHERE ` + whereClause + `
 		ORDER BY a.assigned_date DESC, s.start_time
 	`

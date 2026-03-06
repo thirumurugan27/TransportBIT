@@ -45,6 +45,10 @@ export default function AdminDashboard() {
     };
     fetchAbsentAlerts();
     const interval = setInterval(fetchAbsentAlerts, 30000);
+
+    // Trigger group expiry check (creates notifications if any groups are expiring/expired)
+    apiGet("/api/admin/group-expiry-check").catch(() => {});
+
     return () => clearInterval(interval);
   }, []);
 
