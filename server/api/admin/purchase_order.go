@@ -426,7 +426,7 @@ func AddProductToOrder(c *gin.Context) {
 	var purchasedDate sql.NullString
 	err := config.DB.QueryRow(`
 		SELECT category, service_record_id, vehicle_id, vendor_id, COALESCE(invoice_number, ''), 
-			   purchased_date, status
+			   DATE_FORMAT(purchased_date, '%Y-%m-%d'), status
 		FROM purchase_orders WHERE id = ?
 	`, req.PurchaseOrderID).Scan(&category, &serviceRecordID, &vehicleID, &vendorID, &invoiceNumber, &purchasedDate, &status)
 	if err != nil {

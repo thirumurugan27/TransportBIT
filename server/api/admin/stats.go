@@ -122,6 +122,10 @@ type EnhancedDashboardStats struct {
 	ExpiringVehicleGroups int `json:"expiring_vehicle_groups"`
 	ExpiredVehicleGroups  int `json:"expired_vehicle_groups"`
 
+	// Assignment expiry alerts
+	ExpiredAssignments  int `json:"expired_assignments"`
+	ExpiringAssignments int `json:"expiring_assignments"`
+
 	// Recent vehicle requests (last 5)
 	RecentVehicleRequests []RecentVehicleRequest `json:"recent_vehicle_requests"`
 
@@ -278,6 +282,20 @@ func GetDashboardStats(c *gin.Context) {
 		AND STR_TO_DATE(d.license_expiry, '%d-%m-%Y') BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY)
 	`).Scan(&s.ExpiringLicenses)
 
+	// ── Assignment Expiry Alerts ──
+	config.DB.QueryRow(`
+		SELECT COUNT(*) FROM assignments
+		WHERE status IN ('assigned','active')
+		AND end_date < CURDATE()
+	`).Scan(&s.ExpiredAssignments)
+
+	config.DB.QueryRow(`
+		SELECT COUNT(*) FROM assignments
+		WHERE status IN ('assigned','active')
+		AND end_date >= CURDATE()
+		AND end_date <= DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+	`).Scan(&s.ExpiringAssignments)
+
 	// ── Group Expiry Alerts ──
 	config.DB.QueryRow(`
 		SELECT COUNT(*) FROM driver_clusters
@@ -369,6 +387,18 @@ func GetDashboardStats(c *gin.Context) {
 			Route: "/admin-dashboard/schedule-management", Color: "red", Icon: "layers",
 		})
 	}
+	if s.ExpiredAssignments > 0 {
+		s.PendingActions = append(s.PendingActions, PendingAction{
+			Label: "Assignments Expired", Count: s.ExpiredAssignments,
+			Route: "/admin-dashboard/all-assignments", Color: "red", Icon: "calendar",
+		})
+	}
+	if s.ExpiringAssignments > 0 {
+		s.PendingActions = append(s.PendingActions, PendingAction{
+			Label: "Assignments Expiring Soon", Count: s.ExpiringAssignments,
+			Route: "/admin-dashboard/all-assignments", Color: "pending", Icon: "calendar",
+		})
+	}
 
 	// ── Recent Vehicle Requests (last 5) ──
 	s.RecentVehicleRequests = queryRecentVehicleRequests()
@@ -401,19 +431,27 @@ func queryTypeCount(query string) []TypeCount {
 	return result
 }
 
-// queryWeeklyAttendance returns attendance data for last 7 days
+// queryWeeklyAttendance returns attendance data for last 7 days (always 7 entries)
 func queryWeeklyAttendance() []DayAttendance {
 	rows, err := config.DB.Query(`
 		SELECT
-			DATE_FORMAT(a.date, '%d %b') as formatted_date,
-			LEFT(DAYNAME(a.date), 3) as day_name,
-			SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END) as present_count,
-			SUM(CASE WHEN a.status = 'absent' THEN 1 ELSE 0 END) as absent_count
-		FROM attendance a
-		JOIN drivers d ON a.user_id = d.user_id
-		WHERE a.date >= DATE_SUB(CURDATE(), INTERVAL 6 DAY) AND a.date <= CURDATE()
-		GROUP BY a.date
-		ORDER BY a.date ASC
+			DATE_FORMAT(dates.d, '%d %b') as formatted_date,
+			LEFT(DAYNAME(dates.d), 3) as day_name,
+			COALESCE(SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END), 0) as present_count,
+			COALESCE(SUM(CASE WHEN a.status = 'absent' THEN 1 ELSE 0 END), 0) as absent_count,
+			COALESCE((
+				SELECT COUNT(DISTINCT lr.driver_id)
+				FROM leave_requests lr
+				WHERE lr.status = 'approved' AND dates.d BETWEEN lr.start_date AND lr.end_date
+			), 0) as on_leave_count
+		FROM (
+			SELECT DATE_SUB(CURDATE(), INTERVAL n DAY) as d
+			FROM (SELECT 0 n UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6) nums
+		) dates
+		LEFT JOIN attendance a ON a.date = dates.d
+		LEFT JOIN drivers dr ON a.user_id = dr.user_id
+		GROUP BY dates.d
+		ORDER BY dates.d ASC
 	`)
 	if err != nil {
 		log.Printf("weekly attendance error: %v", err)
@@ -424,38 +462,8 @@ func queryWeeklyAttendance() []DayAttendance {
 	var result []DayAttendance
 	for rows.Next() {
 		var d DayAttendance
-		if err := rows.Scan(&d.Date, &d.Day, &d.Present, &d.Absent); err == nil {
+		if err := rows.Scan(&d.Date, &d.Day, &d.Present, &d.Absent, &d.OnLeave); err == nil {
 			result = append(result, d)
-		}
-	}
-
-	// Also query on-leave counts per day
-	leaveRows, err := config.DB.Query(`
-		SELECT DATE_FORMAT(dates.d, '%d %b') as formatted_date,
-		       COUNT(DISTINCT lr.driver_id) as on_leave
-		FROM (
-			SELECT DATE_SUB(CURDATE(), INTERVAL n DAY) as d
-			FROM (SELECT 0 n UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6) nums
-		) dates
-		LEFT JOIN leave_requests lr ON dates.d BETWEEN lr.start_date AND lr.end_date AND lr.status = 'approved'
-		WHERE dates.d >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
-		GROUP BY dates.d
-		ORDER BY dates.d ASC
-	`)
-	if err == nil {
-		defer leaveRows.Close()
-		leaveMap := make(map[string]int)
-		for leaveRows.Next() {
-			var date string
-			var count int
-			if leaveRows.Scan(&date, &count) == nil {
-				leaveMap[date] = count
-			}
-		}
-		for i := range result {
-			if cnt, ok := leaveMap[result[i].Date]; ok {
-				result[i].OnLeave = cnt
-			}
 		}
 	}
 
