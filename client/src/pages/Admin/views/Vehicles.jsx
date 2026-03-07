@@ -75,6 +75,32 @@ const VEHICLE_TYPE_OPTIONS = [
   {value: "OTHER", label: "Others", icon: Truck},
 ];
 
+const toNullableNumber = (value) => {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const toIntegerOrZero = (value) => {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const buildVehiclePayload = (source, id = null) => {
+  const payload = {
+    ...source,
+    seating_capacity: toIntegerOrZero(source.seating_capacity),
+    insurance_amount: toNullableNumber(source.insurance_amount),
+    road_tax_amount: toNullableNumber(source.road_tax_amount),
+  };
+
+  if (id !== null && id !== undefined) {
+    payload.id = id;
+  }
+
+  return payload;
+};
+
 export default function Vehicles() {
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -250,7 +276,7 @@ export default function Vehicles() {
     setVehicleForm({
       vehicle_type: vehicle.vehicle_type || "NA",
       vehicle_number: vehicle.vehicle_number || "NA",
-      seating_capacity: vehicle.seating_capacity ?? "NA",
+      seating_capacity: vehicle.seating_capacity ?? 0,
       fuel_type: vehicle.fuel_type || "NA",
       status: normalizeStatus(vehicle.status),
       vehicle_name: vehicle.vehicle_name || "",
@@ -330,7 +356,9 @@ export default function Vehicles() {
         ? "/api/admin/vehicles/update"
         : "/api/admin/vehicles/create";
 
-      const body = isEditing ? {...vehicleForm, id: editingId} : vehicleForm;
+      const body = isEditing
+        ? buildVehiclePayload(vehicleForm, editingId)
+        : buildVehiclePayload(vehicleForm);
 
       const res = await apiPost(endpoint, body);
 
@@ -391,7 +419,7 @@ export default function Vehicles() {
     if (!vehicle) return;
 
     // Format all dates to YYYY-MM-DD
-    const updatedVehicle = {
+    const updatedVehicle = buildVehiclePayload({
       id: vehicle.id,
       vehicle_name: vehicle.vehicle_name || "",
       vehicle_number: vehicle.vehicle_number,
@@ -409,7 +437,7 @@ export default function Vehicles() {
       permit_start_date: formatDateForAPI(vehicle.permit_start_date),
       permit_remarks: vehicle.permit_remarks || "",
       [editingExpiry.field]: expiryFormValue || null,
-    };
+    });
 
     try {
       const res = await apiPost("/api/admin/vehicles/update", updatedVehicle);
@@ -1377,11 +1405,11 @@ export default function Vehicles() {
         >
           <div className="flex items-start justify-center min-h-full p-4">
             <div
-              className="bg-secondarybg rounded-md shadow-2xl w-full max-w-lg overflow-hidden my-8 animate-modalSlideIn"
+              className="bg-secondarybg rounded-md shadow-2xl w-full max-w-4xl my-8 animate-modalSlideIn"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
-              <div className="px-6 py-5 border-b border-primary/10 flex items-start justify-between">
+              <div className="px-6 py-5 border-b border-primary/10 flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div
                     className={`p-3 rounded-md ${
@@ -1395,56 +1423,92 @@ export default function Vehicles() {
                     }`}
                   >
                     {selectedVehicle.vehicle_type === "BUS" ? (
-                      <Bus size={24} />
+                      <Bus size={22} />
                     ) : selectedVehicle.vehicle_type === "CAR" ? (
-                      <Car size={24} />
+                      <Car size={22} />
                     ) : selectedVehicle.vehicle_type === "BATTERY_VEHICLE" ? (
-                      <Zap size={24} />
+                      <Zap size={22} />
                     ) : (
-                      <Truck size={24} />
+                      <Truck size={22} />
                     )}
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-primarytext">
+                    <h2 className="text-xl font-bold text-primarytext">
                       {getVehicleLabel(selectedVehicle)}
-                    </h3>
+                    </h2>
                     <p className="text-sm text-secondarytext mt-0.5">
                       {selectedVehicle.vehicle_number} •{" "}
                       {getVehicleTypeLabel(selectedVehicle.vehicle_type)}
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => setShowDetailModal(false)}
-                  className="p-2 text-secondarytext hover:text-primarytext hover:bg-primarybg rounded-md transition-colors"
-                >
-                  <X size={20} />
-                </button>
+                <div className="flex items-center gap-3">
+                  <span
+                    className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 ${
+                      normalizeStatus(selectedVehicle.status) === "available"
+                        ? "bg-green/10 text-green"
+                        : normalizeStatus(selectedVehicle.status) ===
+                            "not_available"
+                          ? "bg-red/10 text-red"
+                          : "bg-pending/10 text-pending"
+                    }`}
+                  >
+                    {normalizeStatus(selectedVehicle.status) === "available" ? (
+                      <CheckCircle size={12} />
+                    ) : (
+                      <AlertCircle size={12} />
+                    )}
+                    {normalizeStatus(selectedVehicle.status) === "available"
+                      ? "Available"
+                      : normalizeStatus(selectedVehicle.status) ===
+                          "not_available"
+                        ? "Not Available"
+                        : "In Service"}
+                  </span>
+                  <button
+                    onClick={() => setShowDetailModal(false)}
+                    className="text-secondarytext hover:text-primarytext rounded-md p-2 hover:bg-primarybg transition-colors"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
               </div>
 
               {/* Content */}
               <div className="p-6 space-y-4">
+                {/* Main Info Grid — always 2 columns */}
                 <div className="grid grid-cols-2 gap-4">
                   {/* Vehicle Information */}
                   <div className="bg-primarybg rounded-md p-4">
                     <div className="flex items-center gap-2 mb-3">
-                      <Bus size={16} className="text-primary" />
-                      <h4 className="text-sm font-bold text-secondarytext uppercase tracking-wide">
+                      <Bus size={15} className="text-primary" />
+                      <h3 className="text-xs font-bold text-secondarytext uppercase tracking-wider">
                         Vehicle Information
-                      </h4>
+                      </h3>
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-2.5">
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-secondarytext">
                           Vehicle Number
                         </span>
-                        <span className="text-sm font-semibold text-primarytext font-mono">
+                        <span className="text-sm font-semibold text-primarytext font-mono bg-secondarybg px-2 py-0.5 rounded-md border border-primary/10">
                           {selectedVehicle.vehicle_number}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-secondarytext">Type</span>
-                        <span className="text-sm font-semibold text-primarytext">
+                        <span
+                          className={`text-xs font-semibold px-2.5 py-1 rounded-md ${
+                            selectedVehicle.vehicle_type === "BUS"
+                              ? "bg-primary/10 text-primary"
+                              : selectedVehicle.vehicle_type === "CAR"
+                                ? "bg-green/10 text-green"
+                                : selectedVehicle.vehicle_type ===
+                                    "BATTERY_VEHICLE"
+                                  ? "bg-pending/10 text-pending"
+                                  : "bg-secondarytext/10 text-secondarytext"
+                          }`}
+                        >
                           {getVehicleTypeLabel(selectedVehicle.vehicle_type)}
                         </span>
                       </div>
@@ -1458,254 +1522,11 @@ export default function Vehicles() {
                           </span>
                         </div>
                       )}
-                    </div>
-                  </div>
-
-                  {/* Specifications */}
-                  <div className="bg-primarybg rounded-md p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Fuel size={16} className="text-primary" />
-                      <h4 className="text-sm font-bold text-secondarytext uppercase tracking-wide">
-                        Specifications
-                      </h4>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-secondarytext">
-                          Fuel Type
-                        </span>
-                        <span className="text-sm font-semibold text-primarytext">
-                          {selectedVehicle.fuel_type}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-secondarytext">
-                          Seating Capacity
-                        </span>
-                        <span className="text-sm font-semibold text-primarytext">
-                          {selectedVehicle.seating_capacity} Seats
-                        </span>
-                      </div>
-                      {selectedVehicle.chassis_number && (
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-secondarytext">Chassis No.</span>
-                          <span className="text-sm font-semibold text-primarytext font-mono">
-                            {selectedVehicle.chassis_number}
-                          </span>
-                        </div>
-                      )}
-                      {selectedVehicle.engine_number && (
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-secondarytext">Engine No.</span>
-                          <span className="text-sm font-semibold text-primarytext font-mono">
-                            {selectedVehicle.engine_number}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Route Details (for Bus) */}
-                  {selectedVehicle.vehicle_type === "BUS" && (
-                    <div className="bg-primarybg rounded-md p-4">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Calendar size={16} className="text-primary" />
-                        <h4 className="text-sm font-bold text-secondarytext uppercase tracking-wide">
-                          Route Details
-                        </h4>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-secondarytext">
-                            Start Point
-                          </span>
-                          <span className="text-sm font-semibold text-primarytext">
-                            {selectedVehicle.start_point || "-"}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-secondarytext">
-                            End Point
-                          </span>
-                          <span className="text-sm font-semibold text-primarytext">
-                            {selectedVehicle.end_point || "-"}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Status */}
-                  <div className="bg-primarybg rounded-md p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <CheckCircle size={16} className="text-primary" />
-                      <h4 className="text-sm font-bold text-secondarytext uppercase tracking-wide">
-                        Status
-                      </h4>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-secondarytext">
-                          Current Status
-                        </span>
-                        <span
-                          className={`px-3 py-1 rounded-md text-xs font-semibold ${
-                            normalizeStatus(selectedVehicle.status) ===
-                            "available"
-                              ? "bg-green/20 text-green"
-                              : normalizeStatus(selectedVehicle.status) ===
-                                  "not_available"
-                                ? "bg-red/20 text-red"
-                                : "bg-pending/20 text-pending"
-                          }`}
-                        >
-                          {normalizeStatus(selectedVehicle.status) ===
-                          "available"
-                            ? "Available"
-                            : normalizeStatus(selectedVehicle.status) ===
-                                "not_available"
-                              ? "Not Available"
-                              : "In Service"}
-                        </span>
-                      </div>
-                      {selectedVehicle.replacement_vehicle_number && (
-                        <>
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-secondarytext">
-                              Replacement Vehicle
-                            </span>
-                            <span className="px-3 py-1 rounded-md text-xs font-semibold bg-skyblue/20 text-skyblue">
-                              {selectedVehicle.replacement_vehicle_number}
-                            </span>
-                          </div>
-                          {selectedVehicle.replacement_reason && (
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm text-secondarytext">
-                                Reason
-                              </span>
-                              <span className="text-sm font-medium text-primarytext capitalize">
-                                {selectedVehicle.replacement_reason.replace(
-                                  /_/g,
-                                  " ",
-                                )}
-                              </span>
-                            </div>
-                          )}
-                          {selectedVehicle.replacement_start_date && (
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm text-secondarytext">
-                                Replacement Period
-                              </span>
-                              <span className="text-sm font-medium text-primarytext">
-                                {selectedVehicle.replacement_start_date} -{" "}
-                                {selectedVehicle.replacement_end_date ||
-                                  "Ongoing"}
-                              </span>
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Expiry Details */}
-                {(selectedVehicle.insurance_expire_date ||
-                  selectedVehicle.fc_expire_date ||
-                  selectedVehicle.permit_expire_date) && (
-                  <div className="bg-primarybg rounded-md p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <Shield size={16} className="text-primary" />
-                        <h4 className="text-sm font-bold text-secondarytext uppercase tracking-wide">
-                          Documents & Expiry
-                        </h4>
-                      </div>
-                      <button
-                        onClick={() => fetchDocumentHistory(selectedVehicle)}
-                        className="flex items-center gap-1 text-xs text-primary hover:underline font-medium"
-                      >
-                        <History size={12} /> View History
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-3 gap-3">
-                      <div className="p-3 bg-secondarybg rounded-md border border-primary/10">
-                        <p className="text-xs text-secondarytext mb-1">
-                          Insurance
-                        </p>
-                        {selectedVehicle.insurance_start_date && (
-                          <p className="text-[10px] text-secondarytext mb-0.5">
-                            From:{" "}
-                            {formatDate(selectedVehicle.insurance_start_date)}
-                          </p>
-                        )}
-                        <p className="text-sm font-semibold text-primarytext">
-                          {formatDate(selectedVehicle.insurance_expire_date)}
-                        </p>
-                        {selectedVehicle.insurance_remarks && (
-                          <p className="text-[10px] text-secondarytext mt-1 italic">
-                            {selectedVehicle.insurance_remarks}
-                          </p>
-                        )}
-                      </div>
-                      <div className="p-3 bg-secondarybg rounded-md border border-primary/10">
-                        <p className="text-xs text-secondarytext mb-1">FC</p>
-                        {selectedVehicle.fc_start_date && (
-                          <p className="text-[10px] text-secondarytext mb-0.5">
-                            From: {formatDate(selectedVehicle.fc_start_date)}
-                          </p>
-                        )}
-                        <p className="text-sm font-semibold text-primarytext">
-                          {formatDate(selectedVehicle.fc_expire_date)}
-                        </p>
-                        {selectedVehicle.fc_remarks && (
-                          <p className="text-[10px] text-secondarytext mt-1 italic">
-                            {selectedVehicle.fc_remarks}
-                          </p>
-                        )}
-                      </div>
-                      <div className="p-3 bg-secondarybg rounded-md border border-primary/10">
-                        <p className="text-xs text-secondarytext mb-1">
-                          Permit
-                        </p>
-                        {selectedVehicle.permit_start_date && (
-                          <p className="text-[10px] text-secondarytext mb-0.5">
-                            From:{" "}
-                            {formatDate(selectedVehicle.permit_start_date)}
-                          </p>
-                        )}
-                        <p className="text-sm font-semibold text-primarytext">
-                          {formatDate(selectedVehicle.permit_expire_date)}
-                        </p>
-                        {selectedVehicle.permit_remarks && (
-                          <p className="text-[10px] text-secondarytext mt-1 italic">
-                            {selectedVehicle.permit_remarks}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Permit & Tax Details */}
-                {(selectedVehicle.permit_number ||
-                  selectedVehicle.additional_permit ||
-                  selectedVehicle.insurance_amount ||
-                  selectedVehicle.road_tax_amount ||
-                  selectedVehicle.pollution_expire ||
-                  selectedVehicle.green_tax_expire ||
-                  selectedVehicle.mv_tax_expire) && (
-                  <div className="bg-primarybg rounded-md p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <FileText size={16} className="text-primary" />
-                      <h4 className="text-sm font-bold text-secondarytext uppercase tracking-wide">
-                        Permit & Tax Details
-                      </h4>
-                    </div>
-                    <div className="space-y-2">
                       {selectedVehicle.permit_number && (
                         <div className="flex justify-between items-center">
-                          <span className="text-sm text-secondarytext">Permit Number</span>
+                          <span className="text-sm text-secondarytext">
+                            Permit No.
+                          </span>
                           <span className="text-sm font-semibold text-primarytext font-mono">
                             {selectedVehicle.permit_number}
                           </span>
@@ -1713,55 +1534,387 @@ export default function Vehicles() {
                       )}
                       {selectedVehicle.additional_permit && (
                         <div className="flex justify-between items-center">
-                          <span className="text-sm text-secondarytext">Additional Permit</span>
+                          <span className="text-sm text-secondarytext">
+                            Additional Permit
+                          </span>
                           <span className="text-sm font-semibold text-primarytext">
                             {selectedVehicle.additional_permit}
                           </span>
                         </div>
                       )}
+                    </div>
+                  </div>
+
+                  {/* Specifications */}
+                  <div className="bg-primarybg rounded-md p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Fuel size={15} className="text-primary" />
+                      <h3 className="text-xs font-bold text-secondarytext uppercase tracking-wider">
+                        Specifications
+                      </h3>
+                    </div>
+                    <div className="space-y-2.5">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-secondarytext">
+                          Fuel Type
+                        </span>
+                        <span
+                          className={`text-xs font-semibold px-2.5 py-1 rounded-md flex items-center gap-1.5 ${
+                            selectedVehicle.fuel_type === "EV"
+                              ? "bg-primary/10 text-primary"
+                              : "bg-secondarytext/10 text-secondarytext"
+                          }`}
+                        >
+                          {selectedVehicle.fuel_type === "EV" ? (
+                            <Zap size={11} />
+                          ) : (
+                            <Fuel size={11} />
+                          )}
+                          {selectedVehicle.fuel_type}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-secondarytext">
+                          Seating Capacity
+                        </span>
+                        <span className="text-sm font-semibold text-primarytext bg-secondarybg px-2 py-0.5 rounded-md border border-primary/10">
+                          {selectedVehicle.seating_capacity} Seats
+                        </span>
+                      </div>
+                      {selectedVehicle.chassis_number && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-secondarytext">
+                            Chassis No.
+                          </span>
+                          <span className="text-sm font-semibold text-primarytext font-mono">
+                            {selectedVehicle.chassis_number}
+                          </span>
+                        </div>
+                      )}
+                      {selectedVehicle.engine_number && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-secondarytext">
+                            Engine No.
+                          </span>
+                          <span className="text-sm font-semibold text-primarytext font-mono">
+                            {selectedVehicle.engine_number}
+                          </span>
+                        </div>
+                      )}
                       {selectedVehicle.insurance_amount != null && (
                         <div className="flex justify-between items-center">
-                          <span className="text-sm text-secondarytext">Insurance Amount</span>
+                          <span className="text-sm text-secondarytext">
+                            Insurance Amount
+                          </span>
                           <span className="text-sm font-semibold text-primarytext">
-                            ₹{Number(selectedVehicle.insurance_amount).toLocaleString("en-IN")}
+                            ₹
+                            {Number(
+                              selectedVehicle.insurance_amount,
+                            ).toLocaleString("en-IN")}
                           </span>
                         </div>
                       )}
                       {selectedVehicle.road_tax_amount != null && (
                         <div className="flex justify-between items-center">
-                          <span className="text-sm text-secondarytext">Road Tax Amount</span>
+                          <span className="text-sm text-secondarytext">
+                            Road Tax Amount
+                          </span>
                           <span className="text-sm font-semibold text-primarytext">
-                            ₹{Number(selectedVehicle.road_tax_amount).toLocaleString("en-IN")}
+                            ₹
+                            {Number(
+                              selectedVehicle.road_tax_amount,
+                            ).toLocaleString("en-IN")}
                           </span>
                         </div>
                       )}
-                      <div className="grid grid-cols-3 gap-3 pt-2">
+                    </div>
+                  </div>
+                </div>
+
+                {/* Route Strip — Bus only, compact single row */}
+                {selectedVehicle.vehicle_type === "BUS" && (
+                  <div className="bg-primarybg rounded-md px-4 py-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Calendar size={14} className="text-primary" />
+                      <span className="text-xs font-bold text-secondarytext uppercase tracking-wider">
+                        Route
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 text-sm font-semibold text-primarytext">
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-green inline-block" />
+                        {selectedVehicle.start_point || "-"}
+                      </span>
+                      <span className="text-secondarytext/40 font-normal">
+                        →
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-red inline-block" />
+                        {selectedVehicle.end_point || "-"}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Replacement info strip — only when vehicle is replaced */}
+                {selectedVehicle.replacement_vehicle_number && (
+                  <div className="bg-skyblue/5 border border-skyblue/20 rounded-md px-4 py-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <RefreshCw size={14} className="text-skyblue" />
+                      <span className="text-xs font-bold text-secondarytext uppercase tracking-wider">
+                        Replacement
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm">
+                      <span className="font-semibold text-skyblue">
+                        {selectedVehicle.replacement_vehicle_number}
+                      </span>
+                      {selectedVehicle.replacement_reason && (
+                        <span className="text-secondarytext capitalize">
+                          {selectedVehicle.replacement_reason.replace(
+                            /_/g,
+                            " ",
+                          )}
+                        </span>
+                      )}
+                      {selectedVehicle.replacement_start_date && (
+                        <span className="text-secondarytext">
+                          {selectedVehicle.replacement_start_date} –{" "}
+                          {selectedVehicle.replacement_end_date || "Ongoing"}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Documents & Expiry */}
+                {(selectedVehicle.insurance_expire_date ||
+                  selectedVehicle.fc_expire_date ||
+                  selectedVehicle.permit_expire_date ||
+                  selectedVehicle.pollution_expire ||
+                  selectedVehicle.green_tax_expire ||
+                  selectedVehicle.mv_tax_expire) && (
+                  <div className="bg-primarybg rounded-md p-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <Shield size={16} className="text-primary" />
+                        <h3 className="text-sm font-bold text-secondarytext uppercase tracking-wider">
+                          Documents & Expiry
+                        </h3>
+                      </div>
+                      <button
+                        onClick={() => fetchDocumentHistory(selectedVehicle)}
+                        className="flex items-center gap-1.5 text-xs text-primary font-semibold px-3 py-1.5 bg-primary/10 rounded-md hover:bg-primary/20 transition-colors"
+                      >
+                        <History size={12} /> View History
+                      </button>
+                    </div>
+
+                    {/* Insurance / FC / Permit */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      {selectedVehicle.insurance_expire_date && (
+                        <div className="bg-secondarybg rounded-md p-4 border border-primary/10">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Shield size={13} className="text-skyblue" />
+                            <span className="text-xs font-bold text-secondarytext uppercase tracking-wide">
+                              Insurance
+                            </span>
+                          </div>
+                          {selectedVehicle.insurance_start_date && (
+                            <p className="text-xs text-secondarytext mb-1">
+                              From:{" "}
+                              {formatDate(selectedVehicle.insurance_start_date)}
+                            </p>
+                          )}
+                          <p className="text-sm font-bold text-primarytext">
+                            {formatDate(selectedVehicle.insurance_expire_date)}
+                          </p>
+                          {(() => {
+                            const days = getDaysUntil(
+                              selectedVehicle.insurance_expire_date,
+                            );
+                            return days !== null ? (
+                              <span
+                                className={`mt-1.5 inline-block px-2 py-0.5 rounded-md text-[10px] font-bold ${getStatusColor(days)}`}
+                              >
+                                {days < 0
+                                  ? `${Math.abs(days)}d overdue`
+                                  : `${days}d left`}
+                              </span>
+                            ) : null;
+                          })()}
+                          {selectedVehicle.insurance_remarks && (
+                            <p className="text-[10px] text-secondarytext mt-1.5 italic">
+                              {selectedVehicle.insurance_remarks}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                      {selectedVehicle.fc_expire_date && (
+                        <div className="bg-secondarybg rounded-md p-4 border border-primary/10">
+                          <div className="flex items-center gap-2 mb-2">
+                            <FileCheck size={13} className="text-green" />
+                            <span className="text-xs font-bold text-secondarytext uppercase tracking-wide">
+                              FC
+                            </span>
+                          </div>
+                          {selectedVehicle.fc_start_date && (
+                            <p className="text-xs text-secondarytext mb-1">
+                              From: {formatDate(selectedVehicle.fc_start_date)}
+                            </p>
+                          )}
+                          <p className="text-sm font-bold text-primarytext">
+                            {formatDate(selectedVehicle.fc_expire_date)}
+                          </p>
+                          {(() => {
+                            const days = getDaysUntil(
+                              selectedVehicle.fc_expire_date,
+                            );
+                            return days !== null ? (
+                              <span
+                                className={`mt-1.5 inline-block px-2 py-0.5 rounded-md text-[10px] font-bold ${getStatusColor(days)}`}
+                              >
+                                {days < 0
+                                  ? `${Math.abs(days)}d overdue`
+                                  : `${days}d left`}
+                              </span>
+                            ) : null;
+                          })()}
+                          {selectedVehicle.fc_remarks && (
+                            <p className="text-[10px] text-secondarytext mt-1.5 italic">
+                              {selectedVehicle.fc_remarks}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                      {selectedVehicle.permit_expire_date && (
+                        <div className="bg-secondarybg rounded-md p-4 border border-primary/10">
+                          <div className="flex items-center gap-2 mb-2">
+                            <FileText size={13} className="text-primary" />
+                            <span className="text-xs font-bold text-secondarytext uppercase tracking-wide">
+                              Permit
+                            </span>
+                          </div>
+                          {selectedVehicle.permit_start_date && (
+                            <p className="text-xs text-secondarytext mb-1">
+                              From:{" "}
+                              {formatDate(selectedVehicle.permit_start_date)}
+                            </p>
+                          )}
+                          <p className="text-sm font-bold text-primarytext">
+                            {formatDate(selectedVehicle.permit_expire_date)}
+                          </p>
+                          {(() => {
+                            const days = getDaysUntil(
+                              selectedVehicle.permit_expire_date,
+                            );
+                            return days !== null ? (
+                              <span
+                                className={`mt-1.5 inline-block px-2 py-0.5 rounded-md text-[10px] font-bold ${getStatusColor(days)}`}
+                              >
+                                {days < 0
+                                  ? `${Math.abs(days)}d overdue`
+                                  : `${days}d left`}
+                              </span>
+                            ) : null;
+                          })()}
+                          {selectedVehicle.permit_remarks && (
+                            <p className="text-[10px] text-secondarytext mt-1.5 italic">
+                              {selectedVehicle.permit_remarks}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Pollution / Green Tax / MV Tax */}
+                    {(selectedVehicle.pollution_expire ||
+                      selectedVehicle.green_tax_expire ||
+                      selectedVehicle.mv_tax_expire) && (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
                         {selectedVehicle.pollution_expire && (
-                          <div className="p-2 bg-secondarybg rounded-md border border-primary/10 text-center">
-                            <p className="text-[10px] text-secondarytext mb-0.5">Pollution Expire</p>
-                            <p className="text-xs font-semibold text-primarytext">
+                          <div className="bg-secondarybg rounded-md p-3 border border-primary/10">
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <AlertCircle size={13} className="text-pending" />
+                              <span className="text-xs font-bold text-secondarytext uppercase tracking-wide">
+                                Pollution (PUC)
+                              </span>
+                            </div>
+                            <p className="text-sm font-bold text-primarytext">
                               {formatDate(selectedVehicle.pollution_expire)}
                             </p>
+                            {(() => {
+                              const days = getDaysUntil(
+                                selectedVehicle.pollution_expire,
+                              );
+                              return days !== null ? (
+                                <span
+                                  className={`mt-1 inline-block px-2 py-0.5 rounded-md text-[10px] font-bold ${getStatusColor(days)}`}
+                                >
+                                  {days < 0
+                                    ? `${Math.abs(days)}d overdue`
+                                    : `${days}d left`}
+                                </span>
+                              ) : null;
+                            })()}
                           </div>
                         )}
                         {selectedVehicle.green_tax_expire && (
-                          <div className="p-2 bg-secondarybg rounded-md border border-primary/10 text-center">
-                            <p className="text-[10px] text-secondarytext mb-0.5">Green Tax Expire</p>
-                            <p className="text-xs font-semibold text-primarytext">
+                          <div className="bg-secondarybg rounded-md p-3 border border-primary/10">
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <RefreshCw size={13} className="text-green" />
+                              <span className="text-xs font-bold text-secondarytext uppercase tracking-wide">
+                                Green Tax
+                              </span>
+                            </div>
+                            <p className="text-sm font-bold text-primarytext">
                               {formatDate(selectedVehicle.green_tax_expire)}
                             </p>
+                            {(() => {
+                              const days = getDaysUntil(
+                                selectedVehicle.green_tax_expire,
+                              );
+                              return days !== null ? (
+                                <span
+                                  className={`mt-1 inline-block px-2 py-0.5 rounded-md text-[10px] font-bold ${getStatusColor(days)}`}
+                                >
+                                  {days < 0
+                                    ? `${Math.abs(days)}d overdue`
+                                    : `${days}d left`}
+                                </span>
+                              ) : null;
+                            })()}
                           </div>
                         )}
                         {selectedVehicle.mv_tax_expire && (
-                          <div className="p-2 bg-secondarybg rounded-md border border-primary/10 text-center">
-                            <p className="text-[10px] text-secondarytext mb-0.5">MV Tax Expire</p>
-                            <p className="text-xs font-semibold text-primarytext">
+                          <div className="bg-secondarybg rounded-md p-3 border border-primary/10">
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <FileText size={13} className="text-primary" />
+                              <span className="text-xs font-bold text-secondarytext uppercase tracking-wide">
+                                MV Tax
+                              </span>
+                            </div>
+                            <p className="text-sm font-bold text-primarytext">
                               {formatDate(selectedVehicle.mv_tax_expire)}
                             </p>
+                            {(() => {
+                              const days = getDaysUntil(
+                                selectedVehicle.mv_tax_expire,
+                              );
+                              return days !== null ? (
+                                <span
+                                  className={`mt-1 inline-block px-2 py-0.5 rounded-md text-[10px] font-bold ${getStatusColor(days)}`}
+                                >
+                                  {days < 0
+                                    ? `${Math.abs(days)}d overdue`
+                                    : `${days}d left`}
+                                </span>
+                              ) : null;
+                            })()}
                           </div>
                         )}
                       </div>
-                    </div>
+                    )}
                   </div>
                 )}
               </div>
