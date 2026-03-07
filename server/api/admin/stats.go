@@ -78,6 +78,14 @@ type EnhancedDashboardStats struct {
 	DocumentAlerts         int `json:"document_alerts"`
 	ExpiredDocuments       int `json:"expired_documents"`
 
+	// Per-type document alerts
+	InsuranceAlerts  int `json:"insurance_alerts"`
+	FCAlerts         int `json:"fc_alerts"`
+	PermitAlerts     int `json:"permit_alerts"`
+	PollutionAlerts  int `json:"pollution_alerts"`
+	GreenTaxAlerts   int `json:"green_tax_alerts"`
+	MVTaxAlerts      int `json:"mv_tax_alerts"`
+
 	// NEW: Additional pending items
 	PendingKmLogs            int `json:"pending_km_logs"`
 	PendingStopChanges       int `json:"pending_stop_changes"`
@@ -187,16 +195,15 @@ func GetDashboardStats(c *gin.Context) {
 	config.DB.QueryRow(`SELECT COUNT(*) FROM transport_requests WHERE status = 'pending'`).Scan(&s.PendingTransportRequests)
 	config.DB.QueryRow(`SELECT COUNT(*) FROM vehicle_replacements WHERE status IN ('pending','approved','active')`).Scan(&s.ActiveReplacements)
 
-	// Document alerts
-	config.DB.QueryRow(`
-		SELECT COUNT(*) FROM vehicles
-		WHERE status IN ('active','available')
-		AND (
-			(insurance_expire_date IS NOT NULL AND DATEDIFF(insurance_expire_date, CURDATE()) <= 10)
-			OR (fc_expire_date IS NOT NULL AND DATEDIFF(fc_expire_date, CURDATE()) <= 10)
-			OR (permit_expire_date IS NOT NULL AND DATEDIFF(permit_expire_date, CURDATE()) <= 10)
-		)
-	`).Scan(&s.DocumentAlerts)
+	// Document alerts — per type (expiring within 10 days OR already expired)
+	// All document fields are now stored directly on the vehicles table
+	config.DB.QueryRow(`SELECT COUNT(*) FROM vehicles WHERE status IN ('active','available') AND insurance_expire_date IS NOT NULL AND DATEDIFF(insurance_expire_date, CURDATE()) <= 10`).Scan(&s.InsuranceAlerts)
+	config.DB.QueryRow(`SELECT COUNT(*) FROM vehicles WHERE status IN ('active','available') AND fc_expire_date IS NOT NULL AND DATEDIFF(fc_expire_date, CURDATE()) <= 10`).Scan(&s.FCAlerts)
+	config.DB.QueryRow(`SELECT COUNT(*) FROM vehicles WHERE status IN ('active','available') AND permit_expire_date IS NOT NULL AND DATEDIFF(permit_expire_date, CURDATE()) <= 10`).Scan(&s.PermitAlerts)
+	config.DB.QueryRow(`SELECT COUNT(*) FROM vehicles WHERE status IN ('active','available') AND pollution_expire IS NOT NULL AND DATEDIFF(pollution_expire, CURDATE()) <= 10`).Scan(&s.PollutionAlerts)
+	config.DB.QueryRow(`SELECT COUNT(*) FROM vehicles WHERE status IN ('active','available') AND green_tax_expire IS NOT NULL AND DATEDIFF(green_tax_expire, CURDATE()) <= 10`).Scan(&s.GreenTaxAlerts)
+	config.DB.QueryRow(`SELECT COUNT(*) FROM vehicles WHERE status IN ('active','available') AND mv_tax_expire IS NOT NULL AND DATEDIFF(mv_tax_expire, CURDATE()) <= 10`).Scan(&s.MVTaxAlerts)
+	s.DocumentAlerts = s.InsuranceAlerts + s.FCAlerts + s.PermitAlerts + s.PollutionAlerts + s.GreenTaxAlerts + s.MVTaxAlerts
 
 	config.DB.QueryRow(`
 		SELECT COUNT(*) FROM vehicles
@@ -205,6 +212,9 @@ func GetDashboardStats(c *gin.Context) {
 			(insurance_expire_date IS NOT NULL AND insurance_expire_date < CURDATE())
 			OR (fc_expire_date IS NOT NULL AND fc_expire_date < CURDATE())
 			OR (permit_expire_date IS NOT NULL AND permit_expire_date < CURDATE())
+			OR (pollution_expire IS NOT NULL AND pollution_expire < CURDATE())
+			OR (green_tax_expire IS NOT NULL AND green_tax_expire < CURDATE())
+			OR (mv_tax_expire IS NOT NULL AND mv_tax_expire < CURDATE())
 		)
 	`).Scan(&s.ExpiredDocuments)
 
@@ -363,10 +373,40 @@ func GetDashboardStats(c *gin.Context) {
 			Route: "/admin-dashboard/vehicle-replacements", Color: "pending", Icon: "replace",
 		})
 	}
-	if s.DocumentAlerts > 0 {
+	if s.InsuranceAlerts > 0 {
 		s.PendingActions = append(s.PendingActions, PendingAction{
-			Label: "Document Expiring", Count: s.DocumentAlerts,
+			Label: "Insurance Expiring", Count: s.InsuranceAlerts,
 			Route: "/admin-dashboard/vehicles?view=expiry", Color: "red", Icon: "shield",
+		})
+	}
+	if s.FCAlerts > 0 {
+		s.PendingActions = append(s.PendingActions, PendingAction{
+			Label: "FC Expiring", Count: s.FCAlerts,
+			Route: "/admin-dashboard/vehicles?view=expiry", Color: "red", Icon: "file-check",
+		})
+	}
+	if s.PermitAlerts > 0 {
+		s.PendingActions = append(s.PendingActions, PendingAction{
+			Label: "Permit Expiring", Count: s.PermitAlerts,
+			Route: "/admin-dashboard/vehicles?view=expiry", Color: "red", Icon: "file-text",
+		})
+	}
+	if s.PollutionAlerts > 0 {
+		s.PendingActions = append(s.PendingActions, PendingAction{
+			Label: "Pollution PUC Expiring", Count: s.PollutionAlerts,
+			Route: "/admin-dashboard/vehicles?view=expiry", Color: "red", Icon: "alert-circle",
+		})
+	}
+	if s.GreenTaxAlerts > 0 {
+		s.PendingActions = append(s.PendingActions, PendingAction{
+			Label: "Green Tax Expiring", Count: s.GreenTaxAlerts,
+			Route: "/admin-dashboard/vehicles?view=expiry", Color: "red", Icon: "refresh-cw",
+		})
+	}
+	if s.MVTaxAlerts > 0 {
+		s.PendingActions = append(s.PendingActions, PendingAction{
+			Label: "MV Tax Expiring", Count: s.MVTaxAlerts,
+			Route: "/admin-dashboard/vehicles?view=expiry", Color: "red", Icon: "file-text",
 		})
 	}
 	if s.ExpiringLicenses > 0 || s.ExpiredLicenses > 0 {

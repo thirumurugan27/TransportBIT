@@ -1,8 +1,8 @@
--- MySQL dump 10.13  Distrib 8.0.41, for Win64 (x86_64)
+-- MySQL dump 10.13  Distrib 8.0.43, for Win64 (x86_64)
 --
--- Host: 127.0.0.1    Database: transport_new
+-- Host: localhost    Database: transport_bit
 -- ------------------------------------------------------
--- Server version	8.0.41
+-- Server version	8.0.43
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -49,7 +49,7 @@ CREATE TABLE `assignments` (
   CONSTRAINT `assignments_ibfk_2` FOREIGN KEY (`vehicle_id`) REFERENCES `vehicles` (`id`) ON DELETE CASCADE,
   CONSTRAINT `assignments_ibfk_3` FOREIGN KEY (`driver_id`) REFERENCES `drivers` (`id`) ON DELETE CASCADE,
   CONSTRAINT `assignments_ibfk_4` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=93 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=66 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -58,7 +58,7 @@ CREATE TABLE `assignments` (
 
 LOCK TABLES `assignments` WRITE;
 /*!40000 ALTER TABLE `assignments` DISABLE KEYS */;
-INSERT INTO `assignments` VALUES (85,42,1,2,'2026-03-01','assigned','2026-03-05 05:28:55',1,NULL,0,'2026-03-01','2026-03-07',''),(90,41,1,2,'2026-03-01','assigned','2026-03-05 05:47:05',1,NULL,0,'2026-03-01','2026-03-07','');
+INSERT INTO `assignments` VALUES (60,35,1,2,'2026-02-27','assigned','2026-02-27 03:51:15',1,NULL,0,'2026-02-27','2026-03-27',''),(61,36,1,2,'2026-02-27','assigned','2026-02-27 03:51:15',1,NULL,0,'2026-02-27','2026-03-27',''),(62,40,18,9,'2026-03-02','assigned','2026-03-02 03:25:57',1,NULL,0,'2026-03-02','2026-03-07',''),(63,39,18,9,'2026-03-02','assigned','2026-03-02 03:25:57',1,NULL,0,'2026-03-02','2026-03-07',''),(64,40,11,4,'2026-03-01','assigned','2026-03-02 05:16:48',1,NULL,0,'2026-03-01','2026-03-07',''),(65,39,11,4,'2026-03-01','assigned','2026-03-02 05:16:48',1,NULL,0,'2026-03-01','2026-03-07','');
 /*!40000 ALTER TABLE `assignments` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -83,7 +83,7 @@ CREATE TABLE `attendance` (
   UNIQUE KEY `uq_attendance_user_date` (`user_id`,`date`),
   KEY `idx_att_user_date` (`user_id`,`date`),
   CONSTRAINT `attendance_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=103 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=99 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -92,7 +92,7 @@ CREATE TABLE `attendance` (
 
 LOCK TABLES `attendance` WRITE;
 /*!40000 ALTER TABLE `attendance` DISABLE KEYS */;
-INSERT INTO `attendance` VALUES (94,95,'2026-03-05','present','2026-03-05 04:15:41',NULL,NULL,'2026-03-05 04:15:41',1),(95,67,'2026-03-05','present','2026-03-05 04:15:45',NULL,NULL,'2026-03-05 04:15:45',1),(96,69,'2026-03-05','present','2026-03-05 04:15:47',NULL,NULL,'2026-03-05 04:15:47',1),(97,96,'2026-03-05','present','2026-03-05 04:15:48',NULL,NULL,'2026-03-05 04:15:48',1),(98,71,'2026-03-05','present','2026-03-05 04:15:50',NULL,NULL,'2026-03-05 04:15:50',1),(99,72,'2026-03-05','present','2026-03-05 04:15:52',NULL,NULL,'2026-03-05 04:15:52',1),(100,74,'2026-03-05','present','2026-03-05 04:15:53',NULL,NULL,'2026-03-05 04:15:53',1),(101,75,'2026-03-05','present','2026-03-05 04:15:54',NULL,NULL,'2026-03-05 04:15:54',1),(102,76,'2026-03-05','present','2026-03-05 04:15:56',NULL,NULL,'2026-03-05 04:15:56',1);
+INSERT INTO `attendance` VALUES (30,67,'2026-02-04','absent',NULL,NULL,NULL,'2026-01-31 10:35:35',NULL),(31,95,'2026-02-04','absent',NULL,NULL,NULL,'2026-02-02 03:29:22',NULL),(35,67,'2026-02-07','absent',NULL,NULL,NULL,'2026-02-04 05:31:11',NULL),(36,96,'2026-02-04','present','2026-02-04 09:42:04',NULL,12,'2026-02-04 09:42:04',NULL),(37,69,'2026-02-04','present','2026-02-04 09:42:05',NULL,12,'2026-02-04 09:42:05',NULL),(38,71,'2026-02-04','present','2026-02-04 09:42:07',NULL,12,'2026-02-04 09:42:07',NULL),(39,72,'2026-02-04','present','2026-02-04 09:42:09',NULL,12,'2026-02-04 09:42:09',NULL),(40,74,'2026-02-04','present','2026-02-04 09:42:10',NULL,12,'2026-02-04 09:42:10',NULL),(41,75,'2026-02-04','present','2026-02-04 09:42:12',NULL,12,'2026-02-04 09:42:12',NULL),(42,76,'2026-02-04','present','2026-02-04 09:42:13',NULL,12,'2026-02-04 09:42:13',NULL),(43,95,'2026-02-18','present','2026-02-18 10:21:41',NULL,NULL,'2026-02-18 10:21:41',NULL),(44,96,'2026-02-18','present','2026-02-18 10:21:43',NULL,NULL,'2026-02-18 10:21:43',NULL),(45,67,'2026-02-18','present','2026-02-18 10:21:44',NULL,NULL,'2026-02-18 10:21:44',NULL),(46,69,'2026-02-18','present','2026-02-18 10:21:46',NULL,NULL,'2026-02-18 10:21:46',NULL),(47,71,'2026-02-18','present','2026-02-18 10:21:49',NULL,NULL,'2026-02-18 10:21:49',NULL),(91,67,'2026-03-02','absent',NULL,NULL,NULL,'2026-03-02 05:13:05',1),(92,74,'2026-03-02','present','2026-03-02 05:13:25',NULL,NULL,'2026-03-02 05:13:25',1),(93,95,'2026-03-05','present','2026-03-05 09:22:05',NULL,NULL,'2026-03-05 09:22:05',1),(94,96,'2026-03-05','present','2026-03-05 09:22:07',NULL,NULL,'2026-03-05 09:22:07',1),(95,69,'2026-03-05','present','2026-03-05 09:22:09',NULL,NULL,'2026-03-05 09:22:09',1),(96,71,'2026-03-05','present','2026-03-05 09:22:12',NULL,NULL,'2026-03-05 09:22:12',1),(97,67,'2026-03-05','present','2026-03-05 09:22:34',NULL,NULL,'2026-03-05 09:22:34',1),(98,74,'2026-03-05','present','2026-03-05 09:30:10',NULL,NULL,'2026-03-05 09:30:10',1);
 /*!40000 ALTER TABLE `attendance` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -115,7 +115,7 @@ CREATE TABLE `bus_stops` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `unique_stop` (`vehicle_id`,`stop_order`),
   CONSTRAINT `bus_stops_ibfk_1` FOREIGN KEY (`vehicle_id`) REFERENCES `vehicles` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=28 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=23 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -124,7 +124,7 @@ CREATE TABLE `bus_stops` (
 
 LOCK TABLES `bus_stops` WRITE;
 /*!40000 ALTER TABLE `bus_stops` DISABLE KEYS */;
-INSERT INTO `bus_stops` VALUES (23,1,'Coimbatore Bus Stand',1,12000.00,60.00,'2026-03-05 04:09:07','06:00:00'),(24,1,'Stop A',2,11500.00,45.00,'2026-03-05 04:10:10','06:30:00'),(25,1,'Stop B',3,11000.00,30.00,'2026-03-05 04:10:48','07:30:00'),(26,2,'Bus Stand',1,12000.00,60.00,'2026-03-05 04:11:48','06:00:00'),(27,2,'Stop A',2,11000.00,40.00,'2026-03-05 04:12:15','06:30:00');
+INSERT INTO `bus_stops` VALUES (3,1,'Busstand',0,10000.00,0.00,'2026-01-07 08:44:36','06:30:00'),(7,1,'stop A',2,10000.00,4.00,'2026-01-07 08:46:54','06:45:00'),(8,1,'Stop B',3,10000.00,6.00,'2026-01-07 08:47:10','07:05:00'),(13,4,'Busstop',1,20000.00,80.00,'2026-01-29 06:21:22','07:00:00'),(14,1,'Stop C',4,10000.00,10.00,'2026-01-29 06:22:03','07:10:00'),(15,3,'Pollachi Bus Stand',1,25000.00,80.00,'2026-01-29 06:22:50','06:30:00'),(16,2,'Covai Bus Stand',1,25000.00,65.00,'2026-01-29 06:23:32','06:30:00'),(17,18,'Erode Bus Stand',1,25000.00,65.00,'2026-01-29 06:23:57','06:40:00'),(18,1,'STOP D',5,120000.00,14.00,'2026-02-12 09:51:35','07:23:00'),(20,23,'6B-stop',2,9000.00,8.00,'2026-02-27 03:45:26','07:10:00'),(21,23,'6C-stop',3,8500.00,10.00,'2026-02-27 03:45:48','07:17:00'),(22,23,'campus',4,8500.00,30.00,'2026-03-03 10:32:31','20:06:00');
 /*!40000 ALTER TABLE `bus_stops` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -145,7 +145,7 @@ CREATE TABLE `buses` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `vehicle_id` (`vehicle_id`),
   CONSTRAINT `buses_ibfk_1` FOREIGN KEY (`vehicle_id`) REFERENCES `vehicles` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=638 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=630 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -154,7 +154,7 @@ CREATE TABLE `buses` (
 
 LOCK TABLES `buses` WRITE;
 /*!40000 ALTER TABLE `buses` DISABLE KEYS */;
-INSERT INTO `buses` VALUES (633,1,'Campus','Coimbatore','2026-03-05 04:06:09',NULL),(634,2,'Campus','Erode','2026-03-05 04:07:27',NULL),(636,6,'Campus','Tiruppur','2026-03-05 06:01:59',NULL),(637,7,'Campus','Gobi','2026-03-05 06:03:18',NULL);
+INSERT INTO `buses` VALUES (1,1,'Campus','Sathy','2026-01-06 04:45:20',NULL),(2,2,'Campus','Covai','2026-01-06 04:45:20',NULL),(3,3,'Campus','Pollachi','2026-01-06 04:45:20',NULL),(4,4,'Campus','Avinasi','2026-01-06 04:45:20',NULL),(74,18,'Campus','Erode','2026-01-07 06:06:45',NULL),(75,23,'Main','Namakkal','2026-03-02 04:34:22',NULL);
 /*!40000 ALTER TABLE `buses` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -178,7 +178,7 @@ CREATE TABLE `driver_cluster_members` (
   CONSTRAINT `driver_cluster_members_ibfk_1` FOREIGN KEY (`cluster_id`) REFERENCES `driver_clusters` (`id`) ON DELETE CASCADE,
   CONSTRAINT `driver_cluster_members_ibfk_2` FOREIGN KEY (`driver_id`) REFERENCES `drivers` (`id`) ON DELETE CASCADE,
   CONSTRAINT `driver_cluster_members_chk_1` CHECK ((`valid_from` <= `valid_to`))
-) ENGINE=InnoDB AUTO_INCREMENT=65 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=59 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -187,7 +187,7 @@ CREATE TABLE `driver_cluster_members` (
 
 LOCK TABLES `driver_cluster_members` WRITE;
 /*!40000 ALTER TABLE `driver_cluster_members` DISABLE KEYS */;
-INSERT INTO `driver_cluster_members` VALUES (62,32,4,'2026-03-01','2026-03-07','2026-03-05 05:14:22'),(63,32,6,'2026-03-01','2026-03-07','2026-03-05 05:14:22'),(64,32,2,'2026-03-01','2026-03-07','2026-03-05 05:14:22');
+INSERT INTO `driver_cluster_members` VALUES (55,31,6,'2026-03-01','2026-03-07','2026-03-02 05:17:34'),(56,31,7,'2026-03-01','2026-03-07','2026-03-02 05:17:34'),(57,32,14,'2026-03-05','2026-03-06','2026-03-06 09:33:37'),(58,32,11,'2026-03-05','2026-03-06','2026-03-06 09:33:37');
 /*!40000 ALTER TABLE `driver_cluster_members` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -217,7 +217,7 @@ CREATE TABLE `driver_clusters` (
 
 LOCK TABLES `driver_clusters` WRITE;
 /*!40000 ALTER TABLE `driver_clusters` DISABLE KEYS */;
-INSERT INTO `driver_clusters` VALUES (32,'Group A','','2026-03-05 04:13:12','08:00:00','17:00:00','2026-03-01','2026-03-07');
+INSERT INTO `driver_clusters` VALUES (31,'Driver group A','','2026-02-27 03:53:33','08:00:00','17:00:00','2026-03-01','2026-03-07'),(32,'test batch','','2026-03-06 09:33:37','08:00:00','17:00:00','2026-03-05','2026-03-06');
 /*!40000 ALTER TABLE `driver_clusters` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -339,6 +339,7 @@ CREATE TABLE `dz_replacement_requests` (
 
 LOCK TABLES `dz_replacement_requests` WRITE;
 /*!40000 ALTER TABLE `dz_replacement_requests` DISABLE KEYS */;
+INSERT INTO `dz_replacement_requests` VALUES (1,5,8,2,'2026-02-19','2026-02-25','service_due','approved','admin',1,NULL,'Remaining KM: 101, Current KM: 0',1,101,0,'2026-02-17 08:57:17','2026-02-17 08:57:17');
 /*!40000 ALTER TABLE `dz_replacement_requests` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -356,7 +357,7 @@ CREATE TABLE `ev_assignment_shifts` (
   PRIMARY KEY (`id`),
   KEY `idx_ev_ass_shift` (`ev_assignment_id`),
   KEY `idx_ev_shift_id` (`shift_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -365,7 +366,6 @@ CREATE TABLE `ev_assignment_shifts` (
 
 LOCK TABLES `ev_assignment_shifts` WRITE;
 /*!40000 ALTER TABLE `ev_assignment_shifts` DISABLE KEYS */;
-INSERT INTO `ev_assignment_shifts` VALUES (1,57,44),(2,58,44),(3,58,45),(4,59,44),(5,60,44);
 /*!40000 ALTER TABLE `ev_assignment_shifts` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -391,7 +391,7 @@ CREATE TABLE `ev_assignments` (
   KEY `idx_eva_dates` (`start_date`,`end_date`,`status`),
   CONSTRAINT `ev_assignments_ibfk_2` FOREIGN KEY (`cluster_id`) REFERENCES `driver_clusters` (`id`),
   CONSTRAINT `fk_ev_assignments_vehicle_group` FOREIGN KEY (`vehicle_group_id`) REFERENCES `vehicle_groups` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=61 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=56 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -400,6 +400,7 @@ CREATE TABLE `ev_assignments` (
 
 LOCK TABLES `ev_assignments` WRITE;
 /*!40000 ALTER TABLE `ev_assignments` DISABLE KEYS */;
+INSERT INTO `ev_assignments` VALUES (55,31,NULL,'2026-03-01','2026-03-07','active','2026-03-02 05:23:43',19);
 /*!40000 ALTER TABLE `ev_assignments` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -473,6 +474,7 @@ CREATE TABLE `fc_replacement_requests` (
 
 LOCK TABLES `fc_replacement_requests` WRITE;
 /*!40000 ALTER TABLE `fc_replacement_requests` DISABLE KEYS */;
+INSERT INTO `fc_replacement_requests` VALUES (1,5,6,6,'2026-01-13','2026-01-30','fc_renewal','completed','admin',1,NULL,'',1,'2026-01-12 06:15:39','2026-01-31 03:24:31');
 /*!40000 ALTER TABLE `fc_replacement_requests` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -595,6 +597,7 @@ CREATE TABLE `leave_requests` (
 
 LOCK TABLES `leave_requests` WRITE;
 /*!40000 ALTER TABLE `leave_requests` DISABLE KEYS */;
+INSERT INTO `leave_requests` VALUES (11,2,'Leave','2026-01-31','16:20:00','2026-02-02','08:45:00','leave','rejected',12,'2026-01-31 06:33:06','',1,'2026-01-31 06:39:14','','2026-01-31 06:32:33'),(12,2,'Leave','2026-02-04','00:00:00','2026-02-04','11:59:00','','approved',12,'2026-01-31 09:10:41','need to assign temp driver ',1,'2026-01-31 09:39:40','','2026-01-31 09:09:54'),(13,10,'Leave','2026-02-04','06:00:00','2026-02-04','23:59:00','Family function\n','rejected',12,'2026-02-02 03:12:04','check for optional driver for that day ',1,'2026-02-02 03:20:15','','2026-02-02 03:11:15'),(14,14,'Leave','2026-02-04','00:00:00','2026-02-04','23:59:00','attending function\n','approved',12,'2026-02-02 03:22:15','check for availability',1,'2026-02-02 03:29:22','driver 7 assigned for ev-cluster for that particular day(4.2.26)','2026-02-02 03:21:46'),(15,2,'Leave','2026-02-07','00:00:00','2026-02-07','23:00:00','genral leave','approved',12,'2026-02-04 05:31:00','',1,'2026-02-04 05:31:11','','2026-02-04 05:30:42'),(16,2,'Leave','2026-02-11','12:17:00','2026-02-11','18:17:00','ok','approved',12,'2026-02-18 10:29:02','',1,'2026-02-18 10:28:04','','2026-02-11 06:46:51'),(17,4,'Permission','2026-02-18','09:00:00','2026-02-19','17:00:00','','approved',12,'2026-02-18 10:29:00','',NULL,'2026-02-18 10:28:28',NULL,'2026-02-18 10:28:28'),(18,2,'Leave','2026-02-28','00:00:00','2026-02-28','23:59:00','','approved',NULL,NULL,NULL,1,'2026-02-26 06:24:56','ok ','2026-02-26 06:24:23');
 /*!40000 ALTER TABLE `leave_requests` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -619,7 +622,7 @@ CREATE TABLE `notifications` (
   KEY `idx_notif_recipient` (`recipient_role`,`recipient_id`),
   KEY `idx_notif_read` (`is_read`),
   KEY `idx_notif_created` (`created_at`)
-) ENGINE=InnoDB AUTO_INCREMENT=125 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=127 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -628,7 +631,7 @@ CREATE TABLE `notifications` (
 
 LOCK TABLES `notifications` WRITE;
 /*!40000 ALTER TABLE `notifications` DISABLE KEYS */;
-INSERT INTO `notifications` VALUES (1,'ADMIN',0,'fc_completion','FC Replacement Auto-Completed','Temporary assignment for driver Senthil Velan has ended. Vehicle EV-01 is back from fc_renewal and is now available. Driver has been reassigned to their original vehicle.',NULL,0,'2026-01-31 03:24:31'),(2,'ADMIN',0,'vehicle_assigned','Vehicle Assigned','Vehicle assigned to request #4 by Dr. Rajesh Kumar. Start OTP sent to requester.',NULL,0,'2026-02-09 09:41:05'),(3,'ADMIN',0,'trip_started','Trip Started','Trip for request #4 by Dr. Rajesh Kumar has started.',NULL,0,'2026-02-09 09:42:07'),(4,'ADMIN',0,'trip_completed','Trip Completed','Trip for request #4 by Dr. Rajesh Kumar has been completed.',NULL,0,'2026-02-09 09:43:16'),(5,'ADMIN',0,'vehicle_assigned','Vehicle Assigned','Vehicle assigned to request #5 by Dr. Rajesh Kumar. Start OTP sent to requester.',NULL,0,'2026-02-09 10:40:02'),(6,'ADMIN',0,'trip_started','Trip Started','Trip for request #5 by Dr. Rajesh Kumar has started.',NULL,0,'2026-02-09 10:54:55'),(7,'ADMIN',0,'trip_completed','Trip Completed','Vehicle request #5 has been manually marked as completed by admin.',NULL,0,'2026-02-09 11:01:44'),(8,'ADMIN',0,'vehicle_assigned','Vehicle Assigned','Vehicle assigned to request #9 by Dr. Rajesh Kumar. Start OTP sent to requester.',NULL,0,'2026-02-10 06:07:31'),(9,'ADMIN',0,'trip_started','Trip Started','Trip for request #9 by Dr. Rajesh Kumar has started.',NULL,0,'2026-02-10 06:08:52'),(10,'ADMIN',0,'trip_completed','Trip Completed','Trip for request #9 by Dr. Rajesh Kumar has been completed.',NULL,0,'2026-02-10 06:10:49'),(11,'ADMIN',0,'vehicle_assigned','Vehicle Assigned','Vehicle assigned to request #10 by Dr. Rajesh Kumar. Start OTP sent to requester.',NULL,0,'2026-02-10 10:39:58'),(12,'ADMIN',0,'trip_started','Trip Started','Trip for request #10 by Dr. Rajesh Kumar has started.',NULL,0,'2026-02-10 10:42:08'),(13,'ADMIN',0,'trip_completed','Trip Completed','Trip for request #10 by Dr. Rajesh Kumar has been completed.',NULL,0,'2026-02-10 10:42:27'),(14,'ADMIN',0,'vehicle_assigned','Vehicle Assigned','Vehicle assigned to request #12 by Dr. Rajesh Kumar. Start OTP sent to requester.',NULL,0,'2026-02-11 03:39:12'),(15,'ADMIN',0,'trip_started','Trip Started','Trip for request #12 by Dr. Rajesh Kumar has started.',NULL,0,'2026-02-11 05:16:41'),(16,'ADMIN',0,'trip_completed','Trip Completed','Trip for request #12 by Dr. Rajesh Kumar has been completed.',NULL,0,'2026-02-11 05:17:08'),(17,'ADMIN',0,'vehicle_assigned','Vehicle Assigned','Vehicle assigned to request #15 by faculty1. Start OTP sent to requester.',NULL,0,'2026-02-12 06:39:24'),(18,'ADMIN',0,'trip_started','Trip Started','Trip for request #15 by faculty1 has started.',NULL,0,'2026-02-12 06:41:00'),(19,'ADMIN',0,'vehicle_assigned','Vehicle Assigned','Vehicle assigned to request #16 by faculty1. Start OTP sent to requester.',NULL,0,'2026-02-12 08:32:07'),(32,'DRIVER',6,'vehicle_change','Vehicle Change Notification','Your vehicle EV-VAN-01 is going for fc_renewal from 2026-01-13 to 2026-01-31. You have been assigned EV-VAN-02 for 19 days during this period. Your original vehicle will be automatically reassigned after this period.',1,0,'2026-01-12 06:15:39'),(33,'DRIVER',9,'info','Attendance Marked by Incharge','Incharge Thirumurugan K has marked your attendance as Present for 2026-01-30.',NULL,0,'2026-01-30 08:40:32'),(34,'DRIVER',10,'info','Attendance Marked by Incharge','Incharge Thirumurugan K has marked your attendance as Present for 2026-01-30.',NULL,0,'2026-01-30 08:40:33'),(35,'DRIVER',11,'info','Attendance Marked by Incharge','Incharge Thirumurugan K has marked your attendance as Present for 2026-01-30.',NULL,0,'2026-01-30 08:40:33'),(36,'DRIVER',7,'info','Attendance Marked by Incharge','Incharge Thirumurugan K has marked your attendance as Present for 2026-01-30.',NULL,0,'2026-01-30 08:40:35'),(37,'DRIVER',4,'info','Attendance Marked by Incharge','Incharge Thirumurugan K has marked your attendance as Present for 2026-01-30.',NULL,1,'2026-01-30 08:40:37'),(38,'DRIVER',6,'info','Attendance Marked by Incharge','Incharge Thirumurugan K has marked your attendance as Present for 2026-01-30.',NULL,0,'2026-01-30 08:40:38'),(39,'DRIVER',2,'info','Attendance Marked by Incharge','Incharge Thirumurugan K has marked your attendance as Present for 2026-01-30.',NULL,1,'2026-01-30 08:40:40'),(40,'DRIVER',6,'vehicle_change','Vehicle Reassignment - Back to Original','Your original vehicle EV-01 is back from fc_renewal. The temporary assignment has ended and you are now reassigned to your original vehicle.',1,0,'2026-01-31 03:24:31'),(41,'DRIVER',2,'info','Attendance Marked by Incharge','Incharge Head Incharge has marked your attendance as Present for 2026-01-31.',NULL,1,'2026-01-31 04:53:52'),(42,'DRIVER',6,'info','Attendance Marked by Incharge','Incharge Head Incharge has marked your attendance as Present for 2026-01-31.',NULL,0,'2026-01-31 04:53:55'),(43,'DRIVER',4,'info','Attendance Marked by Incharge','Incharge Head Incharge has marked your attendance as Absent for 2026-01-31.',NULL,1,'2026-01-31 04:53:57'),(44,'DRIVER',9,'info','Attendance Marked by Incharge','Incharge Head Incharge has marked your attendance as Absent for 2026-01-31.',NULL,0,'2026-01-31 04:54:02'),(45,'DRIVER',7,'info','Attendance Marked by Incharge','Incharge Head Incharge has marked your attendance as Present for 2026-01-31.',NULL,0,'2026-01-31 04:54:04'),(46,'DRIVER',10,'info','Attendance Marked by Incharge','Incharge Head Incharge has marked your attendance as Present for 2026-01-31.',NULL,0,'2026-01-31 04:54:05'),(47,'DRIVER',11,'info','Attendance Marked by Incharge','Incharge Head Incharge has marked your attendance as Present for 2026-01-31.',NULL,0,'2026-01-31 04:54:07'),(48,'DRIVER',2,'leave','Leave Request Submitted by Incharge','Incharge Head Incharge has submitted a CASUAL leave request on your behalf from 2026-01-31 to 2026-01-31. Status: Pending approval.',5,1,'2026-01-31 04:55:56'),(49,'DRIVER',2,'leave','Leave Request Submitted by Incharge','Incharge Head Incharge has submitted a CASUAL leave request on your behalf from 2026-02-01 to 2026-01-01. Status: Pending approval.',6,1,'2026-01-31 04:57:25'),(50,'DRIVER',2,'leave','Leave Request Submitted by Incharge','Incharge Head Incharge has submitted a SICK leave request on your behalf from 2026-02-01 to 2026-02-01. Status: Pending approval.',7,1,'2026-01-31 04:58:27'),(51,'DRIVER',2,'leave','Leave Request Submitted by Incharge','Incharge Head Incharge has submitted a CASUAL leave request on your behalf from 2026-01-31 16:20 to 2026-02-02 20:45. Status: Pending approval.',8,1,'2026-01-31 05:39:25'),(52,'DRIVER',2,'leave','Leave Request Rejected by Incharge','Your leave request from 2026-01-31 to 2026-02-02 has been rejected by incharge Head Incharge. Reason: ok',8,1,'2026-01-31 05:39:57'),(53,'DRIVER',2,'leave','Leave Request Rejected by Incharge','Your leave request from 2026-01-31 to 2026-02-02 has been rejected by incharge Head Incharge. Reason: ok',9,1,'2026-01-31 06:12:09'),(54,'DRIVER',2,'leave','Leave Request Submitted by Incharge','Incharge Head Incharge has submitted a CASUAL leave request on your behalf from 2026-01-31 16:40 to 2026-02-02 08:45. Status: Pending approval.',10,1,'2026-01-31 06:21:40'),(55,'DRIVER',2,'leave','Leave Request Rejected by Incharge','Your leave request from 2026-01-31 to 2026-02-02 has been rejected by incharge Head Incharge. Reason: ',10,1,'2026-01-31 06:21:52'),(56,'DRIVER',2,'leave','Leave Request - Incharge Approved','Your leave request from 2026-01-31 to 2026-02-02 has been approved by incharge Head Incharge. Waiting for admin approval.',11,1,'2026-01-31 06:33:06'),(57,'DRIVER',2,'leave','Leave Request Rejected by Admin','Your leave request from 2026-01-31 to 2026-02-02 has been rejected by admin. Reason: ',11,1,'2026-01-31 06:39:14'),(58,'DRIVER',2,'leave','Leave Request - Incharge Approved','Your leave request from 2026-02-04 to 2026-02-04 has been approved by incharge Head Incharge. Waiting for admin approval.',12,1,'2026-01-31 09:10:41'),(59,'DRIVER',2,'leave','Leave Request Approved','Your leave request from 2026-02-04 to 2026-02-04 has been fully approved. Attendance will be automatically marked as absent.',12,1,'2026-01-31 09:39:41'),(60,'DRIVER',10,'leave','Leave Request - Incharge Approved','Your leave request from 2026-02-04 to 2026-02-04 has been approved by incharge Head Incharge. Waiting for admin approval.',13,0,'2026-02-02 03:12:04'),(61,'DRIVER',10,'leave','Leave Request Rejected by Admin','Your leave request from 2026-02-04 to 2026-02-04 has been rejected by admin. Reason: ',13,0,'2026-02-02 03:20:16'),(62,'DRIVER',14,'leave','Leave Request - Incharge Approved','Your leave request from 2026-02-04 to 2026-02-04 has been approved by incharge Head Incharge. Waiting for admin approval.',14,0,'2026-02-02 03:22:15'),(63,'DRIVER',14,'leave','Leave Request Approved','Your leave request from 2026-02-04 to 2026-02-04 has been fully approved. Attendance will be automatically marked as absent.',14,0,'2026-02-02 03:29:22'),(64,'DRIVER',14,'info','Attendance Marked by Incharge','Incharge Head Incharge has marked your attendance as Absent for 2026-02-02.',NULL,0,'2026-02-02 06:19:25'),(65,'DRIVER',15,'info','Attendance Marked by Incharge','Incharge Head Incharge has marked your attendance as Absent for 2026-02-02.',NULL,0,'2026-02-02 06:19:27'),(66,'DRIVER',2,'info','Attendance Marked by Incharge','Incharge Head Incharge has marked your attendance as Absent for 2026-02-02.',NULL,1,'2026-02-02 06:19:28'),(67,'DRIVER',2,'leave','Leave Request - Incharge Approved','Your leave request from 07-02-2026 to 07-02-2026 has been approved by incharge Head Incharge. Waiting for admin approval.',15,1,'2026-02-04 05:31:00'),(68,'DRIVER',2,'leave','Leave Request Approved','Your leave request from 07-02-2026 to 07-02-2026 has been fully approved. Attendance will be automatically marked as absent.',15,1,'2026-02-04 05:31:11'),(69,'DRIVER',15,'info','Attendance Marked by Incharge','Incharge Head Incharge has marked your attendance as Present for 2026-02-04.',NULL,0,'2026-02-04 09:42:04'),(70,'DRIVER',4,'info','Attendance Marked by Incharge','Incharge Head Incharge has marked your attendance as Present for 2026-02-04.',NULL,1,'2026-02-04 09:42:05'),(71,'DRIVER',6,'info','Attendance Marked by Incharge','Incharge Head Incharge has marked your attendance as Present for 2026-02-04.',NULL,0,'2026-02-04 09:42:07'),(72,'DRIVER',7,'info','Attendance Marked by Incharge','Incharge Head Incharge has marked your attendance as Present for 2026-02-04.',NULL,0,'2026-02-04 09:42:09'),(73,'DRIVER',9,'info','Attendance Marked by Incharge','Incharge Head Incharge has marked your attendance as Present for 2026-02-04.',NULL,0,'2026-02-04 09:42:10'),(74,'DRIVER',10,'info','Attendance Marked by Incharge','Incharge Head Incharge has marked your attendance as Present for 2026-02-04.',NULL,0,'2026-02-04 09:42:12'),(75,'DRIVER',11,'info','Attendance Marked by Incharge','Incharge Head Incharge has marked your attendance as Present for 2026-02-04.',NULL,0,'2026-02-04 09:42:13'),(95,'STUDENT',99,'car_booking_cancelled','Your Car Booking Has Been Cancelled','Your car booking for 2026-02-03T00:00:00Z (Vehicle: CAR-5S-01) has been cancelled by the transport admin. Reason: Cancelled by admin',3,0,'2026-02-03 06:49:06'),(96,'STUDENT',97,'warning','Vehicle Request Cancelled','Your vehicle request #16 for \"Faculty visit to industry\" has been cancelled by admin. Reason: Cancelled by admin',16,0,'2026-02-12 08:38:30'),(97,'ADMIN',0,'vehicle_assigned','Vehicle Assigned','Vehicle assigned to request #17 by faculty1. Start OTP sent to requester.',NULL,0,'2026-02-14 09:38:57'),(98,'ADMIN',0,'trip_started','Trip Started','Trip for request #17 by faculty1 has started.',NULL,0,'2026-02-14 09:40:19'),(99,'ADMIN',0,'trip_completed','Trip Completed','Trip for request #17 by faculty1 has been completed.',NULL,0,'2026-02-14 09:40:51'),(100,'ADMIN',0,'service_reported','New Service Request','Driver Driver1 reported an issue for vehicle TN-36-GN-7894: Window Glass Broken (Severity: medium)',1,0,'2026-02-16 09:05:19'),(101,'ADMIN',0,'service_reported','New Service Request','Driver Driver1 reported an issue for vehicle TN-36-GN-7894: Window Glass Broken (Severity: medium)',2,0,'2026-02-16 09:11:13'),(102,'DRIVER',2,'vehicle_change','Vehicle Change - Danger Zone Service','Your vehicle EV-01 is going for service (Danger Zone - service_due) from 2026-02-19 to 2026-02-25. You have been assigned CAR-5S-02 for 7 days during this period. Your original vehicle will be automatically reassigned after this period.',1,1,'2026-02-17 08:57:17'),(103,'DRIVER',2,'leave','Leave Request - Admin Approved','Your leave request from 11-02-2026 to 11-02-2026 has been approved by admin. Waiting for incharge approval.',16,1,'2026-02-18 10:28:04'),(104,'DRIVER',4,'leave','Leave Applied by Admin','Admin has applied Permission leave on your behalf from 2026-02-18 to 2026-02-19. Reason: ',17,1,'2026-02-18 10:28:28'),(105,'DRIVER',4,'leave','Leave Request Approved','Your leave request from 18-02-2026 to 19-02-2026 has been fully approved by both incharge Head Incharge and admin.',17,1,'2026-02-18 10:29:00'),(106,'DRIVER',2,'leave','Leave Request Approved','Your leave request from 11-02-2026 to 11-02-2026 has been fully approved by both incharge Head Incharge and admin.',16,1,'2026-02-18 10:29:02'),(107,'ADMIN',0,'service_reported','New Service Request','Driver Driver1 reported an issue for vehicle CAR-5S-02: Front Wheel Dent (Severity: low)',11,0,'2026-02-24 05:27:37'),(108,'ADMIN',0,'vehicle_assigned','Vehicle Assigned','Vehicle assigned to request #18 by faculty1. Start OTP sent to requester.',NULL,0,'2026-02-24 08:25:16'),(109,'ADMIN',0,'trip_started','Trip Started','Trip for request #18 by faculty1 has started.',NULL,0,'2026-02-24 08:26:09'),(110,'ADMIN',0,'trip_completed','Trip Completed','Trip for request #18 by faculty1 has been completed.',NULL,0,'2026-02-24 08:26:25'),(111,'ADMIN',0,'service_reported','New Service Request','Driver Driver1 reported an issue for vehicle TN-36-GN-7894: Brake Noise (Severity: medium)',14,0,'2026-02-25 04:11:17'),(112,'DRIVER',4,'vehicle_change','Vehicle Replacement','Your vehicle TN-36-GN-7894 is going for service_repair from 2026-02-25 to 2026-02-25. You have been assigned TN-36-GN-1988 for 1 days. Your original vehicle will be reassigned after this period.',2,1,'2026-02-25 06:00:06'),(113,'DRIVER',4,'vehicle_change','Vehicle Replacement','Your vehicle TN-36-GN-7894 is going for service_repair from 2026-02-25 to 2026-02-25. You have been assigned TN-36-GN-1988 for 1 days. Your original vehicle will be reassigned after this period.',3,1,'2026-02-25 06:21:35'),(114,'DRIVER',0,'vehicle_change','Vehicle Replacement','Your vehicle TN36JC2026 is going for service_repair from 2026-02-26 to 2026-02-28. You have been assigned TRUCK for 3 days. Your original vehicle will be reassigned after this period.',4,0,'2026-02-25 08:37:28'),(115,'DRIVER',0,'info','Replacement Cancelled','The replacement for TN36JC2026 has been cancelled by admin.',NULL,0,'2026-02-25 09:46:03'),(116,'DRIVER',4,'info','Replacement Cancelled','The replacement for TN-36-GN-7894 has been cancelled by admin.',NULL,1,'2026-02-25 09:46:10'),(117,'DRIVER',4,'vehicle_change','Vehicle Replacement','Your vehicle TN-36-GN-7894 is going for insurance_renewal from 2026-02-25 to 2026-02-25. You have been assigned TN-36-GN-1988 for 1 days. Your original vehicle will be reassigned after this period.',5,1,'2026-02-25 09:47:25'),(118,'DRIVER',4,'vehicle_change','Vehicle Back - Replacement Ended','Your original vehicle TN-36-GN-7894 is back from insurance_renewal. The temporary replacement has ended.',5,0,'2026-02-26 03:30:56'),(119,'ADMIN',0,'replacement_completed','Replacement Auto-Completed','Vehicle TN-36-GN-7894 auto-completed from insurance_renewal. Driver Driver2 reassigned.',NULL,0,'2026-02-26 03:30:56'),(120,'DRIVER',2,'leave','Leave Request Approved','Your leave request from 28-02-2026 to 28-02-2026 has been approved. Attendance will be automatically marked as absent.',18,1,'2026-02-26 06:24:56'),(121,'DRIVER',0,'info','Replacement Cancelled','The replacement for TN 36 G 1589 has been cancelled by admin.',NULL,0,'2026-03-05 05:42:36'),(122,'DRIVER',0,'vehicle_change','Vehicle Replacement','Your vehicle TN 36 G 1589 is going for insurance_renewal from 2026-03-01 to 2026-03-07. You have been assigned TN 36 G 1234 for 7 days. Your original vehicle will be reassigned after this period.',8,0,'2026-03-05 05:51:10'),(123,'DRIVER',0,'info','Replacement Cancelled','The replacement for TN 36 G 1589 has been cancelled by admin.',NULL,0,'2026-03-05 05:51:14'),(124,'ADMIN',0,'vehicle_assigned','Vehicle Assigned','Vehicle assigned to request #20 by faculty1. Start OTP sent to requester.',NULL,0,'2026-03-05 08:31:31');
+INSERT INTO `notifications` VALUES (1,'ADMIN',0,'fc_completion','FC Replacement Auto-Completed','Temporary assignment for driver Senthil Velan has ended. Vehicle EV-01 is back from fc_renewal and is now available. Driver has been reassigned to their original vehicle.',NULL,0,'2026-01-31 03:24:31'),(2,'ADMIN',0,'vehicle_assigned','Vehicle Assigned','Vehicle assigned to request #4 by Dr. Rajesh Kumar. Start OTP sent to requester.',NULL,0,'2026-02-09 09:41:05'),(3,'ADMIN',0,'trip_started','Trip Started','Trip for request #4 by Dr. Rajesh Kumar has started.',NULL,0,'2026-02-09 09:42:07'),(4,'ADMIN',0,'trip_completed','Trip Completed','Trip for request #4 by Dr. Rajesh Kumar has been completed.',NULL,0,'2026-02-09 09:43:16'),(5,'ADMIN',0,'vehicle_assigned','Vehicle Assigned','Vehicle assigned to request #5 by Dr. Rajesh Kumar. Start OTP sent to requester.',NULL,0,'2026-02-09 10:40:02'),(6,'ADMIN',0,'trip_started','Trip Started','Trip for request #5 by Dr. Rajesh Kumar has started.',NULL,0,'2026-02-09 10:54:55'),(7,'ADMIN',0,'trip_completed','Trip Completed','Vehicle request #5 has been manually marked as completed by admin.',NULL,0,'2026-02-09 11:01:44'),(8,'ADMIN',0,'vehicle_assigned','Vehicle Assigned','Vehicle assigned to request #9 by Dr. Rajesh Kumar. Start OTP sent to requester.',NULL,0,'2026-02-10 06:07:31'),(9,'ADMIN',0,'trip_started','Trip Started','Trip for request #9 by Dr. Rajesh Kumar has started.',NULL,0,'2026-02-10 06:08:52'),(10,'ADMIN',0,'trip_completed','Trip Completed','Trip for request #9 by Dr. Rajesh Kumar has been completed.',NULL,0,'2026-02-10 06:10:49'),(11,'ADMIN',0,'vehicle_assigned','Vehicle Assigned','Vehicle assigned to request #10 by Dr. Rajesh Kumar. Start OTP sent to requester.',NULL,0,'2026-02-10 10:39:58'),(12,'ADMIN',0,'trip_started','Trip Started','Trip for request #10 by Dr. Rajesh Kumar has started.',NULL,0,'2026-02-10 10:42:08'),(13,'ADMIN',0,'trip_completed','Trip Completed','Trip for request #10 by Dr. Rajesh Kumar has been completed.',NULL,0,'2026-02-10 10:42:27'),(14,'ADMIN',0,'vehicle_assigned','Vehicle Assigned','Vehicle assigned to request #12 by Dr. Rajesh Kumar. Start OTP sent to requester.',NULL,0,'2026-02-11 03:39:12'),(15,'ADMIN',0,'trip_started','Trip Started','Trip for request #12 by Dr. Rajesh Kumar has started.',NULL,0,'2026-02-11 05:16:41'),(16,'ADMIN',0,'trip_completed','Trip Completed','Trip for request #12 by Dr. Rajesh Kumar has been completed.',NULL,0,'2026-02-11 05:17:08'),(17,'ADMIN',0,'vehicle_assigned','Vehicle Assigned','Vehicle assigned to request #15 by faculty1. Start OTP sent to requester.',NULL,0,'2026-02-12 06:39:24'),(18,'ADMIN',0,'trip_started','Trip Started','Trip for request #15 by faculty1 has started.',NULL,0,'2026-02-12 06:41:00'),(19,'ADMIN',0,'vehicle_assigned','Vehicle Assigned','Vehicle assigned to request #16 by faculty1. Start OTP sent to requester.',NULL,0,'2026-02-12 08:32:07'),(32,'DRIVER',6,'vehicle_change','Vehicle Change Notification','Your vehicle EV-VAN-01 is going for fc_renewal from 2026-01-13 to 2026-01-31. You have been assigned EV-VAN-02 for 19 days during this period. Your original vehicle will be automatically reassigned after this period.',1,0,'2026-01-12 06:15:39'),(33,'DRIVER',9,'info','Attendance Marked by Incharge','Incharge Thirumurugan K has marked your attendance as Present for 2026-01-30.',NULL,0,'2026-01-30 08:40:32'),(34,'DRIVER',10,'info','Attendance Marked by Incharge','Incharge Thirumurugan K has marked your attendance as Present for 2026-01-30.',NULL,0,'2026-01-30 08:40:33'),(35,'DRIVER',11,'info','Attendance Marked by Incharge','Incharge Thirumurugan K has marked your attendance as Present for 2026-01-30.',NULL,0,'2026-01-30 08:40:33'),(36,'DRIVER',7,'info','Attendance Marked by Incharge','Incharge Thirumurugan K has marked your attendance as Present for 2026-01-30.',NULL,0,'2026-01-30 08:40:35'),(37,'DRIVER',4,'info','Attendance Marked by Incharge','Incharge Thirumurugan K has marked your attendance as Present for 2026-01-30.',NULL,1,'2026-01-30 08:40:37'),(38,'DRIVER',6,'info','Attendance Marked by Incharge','Incharge Thirumurugan K has marked your attendance as Present for 2026-01-30.',NULL,0,'2026-01-30 08:40:38'),(39,'DRIVER',2,'info','Attendance Marked by Incharge','Incharge Thirumurugan K has marked your attendance as Present for 2026-01-30.',NULL,1,'2026-01-30 08:40:40'),(40,'DRIVER',6,'vehicle_change','Vehicle Reassignment - Back to Original','Your original vehicle EV-01 is back from fc_renewal. The temporary assignment has ended and you are now reassigned to your original vehicle.',1,0,'2026-01-31 03:24:31'),(41,'DRIVER',2,'info','Attendance Marked by Incharge','Incharge Head Incharge has marked your attendance as Present for 2026-01-31.',NULL,1,'2026-01-31 04:53:52'),(42,'DRIVER',6,'info','Attendance Marked by Incharge','Incharge Head Incharge has marked your attendance as Present for 2026-01-31.',NULL,0,'2026-01-31 04:53:55'),(43,'DRIVER',4,'info','Attendance Marked by Incharge','Incharge Head Incharge has marked your attendance as Absent for 2026-01-31.',NULL,1,'2026-01-31 04:53:57'),(44,'DRIVER',9,'info','Attendance Marked by Incharge','Incharge Head Incharge has marked your attendance as Absent for 2026-01-31.',NULL,0,'2026-01-31 04:54:02'),(45,'DRIVER',7,'info','Attendance Marked by Incharge','Incharge Head Incharge has marked your attendance as Present for 2026-01-31.',NULL,0,'2026-01-31 04:54:04'),(46,'DRIVER',10,'info','Attendance Marked by Incharge','Incharge Head Incharge has marked your attendance as Present for 2026-01-31.',NULL,0,'2026-01-31 04:54:05'),(47,'DRIVER',11,'info','Attendance Marked by Incharge','Incharge Head Incharge has marked your attendance as Present for 2026-01-31.',NULL,0,'2026-01-31 04:54:07'),(48,'DRIVER',2,'leave','Leave Request Submitted by Incharge','Incharge Head Incharge has submitted a CASUAL leave request on your behalf from 2026-01-31 to 2026-01-31. Status: Pending approval.',5,1,'2026-01-31 04:55:56'),(49,'DRIVER',2,'leave','Leave Request Submitted by Incharge','Incharge Head Incharge has submitted a CASUAL leave request on your behalf from 2026-02-01 to 2026-01-01. Status: Pending approval.',6,1,'2026-01-31 04:57:25'),(50,'DRIVER',2,'leave','Leave Request Submitted by Incharge','Incharge Head Incharge has submitted a SICK leave request on your behalf from 2026-02-01 to 2026-02-01. Status: Pending approval.',7,1,'2026-01-31 04:58:27'),(51,'DRIVER',2,'leave','Leave Request Submitted by Incharge','Incharge Head Incharge has submitted a CASUAL leave request on your behalf from 2026-01-31 16:20 to 2026-02-02 20:45. Status: Pending approval.',8,1,'2026-01-31 05:39:25'),(52,'DRIVER',2,'leave','Leave Request Rejected by Incharge','Your leave request from 2026-01-31 to 2026-02-02 has been rejected by incharge Head Incharge. Reason: ok',8,1,'2026-01-31 05:39:57'),(53,'DRIVER',2,'leave','Leave Request Rejected by Incharge','Your leave request from 2026-01-31 to 2026-02-02 has been rejected by incharge Head Incharge. Reason: ok',9,1,'2026-01-31 06:12:09'),(54,'DRIVER',2,'leave','Leave Request Submitted by Incharge','Incharge Head Incharge has submitted a CASUAL leave request on your behalf from 2026-01-31 16:40 to 2026-02-02 08:45. Status: Pending approval.',10,1,'2026-01-31 06:21:40'),(55,'DRIVER',2,'leave','Leave Request Rejected by Incharge','Your leave request from 2026-01-31 to 2026-02-02 has been rejected by incharge Head Incharge. Reason: ',10,1,'2026-01-31 06:21:52'),(56,'DRIVER',2,'leave','Leave Request - Incharge Approved','Your leave request from 2026-01-31 to 2026-02-02 has been approved by incharge Head Incharge. Waiting for admin approval.',11,1,'2026-01-31 06:33:06'),(57,'DRIVER',2,'leave','Leave Request Rejected by Admin','Your leave request from 2026-01-31 to 2026-02-02 has been rejected by admin. Reason: ',11,1,'2026-01-31 06:39:14'),(58,'DRIVER',2,'leave','Leave Request - Incharge Approved','Your leave request from 2026-02-04 to 2026-02-04 has been approved by incharge Head Incharge. Waiting for admin approval.',12,1,'2026-01-31 09:10:41'),(59,'DRIVER',2,'leave','Leave Request Approved','Your leave request from 2026-02-04 to 2026-02-04 has been fully approved. Attendance will be automatically marked as absent.',12,1,'2026-01-31 09:39:41'),(60,'DRIVER',10,'leave','Leave Request - Incharge Approved','Your leave request from 2026-02-04 to 2026-02-04 has been approved by incharge Head Incharge. Waiting for admin approval.',13,0,'2026-02-02 03:12:04'),(61,'DRIVER',10,'leave','Leave Request Rejected by Admin','Your leave request from 2026-02-04 to 2026-02-04 has been rejected by admin. Reason: ',13,0,'2026-02-02 03:20:16'),(62,'DRIVER',14,'leave','Leave Request - Incharge Approved','Your leave request from 2026-02-04 to 2026-02-04 has been approved by incharge Head Incharge. Waiting for admin approval.',14,0,'2026-02-02 03:22:15'),(63,'DRIVER',14,'leave','Leave Request Approved','Your leave request from 2026-02-04 to 2026-02-04 has been fully approved. Attendance will be automatically marked as absent.',14,0,'2026-02-02 03:29:22'),(64,'DRIVER',14,'info','Attendance Marked by Incharge','Incharge Head Incharge has marked your attendance as Absent for 2026-02-02.',NULL,0,'2026-02-02 06:19:25'),(65,'DRIVER',15,'info','Attendance Marked by Incharge','Incharge Head Incharge has marked your attendance as Absent for 2026-02-02.',NULL,0,'2026-02-02 06:19:27'),(66,'DRIVER',2,'info','Attendance Marked by Incharge','Incharge Head Incharge has marked your attendance as Absent for 2026-02-02.',NULL,1,'2026-02-02 06:19:28'),(67,'DRIVER',2,'leave','Leave Request - Incharge Approved','Your leave request from 07-02-2026 to 07-02-2026 has been approved by incharge Head Incharge. Waiting for admin approval.',15,1,'2026-02-04 05:31:00'),(68,'DRIVER',2,'leave','Leave Request Approved','Your leave request from 07-02-2026 to 07-02-2026 has been fully approved. Attendance will be automatically marked as absent.',15,1,'2026-02-04 05:31:11'),(69,'DRIVER',15,'info','Attendance Marked by Incharge','Incharge Head Incharge has marked your attendance as Present for 2026-02-04.',NULL,0,'2026-02-04 09:42:04'),(70,'DRIVER',4,'info','Attendance Marked by Incharge','Incharge Head Incharge has marked your attendance as Present for 2026-02-04.',NULL,1,'2026-02-04 09:42:05'),(71,'DRIVER',6,'info','Attendance Marked by Incharge','Incharge Head Incharge has marked your attendance as Present for 2026-02-04.',NULL,0,'2026-02-04 09:42:07'),(72,'DRIVER',7,'info','Attendance Marked by Incharge','Incharge Head Incharge has marked your attendance as Present for 2026-02-04.',NULL,0,'2026-02-04 09:42:09'),(73,'DRIVER',9,'info','Attendance Marked by Incharge','Incharge Head Incharge has marked your attendance as Present for 2026-02-04.',NULL,0,'2026-02-04 09:42:10'),(74,'DRIVER',10,'info','Attendance Marked by Incharge','Incharge Head Incharge has marked your attendance as Present for 2026-02-04.',NULL,0,'2026-02-04 09:42:12'),(75,'DRIVER',11,'info','Attendance Marked by Incharge','Incharge Head Incharge has marked your attendance as Present for 2026-02-04.',NULL,0,'2026-02-04 09:42:13'),(95,'STUDENT',99,'car_booking_cancelled','Your Car Booking Has Been Cancelled','Your car booking for 2026-02-03T00:00:00Z (Vehicle: CAR-5S-01) has been cancelled by the transport admin. Reason: Cancelled by admin',3,0,'2026-02-03 06:49:06'),(96,'STUDENT',97,'warning','Vehicle Request Cancelled','Your vehicle request #16 for \"Faculty visit to industry\" has been cancelled by admin. Reason: Cancelled by admin',16,0,'2026-02-12 08:38:30'),(97,'ADMIN',0,'vehicle_assigned','Vehicle Assigned','Vehicle assigned to request #17 by faculty1. Start OTP sent to requester.',NULL,0,'2026-02-14 09:38:57'),(98,'ADMIN',0,'trip_started','Trip Started','Trip for request #17 by faculty1 has started.',NULL,0,'2026-02-14 09:40:19'),(99,'ADMIN',0,'trip_completed','Trip Completed','Trip for request #17 by faculty1 has been completed.',NULL,0,'2026-02-14 09:40:51'),(100,'ADMIN',0,'service_reported','New Service Request','Driver Driver1 reported an issue for vehicle TN-36-GN-7894: Window Glass Broken (Severity: medium)',1,0,'2026-02-16 09:05:19'),(101,'ADMIN',0,'service_reported','New Service Request','Driver Driver1 reported an issue for vehicle TN-36-GN-7894: Window Glass Broken (Severity: medium)',2,0,'2026-02-16 09:11:13'),(102,'DRIVER',2,'vehicle_change','Vehicle Change - Danger Zone Service','Your vehicle EV-01 is going for service (Danger Zone - service_due) from 2026-02-19 to 2026-02-25. You have been assigned CAR-5S-02 for 7 days during this period. Your original vehicle will be automatically reassigned after this period.',1,0,'2026-02-17 08:57:17'),(103,'DRIVER',2,'leave','Leave Request - Admin Approved','Your leave request from 11-02-2026 to 11-02-2026 has been approved by admin. Waiting for incharge approval.',16,0,'2026-02-18 10:28:04'),(104,'DRIVER',4,'leave','Leave Applied by Admin','Admin has applied Permission leave on your behalf from 2026-02-18 to 2026-02-19. Reason: ',17,1,'2026-02-18 10:28:28'),(105,'DRIVER',4,'leave','Leave Request Approved','Your leave request from 18-02-2026 to 19-02-2026 has been fully approved by both incharge Head Incharge and admin.',17,1,'2026-02-18 10:29:00'),(106,'DRIVER',2,'leave','Leave Request Approved','Your leave request from 11-02-2026 to 11-02-2026 has been fully approved by both incharge Head Incharge and admin.',16,0,'2026-02-18 10:29:02'),(107,'ADMIN',0,'service_reported','New Service Request','Driver Driver1 reported an issue for vehicle CAR-5S-02: Front Wheel Dent (Severity: low)',11,0,'2026-02-24 05:27:37'),(108,'ADMIN',0,'vehicle_assigned','Vehicle Assigned','Vehicle assigned to request #18 by faculty1. Start OTP sent to requester.',NULL,0,'2026-02-24 08:25:16'),(109,'ADMIN',0,'trip_started','Trip Started','Trip for request #18 by faculty1 has started.',NULL,0,'2026-02-24 08:26:09'),(110,'ADMIN',0,'trip_completed','Trip Completed','Trip for request #18 by faculty1 has been completed.',NULL,0,'2026-02-24 08:26:25'),(111,'ADMIN',0,'service_reported','New Service Request','Driver Driver1 reported an issue for vehicle TN-36-GN-7894: Brake Noise (Severity: medium)',14,0,'2026-02-25 04:11:17'),(112,'DRIVER',4,'vehicle_change','Vehicle Replacement','Your vehicle TN-36-GN-7894 is going for service_repair from 2026-02-25 to 2026-02-25. You have been assigned TN-36-GN-1988 for 1 days. Your original vehicle will be reassigned after this period.',2,1,'2026-02-25 06:00:06'),(113,'DRIVER',4,'vehicle_change','Vehicle Replacement','Your vehicle TN-36-GN-7894 is going for service_repair from 2026-02-25 to 2026-02-25. You have been assigned TN-36-GN-1988 for 1 days. Your original vehicle will be reassigned after this period.',3,1,'2026-02-25 06:21:35'),(114,'DRIVER',0,'vehicle_change','Vehicle Replacement','Your vehicle TN36JC2026 is going for service_repair from 2026-02-26 to 2026-02-28. You have been assigned TRUCK for 3 days. Your original vehicle will be reassigned after this period.',4,0,'2026-02-25 08:37:28'),(115,'DRIVER',0,'info','Replacement Cancelled','The replacement for TN36JC2026 has been cancelled by admin.',NULL,0,'2026-02-25 09:46:03'),(116,'DRIVER',4,'info','Replacement Cancelled','The replacement for TN-36-GN-7894 has been cancelled by admin.',NULL,1,'2026-02-25 09:46:10'),(117,'DRIVER',4,'vehicle_change','Vehicle Replacement','Your vehicle TN-36-GN-7894 is going for insurance_renewal from 2026-02-25 to 2026-02-25. You have been assigned TN-36-GN-1988 for 1 days. Your original vehicle will be reassigned after this period.',5,1,'2026-02-25 09:47:25'),(118,'DRIVER',4,'vehicle_change','Vehicle Back - Replacement Ended','Your original vehicle TN-36-GN-7894 is back from insurance_renewal. The temporary replacement has ended.',5,0,'2026-02-26 03:30:56'),(119,'ADMIN',0,'replacement_completed','Replacement Auto-Completed','Vehicle TN-36-GN-7894 auto-completed from insurance_renewal. Driver Driver2 reassigned.',NULL,0,'2026-02-26 03:30:56'),(120,'DRIVER',2,'leave','Leave Request Approved','Your leave request from 28-02-2026 to 28-02-2026 has been approved. Attendance will be automatically marked as absent.',18,0,'2026-02-26 06:24:56'),(121,'ADMIN',0,'group_expiry','Driver Group Expiring: Driver group A','Driver group \'Driver group A\' validity expires on 07-03-2026. Please review and renew.',NULL,0,'2026-03-06 04:15:31'),(122,'ADMIN',0,'group_expiry','Vehicle Group Expiring: Group A','Vehicle group \'Group A\' validity expires on 07-03-2026. Please review and renew.',NULL,0,'2026-03-06 04:15:31'),(123,'ADMIN',0,'group_expiry','Driver Group Expiring: test batch','Driver group \'test batch\' validity expires on 06-03-2026. Please review and renew.',NULL,0,'2026-03-06 09:43:42'),(124,'ADMIN',0,'group_expiry','Driver Group Expiring: Driver group A','Driver group \'Driver group A\' validity expires on 07-03-2026. Please review and renew.',NULL,0,'2026-03-07 04:53:01'),(125,'ADMIN',0,'group_expiry','Driver Group Expired: test batch','Driver group \'test batch\' validity expired on 06-03-2026. Immediate attention required.',NULL,0,'2026-03-07 04:53:01'),(126,'ADMIN',0,'group_expiry','Vehicle Group Expiring: Group A','Vehicle group \'Group A\' validity expires on 07-03-2026. Please review and renew.',NULL,0,'2026-03-07 04:53:01');
 /*!40000 ALTER TABLE `notifications` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -708,6 +711,7 @@ CREATE TABLE `parts_purchased` (
 
 LOCK TABLES `parts_purchased` WRITE;
 /*!40000 ALTER TABLE `parts_purchased` DISABLE KEYS */;
+INSERT INTO `parts_purchased` VALUES (5,1,6,'Suspension',2,2,88425.00,176850.00,8,'INV-1021',NULL,'received','2026-02-23','2026-02-23',NULL,NULL,1,'2026-02-23 10:02:46','repair_service',20),(6,1,6,'Suspension Greeze',2,5,2200.00,11000.00,3,'INV-1021',NULL,'received','2026-02-23','2026-02-23','2026-02-23',NULL,1,'2026-02-23 10:02:46','repair_service',20),(10,4,10,'Oil',3,1,850.00,850.00,0,'INV-1425','2026-02-24','received','2026-02-24','2026-02-24',NULL,NULL,1,'2026-02-24 05:46:24','repair_service',22),(11,5,NULL,'Uniform Shirt',4,12,550.00,6600.00,0,'INV-1012','2026-02-24','pending','2026-02-24',NULL,NULL,NULL,1,'2026-02-24 10:32:08','general',NULL),(12,5,NULL,'Uniform Pant',4,12,850.00,10200.00,0,'INV-1012','2026-02-24','pending','2026-02-24',NULL,NULL,NULL,1,'2026-02-24 10:32:08','general',NULL),(13,6,NULL,'Oil',3,8,500.00,4000.00,0,'INV-14250','2026-02-24','pending','2026-02-24',NULL,NULL,NULL,1,'2026-02-24 10:52:26','vehicle',NULL);
 /*!40000 ALTER TABLE `parts_purchased` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -743,6 +747,7 @@ CREATE TABLE `purchase_invoices` (
 
 LOCK TABLES `purchase_invoices` WRITE;
 /*!40000 ALTER TABLE `purchase_invoices` DISABLE KEYS */;
+INSERT INTO `purchase_invoices` VALUES (3,1,'invoice_1_1771843987622376900.pdf','Transport App.pdf','pdf',223364,'Documents\\Purchase\\invoice_1_1771843987622376900.pdf',1,'2026-02-23 10:53:07','2026-02-23 10:53:07'),(5,4,'invoice_4_1771911984290374400.pdf','7376242AL210 - UI003.pdf','pdf',403497,'Documents\\Purchase\\invoice_4_1771911984290374400.pdf',1,'2026-02-24 05:46:24','2026-02-24 05:46:24');
 /*!40000 ALTER TABLE `purchase_invoices` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -786,6 +791,7 @@ CREATE TABLE `purchase_orders` (
 
 LOCK TABLES `purchase_orders` WRITE;
 /*!40000 ALTER TABLE `purchase_orders` DISABLE KEYS */;
+INSERT INTO `purchase_orders` VALUES (1,6,2,'INV-1021',NULL,'received','2026-02-23','2026-02-23',NULL,NULL,NULL,1,'2026-02-23 10:02:46','2026-02-24 09:52:15','repair_service',20),(4,10,3,'INV-1425','2026-02-24','received','2026-02-24','2026-02-24',NULL,NULL,NULL,1,'2026-02-24 05:46:24','2026-02-24 09:52:15','repair_service',22),(5,NULL,4,'INV-1012','2026-02-24','pending','2026-02-24',NULL,NULL,NULL,'Uniform For Drivers',1,'2026-02-24 10:32:08','2026-02-24 10:32:08','general',NULL),(6,NULL,3,'INV-14250','2026-02-24','pending','2026-02-24',NULL,NULL,NULL,'For safety',1,'2026-02-24 10:52:26','2026-02-24 10:52:26','vehicle',NULL);
 /*!40000 ALTER TABLE `purchase_orders` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -842,6 +848,7 @@ CREATE TABLE `service_records` (
 
 LOCK TABLES `service_records` WRITE;
 /*!40000 ALTER TABLE `service_records` DISABLE KEYS */;
+INSERT INTO `service_records` VALUES (6,20,10,NULL,1,'Suspension Broken','Suspension broken because of the heavy lifting','medium','completed',NULL,'2026-02-23','2026-02-23 10:17:52','2026-02-23 10:19:23','BIT','Sundharam','',0.00,187850.00,187850.00,'2026-06-23',20100,'BIT',NULL,'2026-02-23 09:41:03','2026-02-24 03:22:17'),(10,22,6,NULL,1,'Testing','Testing','medium','completed',NULL,'2026-02-24','2026-02-24 05:45:33','2026-02-24 05:46:55','','','',450.00,850.00,1300.00,'2026-02-24',0,'',NULL,'2026-02-24 05:25:04','2026-02-24 05:46:55'),(11,8,10,67,1,'Front Wheel Dent','Accidentally crashed','low','completed',NULL,'2026-02-25','2026-02-24 05:42:41','2026-02-24 05:42:55','','','',500.00,0.00,500.00,'2026-02-25',0,'',NULL,'2026-02-24 05:27:37','2026-02-24 05:42:55'),(16,1,10,NULL,1,'testing','','medium','in_progress',NULL,'2026-02-25','2026-02-25 06:21:35',NULL,'','','',0.00,0.00,0.00,NULL,NULL,NULL,NULL,'2026-02-25 06:21:22','2026-02-25 06:21:35');
 /*!40000 ALTER TABLE `service_records` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -892,7 +899,7 @@ CREATE TABLE `shift_slots` (
   KEY `idx_shift_slots_created_by` (`created_by`),
   CONSTRAINT `fk_shift_slots_created_by` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `shift_slots_ibfk_1` FOREIGN KEY (`shift_id`) REFERENCES `shifts` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=43 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=36 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -901,7 +908,7 @@ CREATE TABLE `shift_slots` (
 
 LOCK TABLES `shift_slots` WRITE;
 /*!40000 ALTER TABLE `shift_slots` DISABLE KEYS */;
-INSERT INTO `shift_slots` VALUES (38,43,'06:00:00','10:00:00',1,1),(39,44,'10:01:00','14:00:00',1,1),(40,45,'14:00:00','18:30:00',1,1),(41,41,'05:40:00','08:30:00',1,1),(42,42,'16:40:00','19:30:00',1,1);
+INSERT INTO `shift_slots` VALUES (30,35,'06:45:00','08:45:00',1,1),(31,36,'16:45:00','19:30:00',1,1),(32,37,'09:00:00','10:30:00',1,1),(33,38,'10:31:00','11:45:00',1,1),(34,39,'12:30:00','14:00:00',1,1),(35,40,'14:00:00','16:50:00',1,1);
 /*!40000 ALTER TABLE `shift_slots` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -923,7 +930,7 @@ CREATE TABLE `shifts` (
   PRIMARY KEY (`id`),
   KEY `created_by` (`created_by`),
   CONSTRAINT `shifts_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=46 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=41 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -932,7 +939,7 @@ CREATE TABLE `shifts` (
 
 LOCK TABLES `shifts` WRITE;
 /*!40000 ALTER TABLE `shifts` DISABLE KEYS */;
-INSERT INTO `shifts` VALUES (41,'Morning Bus Shift','05:40:00','08:30:00','',1,'2026-03-05 04:16:52'),(42,'Evening Bus Shift','16:40:00','19:30:00','',1,'2026-03-05 04:17:24'),(43,'EV Shift A','06:00:00','10:00:00','',1,'2026-03-05 04:18:02'),(44,'EV Shift B','10:01:00','14:00:00','',1,'2026-03-05 04:18:33'),(45,'EV Shift C','14:00:00','18:30:00','',1,'2026-03-05 04:18:58');
+INSERT INTO `shifts` VALUES (35,'Morning shift','06:45:00','08:45:00','bus shift',1,'2026-02-27 03:46:55'),(36,'Evening shift','16:45:00','19:30:00','Bus shift',1,'2026-02-27 03:47:46'),(37,'A shift','09:00:00','10:30:00','EV-shift',1,'2026-02-27 03:48:30'),(38,'B-shift','10:31:00','11:45:00','EV-shift',1,'2026-02-27 03:48:57'),(39,'C-Shift','12:30:00','14:00:00','EV-Shift',1,'2026-02-27 03:49:39'),(40,'D-shift','14:00:00','16:50:00','EV-shift',1,'2026-02-27 03:50:14');
 /*!40000 ALTER TABLE `shifts` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -971,6 +978,7 @@ CREATE TABLE `stop_change_requests` (
 
 LOCK TABLES `stop_change_requests` WRITE;
 /*!40000 ALTER TABLE `stop_change_requests` DISABLE KEYS */;
+INSERT INTO `stop_change_requests` (`id`, `student_transport_id`, `current_stop_id`, `requested_stop_id`, `current_fee`, `new_fee`, `reason`, `status`, `admin_remarks`, `processed_by`, `processed_at`, `created_at`) VALUES (16,13,7,8,10000.00,10000.00,'','approved','',1,'2026-03-03 10:47:48','2026-03-03 10:47:28');
 /*!40000 ALTER TABLE `stop_change_requests` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -1035,6 +1043,7 @@ CREATE TABLE `student_transport` (
 
 LOCK TABLES `student_transport` WRITE;
 /*!40000 ALTER TABLE `student_transport` DISABLE KEYS */;
+INSERT INTO `student_transport` (`id`, `user_id`, `bus_id`, `stop_id`, `transport_fee_id`, `total_fee`, `paid_amount`, `academic_year`, `status`, `created_at`, `updated_at`) VALUES (12,82,4,13,NULL,20000.00,856630.00,'2025-2026','active','2026-03-03 10:02:11','2026-03-03 10:03:08'),(13,81,1,8,NULL,10000.00,0.00,'2026-2027','active','2026-03-03 10:46:52','2026-03-03 10:47:48');
 /*!40000 ALTER TABLE `student_transport` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -1070,7 +1079,7 @@ CREATE TABLE `temporary_assignments` (
   CONSTRAINT `temporary_assignments_ibfk_2` FOREIGN KEY (`replacement_driver_id`) REFERENCES `drivers` (`id`) ON DELETE CASCADE,
   CONSTRAINT `temporary_assignments_ibfk_3` FOREIGN KEY (`shift_id`) REFERENCES `shifts` (`id`) ON DELETE CASCADE,
   CONSTRAINT `temporary_assignments_ibfk_4` FOREIGN KEY (`vehicle_id`) REFERENCES `vehicles` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=21 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=18 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1143,6 +1152,7 @@ CREATE TABLE `transport_payments` (
 
 LOCK TABLES `transport_payments` WRITE;
 /*!40000 ALTER TABLE `transport_payments` DISABLE KEYS */;
+INSERT INTO `transport_payments` VALUES (4,12,2000.00,'2026-03-03','cash','','','',1,'2026-03-03 10:02:46'),(5,12,1010.00,'2026-03-03','cash','','','',1,'2026-03-03 10:02:59'),(6,12,853620.00,'2026-03-03','cash','','','',1,'2026-03-03 10:03:08');
 /*!40000 ALTER TABLE `transport_payments` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -1183,6 +1193,7 @@ CREATE TABLE `transport_requests` (
 
 LOCK TABLES `transport_requests` WRITE;
 /*!40000 ALTER TABLE `transport_requests` DISABLE KEYS */;
+INSERT INTO `transport_requests` VALUES (5,81,1,7,'2026-2027','','approved','',1,'2026-03-03 10:46:52','2026-03-03 10:24:43','2026-03-03 10:46:52');
 /*!40000 ALTER TABLE `transport_requests` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -1250,7 +1261,7 @@ CREATE TABLE `users` (
 
 LOCK TABLES `users` WRITE;
 /*!40000 ALTER TABLE `users` DISABLE KEYS */;
-INSERT INTO `users` VALUES (1,'admin','Transport Admin','9999999999','admin@transport.com','ADMIN',NULL,'2026-01-05 06:52:32','2026-02-02 06:03:38','password',NULL,0,NULL,'active'),(67,'driver1','Driver1','9876543211','gopal@gmail.com','DRIVER',NULL,'2026-01-06 03:53:04','2026-03-05 04:15:45','password',NULL,0,NULL,'present'),(69,'driver2','Driver2','9876543213','murugan_k@transport.com','DRIVER',NULL,'2026-01-06 03:53:04','2026-03-02 05:11:45','password',NULL,0,NULL,'present'),(71,'driver3','Driver3','9876543215','senthil_v@transport.com','DRIVER',NULL,'2026-01-06 03:53:04','2026-03-02 05:11:46','password',NULL,0,NULL,'present'),(72,'driver4','Driver4','9876543216','kumar_s@transport.com','DRIVER',NULL,'2026-01-06 03:53:04','2026-03-02 05:11:48','password',NULL,0,NULL,'present'),(74,'driver5','Driver5','9876543218','arun_p@transport.com','DRIVER',NULL,'2026-01-06 03:53:04','2026-03-02 05:11:49','password',NULL,0,NULL,'present'),(75,'driver6','Driver6','9876543219','bala_k@transport.com','DRIVER',NULL,'2026-01-06 03:53:04','2026-03-02 05:11:50','password',NULL,0,NULL,'present'),(76,'driver7','Driver7','7894561230','ganesha@gmail.com','DRIVER',NULL,'2026-01-06 11:18:48','2026-03-05 04:15:56','password',NULL,0,NULL,'present'),(78,'student5','Student5','9876543210','john.doe@bit.edu','STUDENT',NULL,'2026-01-20 09:24:17','2026-01-31 06:29:04','password','Computer Science',3,'CS2023001','active'),(79,'student4','Student4','9876543211','jane.smith@bit.edu','STUDENT',NULL,'2026-01-20 09:24:17','2026-01-31 06:29:04','password','Electronics',2,'EC2024015','active'),(80,'student3','Student3','9876543212','mike.wilson@bit.edu','STUDENT',NULL,'2026-01-20 09:24:17','2026-01-31 06:29:04','password','Mechanical',4,'ME2022042','active'),(81,'student1','Student1','9874561230','student1@gmail.com','STUDENT',NULL,'2026-01-28 09:19:38',NULL,'password','AIDS',2,'2024UAD1010','active'),(82,'student2','Student2','7418529630','student2@gmail.com','STUDENT',NULL,'2026-01-28 10:01:07','2026-01-31 06:29:04','password','AIML',1,'2025UAL1023','active'),(95,'driver8','Driver-08','7418529630','driver8@gmail.com','DRIVER',NULL,'2026-01-31 08:28:32','2026-03-02 05:11:34','password',NULL,0,NULL,'present'),(96,'driver9','Driver-09','7418529630','driver9@gmail.com','DRIVER',NULL,'2026-01-31 08:29:47','2026-03-02 05:11:44','password',NULL,0,NULL,'present'),(97,'faculty1','faculty1','9876543201','rajesh@bit.edu','FACULTY',NULL,'2026-02-03 04:15:12','2026-02-12 04:10:50','password',NULL,0,NULL,'active'),(98,'faculty2','Dr. Priya Sharma','9876543202','priya@bit.edu','FACULTY',NULL,'2026-02-03 04:15:12','2026-02-03 08:30:23','password',NULL,0,NULL,'active'),(99,'faculty3','Dr. Anil Verma','9876543203','anil@bit.edu','FACULTY',NULL,'2026-02-03 04:15:12','2026-02-03 08:30:23','password',NULL,0,NULL,'active'),(100,'faculty4','Dr. Sunita Patel','9876543204','sunita@bit.edu','FACULTY',NULL,'2026-02-03 04:15:12','2026-02-03 08:30:23','password',NULL,0,NULL,'active'),(101,'thiru','Dr.Thirumurugan','7418529630','thirumurugank.al24@bitsathy.ac.in','ADMIN',NULL,'2026-02-11 05:38:13','2026-03-02 09:51:30','password','',0,NULL,'active');
+INSERT INTO `users` VALUES (1,'admin','Transport Admin','9999999999','admin@transport.com','ADMIN',NULL,'2026-01-05 06:52:32','2026-02-02 06:03:38','password',NULL,0,NULL,'active'),(67,'driver1','Driver1','9876543211','gopal@gmail.com','DRIVER',NULL,'2026-01-06 03:53:04','2026-03-05 09:22:34','password',NULL,0,NULL,'present'),(69,'driver2','Driver2','9876543213','murugan_k@transport.com','DRIVER',NULL,'2026-01-06 03:53:04','2026-03-02 05:11:45','password',NULL,0,NULL,'present'),(71,'driver3','Driver3','9876543215','senthil_v@transport.com','DRIVER',NULL,'2026-01-06 03:53:04','2026-03-02 05:11:46','password',NULL,0,NULL,'present'),(72,'driver4','Driver4','9876543216','kumar_s@transport.com','DRIVER',NULL,'2026-01-06 03:53:04','2026-03-02 05:11:48','password',NULL,0,NULL,'present'),(74,'driver5','Driver5','9876543218','arun_p@transport.com','DRIVER',NULL,'2026-01-06 03:53:04','2026-03-02 05:11:49','password',NULL,0,NULL,'present'),(75,'driver6','Driver6','9876543219','bala_k@transport.com','DRIVER',NULL,'2026-01-06 03:53:04','2026-03-02 05:11:50','password',NULL,0,NULL,'present'),(76,'driver7','Driver7','7894561230','ganesha@gmail.com','DRIVER',NULL,'2026-01-06 11:18:48','2026-03-02 05:11:52','password',NULL,0,NULL,'absent'),(78,'student5','Student5','9876543210','john.doe@bit.edu','STUDENT',NULL,'2026-01-20 09:24:17','2026-01-31 06:29:04','password','Computer Science',3,'CS2023001','active'),(79,'student4','Student4','9876543211','jane.smith@bit.edu','STUDENT',NULL,'2026-01-20 09:24:17','2026-01-31 06:29:04','password','Electronics',2,'EC2024015','active'),(80,'student3','Student3','9876543212','mike.wilson@bit.edu','STUDENT',NULL,'2026-01-20 09:24:17','2026-01-31 06:29:04','password','Mechanical',4,'ME2022042','active'),(81,'student1','Student1','9874561230','student1@gmail.com','STUDENT',NULL,'2026-01-28 09:19:38',NULL,'password','AIDS',2,'2024UAD1010','active'),(82,'student2','Student2','7418529630','student2@gmail.com','STUDENT',NULL,'2026-01-28 10:01:07','2026-01-31 06:29:04','password','AIML',1,'2025UAL1023','active'),(95,'driver8','Driver-08','7418529630','driver8@gmail.com','DRIVER',NULL,'2026-01-31 08:28:32','2026-03-02 05:11:34','password',NULL,0,NULL,'present'),(96,'driver9','Driver-09','7418529630','driver9@gmail.com','DRIVER',NULL,'2026-01-31 08:29:47','2026-03-02 05:11:44','password',NULL,0,NULL,'present'),(97,'faculty1','faculty1','9876543201','rajesh@bit.edu','FACULTY',NULL,'2026-02-03 04:15:12','2026-02-12 04:10:50','password',NULL,0,NULL,'active'),(98,'faculty2','Dr. Priya Sharma','9876543202','priya@bit.edu','FACULTY',NULL,'2026-02-03 04:15:12','2026-02-03 08:30:23','password',NULL,0,NULL,'active'),(99,'faculty3','Dr. Anil Verma','9876543203','anil@bit.edu','FACULTY',NULL,'2026-02-03 04:15:12','2026-02-03 08:30:23','password',NULL,0,NULL,'active'),(100,'faculty4','Dr. Sunita Patel','9876543204','sunita@bit.edu','FACULTY',NULL,'2026-02-03 04:15:12','2026-02-03 08:30:23','password',NULL,0,NULL,'active'),(101,'thiru','Dr.Thirumurugan','7418529630','thirumurugank.al24@bitsathy.ac.in','ADMIN',NULL,'2026-02-11 05:38:13','2026-03-02 09:51:30','password','',0,NULL,'active');
 /*!40000 ALTER TABLE `users` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -1275,7 +1286,7 @@ CREATE TABLE `vehicle_document_audit_log` (
   KEY `idx_vehicle_doc` (`vehicle_id`,`document_type`),
   KEY `idx_changed_at` (`changed_at`),
   CONSTRAINT `vehicle_document_audit_log_ibfk_1` FOREIGN KEY (`vehicle_id`) REFERENCES `vehicles` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=89 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=29 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1284,40 +1295,8 @@ CREATE TABLE `vehicle_document_audit_log` (
 
 LOCK TABLES `vehicle_document_audit_log` WRITE;
 /*!40000 ALTER TABLE `vehicle_document_audit_log` DISABLE KEYS */;
-INSERT INTO `vehicle_document_audit_log` VALUES (29,1,'insurance','start_date',NULL,'05-03-2026',1,'admin','2026-03-05 04:06:09'),(30,1,'insurance','expire_date',NULL,'31-12-2030',1,'admin','2026-03-05 04:06:09'),(31,1,'fc','start_date',NULL,'05-03-2026',1,'admin','2026-03-05 04:06:09'),(32,1,'fc','expire_date',NULL,'31-12-2030',1,'admin','2026-03-05 04:06:09'),(33,1,'permit','start_date',NULL,'05-03-2026',1,'admin','2026-03-05 04:06:09'),(34,1,'permit','expire_date',NULL,'31-12-2030',1,'admin','2026-03-05 04:06:09'),(35,2,'insurance','start_date',NULL,'05-03-2026',1,'admin','2026-03-05 04:07:27'),(36,2,'insurance','expire_date',NULL,'31-12-2030',1,'admin','2026-03-05 04:07:27'),(37,2,'fc','start_date',NULL,'05-03-2026',1,'admin','2026-03-05 04:07:27'),(38,2,'fc','expire_date',NULL,'05-12-2030',1,'admin','2026-03-05 04:07:27'),(39,2,'permit','start_date',NULL,'05-03-2026',1,'admin','2026-03-05 04:07:27'),(40,2,'permit','expire_date',NULL,'31-12-2030',1,'admin','2026-03-05 04:07:27'),(41,3,'insurance','start_date',NULL,'05-03-2026',1,'admin','2026-03-05 04:14:26'),(42,3,'insurance','expire_date',NULL,'31-12-2030',1,'admin','2026-03-05 04:14:26'),(43,3,'fc','start_date',NULL,'05-03-2026',1,'admin','2026-03-05 04:14:26'),(44,3,'fc','expire_date',NULL,'31-12-2030',1,'admin','2026-03-05 04:14:26'),(45,3,'permit','start_date',NULL,'05-03-2026',1,'admin','2026-03-05 04:14:26'),(46,3,'permit','expire_date',NULL,'05-12-2030',1,'admin','2026-03-05 04:14:26'),(47,4,'insurance','start_date',NULL,'05-03-2026',1,'admin','2026-03-05 04:15:16'),(48,4,'insurance','expire_date',NULL,'31-12-2030',1,'admin','2026-03-05 04:15:16'),(49,4,'fc','start_date',NULL,'05-03-2026',1,'admin','2026-03-05 04:15:16'),(50,4,'fc','expire_date',NULL,'31-12-2030',1,'admin','2026-03-05 04:15:16'),(51,4,'permit','start_date',NULL,'05-03-2026',1,'admin','2026-03-05 04:15:16'),(52,4,'permit','expire_date',NULL,'31-12-2030',1,'admin','2026-03-05 04:15:16'),(53,5,'insurance','start_date',NULL,'05-03-2026',1,'admin','2026-03-05 04:54:25'),(54,5,'insurance','expire_date',NULL,'31-12-2030',1,'admin','2026-03-05 04:54:25'),(55,5,'fc','start_date',NULL,'05-03-2026',1,'admin','2026-03-05 04:54:25'),(56,5,'fc','expire_date',NULL,'31-12-2030',1,'admin','2026-03-05 04:54:25'),(57,5,'permit','start_date',NULL,'05-03-2026',1,'admin','2026-03-05 04:54:25'),(58,5,'permit','expire_date',NULL,'31-12-2030',1,'admin','2026-03-05 04:54:25'),(59,6,'insurance','start_date',NULL,'05-03-2026',1,'admin','2026-03-05 06:01:59'),(60,6,'insurance','expire_date',NULL,'31-12-2030',1,'admin','2026-03-05 06:01:59'),(61,6,'fc','start_date',NULL,'05-03-2026',1,'admin','2026-03-05 06:01:59'),(62,6,'fc','expire_date',NULL,'31-12-2030',1,'admin','2026-03-05 06:01:59'),(63,6,'permit','start_date',NULL,'05-03-2026',1,'admin','2026-03-05 06:01:59'),(64,6,'permit','expire_date',NULL,'31-12-2030',1,'admin','2026-03-05 06:01:59'),(65,7,'insurance','start_date',NULL,'05-03-2026',1,'admin','2026-03-05 06:03:18'),(66,7,'insurance','expire_date',NULL,'30-12-2030',1,'admin','2026-03-05 06:03:18'),(67,7,'fc','start_date',NULL,'05-03-2026',1,'admin','2026-03-05 06:03:18'),(68,7,'fc','expire_date',NULL,'30-12-2030',1,'admin','2026-03-05 06:03:18'),(69,7,'permit','start_date',NULL,'05-03-2026',1,'admin','2026-03-05 06:03:18'),(70,7,'permit','expire_date',NULL,'05-12-2030',1,'admin','2026-03-05 06:03:18'),(71,8,'insurance','start_date',NULL,'05-03-2026',1,'admin','2026-03-05 06:04:21'),(72,8,'insurance','expire_date',NULL,'31-12-2030',1,'admin','2026-03-05 06:04:21'),(73,8,'fc','start_date',NULL,'05-03-2026',1,'admin','2026-03-05 06:04:21'),(74,8,'fc','expire_date',NULL,'31-12-2030',1,'admin','2026-03-05 06:04:21'),(75,8,'permit','start_date',NULL,'05-03-2026',1,'admin','2026-03-05 06:04:21'),(76,8,'permit','expire_date',NULL,'31-12-2030',1,'admin','2026-03-05 06:04:21'),(77,9,'insurance','start_date',NULL,'05-03-2026',1,'admin','2026-03-05 06:05:38'),(78,9,'insurance','expire_date',NULL,'31-12-2030',1,'admin','2026-03-05 06:05:38'),(79,9,'fc','start_date',NULL,'05-03-2026',1,'admin','2026-03-05 06:05:38'),(80,9,'fc','expire_date',NULL,'05-12-2030',1,'admin','2026-03-05 06:05:38'),(81,9,'permit','start_date',NULL,'05-03-2026',1,'admin','2026-03-05 06:05:38'),(82,9,'permit','expire_date',NULL,'31-12-2030',1,'admin','2026-03-05 06:05:38'),(83,10,'insurance','start_date',NULL,'05-03-2026',1,'admin','2026-03-05 06:06:30'),(84,10,'insurance','expire_date',NULL,'31-12-2030',1,'admin','2026-03-05 06:06:30'),(85,10,'fc','start_date',NULL,'05-03-2026',1,'admin','2026-03-05 06:06:30'),(86,10,'fc','expire_date',NULL,'31-12-2030',1,'admin','2026-03-05 06:06:30'),(87,10,'permit','start_date',NULL,'05-03-2026',1,'admin','2026-03-05 06:06:30'),(88,10,'permit','expire_date',NULL,'31-12-2030',1,'admin','2026-03-05 06:06:30');
+INSERT INTO `vehicle_document_audit_log` VALUES (16,6,'insurance','start_date',NULL,'04-03-2026',1,'admin','2026-03-04 05:19:09'),(17,6,'insurance','expire_date','14-05-2026','28-11-2030',1,'admin','2026-03-04 05:19:09'),(18,6,'insurance','remarks',NULL,'testing',1,'admin','2026-03-04 05:19:09'),(19,6,'fc','start_date',NULL,'04-03-2026',1,'admin','2026-03-04 05:19:09'),(20,6,'fc','expire_date','06-08-2027','06-12-2030',1,'admin','2026-03-04 05:19:09'),(21,6,'fc','remarks',NULL,'testing',1,'admin','2026-03-04 05:19:09'),(22,6,'permit','start_date',NULL,'04-03-2026',1,'admin','2026-03-04 05:19:09'),(23,6,'permit','expire_date','13-08-2029','31-12-2033',1,'admin','2026-03-04 05:19:09'),(24,6,'permit','remarks',NULL,'testing',1,'admin','2026-03-04 05:19:09'),(25,23,'insurance','expire_date','02-03-2033','04-03-2026',1,'admin','2026-03-04 05:28:09'),(26,23,'fc','expire_date','02-03-2033','04-03-2026',1,'admin','2026-03-04 05:28:09'),(27,23,'permit','expire_date','02-03-2033','04-03-2026',1,'admin','2026-03-04 05:28:09'),(28,23,'insurance','expire_date','04-03-2026','03-03-2026',1,'admin','2026-03-04 05:28:31');
 /*!40000 ALTER TABLE `vehicle_document_audit_log` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `vehicle_documents`
---
-
-DROP TABLE IF EXISTS `vehicle_documents`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `vehicle_documents` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `vehicle_id` int NOT NULL,
-  `document_type` enum('insurance','fc','permit') NOT NULL,
-  `start_date` date DEFAULT NULL,
-  `expire_date` date DEFAULT NULL,
-  `remarks` text,
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_vehicle_doc_type` (`vehicle_id`,`document_type`),
-  CONSTRAINT `fk_vd_vehicle` FOREIGN KEY (`vehicle_id`) REFERENCES `vehicles` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=145 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `vehicle_documents`
---
-
-LOCK TABLES `vehicle_documents` WRITE;
-/*!40000 ALTER TABLE `vehicle_documents` DISABLE KEYS */;
-INSERT INTO `vehicle_documents` VALUES (106,1,'insurance','2026-03-05','2030-12-31',NULL,'2026-03-05 04:06:09','2026-03-05 04:06:09'),(107,1,'fc','2026-03-05','2030-12-31',NULL,'2026-03-05 04:06:09','2026-03-05 04:06:09'),(108,1,'permit','2026-03-05','2030-12-31',NULL,'2026-03-05 04:06:09','2026-03-05 04:06:09'),(109,2,'insurance','2026-03-05','2030-12-31',NULL,'2026-03-05 04:07:27','2026-03-05 04:07:27'),(110,2,'fc','2026-03-05','2030-12-05',NULL,'2026-03-05 04:07:27','2026-03-05 04:07:27'),(111,2,'permit','2026-03-05','2030-12-31',NULL,'2026-03-05 04:07:27','2026-03-05 04:07:27'),(115,3,'insurance','2026-03-05','2030-12-31',NULL,'2026-03-05 04:14:26','2026-03-05 04:14:26'),(116,3,'fc','2026-03-05','2030-12-31',NULL,'2026-03-05 04:14:26','2026-03-05 04:14:26'),(117,3,'permit','2026-03-05','2030-12-05',NULL,'2026-03-05 04:14:26','2026-03-05 04:14:26'),(118,4,'insurance','2026-03-05','2030-12-31',NULL,'2026-03-05 04:15:16','2026-03-05 04:15:16'),(119,4,'fc','2026-03-05','2030-12-31',NULL,'2026-03-05 04:15:16','2026-03-05 04:15:16'),(120,4,'permit','2026-03-05','2030-12-31',NULL,'2026-03-05 04:15:16','2026-03-05 04:15:16'),(121,5,'insurance','2026-03-05','2030-12-31',NULL,'2026-03-05 04:54:25','2026-03-05 04:54:25'),(122,5,'fc','2026-03-05','2030-12-31',NULL,'2026-03-05 04:54:25','2026-03-05 04:54:25'),(123,5,'permit','2026-03-05','2030-12-31',NULL,'2026-03-05 04:54:25','2026-03-05 04:54:25'),(127,6,'insurance','2026-03-05','2030-12-31',NULL,'2026-03-05 06:01:59','2026-03-05 06:01:59'),(128,6,'fc','2026-03-05','2030-12-31',NULL,'2026-03-05 06:01:59','2026-03-05 06:01:59'),(129,6,'permit','2026-03-05','2030-12-31',NULL,'2026-03-05 06:01:59','2026-03-05 06:01:59'),(130,7,'insurance','2026-03-05','2030-12-30',NULL,'2026-03-05 06:03:18','2026-03-05 06:03:18'),(131,7,'fc','2026-03-05','2030-12-30',NULL,'2026-03-05 06:03:18','2026-03-05 06:03:18'),(132,7,'permit','2026-03-05','2030-12-05',NULL,'2026-03-05 06:03:18','2026-03-05 06:03:18'),(133,8,'insurance','2026-03-05','2030-12-31',NULL,'2026-03-05 06:04:21','2026-03-05 06:04:21'),(134,8,'fc','2026-03-05','2030-12-31',NULL,'2026-03-05 06:04:21','2026-03-05 06:04:21'),(135,8,'permit','2026-03-05','2030-12-31',NULL,'2026-03-05 06:04:21','2026-03-05 06:04:21'),(136,9,'insurance','2026-03-05','2030-12-31',NULL,'2026-03-05 06:05:38','2026-03-05 06:05:38'),(137,9,'fc','2026-03-05','2030-12-05',NULL,'2026-03-05 06:05:38','2026-03-05 06:05:38'),(138,9,'permit','2026-03-05','2030-12-31',NULL,'2026-03-05 06:05:38','2026-03-05 06:05:38'),(139,10,'insurance','2026-03-05','2030-12-31',NULL,'2026-03-05 06:06:30','2026-03-05 06:06:30'),(140,10,'fc','2026-03-05','2030-12-31',NULL,'2026-03-05 06:06:30','2026-03-05 06:06:30'),(141,10,'permit','2026-03-05','2030-12-31',NULL,'2026-03-05 06:06:30','2026-03-05 06:06:30');
-/*!40000 ALTER TABLE `vehicle_documents` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -1340,7 +1319,7 @@ CREATE TABLE `vehicle_group_members` (
   CONSTRAINT `vehicle_group_members_ibfk_1` FOREIGN KEY (`group_id`) REFERENCES `vehicle_groups` (`id`) ON DELETE CASCADE,
   CONSTRAINT `vehicle_group_members_ibfk_2` FOREIGN KEY (`vehicle_id`) REFERENCES `vehicles` (`id`) ON DELETE CASCADE,
   CONSTRAINT `vehicle_group_members_chk_1` CHECK ((`valid_from` <= `valid_to`))
-) ENGINE=InnoDB AUTO_INCREMENT=52 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=50 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1349,7 +1328,7 @@ CREATE TABLE `vehicle_group_members` (
 
 LOCK TABLES `vehicle_group_members` WRITE;
 /*!40000 ALTER TABLE `vehicle_group_members` DISABLE KEYS */;
-INSERT INTO `vehicle_group_members` VALUES (50,20,4,'2026-03-01','2026-03-07','2026-03-05 04:16:23'),(51,20,3,'2026-03-01','2026-03-07','2026-03-05 04:16:23');
+INSERT INTO `vehicle_group_members` VALUES (48,19,6,'2026-03-01','2026-03-07','2026-03-02 04:45:02'),(49,19,5,'2026-03-01','2026-03-07','2026-03-02 04:45:02');
 /*!40000 ALTER TABLE `vehicle_group_members` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -1370,7 +1349,7 @@ CREATE TABLE `vehicle_groups` (
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `name` (`name`)
-) ENGINE=InnoDB AUTO_INCREMENT=21 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=20 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1379,7 +1358,7 @@ CREATE TABLE `vehicle_groups` (
 
 LOCK TABLES `vehicle_groups` WRITE;
 /*!40000 ALTER TABLE `vehicle_groups` DISABLE KEYS */;
-INSERT INTO `vehicle_groups` VALUES (20,'V Group A','','2026-03-01','2026-03-07','2026-03-05 04:16:23','2026-03-05 04:16:23');
+INSERT INTO `vehicle_groups` VALUES (19,'Group A','','2026-03-01','2026-03-07','2026-02-27 03:52:31','2026-03-02 04:45:02');
 /*!40000 ALTER TABLE `vehicle_groups` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -1416,7 +1395,7 @@ CREATE TABLE `vehicle_replacements` (
   KEY `idx_vr_status` (`status`),
   KEY `idx_vr_service` (`service_record_id`),
   KEY `idx_vr_replacement_driver` (`replacement_driver_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1425,6 +1404,7 @@ CREATE TABLE `vehicle_replacements` (
 
 LOCK TABLES `vehicle_replacements` WRITE;
 /*!40000 ALTER TABLE `vehicle_replacements` DISABLE KEYS */;
+INSERT INTO `vehicle_replacements` VALUES (6,5,6,6,'fc_renewal',NULL,'2026-01-13','2026-01-30','completed','','admin',1,NULL,1,'vehicle',NULL,'2026-01-12 06:15:39','2026-01-31 03:24:31');
 /*!40000 ALTER TABLE `vehicle_replacements` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -1458,6 +1438,7 @@ CREATE TABLE `vehicle_service_tracking` (
 
 LOCK TABLES `vehicle_service_tracking` WRITE;
 /*!40000 ALTER TABLE `vehicle_service_tracking` DISABLE KEYS */;
+INSERT INTO `vehicle_service_tracking` VALUES (1,12,0,10000,NULL,NULL,NULL,'2026-02-17 04:04:45','2026-02-17 04:04:45'),(2,7,0,10000,NULL,NULL,NULL,'2026-02-17 04:04:45','2026-02-17 04:04:45'),(3,8,0,10000,'2026-02-24',NULL,NULL,'2026-02-17 04:04:45','2026-02-24 05:42:55'),(4,10,0,10000,NULL,NULL,NULL,'2026-02-17 04:04:45','2026-02-17 04:04:45'),(5,11,0,10000,NULL,NULL,NULL,'2026-02-17 04:04:45','2026-02-17 04:04:45'),(6,5,0,101,NULL,NULL,'','2026-02-17 04:04:45','2026-02-17 04:17:41'),(7,6,0,10000,NULL,NULL,NULL,'2026-02-17 04:04:45','2026-02-17 04:04:45'),(8,21,0,10000,NULL,NULL,NULL,'2026-02-17 04:04:45','2026-02-17 04:04:45'),(9,18,0,10000,NULL,NULL,NULL,'2026-02-17 04:04:45','2026-02-17 04:04:45'),(10,4,0,10000,NULL,NULL,NULL,'2026-02-17 04:04:45','2026-02-17 04:04:45'),(11,3,0,10000,NULL,NULL,NULL,'2026-02-17 04:04:45','2026-02-17 04:04:45'),(12,1,0,300,'2026-02-24',NULL,'','2026-02-17 04:04:45','2026-02-24 05:20:27'),(13,2,0,10000,NULL,NULL,NULL,'2026-02-17 04:04:45','2026-02-17 04:04:45'),(14,22,0,10000,'2026-02-24',NULL,NULL,'2026-02-17 04:04:45','2026-02-24 05:46:55'),(15,20,0,10000,'2026-02-23',NULL,NULL,'2026-02-17 04:04:45','2026-02-23 10:19:23'),(16,19,0,10000,NULL,NULL,NULL,'2026-02-17 04:04:45','2026-02-17 04:04:45'),(32,23,0,10000,NULL,NULL,NULL,'2026-02-27 04:04:17','2026-02-27 04:04:17');
 /*!40000 ALTER TABLE `vehicle_service_tracking` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -1477,6 +1458,10 @@ CREATE TABLE `vehiclerequests` (
   `OnwardToPlace` varchar(255) DEFAULT NULL,
   `OnwardFromDateTime` datetime DEFAULT NULL,
   `OnwardTodateTime` datetime DEFAULT NULL,
+  `ReturnFromPlace` varchar(255) DEFAULT NULL,
+  `ReturnToPlace` varchar(255) DEFAULT NULL,
+  `ReturnFromDateTime` datetime DEFAULT NULL,
+  `ReturnTodateTime` datetime DEFAULT NULL,
   `CountPerson` int DEFAULT NULL,
   `PurposeOfVisit` text,
   `TravellerName` varchar(255) DEFAULT NULL,
@@ -1507,6 +1492,7 @@ CREATE TABLE `vehiclerequests` (
   `trip_started_at` timestamp NULL DEFAULT NULL,
   `trip_ended_at` timestamp NULL DEFAULT NULL,
   `Vertical` varchar(100) DEFAULT NULL,
+  `Guestname` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_vr_status` (`status`),
   KEY `idx_vr_faculty` (`faculty_id`)
@@ -1519,7 +1505,7 @@ CREATE TABLE `vehiclerequests` (
 
 LOCK TABLES `vehiclerequests` WRITE;
 /*!40000 ALTER TABLE `vehiclerequests` DISABLE KEYS */;
-INSERT INTO `vehiclerequests` VALUES (20,'faculty','faculty_staff_visit','official','BIT','Covai','2026-03-05 06:00:00','2026-03-05 20:40:00',5,'Industry Visit','MR Gambler','','741852963','faculty1','Professor','Computer Science','9876543201','7410d','2026-03-05 06:23:01','Industry Visit','faculty1','9876543201',10,6,'','assigned',1,'academic_department',1,'2026-03-05 14:01:31','2026-03-05 14:01:31','670564',NULL,'2026-03-05 08:31:31',NULL,NULL,NULL,'AIML');
+INSERT INTO `vehiclerequests` VALUES (17,'faculty','guest_drop','official','BIT','Coimbatore','2026-02-14 15:10:00','2026-02-14 17:10:00','','',NULL,NULL,4,'for industry visit\n','Sathesh Kumar','LC Fourth Floor,\nBIT','7412589630','faculty1','Professor','Computer Science','9876543201','TSK41','2026-02-14 09:38:10','for industry visit\n','faculty1','9876543201',7,4,'','completed',1,'students_training',1,'2026-02-14 15:08:57','2026-02-14 15:08:57','609830','862047','2026-02-14 09:38:57','2026-02-14 09:40:19','2026-02-14 09:40:19','2026-02-14 09:40:51','P-SKILL',NULL),(18,'faculty','guest_pickup','official','BIT','Coimbatore','2026-03-01 08:00:00','2026-03-01 18:00:00','','',NULL,NULL,5,'Training\n','MR Traveller','Coimbatore','7418529630','faculty1','Professor','Computer Science','9876543201','TASK-5543','2026-02-24 08:24:40','Training\n','faculty1','9876543201',8,4,'','completed',1,'supporting_department',1,'2026-02-24 13:55:15','2026-02-24 13:55:15','411636','267007','2026-02-24 08:25:15','2026-02-24 08:26:09','2026-02-24 08:26:09','2026-02-24 08:26:25','TRAINING & PLACEMENT',NULL),(19,'faculty','guest_drop','official','afda','adfa','2026-03-03 14:19:00','2026-03-03 19:19:00','','',NULL,NULL,1,'adfad','dafa','dfad','adfad','faculty1','Professor','Computer Science','9876543201','afd','2026-03-03 08:50:04','adfad','faculty1','9876543201',NULL,NULL,NULL,'cancelled',1,'academic_department',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'AIDS',NULL),(20,'faculty','guest_drop','official','fdfd','ddf','2026-03-07 17:13:00','2026-03-14 20:13:00','','',NULL,NULL,1,'srsf','Pradeep M','28 B-14 Alankadu','09361780134','Dr. Priya Sharma','Associate Professor','Electronics','9876543202','dfd','2026-03-06 09:43:39','srsf','Dr. Priya Sharma','9876543202',NULL,NULL,'i don\'t know who u are','rejected',2,'students_training',NULL,'2026-03-06 15:15:55',NULL,NULL,NULL,NULL,NULL,NULL,NULL,'GURUGULAM',NULL);
 /*!40000 ALTER TABLE `vehiclerequests` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -1539,9 +1525,27 @@ CREATE TABLE `vehicles` (
   `seating_capacity` int DEFAULT '0',
   `status` varchar(50) DEFAULT 'available',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `chassis_number` varchar(100) DEFAULT NULL,
+  `engine_number` varchar(100) DEFAULT NULL,
+  `permit_number` varchar(100) DEFAULT NULL,
+  `additional_permit` varchar(255) DEFAULT NULL,
+  `insurance_amount` decimal(12,2) DEFAULT NULL,
+  `road_tax_amount` decimal(12,2) DEFAULT NULL,
+  `pollution_expire` date DEFAULT NULL,
+  `green_tax_expire` date DEFAULT NULL,
+  `mv_tax_expire` date DEFAULT NULL,
+  `insurance_expire_date` date DEFAULT NULL,
+  `insurance_start_date` date DEFAULT NULL,
+  `insurance_remarks` text,
+  `fc_expire_date` date DEFAULT NULL,
+  `fc_start_date` date DEFAULT NULL,
+  `fc_remarks` text,
+  `permit_expire_date` date DEFAULT NULL,
+  `permit_start_date` date DEFAULT NULL,
+  `permit_remarks` text,
   PRIMARY KEY (`id`),
   UNIQUE KEY `vehicle_number` (`vehicle_number`)
-) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=24 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1550,7 +1554,7 @@ CREATE TABLE `vehicles` (
 
 LOCK TABLES `vehicles` WRITE;
 /*!40000 ALTER TABLE `vehicles` DISABLE KEYS */;
-INSERT INTO `vehicles` VALUES (1,'BUS1','TN 36 G 1589','BUS','PETROL',40,'available','2026-03-05 04:06:09'),(2,'BUS2','TN 36 G 1234','BUS','DIESEL',40,'available','2026-03-05 04:07:27'),(3,'EV 1','EV-01','BATTERY_VEHICLE','EV',12,'available','2026-03-05 04:14:26'),(4,'EV 2','EV-02','BATTERY_VEHICLE','DIESEL',12,'available','2026-03-05 04:15:16'),(5,'Innova 1','CAR 01','CAR','DIESEL',7,'available','2026-03-05 04:54:25'),(6,'BUS 3','TN 36 G 7845','BUS','DIESEL',40,'available','2026-03-05 06:01:59'),(7,'Bus 4 ','TN 36 A 1234','BUS','PETROL',40,'available','2026-03-05 06:03:18'),(8,'JCB','TN 36 O 1234','OTHER','DIESEL',0,'available','2026-03-05 06:04:21'),(9,'EV 3','EV 03','BATTERY_VEHICLE','EV',12,'available','2026-03-05 06:05:38'),(10,'Innova 2','CAR 2','CAR','DIESEL',7,'available','2026-03-05 06:06:30');
+INSERT INTO `vehicles` VALUES (1,'BUS-1','TN-36-GN-7894','BUS','DIESEL',52,'available','2026-01-06 03:53:03',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'2026-06-30',NULL,NULL,'2026-08-06',NULL,NULL,'2028-03-11',NULL,NULL),(2,'BUS-4','TN-36-GN-8877','BUS','DIESEL',52,'available','2026-01-06 03:53:03',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'2026-06-30',NULL,NULL,'2026-07-14',NULL,NULL,'2028-05-29',NULL,NULL),(3,'BUS-3','TN-36-GN-1996','BUS','DIESEL',45,'available','2026-01-06 03:53:03',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'2026-06-30',NULL,NULL,'2026-07-16',NULL,NULL,'2028-05-29',NULL,NULL),(4,'BUS-2','TN-36-GN-1995','BUS','CNG',40,'available','2026-01-06 03:53:03',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'2026-06-30',NULL,NULL,'2026-07-21',NULL,NULL,'2028-06-06',NULL,NULL),(5,'EV-01','EV-01','BATTERY_VEHICLE','EV',12,'available','2026-01-06 03:53:03',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'2026-11-05',NULL,NULL,'2027-07-07',NULL,NULL,'2029-01-10',NULL,NULL),(6,'EV-02','EV-02','BATTERY_VEHICLE','EV',12,'available','2026-01-06 03:53:03',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'2030-11-28','2026-03-04','testing','2030-12-06','2026-03-04','testing','2033-12-31','2026-03-04','testing'),(7,'Inova-1','CAR-5S-01','CAR','PETROL',5,'available','2026-01-06 03:53:03',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'2030-01-30','2026-03-04','testing','2030-01-30','2026-03-04','testing','2030-01-30','2026-03-04','testing'),(8,'Inova-2','CAR-5S-02','CAR','PETROL',5,'available','2026-01-06 03:53:03',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'2030-11-30','2026-03-16',NULL,'2030-12-28','2026-03-19',NULL,'2030-11-08','2026-05-08',NULL),(10,'Inova-3','CAR-7S-01','CAR','DIESEL',7,'available','2026-01-06 03:53:03',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'2026-06-30',NULL,NULL,'2026-07-07',NULL,NULL,'2026-12-04',NULL,NULL),(11,'Inova-4','CAR-7S-02','CAR','DIESEL',7,'available','2026-01-06 03:53:03',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'2026-06-30',NULL,NULL,'2026-12-26',NULL,NULL,'2028-10-26',NULL,NULL),(12,'Ambulance01','AMBULANCE-01','OTHER','DIESEL',4,'available','2026-01-06 03:53:03',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'2026-06-30',NULL,NULL,'2026-12-12',NULL,NULL,'2028-10-26',NULL,NULL),(18,'BUS-5','TN-36-GN-1988','BUS','PETROL',40,'available','2026-01-07 06:06:45',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'2030-11-29',NULL,NULL,'2030-11-29',NULL,NULL,'2030-11-29',NULL,NULL),(19,'Truck','TRUCK','OTHER','PETROL',0,'available','2026-01-08 04:48:29',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'2030-12-31',NULL,NULL,'2030-12-31',NULL,NULL,'2027-03-20',NULL,NULL),(20,'JCB','TN36JC2026','OTHER','DIESEL',0,'available','2026-02-02 04:02:32',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'2030-12-31',NULL,NULL,'2030-12-31',NULL,NULL,'2026-12-31',NULL,NULL),(21,'EV-03','EV-03','BATTERY_VEHICLE','EV',12,'available','2026-02-02 08:36:05',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'2030-12-31',NULL,NULL,'2030-12-30',NULL,NULL,'2030-12-02',NULL,NULL),(22,'EV-04','TN36EV04','BATTERY_VEHICLE','EV',12,'available','2026-02-02 08:36:58',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'2026-11-28',NULL,NULL,'2030-10-23',NULL,NULL,'2030-11-23',NULL,NULL),(23,'Bus-06','TN34E4532','BUS','PETROL',62,'available','2026-02-27 03:44:15',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'2026-03-03',NULL,NULL,'2026-03-04',NULL,NULL,'2026-03-04',NULL,NULL);
 /*!40000 ALTER TABLE `vehicles` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -1595,4 +1599,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-03-05 14:10:03
+-- Dump completed on 2026-03-07 11:25:14

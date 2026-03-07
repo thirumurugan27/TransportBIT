@@ -22,6 +22,7 @@ func main() {
 	config.InitDB()
 	// 3. Run database migrations (e.g., ev_assignment_shifts junction table)
 	admin.RunEVMigrations()
+	admin.RunVehicleMigrations()
 	// 3. Initialize Gin Router
 	r := gin.Default()
 	r.Static("/uploads", "./uploads")

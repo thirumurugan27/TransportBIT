@@ -130,6 +130,15 @@ export default function Vehicles() {
     vehicle_name: "",
     start_point: "",
     end_point: "",
+    chassis_number: "",
+    engine_number: "",
+    permit_number: "",
+    additional_permit: "",
+    insurance_amount: "",
+    road_tax_amount: "",
+    pollution_expire: "",
+    green_tax_expire: "",
+    mv_tax_expire: "",
     insurance_expire_date: "",
     insurance_start_date: "",
     insurance_remarks: "",
@@ -247,6 +256,15 @@ export default function Vehicles() {
       vehicle_name: vehicle.vehicle_name || "",
       start_point: vehicle.start_point || "",
       end_point: vehicle.end_point || "",
+      chassis_number: vehicle.chassis_number || "",
+      engine_number: vehicle.engine_number || "",
+      permit_number: vehicle.permit_number || "",
+      additional_permit: vehicle.additional_permit || "",
+      insurance_amount: vehicle.insurance_amount ?? "",
+      road_tax_amount: vehicle.road_tax_amount ?? "",
+      pollution_expire: formatDateForInput(vehicle.pollution_expire),
+      green_tax_expire: formatDateForInput(vehicle.green_tax_expire),
+      mv_tax_expire: formatDateForInput(vehicle.mv_tax_expire),
       insurance_expire_date: formatDateForInput(vehicle.insurance_expire_date),
       insurance_start_date: formatDateForInput(vehicle.insurance_start_date),
       insurance_remarks: vehicle.insurance_remarks || "",
@@ -535,11 +553,20 @@ export default function Vehicles() {
       fcCritical = 0;
     let permitExpired = 0,
       permitCritical = 0;
+    let pollutionExpired = 0,
+      pollutionCritical = 0;
+    let greenTaxExpired = 0,
+      greenTaxCritical = 0;
+    let mvTaxExpired = 0,
+      mvTaxCritical = 0;
 
     vehicles.forEach((v) => {
       const insDays = getDaysUntil(v.insurance_expire_date);
       const fcDays = getDaysUntil(v.fc_expire_date);
       const permitDays = getDaysUntil(v.permit_expire_date);
+      const pollutionDays = getDaysUntil(v.pollution_expire);
+      const greenTaxDays = getDaysUntil(v.green_tax_expire);
+      const mvTaxDays = getDaysUntil(v.mv_tax_expire);
 
       if (insDays !== null) {
         if (insDays < 0) insuranceExpired++;
@@ -553,12 +580,27 @@ export default function Vehicles() {
         if (permitDays < 0) permitExpired++;
         else if (permitDays <= 30) permitCritical++;
       }
+      if (pollutionDays !== null) {
+        if (pollutionDays < 0) pollutionExpired++;
+        else if (pollutionDays <= 30) pollutionCritical++;
+      }
+      if (greenTaxDays !== null) {
+        if (greenTaxDays < 0) greenTaxExpired++;
+        else if (greenTaxDays <= 30) greenTaxCritical++;
+      }
+      if (mvTaxDays !== null) {
+        if (mvTaxDays < 0) mvTaxExpired++;
+        else if (mvTaxDays <= 30) mvTaxCritical++;
+      }
     });
 
     return {
       insurance: {expired: insuranceExpired, critical: insuranceCritical},
       fc: {expired: fcExpired, critical: fcCritical},
       permit: {expired: permitExpired, critical: permitCritical},
+      pollution: {expired: pollutionExpired, critical: pollutionCritical},
+      greenTax: {expired: greenTaxExpired, critical: greenTaxCritical},
+      mvTax: {expired: mvTaxExpired, critical: mvTaxCritical},
     };
   };
 
@@ -590,12 +632,18 @@ export default function Vehicles() {
             <Shield size={16} /> Insurance/FC/Permit Status
             {expiryStats.insurance.expired +
               expiryStats.fc.expired +
-              expiryStats.permit.expired >
+              expiryStats.permit.expired +
+              expiryStats.pollution.expired +
+              expiryStats.greenTax.expired +
+              expiryStats.mvTax.expired >
               0 && (
               <span className="ml-1 px-2 py-0.5 bg-red text-white text-xs rounded-md font-bold">
                 {expiryStats.insurance.expired +
                   expiryStats.fc.expired +
-                  expiryStats.permit.expired}
+                  expiryStats.permit.expired +
+                  expiryStats.pollution.expired +
+                  expiryStats.greenTax.expired +
+                  expiryStats.mvTax.expired}
               </span>
             )}
           </button>
@@ -787,7 +835,7 @@ export default function Vehicles() {
       {viewMode === "expiry" && (
         <>
           {/* Expiry Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {[
               {
                 key: "insurance",
@@ -809,6 +857,27 @@ export default function Vehicles() {
                 icon: FileText,
                 color: "primary",
                 stats: expiryStats.permit,
+              },
+              {
+                key: "pollution",
+                label: "Pollution (PUC)",
+                icon: AlertCircle,
+                color: "pending",
+                stats: expiryStats.pollution,
+              },
+              {
+                key: "greenTax",
+                label: "Green Tax",
+                icon: RefreshCw,
+                color: "green",
+                stats: expiryStats.greenTax,
+              },
+              {
+                key: "mvTax",
+                label: "MV Tax",
+                icon: FileText,
+                color: "primary",
+                stats: expiryStats.mvTax,
               },
             ].map((doc) => {
               const Icon = doc.icon;
@@ -912,6 +981,21 @@ export default function Vehicles() {
                         <FileText size={12} /> Permit
                       </div>
                     </th>
+                    <th className="px-3 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">
+                      <div className="flex items-center justify-center gap-1">
+                        <AlertCircle size={12} /> Pollution
+                      </div>
+                    </th>
+                    <th className="px-3 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">
+                      <div className="flex items-center justify-center gap-1">
+                        <RefreshCw size={12} /> Green Tax
+                      </div>
+                    </th>
+                    <th className="px-3 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">
+                      <div className="flex items-center justify-center gap-1">
+                        <FileText size={12} /> MV Tax
+                      </div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-primary/5">
@@ -922,11 +1006,17 @@ export default function Vehicles() {
                           getDaysUntil(a.insurance_expire_date) ?? 9999,
                           getDaysUntil(a.fc_expire_date) ?? 9999,
                           getDaysUntil(a.permit_expire_date) ?? 9999,
+                          getDaysUntil(a.pollution_expire) ?? 9999,
+                          getDaysUntil(a.green_tax_expire) ?? 9999,
+                          getDaysUntil(a.mv_tax_expire) ?? 9999,
                         );
                         const bMin = Math.min(
                           getDaysUntil(b.insurance_expire_date) ?? 9999,
                           getDaysUntil(b.fc_expire_date) ?? 9999,
                           getDaysUntil(b.permit_expire_date) ?? 9999,
+                          getDaysUntil(b.pollution_expire) ?? 9999,
+                          getDaysUntil(b.green_tax_expire) ?? 9999,
+                          getDaysUntil(b.mv_tax_expire) ?? 9999,
                         );
                         return aMin - bMin;
                       })
@@ -934,6 +1024,9 @@ export default function Vehicles() {
                         const insDays = getDaysUntil(v.insurance_expire_date);
                         const fcDays = getDaysUntil(v.fc_expire_date);
                         const permitDays = getDaysUntil(v.permit_expire_date);
+                        const pollutionDays = getDaysUntil(v.pollution_expire);
+                        const greenTaxDays = getDaysUntil(v.green_tax_expire);
+                        const mvTaxDays = getDaysUntil(v.mv_tax_expire);
 
                         // Render expiry date + days badge (table cell)
                         const renderExpiryCell = (expireDate, days) => (
@@ -1011,13 +1104,34 @@ export default function Vehicles() {
                                 permitDays,
                               )}
                             </td>
+
+                            <td className="px-3 py-3 text-center">
+                              {renderExpiryCell(
+                                formatDate(v.pollution_expire),
+                                pollutionDays,
+                              )}
+                            </td>
+
+                            <td className="px-3 py-3 text-center">
+                              {renderExpiryCell(
+                                formatDate(v.green_tax_expire),
+                                greenTaxDays,
+                              )}
+                            </td>
+
+                            <td className="px-3 py-3 text-center">
+                              {renderExpiryCell(
+                                formatDate(v.mv_tax_expire),
+                                mvTaxDays,
+                              )}
+                            </td>
                           </tr>
                         );
                       })
                   ) : (
                     <tr>
                       <td
-                        colSpan="5"
+                        colSpan="8"
                         className="px-6 py-12 text-center text-secondarytext"
                       >
                         No vehicles found.
@@ -1372,6 +1486,22 @@ export default function Vehicles() {
                           {selectedVehicle.seating_capacity} Seats
                         </span>
                       </div>
+                      {selectedVehicle.chassis_number && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-secondarytext">Chassis No.</span>
+                          <span className="text-sm font-semibold text-primarytext font-mono">
+                            {selectedVehicle.chassis_number}
+                          </span>
+                        </div>
+                      )}
+                      {selectedVehicle.engine_number && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-secondarytext">Engine No.</span>
+                          <span className="text-sm font-semibold text-primarytext font-mono">
+                            {selectedVehicle.engine_number}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -1551,6 +1681,84 @@ export default function Vehicles() {
                           <p className="text-[10px] text-secondarytext mt-1 italic">
                             {selectedVehicle.permit_remarks}
                           </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Permit & Tax Details */}
+                {(selectedVehicle.permit_number ||
+                  selectedVehicle.additional_permit ||
+                  selectedVehicle.insurance_amount ||
+                  selectedVehicle.road_tax_amount ||
+                  selectedVehicle.pollution_expire ||
+                  selectedVehicle.green_tax_expire ||
+                  selectedVehicle.mv_tax_expire) && (
+                  <div className="bg-primarybg rounded-md p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <FileText size={16} className="text-primary" />
+                      <h4 className="text-sm font-bold text-secondarytext uppercase tracking-wide">
+                        Permit & Tax Details
+                      </h4>
+                    </div>
+                    <div className="space-y-2">
+                      {selectedVehicle.permit_number && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-secondarytext">Permit Number</span>
+                          <span className="text-sm font-semibold text-primarytext font-mono">
+                            {selectedVehicle.permit_number}
+                          </span>
+                        </div>
+                      )}
+                      {selectedVehicle.additional_permit && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-secondarytext">Additional Permit</span>
+                          <span className="text-sm font-semibold text-primarytext">
+                            {selectedVehicle.additional_permit}
+                          </span>
+                        </div>
+                      )}
+                      {selectedVehicle.insurance_amount != null && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-secondarytext">Insurance Amount</span>
+                          <span className="text-sm font-semibold text-primarytext">
+                            ₹{Number(selectedVehicle.insurance_amount).toLocaleString("en-IN")}
+                          </span>
+                        </div>
+                      )}
+                      {selectedVehicle.road_tax_amount != null && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-secondarytext">Road Tax Amount</span>
+                          <span className="text-sm font-semibold text-primarytext">
+                            ₹{Number(selectedVehicle.road_tax_amount).toLocaleString("en-IN")}
+                          </span>
+                        </div>
+                      )}
+                      <div className="grid grid-cols-3 gap-3 pt-2">
+                        {selectedVehicle.pollution_expire && (
+                          <div className="p-2 bg-secondarybg rounded-md border border-primary/10 text-center">
+                            <p className="text-[10px] text-secondarytext mb-0.5">Pollution Expire</p>
+                            <p className="text-xs font-semibold text-primarytext">
+                              {formatDate(selectedVehicle.pollution_expire)}
+                            </p>
+                          </div>
+                        )}
+                        {selectedVehicle.green_tax_expire && (
+                          <div className="p-2 bg-secondarybg rounded-md border border-primary/10 text-center">
+                            <p className="text-[10px] text-secondarytext mb-0.5">Green Tax Expire</p>
+                            <p className="text-xs font-semibold text-primarytext">
+                              {formatDate(selectedVehicle.green_tax_expire)}
+                            </p>
+                          </div>
+                        )}
+                        {selectedVehicle.mv_tax_expire && (
+                          <div className="p-2 bg-secondarybg rounded-md border border-primary/10 text-center">
+                            <p className="text-[10px] text-secondarytext mb-0.5">MV Tax Expire</p>
+                            <p className="text-xs font-semibold text-primarytext">
+                              {formatDate(selectedVehicle.mv_tax_expire)}
+                            </p>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -1892,6 +2100,25 @@ export default function Vehicles() {
                       </div>
                       <div>
                         <label className="block text-sm font-semibold text-primarytext mb-1">
+                          Insurance Amount
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="e.g., 25000.00"
+                          value={vehicleForm.insurance_amount}
+                          onChange={(e) =>
+                            setVehicleForm({
+                              ...vehicleForm,
+                              insurance_amount: e.target.value,
+                            })
+                          }
+                          className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-primarytext mb-1">
                           Insurance Remarks
                         </label>
                         <textarea
@@ -1963,15 +2190,83 @@ export default function Vehicles() {
                     </div>
                   </div>
 
-                  {/* Permit Details */}
+                  {/* Permit & Registration Details */}
                   <div className="bg-primarybg rounded-md p-4">
                     <div className="flex items-center gap-2 mb-4">
                       <FileCheck size={18} className="text-primary" />
                       <h3 className="text-sm font-bold text-secondarytext uppercase tracking-wider">
-                        Permit Details
+                        Permit & Registration
                       </h3>
                     </div>
                     <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-semibold text-primarytext mb-1">
+                            Chassis Number
+                          </label>
+                          <input
+                            placeholder="e.g., MAT448208..."
+                            value={vehicleForm.chassis_number}
+                            onChange={(e) =>
+                              setVehicleForm({
+                                ...vehicleForm,
+                                chassis_number: e.target.value,
+                              })
+                            }
+                            className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-primarytext mb-1">
+                            Engine Number
+                          </label>
+                          <input
+                            placeholder="e.g., 497TC14..."
+                            value={vehicleForm.engine_number}
+                            onChange={(e) =>
+                              setVehicleForm({
+                                ...vehicleForm,
+                                engine_number: e.target.value,
+                              })
+                            }
+                            className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium font-mono"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-semibold text-primarytext mb-1">
+                            Permit Number
+                          </label>
+                          <input
+                            placeholder="e.g., TN/36/..."
+                            value={vehicleForm.permit_number}
+                            onChange={(e) =>
+                              setVehicleForm({
+                                ...vehicleForm,
+                                permit_number: e.target.value,
+                              })
+                            }
+                            className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-primarytext mb-1">
+                            Additional Permit
+                          </label>
+                          <input
+                            placeholder="e.g., All India Permit"
+                            value={vehicleForm.additional_permit}
+                            onChange={(e) =>
+                              setVehicleForm({
+                                ...vehicleForm,
+                                additional_permit: e.target.value,
+                              })
+                            }
+                            className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium"
+                          />
+                        </div>
+                      </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className="block text-sm font-semibold text-primarytext mb-1">
@@ -2022,6 +2317,77 @@ export default function Vehicles() {
                           rows={2}
                           className="w-full px-4 py-2 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext text-sm resize-none"
                         />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 border-t border-primarybg pt-3">
+                        <div>
+                          <label className="block text-sm font-semibold text-primarytext mb-1">
+                            Road Tax Amount
+                          </label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="e.g., 5000.00"
+                            value={vehicleForm.road_tax_amount}
+                            onChange={(e) =>
+                              setVehicleForm({
+                                ...vehicleForm,
+                                road_tax_amount: e.target.value,
+                              })
+                            }
+                            className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3 border-t border-primarybg pt-3">
+                        <div>
+                          <label className="block text-sm font-semibold text-primarytext mb-1">
+                            Pollution Expire
+                          </label>
+                          <input
+                            type="date"
+                            value={vehicleForm.pollution_expire}
+                            onChange={(e) =>
+                              setVehicleForm({
+                                ...vehicleForm,
+                                pollution_expire: e.target.value,
+                              })
+                            }
+                            className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-primarytext mb-1">
+                            Green Tax Expire
+                          </label>
+                          <input
+                            type="date"
+                            value={vehicleForm.green_tax_expire}
+                            onChange={(e) =>
+                              setVehicleForm({
+                                ...vehicleForm,
+                                green_tax_expire: e.target.value,
+                              })
+                            }
+                            className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-primarytext mb-1">
+                            MV Tax Expire
+                          </label>
+                          <input
+                            type="date"
+                            value={vehicleForm.mv_tax_expire}
+                            onChange={(e) =>
+                              setVehicleForm({
+                                ...vehicleForm,
+                                mv_tax_expire: e.target.value,
+                              })
+                            }
+                            className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium"
+                          />
+                        </div>
                       </div>
                       <div className="p-3 bg-primary/5 border border-primary/10 rounded-md">
                         <p className="text-xs text-secondarytext">

@@ -85,7 +85,17 @@ type Vehicle struct {
 	VehicleName     string `json:"vehicle_name"`
 	StartPoint      string `json:"start_point"`
 	EndPoint        string `json:"end_point"`
-	// Document fields (flattened from vehicle_documents table — populated via JOIN)
+	// Additional vehicle details
+	ChassisNumber    *string  `json:"chassis_number"`
+	EngineNumber     *string  `json:"engine_number"`
+	PermitNumber     *string  `json:"permit_number"`
+	AdditionalPermit *string  `json:"additional_permit"`
+	InsuranceAmount  *float64 `json:"insurance_amount"`
+	RoadTaxAmount    *float64 `json:"road_tax_amount"`
+	PollutionExpire  *string  `json:"pollution_expire"`
+	GreenTaxExpire   *string  `json:"green_tax_expire"`
+	MVTaxExpire      *string  `json:"mv_tax_expire"`
+	// Document fields (stored directly on vehicles table)
 	InsuranceExpireDate *string `json:"insurance_expire_date"`
 	InsuranceStartDate  *string `json:"insurance_start_date"`
 	InsuranceRemarks    *string `json:"insurance_remarks"`
@@ -118,6 +128,16 @@ type CreateVehicleRequest struct {
 	VehicleName string `json:"vehicle_name"`
 	StartPoint  string `json:"start_point"`
 	EndPoint    string `json:"end_point"`
+	// Additional vehicle details
+	ChassisNumber    *string  `json:"chassis_number"`
+	EngineNumber     *string  `json:"engine_number"`
+	PermitNumber     *string  `json:"permit_number"`
+	AdditionalPermit *string  `json:"additional_permit"`
+	InsuranceAmount  *float64 `json:"insurance_amount"`
+	RoadTaxAmount    *float64 `json:"road_tax_amount"`
+	PollutionExpire  *string  `json:"pollution_expire"`
+	GreenTaxExpire   *string  `json:"green_tax_expire"`
+	MVTaxExpire      *string  `json:"mv_tax_expire"`
 	// Document fields (optional at creation)
 	InsuranceExpireDate *string `json:"insurance_expire_date"`
 	InsuranceStartDate  *string `json:"insurance_start_date"`

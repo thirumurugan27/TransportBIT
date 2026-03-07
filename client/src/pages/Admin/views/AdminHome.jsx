@@ -39,6 +39,8 @@ import {
   CheckCheck,
   Layers,
   RotateCcw,
+  FileCheck,
+  RefreshCw,
 } from "lucide-react";
 
 import {apiGet} from "../../../utils/api";
@@ -65,6 +67,10 @@ const ICON_MAP = {
   replace: Truck,
   users: Users,
   layers: Layers,
+  "file-check": FileCheck,
+  "file-text": FileText,
+  "alert-circle": AlertCircle,
+  "refresh-cw": RefreshCw,
 };
 
 const ACTION_COLORS = {

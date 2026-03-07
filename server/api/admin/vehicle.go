@@ -15,23 +15,113 @@ import (
    VEHICLE HANDLERS
 ========================= */
 
+// RunVehicleMigrations adds new columns to the vehicles table if they don't exist,
+// and migrates data from vehicle_documents into vehicles.
+func RunVehicleMigrations() {
+	columns := []struct {
+		name string
+		ddl  string
+	}{
+		{"chassis_number", "VARCHAR(100) DEFAULT NULL"},
+		{"engine_number", "VARCHAR(100) DEFAULT NULL"},
+		{"permit_number", "VARCHAR(100) DEFAULT NULL"},
+		{"additional_permit", "VARCHAR(255) DEFAULT NULL"},
+		{"insurance_amount", "DECIMAL(12,2) DEFAULT NULL"},
+		{"road_tax_amount", "DECIMAL(12,2) DEFAULT NULL"},
+		{"pollution_expire", "DATE DEFAULT NULL"},
+		{"green_tax_expire", "DATE DEFAULT NULL"},
+		{"mv_tax_expire", "DATE DEFAULT NULL"},
+		// Document fields (migrated from vehicle_documents)
+		{"insurance_expire_date", "DATE DEFAULT NULL"},
+		{"insurance_start_date", "DATE DEFAULT NULL"},
+		{"insurance_remarks", "TEXT DEFAULT NULL"},
+		{"fc_expire_date", "DATE DEFAULT NULL"},
+		{"fc_start_date", "DATE DEFAULT NULL"},
+		{"fc_remarks", "TEXT DEFAULT NULL"},
+		{"permit_expire_date", "DATE DEFAULT NULL"},
+		{"permit_start_date", "DATE DEFAULT NULL"},
+		{"permit_remarks", "TEXT DEFAULT NULL"},
+	}
+	for _, col := range columns {
+		var count int
+		err := config.DB.QueryRow(`
+			SELECT COUNT(*) FROM information_schema.COLUMNS 
+			WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'vehicles' AND COLUMN_NAME = ?
+		`, col.name).Scan(&count)
+		if err != nil {
+			log.Printf("Vehicle migration check error (%s): %v", col.name, err)
+			continue
+		}
+		if count == 0 {
+			_, err = config.DB.Exec(fmt.Sprintf(
+				"ALTER TABLE vehicles ADD COLUMN `%s` %s",
+				col.name, col.ddl,
+			))
+			if err != nil {
+				log.Printf("Vehicle migration error (%s): %v", col.name, err)
+			} else {
+				log.Printf("Vehicle migration: added column %s", col.name)
+			}
+		}
+	}
+
+	// Migrate existing data from vehicle_documents into vehicles table
+	var vdExists int
+	config.DB.QueryRow(`SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'vehicle_documents'`).Scan(&vdExists)
+	if vdExists > 0 {
+		migrations := []struct {
+			docType    string
+			expireCol  string
+			startCol   string
+			remarksCol string
+		}{
+			{"insurance", "insurance_expire_date", "insurance_start_date", "insurance_remarks"},
+			{"fc", "fc_expire_date", "fc_start_date", "fc_remarks"},
+			{"permit", "permit_expire_date", "permit_start_date", "permit_remarks"},
+		}
+		for _, m := range migrations {
+			res, err := config.DB.Exec(fmt.Sprintf(`
+				UPDATE vehicles v
+				JOIN vehicle_documents vd ON vd.vehicle_id = v.id AND vd.document_type = ?
+				SET v.%s = vd.expire_date, v.%s = vd.start_date, v.%s = vd.remarks
+				WHERE v.%s IS NULL
+			`, m.expireCol, m.startCol, m.remarksCol, m.expireCol), m.docType)
+			if err != nil {
+				log.Printf("Vehicle document migration error (%s): %v", m.docType, err)
+			} else {
+				n, _ := res.RowsAffected()
+				if n > 0 {
+					log.Printf("Vehicle migration: migrated %d %s records from vehicle_documents", n, m.docType)
+				}
+			}
+		}
+	}
+
+	log.Println("Vehicle columns migration complete")
+}
+
 // GET /api/admin/vehicles - List all vehicles.
-// Documents are joined from vehicle_documents; JSON keys are identical to before so the frontend is unchanged.
+// All document fields are stored directly on the vehicles table.
 func GetAllVehicles(c *gin.Context) {
 	query := `
 		SELECT v.id, v.vehicle_number, v.vehicle_type, v.fuel_type, v.seating_capacity, v.status,
-		       DATE_FORMAT(ins.expire_date, '%d-%m-%Y') as insurance_expire_date,
-		       DATE_FORMAT(ins.start_date,  '%d-%m-%Y') as insurance_start_date,
-		       ins.remarks                              as insurance_remarks,
-		       DATE_FORMAT(fc.expire_date,  '%d-%m-%Y') as fc_expire_date,
-		       DATE_FORMAT(fc.start_date,   '%d-%m-%Y') as fc_start_date,
-		       fc.remarks                               as fc_remarks,
-		       DATE_FORMAT(pmt.expire_date, '%d-%m-%Y') as permit_expire_date,
-		       DATE_FORMAT(pmt.start_date,  '%d-%m-%Y') as permit_start_date,
-		       pmt.remarks                              as permit_remarks,
+		       DATE_FORMAT(v.insurance_expire_date, '%d-%m-%Y'),
+		       DATE_FORMAT(v.insurance_start_date,  '%d-%m-%Y'),
+		       v.insurance_remarks,
+		       DATE_FORMAT(v.fc_expire_date, '%d-%m-%Y'),
+		       DATE_FORMAT(v.fc_start_date,  '%d-%m-%Y'),
+		       v.fc_remarks,
+		       DATE_FORMAT(v.permit_expire_date, '%d-%m-%Y'),
+		       DATE_FORMAT(v.permit_start_date,  '%d-%m-%Y'),
+		       v.permit_remarks,
 		       COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name,
 		       COALESCE(b.start_point, ''),
 		       COALESCE(b.end_point, ''),
+		       v.chassis_number, v.engine_number, v.permit_number, v.additional_permit,
+		       v.insurance_amount, v.road_tax_amount,
+		       DATE_FORMAT(v.pollution_expire, '%d-%m-%Y'),
+		       DATE_FORMAT(v.green_tax_expire, '%d-%m-%Y'),
+		       DATE_FORMAT(v.mv_tax_expire, '%d-%m-%Y'),
 		       vr.id as replacement_id,
 		       vr.status as replacement_status,
 		       DATE_FORMAT(vr.start_date, '%d-%m-%Y') as replacement_start_date,
@@ -41,9 +131,6 @@ func GetAllVehicles(c *gin.Context) {
 		       vgm.group_id as vehicle_group_id,
 		       COALESCE(vg.name, '') as vehicle_group_name
 		FROM vehicles v
-		LEFT JOIN vehicle_documents ins ON ins.vehicle_id = v.id AND ins.document_type = 'insurance'
-		LEFT JOIN vehicle_documents fc  ON fc.vehicle_id  = v.id AND fc.document_type  = 'fc'
-		LEFT JOIN vehicle_documents pmt ON pmt.vehicle_id = v.id AND pmt.document_type = 'permit'
 		LEFT JOIN buses b ON v.id = b.vehicle_id
 		LEFT JOIN vehicle_replacements vr ON v.id = vr.vehicle_id 
 		    AND vr.status IN ('approved', 'pending')
@@ -61,32 +148,41 @@ func GetAllVehicles(c *gin.Context) {
 	defer rows.Close()
 
 	type VehicleWithReplacement struct {
-		ID                       int     `json:"id"`
-		VehicleNumber            string  `json:"vehicle_number"`
-		VehicleType              string  `json:"vehicle_type"`
-		FuelType                 string  `json:"fuel_type"`
-		SeatingCapacity          int     `json:"seating_capacity"`
-		Status                   string  `json:"status"`
-		InsuranceExpireDate      *string `json:"insurance_expire_date"`
-		InsuranceStartDate       *string `json:"insurance_start_date"`
-		InsuranceRemarks         *string `json:"insurance_remarks"`
-		FCExpireDate             *string `json:"fc_expire_date"`
-		FCStartDate              *string `json:"fc_start_date"`
-		FCRemarks                *string `json:"fc_remarks"`
-		PermitExpireDate         *string `json:"permit_expire_date"`
-		PermitStartDate          *string `json:"permit_start_date"`
-		PermitRemarks            *string `json:"permit_remarks"`
-		VehicleName              string  `json:"vehicle_name"`
-		StartPoint               string  `json:"start_point"`
-		EndPoint                 string  `json:"end_point"`
-		ReplacementID            *int    `json:"replacement_id"`
-		ReplacementStatus        *string `json:"replacement_status"`
-		ReplacementStartDate     *string `json:"replacement_start_date"`
-		ReplacementEndDate       *string `json:"replacement_end_date"`
-		ReplacementReason        *string `json:"replacement_reason"`
-		ReplacementVehicleNumber *string `json:"replacement_vehicle_number"`
-		VehicleGroupID           *int    `json:"vehicle_group_id"`
-		VehicleGroupName         string  `json:"vehicle_group_name"`
+		ID                       int      `json:"id"`
+		VehicleNumber            string   `json:"vehicle_number"`
+		VehicleType              string   `json:"vehicle_type"`
+		FuelType                 string   `json:"fuel_type"`
+		SeatingCapacity          int      `json:"seating_capacity"`
+		Status                   string   `json:"status"`
+		InsuranceExpireDate      *string  `json:"insurance_expire_date"`
+		InsuranceStartDate       *string  `json:"insurance_start_date"`
+		InsuranceRemarks         *string  `json:"insurance_remarks"`
+		FCExpireDate             *string  `json:"fc_expire_date"`
+		FCStartDate              *string  `json:"fc_start_date"`
+		FCRemarks                *string  `json:"fc_remarks"`
+		PermitExpireDate         *string  `json:"permit_expire_date"`
+		PermitStartDate          *string  `json:"permit_start_date"`
+		PermitRemarks            *string  `json:"permit_remarks"`
+		VehicleName              string   `json:"vehicle_name"`
+		StartPoint               string   `json:"start_point"`
+		EndPoint                 string   `json:"end_point"`
+		ChassisNumber            *string  `json:"chassis_number"`
+		EngineNumber             *string  `json:"engine_number"`
+		PermitNumber             *string  `json:"permit_number"`
+		AdditionalPermit         *string  `json:"additional_permit"`
+		InsuranceAmount          *float64 `json:"insurance_amount"`
+		RoadTaxAmount            *float64 `json:"road_tax_amount"`
+		PollutionExpire          *string  `json:"pollution_expire"`
+		GreenTaxExpire           *string  `json:"green_tax_expire"`
+		MVTaxExpire              *string  `json:"mv_tax_expire"`
+		ReplacementID            *int     `json:"replacement_id"`
+		ReplacementStatus        *string  `json:"replacement_status"`
+		ReplacementStartDate     *string  `json:"replacement_start_date"`
+		ReplacementEndDate       *string  `json:"replacement_end_date"`
+		ReplacementReason        *string  `json:"replacement_reason"`
+		ReplacementVehicleNumber *string  `json:"replacement_vehicle_number"`
+		VehicleGroupID           *int     `json:"vehicle_group_id"`
+		VehicleGroupName         string   `json:"vehicle_group_name"`
 	}
 
 	var vehicles []VehicleWithReplacement
@@ -97,6 +193,9 @@ func GetAllVehicles(c *gin.Context) {
 			&v.FCExpireDate, &v.FCStartDate, &v.FCRemarks,
 			&v.PermitExpireDate, &v.PermitStartDate, &v.PermitRemarks,
 			&v.VehicleName, &v.StartPoint, &v.EndPoint,
+			&v.ChassisNumber, &v.EngineNumber, &v.PermitNumber, &v.AdditionalPermit,
+			&v.InsuranceAmount, &v.RoadTaxAmount,
+			&v.PollutionExpire, &v.GreenTaxExpire, &v.MVTaxExpire,
 			&v.ReplacementID, &v.ReplacementStatus, &v.ReplacementStartDate, &v.ReplacementEndDate,
 			&v.ReplacementReason, &v.ReplacementVehicleNumber,
 			&v.VehicleGroupID, &v.VehicleGroupName)
@@ -125,11 +224,21 @@ func CreateVehicle(c *gin.Context) {
 	req.PermitStartDate = nullifyEmptyDate(req.PermitStartDate)
 	req.PermitRemarks = nullifyEmptyString(req.PermitRemarks)
 
-	// Insert core vehicle row only (documents stored in vehicle_documents)
+	// Insert vehicle row with all fields including documents
 	result, err := config.DB.Exec(`
-		INSERT INTO vehicles (vehicle_name, vehicle_number, vehicle_type, fuel_type, seating_capacity)
-		VALUES (?, ?, ?, ?, ?)
-	`, req.VehicleName, req.VehicleNumber, req.VehicleType, req.FuelType, req.SeatingCapacity)
+		INSERT INTO vehicles (vehicle_name, vehicle_number, vehicle_type, fuel_type, seating_capacity,
+			chassis_number, engine_number, permit_number, additional_permit,
+			insurance_amount, road_tax_amount, pollution_expire, green_tax_expire, mv_tax_expire,
+			insurance_expire_date, insurance_start_date, insurance_remarks,
+			fc_expire_date, fc_start_date, fc_remarks,
+			permit_expire_date, permit_start_date, permit_remarks)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, req.VehicleName, req.VehicleNumber, req.VehicleType, req.FuelType, req.SeatingCapacity,
+		req.ChassisNumber, req.EngineNumber, req.PermitNumber, req.AdditionalPermit,
+		req.InsuranceAmount, req.RoadTaxAmount, req.PollutionExpire, req.GreenTaxExpire, req.MVTaxExpire,
+		req.InsuranceExpireDate, req.InsuranceStartDate, req.InsuranceRemarks,
+		req.FCExpireDate, req.FCStartDate, req.FCRemarks,
+		req.PermitExpireDate, req.PermitStartDate, req.PermitRemarks)
 	if err != nil {
 		log.Printf("Create vehicle error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -137,11 +246,6 @@ func CreateVehicle(c *gin.Context) {
 	}
 
 	vehicleID, _ := result.LastInsertId()
-
-	// Upsert document rows
-	upsertDocument(int(vehicleID), "insurance", req.InsuranceStartDate, req.InsuranceExpireDate, req.InsuranceRemarks)
-	upsertDocument(int(vehicleID), "fc", req.FCStartDate, req.FCExpireDate, req.FCRemarks)
-	upsertDocument(int(vehicleID), "permit", req.PermitStartDate, req.PermitExpireDate, req.PermitRemarks)
 
 	// Write initial audit log entries for any non-null document fields
 	userID := c.GetInt("user_id")
@@ -184,21 +288,6 @@ func CreateVehicle(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Vehicle created successfully"})
-}
-
-// upsertDocument inserts or updates a row in vehicle_documents.
-func upsertDocument(vehicleID int, docType string, startDate, expireDate, remarks *string) {
-	_, err := config.DB.Exec(`
-		INSERT INTO vehicle_documents (vehicle_id, document_type, start_date, expire_date, remarks)
-		VALUES (?, ?, ?, ?, ?)
-		ON DUPLICATE KEY UPDATE
-		    start_date  = VALUES(start_date),
-		    expire_date = VALUES(expire_date),
-		    remarks     = VALUES(remarks)
-	`, vehicleID, docType, startDate, expireDate, remarks)
-	if err != nil {
-		log.Printf("upsertDocument error [%s, %d]: %v", docType, vehicleID, err)
-	}
 }
 
 // nullifyEmptyDate converts a *string that holds an empty string into nil,
@@ -285,14 +374,10 @@ func UpdateVehicle(c *gin.Context) {
 	var oldPermitExpire, oldPermitStart, oldPermitRemarks *string
 
 	readErr := config.DB.QueryRow(`
-		SELECT DATE_FORMAT(ins.expire_date, '%d-%m-%Y'), DATE_FORMAT(ins.start_date, '%d-%m-%Y'), ins.remarks,
-		       DATE_FORMAT(fc.expire_date,  '%d-%m-%Y'), DATE_FORMAT(fc.start_date,  '%d-%m-%Y'), fc.remarks,
-		       DATE_FORMAT(pmt.expire_date, '%d-%m-%Y'), DATE_FORMAT(pmt.start_date, '%d-%m-%Y'), pmt.remarks
-		FROM vehicles vv
-		LEFT JOIN vehicle_documents ins ON ins.vehicle_id = vv.id AND ins.document_type = 'insurance'
-		LEFT JOIN vehicle_documents fc  ON fc.vehicle_id  = vv.id AND fc.document_type  = 'fc'
-		LEFT JOIN vehicle_documents pmt ON pmt.vehicle_id = vv.id AND pmt.document_type = 'permit'
-		WHERE vv.id = ?
+		SELECT DATE_FORMAT(insurance_expire_date, '%d-%m-%Y'), DATE_FORMAT(insurance_start_date, '%d-%m-%Y'), insurance_remarks,
+		       DATE_FORMAT(fc_expire_date, '%d-%m-%Y'), DATE_FORMAT(fc_start_date, '%d-%m-%Y'), fc_remarks,
+		       DATE_FORMAT(permit_expire_date, '%d-%m-%Y'), DATE_FORMAT(permit_start_date, '%d-%m-%Y'), permit_remarks
+		FROM vehicles WHERE id = ?
 	`, v.ID).Scan(
 		&oldInsExpire, &oldInsStart, &oldInsRemarks,
 		&oldFCExpire, &oldFCStart, &oldFCRemarks,
@@ -302,20 +387,26 @@ func UpdateVehicle(c *gin.Context) {
 		log.Printf("Audit read-before-write error for vehicle %d: %v", v.ID, readErr)
 	}
 
-	// Update core vehicle fields only (no document columns)
+	// Update all vehicle fields including documents
 	_, err := config.DB.Exec(`
-		UPDATE vehicles SET vehicle_name=?, vehicle_number=?, vehicle_type=?, fuel_type=?, seating_capacity=?, status=?
+		UPDATE vehicles SET vehicle_name=?, vehicle_number=?, vehicle_type=?, fuel_type=?, seating_capacity=?, status=?,
+			chassis_number=?, engine_number=?, permit_number=?, additional_permit=?,
+			insurance_amount=?, road_tax_amount=?, pollution_expire=?, green_tax_expire=?, mv_tax_expire=?,
+			insurance_expire_date=?, insurance_start_date=?, insurance_remarks=?,
+			fc_expire_date=?, fc_start_date=?, fc_remarks=?,
+			permit_expire_date=?, permit_start_date=?, permit_remarks=?
 		WHERE id=?
-	`, v.VehicleName, v.VehicleNumber, v.VehicleType, v.FuelType, v.SeatingCapacity, v.Status, v.ID)
+	`, v.VehicleName, v.VehicleNumber, v.VehicleType, v.FuelType, v.SeatingCapacity, v.Status,
+		v.ChassisNumber, v.EngineNumber, v.PermitNumber, v.AdditionalPermit,
+		v.InsuranceAmount, v.RoadTaxAmount, v.PollutionExpire, v.GreenTaxExpire, v.MVTaxExpire,
+		v.InsuranceExpireDate, v.InsuranceStartDate, v.InsuranceRemarks,
+		v.FCExpireDate, v.FCStartDate, v.FCRemarks,
+		v.PermitExpireDate, v.PermitStartDate, v.PermitRemarks,
+		v.ID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
-	// Upsert document rows in vehicle_documents
-	upsertDocument(v.ID, "insurance", v.InsuranceStartDate, v.InsuranceExpireDate, v.InsuranceRemarks)
-	upsertDocument(v.ID, "fc", v.FCStartDate, v.FCExpireDate, v.FCRemarks)
-	upsertDocument(v.ID, "permit", v.PermitStartDate, v.PermitExpireDate, v.PermitRemarks)
 
 	// ---- Write audit log for any changed document fields ----
 	userID := c.GetInt("user_id")
@@ -440,27 +531,24 @@ func GetVehicleDocumentHistory(c *gin.Context) {
 func GetVehicleDocumentAlerts(c *gin.Context) {
 	rows, err := config.DB.Query(`
 		SELECT v.id, v.vehicle_number, v.vehicle_type, v.status,
-		       DATE_FORMAT(ins.expire_date, '%d-%m-%Y'),
-		       DATE_FORMAT(fc.expire_date,  '%d-%m-%Y'),
-		       DATE_FORMAT(pmt.expire_date, '%d-%m-%Y'),
-		       DATEDIFF(ins.expire_date, CURDATE()) as insurance_days,
-		       DATEDIFF(fc.expire_date,  CURDATE()) as fc_days,
-		       DATEDIFF(pmt.expire_date, CURDATE()) as permit_days
+		       DATE_FORMAT(v.insurance_expire_date, '%d-%m-%Y'),
+		       DATE_FORMAT(v.fc_expire_date, '%d-%m-%Y'),
+		       DATE_FORMAT(v.permit_expire_date, '%d-%m-%Y'),
+		       DATEDIFF(v.insurance_expire_date, CURDATE()) as insurance_days,
+		       DATEDIFF(v.fc_expire_date, CURDATE()) as fc_days,
+		       DATEDIFF(v.permit_expire_date, CURDATE()) as permit_days
 		FROM vehicles v
-		LEFT JOIN vehicle_documents ins ON ins.vehicle_id = v.id AND ins.document_type = 'insurance'
-		LEFT JOIN vehicle_documents fc  ON fc.vehicle_id  = v.id AND fc.document_type  = 'fc'
-		LEFT JOIN vehicle_documents pmt ON pmt.vehicle_id = v.id AND pmt.document_type = 'permit'
 		WHERE v.status IN ('active', 'available')
 		  AND (
-		    (ins.expire_date IS NOT NULL AND DATEDIFF(ins.expire_date, CURDATE()) <= 10)
-		    OR (fc.expire_date  IS NOT NULL AND DATEDIFF(fc.expire_date,  CURDATE()) <= 10)
-		    OR (pmt.expire_date IS NOT NULL AND DATEDIFF(pmt.expire_date, CURDATE()) <= 10)
+		    (v.insurance_expire_date IS NOT NULL AND DATEDIFF(v.insurance_expire_date, CURDATE()) <= 10)
+		    OR (v.fc_expire_date IS NOT NULL AND DATEDIFF(v.fc_expire_date, CURDATE()) <= 10)
+		    OR (v.permit_expire_date IS NOT NULL AND DATEDIFF(v.permit_expire_date, CURDATE()) <= 10)
 		  )
 		ORDER BY
 		  LEAST(
-		    COALESCE(DATEDIFF(ins.expire_date, CURDATE()), 999),
-		    COALESCE(DATEDIFF(fc.expire_date,  CURDATE()), 999),
-		    COALESCE(DATEDIFF(pmt.expire_date, CURDATE()), 999)
+		    COALESCE(DATEDIFF(v.insurance_expire_date, CURDATE()), 999),
+		    COALESCE(DATEDIFF(v.fc_expire_date, CURDATE()), 999),
+		    COALESCE(DATEDIFF(v.permit_expire_date, CURDATE()), 999)
 		  ) ASC
 	`)
 	if err != nil {
