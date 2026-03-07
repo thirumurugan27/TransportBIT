@@ -158,7 +158,7 @@ export default function Sidebar({
         </div>
 
         {/* Navigation Menu */}
-        <nav className="flex-1 overflow-y-auto px-4 space-y-2 py-2">
+        <nav className="sidebar-nav flex-1 overflow-y-auto px-4 space-y-2 py-2">
           {menuConfig.items.map((item) => (
             <div key={item.key}>
               {item.hasSubmenu ? (

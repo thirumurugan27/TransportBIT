@@ -189,7 +189,7 @@ func AddPart(c *gin.Context) {
 		 status, ordered_date, added_by)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, orderID, req.Category, req.VehicleID, req.ServiceRecordID, req.PartName, req.VendorID,
-		req.Quantity, req.UnitPrice, totalPrice, req.WarrantyMonths, req.InvoiceNumber, req.PurchasedDate,
+		req.Quantity, req.UnitPrice, totalPrice, req.WarrantyMonths, req.InvoiceNumber, nilIfEmpty(req.PurchasedDate),
 		req.Status, nilIfEmpty(req.OrderedDate), adminID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add part: " + err.Error()})
@@ -299,7 +299,7 @@ func AddBulkParts(c *gin.Context) {
 			 status, ordered_date, added_by)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`, orderID, req.Category, req.VehicleID, req.ServiceRecordID, part.PartName, req.VendorID,
-			part.Quantity, part.UnitPrice, totalPrice, part.WarrantyMonths, req.InvoiceNumber, req.PurchasedDate,
+			part.Quantity, part.UnitPrice, totalPrice, part.WarrantyMonths, req.InvoiceNumber, nilIfEmpty(req.PurchasedDate),
 			req.Status, nilIfEmpty(req.PurchasedDate), adminID)
 		if err != nil {
 			tx.Rollback()
@@ -351,12 +351,12 @@ func UpdatePart(c *gin.Context) {
 		UPDATE parts_purchased SET
 			part_name = ?, vendor_id = ?,
 			quantity = ?, unit_price = ?, total_price = ?,
-			warranty_months = ?, invoice_number = ?, purchased_date = ?, status = ?,
+			warranty_months = ?, invoice_number = ?, purchased_date = COALESCE(?, purchased_date), status = ?,
 			ordered_date = ?, received_date = ?, returned_date = ?, cancelled_date = ?
 		WHERE id = ?
 	`, req.PartName, req.VendorID,
 		req.Quantity, req.UnitPrice, totalPrice,
-		req.WarrantyMonths, req.InvoiceNumber, req.PurchasedDate, req.Status,
+		req.WarrantyMonths, req.InvoiceNumber, nilIfEmpty(req.PurchasedDate), req.Status,
 		nilIfEmpty(req.OrderedDate), nilIfEmpty(req.ReceivedDate), nilIfEmpty(req.ReturnedDate), nilIfEmpty(req.CancelledDate),
 		req.ID)
 	if err != nil {

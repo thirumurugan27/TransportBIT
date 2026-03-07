@@ -48,6 +48,24 @@ body {
   background: #9ca3af;
 }
 
+/* Sidebar thin scrollbar */
+.sidebar-nav::-webkit-scrollbar {
+  width: 3px;
+}
+
+.sidebar-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 2px;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
 /* Smooth scrolling */
 html {
   scroll-behavior: smooth;

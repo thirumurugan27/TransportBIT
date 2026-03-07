@@ -617,7 +617,7 @@ export default function VehicleRequests() {
           width="w-full sm:w-48"
         />
       </div>
- 
+
       {/* Table */}
       {filtered.length === 0 ? (
         <div className="bg-secondarybg rounded-md border border-primarybg p-12 text-center">
@@ -1115,7 +1115,7 @@ export default function VehicleRequests() {
                     selectedRequest.status === "trip_started") && (
                     <button
                       onClick={() => handleComplete(selectedRequest.id)}
-                      className="px-6 py-2.5 bg-green text-secondarybg rounded-md font-bold text-sm shadow-lg shadow-green/20 hover:opacity-90 transition-all active:scale-[0.98]"
+                      className="px-6 py-2.5 bg-primary text-white rounded-md font-bold text-sm shadow-lg shadow-primary/20 hover:opacity-90 transition-all active:scale-[0.98]"
                     >
                       Mark Completed (Admin Override)
                     </button>
@@ -1125,7 +1125,7 @@ export default function VehicleRequests() {
                     selectedRequest.status === "assigned") && (
                     <button
                       onClick={() => handleCancel(selectedRequest.id)}
-                      className="px-6 py-2.5 bg-secondarybg border border-primarytext/10 text-primarytext font-bold text-sm rounded-md hover:bg-primarybg transition-all"
+                      className="px-6 py-2.5 bg-red/10 border border-red/20 text-red font-bold text-sm rounded-md hover:bg-red/20 transition-all"
                     >
                       Cancel the request
                     </button>
