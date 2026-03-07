@@ -79,12 +79,12 @@ type EnhancedDashboardStats struct {
 	ExpiredDocuments       int `json:"expired_documents"`
 
 	// Per-type document alerts
-	InsuranceAlerts  int `json:"insurance_alerts"`
-	FCAlerts         int `json:"fc_alerts"`
-	PermitAlerts     int `json:"permit_alerts"`
-	PollutionAlerts  int `json:"pollution_alerts"`
-	GreenTaxAlerts   int `json:"green_tax_alerts"`
-	MVTaxAlerts      int `json:"mv_tax_alerts"`
+	InsuranceAlerts int `json:"insurance_alerts"`
+	FCAlerts        int `json:"fc_alerts"`
+	PermitAlerts    int `json:"permit_alerts"`
+	PollutionAlerts int `json:"pollution_alerts"`
+	GreenTaxAlerts  int `json:"green_tax_alerts"`
+	MVTaxAlerts     int `json:"mv_tax_alerts"`
 
 	// NEW: Additional pending items
 	PendingKmLogs            int `json:"pending_km_logs"`

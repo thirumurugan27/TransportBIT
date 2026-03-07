@@ -120,10 +120,10 @@ type VehicleDocument struct {
 }
 
 type CreateVehicleRequest struct {
-	VehicleNumber string `json:"vehicle_number"`
-	VehicleType   string `json:"vehicle_type"`
-	FuelType      string `json:"fuel_type"`
-	SeatingCapacity int  `json:"seating_capacity"`
+	VehicleNumber   string `json:"vehicle_number"`
+	VehicleType     string `json:"vehicle_type"`
+	FuelType        string `json:"fuel_type"`
+	SeatingCapacity int    `json:"seating_capacity"`
 	// Vehicle-specific fields
 	VehicleName string `json:"vehicle_name"`
 	StartPoint  string `json:"start_point"`
@@ -152,15 +152,15 @@ type CreateVehicleRequest struct {
 
 // VehicleDocumentAuditLog represents a single field-level change to a vehicle document
 type VehicleDocumentAuditLog struct {
-	ID            int    `json:"id"`
-	VehicleID     int    `json:"vehicle_id"`
-	DocumentType  string `json:"document_type"`
-	FieldName     string `json:"field_name"`
+	ID            int     `json:"id"`
+	VehicleID     int     `json:"vehicle_id"`
+	DocumentType  string  `json:"document_type"`
+	FieldName     string  `json:"field_name"`
 	OldValue      *string `json:"old_value"`
 	NewValue      *string `json:"new_value"`
-	ChangedBy     int    `json:"changed_by"`
-	ChangedByName string `json:"changed_by_name"`
-	ChangedAt     string `json:"changed_at"`
+	ChangedBy     int     `json:"changed_by"`
+	ChangedByName string  `json:"changed_by_name"`
+	ChangedAt     string  `json:"changed_at"`
 }
 
 /* =========================

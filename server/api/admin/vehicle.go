@@ -291,7 +291,7 @@ func CreateVehicle(c *gin.Context) {
 }
 
 // nullifyEmptyDate converts a *string that holds an empty string into nil,
-// so the SQL driver sends NULL to MySQL DATE columns instead of '' (which MySQL strict mode rejects).
+// so the SQL driver sends NULL to MySQL DATE columns instead of ” (which MySQL strict mode rejects).
 func nullifyEmptyDate(s *string) *string {
 	if s == nil || *s == "" {
 		return nil
@@ -630,7 +630,7 @@ func GetVehicleDocumentAuditSummary(c *gin.Context) {
 		FROM vehicle_document_audit_log a
 		LEFT JOIN vehicles v ON v.id = a.vehicle_id
 		ORDER BY a.changed_at DESC
-		LIMIT `+fmt.Sprintf("%s", limit)+`
+		LIMIT ` + fmt.Sprintf("%s", limit) + `
 	`)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
