@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
 	"transport-server/config"
 	"transport-server/models"
 	"transport-server/utils"
@@ -23,20 +22,72 @@ func generateOTP() string {
 	return fmt.Sprintf("%06d", r.Intn(1000000))
 }
 
+func vehicleRequestColumns(columnNames ...string) map[string]bool {
+	// Canonical cleaned schema flags for vehicle request module.
+	known := map[string]bool{
+		"id":                     true,
+		"requester_id":           true,
+		"faculty_id":             true,
+		"BookingType":            true,
+		"TripType":               true,
+		"TripMode":               false,
+		"RequestUnder":           true,
+		"Vertical":               true,
+		"OralApproval":           false,
+		"OnwardFromPlace":        true,
+		"OnwardToPlace":          true,
+		"OnwardFromDateTime":     true,
+		"OnwardTodateTime":       true,
+		"OnwardToDateTime":       false,
+		"ReturnFromPlace":        false,
+		"ReturnToPlace":          false,
+		"ReturnFromDateTime":     false,
+		"ReturnTodateTime":       false,
+		"ReturnToDateTime":       false,
+		"CountPerson":            true,
+		"Purpose":                true,
+		"PurposeOfVisit":         true,
+		"TravellerName":          true,
+		"Address":                true,
+		"MobileNumber":           true,
+		"ContactName":            true,
+		"ContactPhone":           true,
+		"TaskID":                 true,
+		"OutcomeExpected":        false,
+		"OutcomeAuditable":       false,
+		"status":                 true,
+		"admin_remarks":          true,
+		"created_at":             true,
+		"vehicle_id":             true,
+		"driver_id":              true,
+		"approved_by":            true,
+		"approved_at":            true,
+		"assigned_at":            true,
+		"start_otp":              true,
+		"end_otp":                true,
+		"start_otp_generated_at": true,
+		"end_otp_generated_at":   true,
+		"trip_started_at":        true,
+		"trip_ended_at":          true,
+	}
+	out := make(map[string]bool, len(columnNames))
+	for _, c := range columnNames {
+		out[c] = known[c]
+	}
+	return out
+}
 func optionalTextExpr(colExists map[string]bool, column, alias string) string {
 	if colExists[column] {
 		return fmt.Sprintf("COALESCE(vr.%s, '') as %s", column, alias)
 	}
 	return fmt.Sprintf("'' as %s", alias)
 }
-
 func optionalIntExpr(colExists map[string]bool, column, alias string, fallback int) string {
 	if colExists[column] {
 		return fmt.Sprintf("COALESCE(vr.%s, %d) as %s", column, fallback, alias)
 	}
 	return fmt.Sprintf("%d as %s", fallback, alias)
 }
-
 func optionalBoolExpr(colExists map[string]bool, column, alias string) string {
 	if colExists[column] {
 		return fmt.Sprintf("COALESCE(vr.%s, 0) as %s", column, alias)
@@ -62,7 +113,21 @@ func pickExistingColumn(colExists map[string]bool, candidates ...string) string 
 
 func loadVehicleRequestSchedule(requestID int) (sql.NullString, sql.NullString, sql.NullString, sql.NullString, error) {
 	var onwardFrom, onwardTo, returnFrom, returnTo sql.NullString
-	dateCols, _ := config.HasColumns("vehiclerequests", "OnwardFromDateTime", "OnwardTodateTime", "OnwardToDateTime", "ReturnFromDateTime", "ReturnTodateTime", "ReturnToDateTime")
+	err := config.DB.QueryRow(`
+		SELECT
+			DATE_FORMAT(from_datetime, '%Y-%m-%d %H:%i:%s') as onward_from,
+			DATE_FORMAT(to_datetime, '%Y-%m-%d %H:%i:%s') as onward_to
+		FROM vehicle_request_trips
+		WHERE request_id = ? AND trip_order = 1
+	`, requestID).Scan(&onwardFrom, &onwardTo)
+	if err == nil {
+		return onwardFrom, onwardTo, returnFrom, returnTo, nil
+	}
+	if err != sql.ErrNoRows {
+		return onwardFrom, onwardTo, returnFrom, returnTo, err
+	}
+
+	dateCols := vehicleRequestColumns("OnwardFromDateTime", "OnwardTodateTime", "OnwardToDateTime", "ReturnFromDateTime", "ReturnTodateTime", "ReturnToDateTime")
 	onwardFromCol := pickExistingColumn(dateCols, "OnwardFromDateTime")
 	onwardToCol := pickExistingColumn(dateCols, "OnwardTodateTime", "OnwardToDateTime")
 	returnFromCol := pickExistingColumn(dateCols, "ReturnFromDateTime")
@@ -91,16 +156,42 @@ func loadVehicleRequestSchedule(requestID int) (sql.NullString, sql.NullString, 
 		WHERE vr.id = ?
 	`, onwardFromExpr, onwardToExpr, returnFromExpr, returnToExpr)
 
-	err := config.DB.QueryRow(query, requestID).Scan(&onwardFrom, &onwardTo, &returnFrom, &returnTo)
+	err = config.DB.QueryRow(query, requestID).Scan(&onwardFrom, &onwardTo, &returnFrom, &returnTo)
 	return onwardFrom, onwardTo, returnFrom, returnTo, err
+}
+
+func getVehicleRequestRequesterName(requestID int) string {
+	name := "Requester"
+	colExists := vehicleRequestColumns("requester_id")
+	if colExists["requester_id"] {
+		_ = config.DB.QueryRow(`
+			SELECT COALESCE(ru.full_name, u.full_name, 'Requester')
+			FROM vehiclerequests vr
+			LEFT JOIN users ru ON vr.requester_id = ru.id
+			LEFT JOIN faculty f ON vr.faculty_id = f.id
+			LEFT JOIN users u ON f.user_id = u.id
+			WHERE vr.id = ?
+		`, requestID).Scan(&name)
+		return name
+	}
+
+	_ = config.DB.QueryRow(`
+		SELECT COALESCE(u.full_name, 'Requester')
+		FROM vehiclerequests vr
+		LEFT JOIN faculty f ON vr.faculty_id = f.id
+		LEFT JOIN users u ON f.user_id = u.id
+		WHERE vr.id = ?
+	`, requestID).Scan(&name)
+
+	return name
 }
 
 // GET /api/admin/vehicle-requests
 func GetAllVehicleRequests(c *gin.Context) {
 	statusFilter := c.Query("status")
 
-	colExists, _ := config.HasColumns("vehiclerequests",
-		"id", "faculty_id", "BookingType", "TripType", "TripMode", "CountPerson",
+	colExists := vehicleRequestColumns(
+		"id", "requester_id", "faculty_id", "BookingType", "TripType", "TripMode", "CountPerson",
 		"OnwardFromPlace", "OnwardToPlace", "OnwardFromDateTime", "OnwardTodateTime",
 		"ReturnFromPlace", "ReturnToPlace", "ReturnFromDateTime", "ReturnTodateTime",
 		"ContactName", "ContactPhone", "status", "admin_remarks", "created_at", "vehicle_id", "driver_id",
@@ -109,6 +200,7 @@ func GetAllVehicleRequests(c *gin.Context) {
 		"TravellerName", "MobileNumber", "Address",
 	)
 	idExpr := optionalIntExpr(colExists, "id", "id", 0)
+	requesterIDExpr := optionalIntExpr(colExists, "requester_id", "requester_id", 0)
 	facultyIDExpr := optionalIntExpr(colExists, "faculty_id", "faculty_id", 0)
 	bookingTypeExpr := optionalTextExpr(colExists, "BookingType", "BookingType")
 	tripTypeExpr := optionalTextExpr(colExists, "TripType", "TripType")
@@ -205,6 +297,10 @@ func GetAllVehicleRequests(c *gin.Context) {
 		tripEndedAtExpr = "DATE_FORMAT(vr.trip_ended_at, '%%d-%%m-%%Y %%h:%%i %%p') as trip_ended_at"
 	}
 
+	requesterJoin := "LEFT JOIN users ru ON 1=0 LEFT JOIN faculty rf ON 1=0"
+	if colExists["requester_id"] {
+		requesterJoin = "LEFT JOIN users ru ON vr.requester_id = ru.id LEFT JOIN faculty rf ON rf.user_id = ru.id"
+	}
 	facultyJoin := "LEFT JOIN faculty f ON 1=0 LEFT JOIN users u ON 1=0"
 	if colExists["faculty_id"] {
 		facultyJoin = "LEFT JOIN faculty f ON vr.faculty_id = f.id LEFT JOIN users u ON f.user_id = u.id"
@@ -219,7 +315,7 @@ func GetAllVehicleRequests(c *gin.Context) {
 	}
 
 	selectCols := []string{
-		idExpr, facultyIDExpr, bookingTypeExpr, tripTypeExpr, tripModeExpr,
+		idExpr, requesterIDExpr, facultyIDExpr, bookingTypeExpr, tripTypeExpr, tripModeExpr,
 		requestUnderExpr, purposeExpr, verticalExpr, oralApprovalExpr, countPersonExpr,
 		onwardFromPlaceExpr, onwardToPlaceExpr, onwardFromDateExpr, onwardToDateExpr,
 		returnFromPlaceExpr, returnToPlaceExpr, returnFromDateExpr, returnToDateExpr,
@@ -229,19 +325,25 @@ func GetAllVehicleRequests(c *gin.Context) {
 		statusExpr, adminRemarksExpr,
 		approvedByExpr, approvedAtExpr, assignedAtExpr,
 		startOtpExpr, endOtpExpr, startOtpGeneratedAtExpr, endOtpGeneratedAtExpr, tripStartedAtExpr, tripEndedAtExpr,
-		"u.full_name as faculty_name",
-		"COALESCE(u.email, '') as faculty_email",
-		"COALESCE(u.phone, '') as faculty_phone",
-		"COALESCE(f.department, '') as faculty_department",
+		"COALESCE(ru.full_name, u.full_name, '') as requester_name",
+		"COALESCE(ru.email, u.email, '') as requester_email",
+		"COALESCE(ru.phone, u.phone, '') as requester_phone",
+		"'FACULTY' as requester_role",
+		"COALESCE(u.full_name, ru.full_name, '') as faculty_name",
+		"COALESCE(u.email, ru.email, '') as faculty_email",
+		"COALESCE(u.phone, ru.phone, '') as faculty_phone",
+		"COALESCE(f.department, rf.department, '') as faculty_department",
 		"COALESCE(v.vehicle_number, '') as vehicle_number",
-		"COALESCE(v.vehicle_type, '') as vehicle_type",
+		"'' as vehicle_type",
 		"COALESCE(v.vehicle_name, v.vehicle_number, '') as vehicle_name",
 		"COALESCE(ud.full_name, '') as driver_name",
 		"COALESCE(ud.phone, '') as driver_phone",
 		createdAtExpr,
 	}
 
-	query := fmt.Sprintf("SELECT %s FROM vehiclerequests vr %s %s %s", strings.Join(selectCols, ", "), facultyJoin, vehicleJoin, driverJoin)
+	tripJoin := "LEFT JOIN vehicle_request_trips vrt ON vrt.request_id = vr.id AND vrt.trip_order = 1 " +
+		"LEFT JOIN vehicle_request_trips vrt2 ON vrt2.request_id = vr.id AND vrt2.trip_order = 2"
+	query := fmt.Sprintf("SELECT %s FROM vehiclerequests vr %s %s %s %s %s", strings.Join(selectCols, ", "), requesterJoin, facultyJoin, vehicleJoin, driverJoin, tripJoin)
 
 	var args []interface{}
 	if statusFilter != "" && colExists["status"] {
@@ -266,7 +368,7 @@ func GetAllVehicleRequests(c *gin.Context) {
 	for rows.Next() {
 		var r models.VehicleRequest
 		err := rows.Scan(
-			&r.ID, &r.FacultyID,
+			&r.ID, &r.RequesterID, &r.FacultyID,
 			&r.BookingType, &r.TripType, &r.TripMode, &r.RequestUnder, &r.Purpose, &r.Vertical, &r.OralApproval, &r.CountPerson,
 			&r.OnwardFromPlace, &r.OnwardToPlace, &r.OnwardFromDateTime, &r.OnwardToDateTime,
 			&r.ReturnFromPlace, &r.ReturnToPlace, &r.ReturnFromDateTime, &r.ReturnToDateTime,
@@ -276,6 +378,7 @@ func GetAllVehicleRequests(c *gin.Context) {
 			&r.Status, &r.AdminRemarks,
 			&r.ApprovedBy, &r.ApprovedAt, &r.AssignedAt,
 			&r.StartOTP, &r.EndOTP, &r.StartOTPGeneratedAt, &r.EndOTPGeneratedAt, &r.TripStartedAt, &r.TripEndedAt,
+			&r.RequesterName, &r.RequesterEmail, &r.RequesterPhone, &r.RequesterRole,
 			&r.FacultyName, &r.FacultyEmail, &r.FacultyPhone, &r.FacultyDepartment,
 			&r.VehicleNumber, &r.VehicleType, &r.VehicleName,
 			&r.DriverName, &r.DriverPhone,
@@ -302,8 +405,8 @@ func GetVehicleRequestDetails(c *gin.Context) {
 
 	var r models.VehicleRequest
 
-	colExists, _ := config.HasColumns("vehiclerequests",
-		"id", "faculty_id", "BookingType", "TripType", "TripMode", "CountPerson",
+	colExists := vehicleRequestColumns(
+		"id", "requester_id", "faculty_id", "BookingType", "TripType", "TripMode", "CountPerson",
 		"OnwardFromPlace", "OnwardToPlace", "OnwardFromDateTime", "OnwardTodateTime",
 		"ReturnFromPlace", "ReturnToPlace", "ReturnFromDateTime", "ReturnTodateTime",
 		"ContactName", "ContactPhone", "status", "admin_remarks", "created_at", "vehicle_id", "driver_id",
@@ -312,6 +415,7 @@ func GetVehicleRequestDetails(c *gin.Context) {
 		"TravellerName", "MobileNumber", "Address",
 	)
 	idExpr := optionalIntExpr(colExists, "id", "id", 0)
+	requesterIDExpr := optionalIntExpr(colExists, "requester_id", "requester_id", 0)
 	facultyIDExpr := optionalIntExpr(colExists, "faculty_id", "faculty_id", 0)
 	bookingTypeExpr := optionalTextExpr(colExists, "BookingType", "BookingType")
 	tripTypeExpr := optionalTextExpr(colExists, "TripType", "TripType")
@@ -408,6 +512,10 @@ func GetVehicleRequestDetails(c *gin.Context) {
 		tripEndedAtExpr = "DATE_FORMAT(vr.trip_ended_at, '%%d-%%m-%%Y %%h:%%i %%p') as trip_ended_at"
 	}
 
+	requesterJoin := "LEFT JOIN users ru ON 1=0 LEFT JOIN faculty rf ON 1=0"
+	if colExists["requester_id"] {
+		requesterJoin = "LEFT JOIN users ru ON vr.requester_id = ru.id LEFT JOIN faculty rf ON rf.user_id = ru.id"
+	}
 	facultyJoin := "LEFT JOIN faculty f ON 1=0 LEFT JOIN users u ON 1=0"
 	if colExists["faculty_id"] {
 		facultyJoin = "LEFT JOIN faculty f ON vr.faculty_id = f.id LEFT JOIN users u ON f.user_id = u.id"
@@ -422,7 +530,7 @@ func GetVehicleRequestDetails(c *gin.Context) {
 	}
 
 	selectCols := []string{
-		idExpr, facultyIDExpr, bookingTypeExpr, tripTypeExpr, tripModeExpr,
+		idExpr, requesterIDExpr, facultyIDExpr, bookingTypeExpr, tripTypeExpr, tripModeExpr,
 		requestUnderExpr, purposeExpr, verticalExpr, oralApprovalExpr, countPersonExpr,
 		onwardFromPlaceExpr, onwardToPlaceExpr, onwardFromDateExpr, onwardToDateExpr,
 		returnFromPlaceExpr, returnToPlaceExpr, returnFromDateExpr, returnToDateExpr,
@@ -432,22 +540,28 @@ func GetVehicleRequestDetails(c *gin.Context) {
 		statusExpr, adminRemarksExpr,
 		approvedByExpr, approvedAtExpr, assignedAtExpr,
 		startOtpExpr, endOtpExpr, startOtpGeneratedAtExpr, endOtpGeneratedAtExpr, tripStartedAtExpr, tripEndedAtExpr,
-		"u.full_name as faculty_name",
-		"COALESCE(u.email, '') as faculty_email",
-		"COALESCE(u.phone, '') as faculty_phone",
-		"COALESCE(f.department, '') as faculty_department",
+		"COALESCE(ru.full_name, u.full_name, '') as requester_name",
+		"COALESCE(ru.email, u.email, '') as requester_email",
+		"COALESCE(ru.phone, u.phone, '') as requester_phone",
+		"'FACULTY' as requester_role",
+		"COALESCE(u.full_name, ru.full_name, '') as faculty_name",
+		"COALESCE(u.email, ru.email, '') as faculty_email",
+		"COALESCE(u.phone, ru.phone, '') as faculty_phone",
+		"COALESCE(f.department, rf.department, '') as faculty_department",
 		"COALESCE(v.vehicle_number, '') as vehicle_number",
-		"COALESCE(v.vehicle_type, '') as vehicle_type",
+		"'' as vehicle_type",
 		"COALESCE(v.vehicle_name, v.vehicle_number, '') as vehicle_name",
 		"COALESCE(ud.full_name, '') as driver_name",
 		"COALESCE(ud.phone, '') as driver_phone",
 		createdAtExpr,
 	}
 
-	query := fmt.Sprintf("SELECT %s FROM vehiclerequests vr %s %s %s WHERE vr.id = ?", strings.Join(selectCols, ", "), facultyJoin, vehicleJoin, driverJoin)
+	tripJoin := "LEFT JOIN vehicle_request_trips vrt ON vrt.request_id = vr.id AND vrt.trip_order = 1 " +
+		"LEFT JOIN vehicle_request_trips vrt2 ON vrt2.request_id = vr.id AND vrt2.trip_order = 2"
+	query := fmt.Sprintf("SELECT %s FROM vehiclerequests vr %s %s %s %s %s WHERE vr.id = ?", strings.Join(selectCols, ", "), requesterJoin, facultyJoin, vehicleJoin, driverJoin, tripJoin)
 
 	err = config.DB.QueryRow(query, id).Scan(
-		&r.ID, &r.FacultyID,
+		&r.ID, &r.RequesterID, &r.FacultyID,
 		&r.BookingType, &r.TripType, &r.TripMode, &r.RequestUnder, &r.Purpose, &r.Vertical, &r.OralApproval, &r.CountPerson,
 		&r.OnwardFromPlace, &r.OnwardToPlace, &r.OnwardFromDateTime, &r.OnwardToDateTime,
 		&r.ReturnFromPlace, &r.ReturnToPlace, &r.ReturnFromDateTime, &r.ReturnToDateTime,
@@ -457,6 +571,7 @@ func GetVehicleRequestDetails(c *gin.Context) {
 		&r.Status, &r.AdminRemarks,
 		&r.ApprovedBy, &r.ApprovedAt, &r.AssignedAt,
 		&r.StartOTP, &r.EndOTP, &r.StartOTPGeneratedAt, &r.EndOTPGeneratedAt, &r.TripStartedAt, &r.TripEndedAt,
+		&r.RequesterName, &r.RequesterEmail, &r.RequesterPhone, &r.RequesterRole,
 		&r.FacultyName, &r.FacultyEmail, &r.FacultyPhone, &r.FacultyDepartment,
 		&r.VehicleNumber, &r.VehicleType, &r.VehicleName,
 		&r.DriverName, &r.DriverPhone,
@@ -508,7 +623,7 @@ func ApproveVehicleRequest(c *gin.Context) {
 		return
 	}
 
-	colExists, _ := config.HasColumns("vehiclerequests", "approved_by", "approved_at", "assigned_at", "start_otp", "start_otp_generated_at")
+	colExists := vehicleRequestColumns("approved_by", "approved_at", "assigned_at", "start_otp", "start_otp_generated_at")
 	approvedBy := interface{}(nil)
 	if adminID != nil {
 		approvedBy = *adminID
@@ -600,8 +715,7 @@ func ApproveVehicleRequest(c *gin.Context) {
 		}
 
 		// Notify admin about assignment
-		var facultyName string
-		config.DB.QueryRow(`SELECT u.full_name FROM faculty f JOIN users u ON f.user_id = u.id WHERE f.id = (SELECT faculty_id FROM vehiclerequests WHERE id = ?)`, req.RequestID).Scan(&facultyName)
+		facultyName := getVehicleRequestRequesterName(req.RequestID)
 		CreateAdminNotification("vehicle_assigned", "Vehicle Assigned", fmt.Sprintf("Vehicle assigned to request #%d by %s. Start OTP sent to requester.", req.RequestID, facultyName))
 
 		c.JSON(http.StatusOK, gin.H{"message": "Request approved and vehicle assigned successfully", "start_otp": startOTP})
@@ -658,7 +772,7 @@ func RejectVehicleRequest(c *gin.Context) {
 		return
 	}
 
-	colExists, _ := config.HasColumns("vehiclerequests", "approved_by", "approved_at")
+	colExists := vehicleRequestColumns("approved_by", "approved_at")
 	approvedBy := interface{}(nil)
 	if adminID != nil {
 		approvedBy = *adminID
@@ -697,13 +811,21 @@ func CancelVehicleRequestByAdmin(c *gin.Context) {
 
 	// Fetch current request details for notifications
 	var status string
-	var driverID, vehicleID, facultyID sql.NullInt64
+	var driverID, vehicleID, facultyID, requesterID sql.NullInt64
 	var purpose, bookingType sql.NullString
-	err := config.DB.QueryRow(`
-		SELECT status, driver_id, vehicle_id, faculty_id, 
+	requestCols := vehicleRequestColumns("requester_id")
+	metaQuery := `
+		SELECT status, driver_id, vehicle_id, faculty_id, NULL as requester_id,
 		       COALESCE(Purpose,''), COALESCE(BookingType,'faculty')
-		FROM vehiclerequests WHERE id = ?`, req.RequestID).Scan(
-		&status, &driverID, &vehicleID, &facultyID, &purpose, &bookingType)
+		FROM vehiclerequests WHERE id = ?`
+	if requestCols["requester_id"] {
+		metaQuery = `
+			SELECT status, driver_id, vehicle_id, faculty_id, requester_id,
+			       COALESCE(Purpose,''), COALESCE(BookingType,'faculty')
+			FROM vehiclerequests WHERE id = ?`
+	}
+	err := config.DB.QueryRow(metaQuery, req.RequestID).Scan(
+		&status, &driverID, &vehicleID, &facultyID, &requesterID, &purpose, &bookingType)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Request not found"})
 		return
@@ -756,18 +878,20 @@ func CancelVehicleRequestByAdmin(c *gin.Context) {
 		`, driverID.Int64, "Vehicle Request Cancelled", driverMsg, req.RequestID)
 	}
 
-	// Notify the requesting faculty
-	if facultyID.Valid && facultyID.Int64 > 0 {
-		var userID int
-		err := config.DB.QueryRow("SELECT user_id FROM faculty WHERE id = ?", facultyID.Int64).Scan(&userID)
-		if err == nil {
-			facultyMsg := fmt.Sprintf("Your vehicle request #%d%s has been cancelled by admin.%s",
-				req.RequestID, purposeText, remarkText)
-			config.DB.Exec(`
-				INSERT INTO notifications (recipient_role, recipient_id, title, message, type, reference_id)
-				VALUES ('FACULTY', ?, ?, ?, 'warning', ?)
-			`, userID, "Vehicle Request Cancelled", facultyMsg, req.RequestID)
-		}
+	// Notify the requester (requester_id preferred, fallback to faculty.user_id)
+	requesterUserID := int64(0)
+	if requesterID.Valid && requesterID.Int64 > 0 {
+		requesterUserID = requesterID.Int64
+	} else if facultyID.Valid && facultyID.Int64 > 0 {
+		_ = config.DB.QueryRow("SELECT user_id FROM faculty WHERE id = ?", facultyID.Int64).Scan(&requesterUserID)
+	}
+	if requesterUserID > 0 {
+		facultyMsg := fmt.Sprintf("Your vehicle request #%d%s has been cancelled by admin.%s",
+			req.RequestID, purposeText, remarkText)
+		config.DB.Exec(`
+			INSERT INTO notifications (recipient_role, recipient_id, title, message, type, reference_id)
+			VALUES ('FACULTY', ?, ?, ?, 'warning', ?)
+		`, requesterUserID, "Vehicle Request Cancelled", facultyMsg, req.RequestID)
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Request cancelled"})
@@ -807,7 +931,7 @@ func AssignVehicleToRequest(c *gin.Context) {
 		return
 	}
 
-	assignCols, _ := config.HasColumns("vehiclerequests", "assigned_at", "start_otp", "start_otp_generated_at")
+	assignCols := vehicleRequestColumns("assigned_at", "start_otp", "start_otp_generated_at")
 
 	// Check for conflicts before assigning (skip if force_assign)
 	if onwardFrom.Valid && !req.ForceAssign {
@@ -877,8 +1001,7 @@ func AssignVehicleToRequest(c *gin.Context) {
 	}
 
 	// Notify admin about assignment
-	var facultyName string
-	config.DB.QueryRow(`SELECT u.full_name FROM faculty f JOIN users u ON f.user_id = u.id WHERE f.id = (SELECT faculty_id FROM vehiclerequests WHERE id = ?)`, req.RequestID).Scan(&facultyName)
+	facultyName := getVehicleRequestRequesterName(req.RequestID)
 	CreateAdminNotification("vehicle_assigned", "Vehicle Assigned", fmt.Sprintf("Vehicle assigned to request #%d by %s. Start OTP sent to requester.", req.RequestID, facultyName))
 
 	c.JSON(http.StatusOK, gin.H{"message": "Vehicle and driver assigned successfully", "start_otp": startOTP})
@@ -973,49 +1096,26 @@ func checkDriverConflict(driverID int, onwardFrom, onwardTo, returnFrom, returnT
 	}
 
 	// 1️⃣  Conflicting vehicle requests (status assigned / trip_started)
-	dateCols, _ := config.HasColumns("vehiclerequests", "OnwardFromDateTime", "OnwardTodateTime", "OnwardToDateTime", "ReturnFromDateTime", "ReturnTodateTime", "ReturnToDateTime")
-	onwardFromCol := pickExistingColumn(dateCols, "OnwardFromDateTime")
-	onwardToCol := pickExistingColumn(dateCols, "OnwardTodateTime", "OnwardToDateTime")
-	returnFromCol := pickExistingColumn(dateCols, "ReturnFromDateTime")
-	returnToCol := pickExistingColumn(dateCols, "ReturnTodateTime", "ReturnToDateTime")
-
-	onwardFromExpr := "NULL"
-	if onwardFromCol != "" {
-		onwardFromExpr = "vr." + onwardFromCol
-	}
-	onwardToExpr := "''"
-	onwardToRangeExpr := "NULL"
-	if onwardToCol != "" {
-		onwardToExpr = fmt.Sprintf("COALESCE(vr.%s,'')", onwardToCol)
-		onwardToRangeExpr = fmt.Sprintf("NULLIF(vr.%s,'')", onwardToCol)
-	}
-	returnFromRangeExpr := "NULL"
-	if returnFromCol != "" {
-		returnFromRangeExpr = fmt.Sprintf("NULLIF(vr.%s,'')", returnFromCol)
-	}
-	returnToRangeExpr := "NULL"
-	if returnToCol != "" {
-		returnToRangeExpr = fmt.Sprintf("NULLIF(vr.%s,'')", returnToCol)
-	}
-	tripEndExpr := fmt.Sprintf("COALESCE(%s, %s, %s, %s)", returnToRangeExpr, returnFromRangeExpr, onwardToRangeExpr, onwardFromExpr)
-
-	vrConflictQuery := fmt.Sprintf(`
-		SELECT vr.id, COALESCE(v.vehicle_number,'N/A'), COALESCE(v.vehicle_type,''),
-			   %s, %s,
+	// Use vehicle_request_trips as primary datetime source, fall back to main table columns.
+	vrConflictQuery := `
+		SELECT vr.id, COALESCE(v.vehicle_number,'N/A'), COALESCE(vt.type, ''),
+			   COALESCE(vrt.from_datetime, vr.OnwardFromDateTime) as onward_from,
+			   COALESCE(vrt.to_datetime, vr.OnwardTodateTime) as onward_to,
 			   COALESCE(u.full_name,'') as faculty_name
 		FROM vehiclerequests vr
+		LEFT JOIN vehicle_request_trips vrt ON vrt.request_id = vr.id AND vrt.trip_order = 1
 		LEFT JOIN vehicles v ON vr.vehicle_id = v.id
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 		LEFT JOIN faculty f ON vr.faculty_id = f.id
 		LEFT JOIN users u ON f.user_id = u.id
 		WHERE vr.driver_id = ?
 		AND vr.status IN ('assigned','trip_started')
-		AND %s IS NOT NULL
-		AND TRIM(%s) != ''
-		AND CHAR_LENGTH(TRIM(%s)) >= 10
+		AND COALESCE(vrt.from_datetime, vr.OnwardFromDateTime) IS NOT NULL
 		AND (
-			(%s <= ? AND %s >= ?)
+			COALESCE(vrt.from_datetime, vr.OnwardFromDateTime) <= ?
+			AND COALESCE(vrt.to_datetime, vr.OnwardTodateTime, vrt.from_datetime, vr.OnwardFromDateTime) >= ?
 		)
-	`, onwardFromExpr, onwardToExpr, onwardFromExpr, onwardFromExpr, onwardFromExpr, onwardFromExpr, tripEndExpr)
+	`
 	vrRows, err := config.DB.Query(vrConflictQuery, driverID, tripEnd, tripStart)
 	if err != nil {
 		log.Printf("Error checking VR conflict: %v", err)
@@ -1041,11 +1141,12 @@ func checkDriverConflict(driverID int, onwardFrom, onwardTo, returnFrom, returnT
 
 	// 2️⃣  Regular bus/car assignments (shift-based)
 	rows, err := config.DB.Query(`
-		SELECT a.id, v.vehicle_number, v.vehicle_type, s.name as shift_name,
+		SELECT a.id, v.vehicle_number, COALESCE(vt.type, '') as vehicle_type, s.name as shift_name,
 		       s.start_time, s.end_time,
 		       a.start_date, a.end_date
 		FROM assignments a
 		JOIN vehicles v ON a.vehicle_id = v.id
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 		JOIN shifts s ON a.shift_id = s.id
 		WHERE a.driver_id = ?
 		AND ? BETWEEN a.start_date AND a.end_date
@@ -1083,11 +1184,12 @@ func checkDriverConflict(driverID int, onwardFrom, onwardTo, returnFrom, returnT
 
 	// 3️⃣  Temporary replacement assignments (shift-based)
 	rows2, err := config.DB.Query(`
-		SELECT ta.id, v.vehicle_number, v.vehicle_type, s.name as shift_name,
+		SELECT ta.id, v.vehicle_number, COALESCE(vt.type, '') as vehicle_type, s.name as shift_name,
 		       s.start_time, s.end_time,
 		       ta.start_date, ta.end_date
 		FROM temporary_assignments ta
 		JOIN vehicles v ON ta.vehicle_id = v.id
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 		JOIN shifts s ON ta.shift_id = s.id
 		WHERE ta.replacement_driver_id = ?
 		AND ? BETWEEN ta.start_date AND ta.end_date
@@ -1212,50 +1314,27 @@ func checkVehicleConflict(vehicleID int, onwardFrom, onwardTo, returnFrom, retur
 	}
 
 	// 1️⃣  Conflicting vehicle requests
-	dateCols, _ := config.HasColumns("vehiclerequests", "OnwardFromDateTime", "OnwardTodateTime", "OnwardToDateTime", "ReturnFromDateTime", "ReturnTodateTime", "ReturnToDateTime")
-	onwardFromCol := pickExistingColumn(dateCols, "OnwardFromDateTime")
-	onwardToCol := pickExistingColumn(dateCols, "OnwardTodateTime", "OnwardToDateTime")
-	returnFromCol := pickExistingColumn(dateCols, "ReturnFromDateTime")
-	returnToCol := pickExistingColumn(dateCols, "ReturnTodateTime", "ReturnToDateTime")
-
-	onwardFromExpr := "NULL"
-	if onwardFromCol != "" {
-		onwardFromExpr = "vr." + onwardFromCol
-	}
-	onwardToExpr := "''"
-	onwardToRangeExpr := "NULL"
-	if onwardToCol != "" {
-		onwardToExpr = fmt.Sprintf("COALESCE(vr.%s,'')", onwardToCol)
-		onwardToRangeExpr = fmt.Sprintf("NULLIF(vr.%s,'')", onwardToCol)
-	}
-	returnFromRangeExpr := "NULL"
-	if returnFromCol != "" {
-		returnFromRangeExpr = fmt.Sprintf("NULLIF(vr.%s,'')", returnFromCol)
-	}
-	returnToRangeExpr := "NULL"
-	if returnToCol != "" {
-		returnToRangeExpr = fmt.Sprintf("NULLIF(vr.%s,'')", returnToCol)
-	}
-	tripEndExpr := fmt.Sprintf("COALESCE(%s, %s, %s, %s)", returnToRangeExpr, returnFromRangeExpr, onwardToRangeExpr, onwardFromExpr)
-
-	vrConflictQuery := fmt.Sprintf(`
-		SELECT vr.id, %s, %s,
-		       COALESCE(d.full_name,'') as driver_name,
-		       COALESCE(u.full_name,'') as faculty_name
+	// Use vehicle_request_trips as primary datetime source, fall back to main table columns.
+	vrConflictQuery := `
+		SELECT vr.id,
+			   COALESCE(vrt.from_datetime, vr.OnwardFromDateTime) as onward_from,
+			   COALESCE(vrt.to_datetime, vr.OnwardTodateTime) as onward_to,
+			   COALESCE(d.full_name,'') as driver_name,
+			   COALESCE(u.full_name,'') as faculty_name
 		FROM vehiclerequests vr
+		LEFT JOIN vehicle_request_trips vrt ON vrt.request_id = vr.id AND vrt.trip_order = 1
 		LEFT JOIN drivers dr ON vr.driver_id = dr.id
 		LEFT JOIN users d ON dr.user_id = d.id
 		LEFT JOIN faculty f ON vr.faculty_id = f.id
 		LEFT JOIN users u ON f.user_id = u.id
 		WHERE vr.vehicle_id = ?
 		AND vr.status IN ('assigned','trip_started')
-		AND %s IS NOT NULL
-		AND TRIM(%s) != ''
-		AND CHAR_LENGTH(TRIM(%s)) >= 10
+		AND COALESCE(vrt.from_datetime, vr.OnwardFromDateTime) IS NOT NULL
 		AND (
-			(%s <= ? AND %s >= ?)
+			COALESCE(vrt.from_datetime, vr.OnwardFromDateTime) <= ?
+			AND COALESCE(vrt.to_datetime, vr.OnwardTodateTime, vrt.from_datetime, vr.OnwardFromDateTime) >= ?
 		)
-	`, onwardFromExpr, onwardToExpr, onwardFromExpr, onwardFromExpr, onwardFromExpr, onwardFromExpr, tripEndExpr)
+	`
 	vrRows, err := config.DB.Query(vrConflictQuery, vehicleID, tripEnd, tripStart)
 	if err != nil {
 		log.Printf("Error checking VR vehicle conflict: %v", err)
@@ -1280,11 +1359,12 @@ func checkVehicleConflict(vehicleID int, onwardFrom, onwardTo, returnFrom, retur
 
 	// 2️⃣  Regular bus/car assignments
 	rows, err := config.DB.Query(`
-		SELECT a.id, v.vehicle_number, v.vehicle_type, s.name as shift_name,
+		SELECT a.id, v.vehicle_number, COALESCE(vt.type, '') as vehicle_type, s.name as shift_name,
 		       s.start_time, s.end_time,
 		       a.start_date, a.end_date, COALESCE(u.full_name,'') as driver_name
 		FROM assignments a
 		JOIN vehicles v ON a.vehicle_id = v.id
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 		JOIN shifts s ON a.shift_id = s.id
 		LEFT JOIN drivers d ON a.driver_id = d.id
 		LEFT JOIN users u ON d.user_id = u.id

@@ -134,10 +134,11 @@ func GetAllServiceRecords(c *gin.Context) {
 			COALESCE(sr.admin_remarks, ''), COALESCE(sr.rejection_reason, ''),
 			DATE_FORMAT(sr.created_at, '%d-%m-%Y %h:%i %p'), 
 			DATE_FORMAT(sr.updated_at, '%d-%m-%Y %h:%i %p'),
-			COALESCE(v.vehicle_number, ''), COALESCE(v.vehicle_name, ''), COALESCE(v.vehicle_type, ''),
+			COALESCE(v.vehicle_number, ''), COALESCE(v.vehicle_name, ''), COALESCE(vt.type, ''),
 			COALESCE(st.name, ''), COALESCE(reporter.full_name, ''), COALESCE(adm.full_name, '')
 		FROM service_records sr
 		LEFT JOIN vehicles v ON sr.vehicle_id = v.id
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 		LEFT JOIN service_types st ON sr.service_type_id = st.id
 		LEFT JOIN users reporter ON sr.reported_by = reporter.id
 		LEFT JOIN users adm ON sr.assigned_to_admin = adm.id
@@ -260,10 +261,11 @@ func GetServiceRecordByID(c *gin.Context) {
 			COALESCE(sr.admin_remarks, ''), COALESCE(sr.rejection_reason, ''),
 			DATE_FORMAT(sr.created_at, '%d-%m-%Y %h:%i %p'), 
 			DATE_FORMAT(sr.updated_at, '%d-%m-%Y %h:%i %p'),
-			COALESCE(v.vehicle_number, ''), COALESCE(v.vehicle_name, ''), COALESCE(v.vehicle_type, ''),
+			COALESCE(v.vehicle_number, ''), COALESCE(v.vehicle_name, ''), COALESCE(vt.type, ''),
 			COALESCE(st.name, ''), COALESCE(reporter.full_name, ''), COALESCE(adm.full_name, '')
 		FROM service_records sr
 		LEFT JOIN vehicles v ON sr.vehicle_id = v.id
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 		LEFT JOIN service_types st ON sr.service_type_id = st.id
 		LEFT JOIN users reporter ON sr.reported_by = reporter.id
 		LEFT JOIN users adm ON sr.assigned_to_admin = adm.id
@@ -930,11 +932,12 @@ func GetServiceTracking(c *gin.Context) {
 			DATE_FORMAT(vst.created_at, '%d-%m-%Y %h:%i %p'), 
 			DATE_FORMAT(vst.updated_at, '%d-%m-%Y %h:%i %p'),
 			COALESCE(v.vehicle_number, ''), COALESCE(v.vehicle_name, ''),
-			COALESCE(v.vehicle_type, ''),
+			COALESCE(vt.type, ''),
 			CAST(COALESCE((SELECT MAX(k.end_km) FROM km_logs k WHERE k.vehicle_id = vst.vehicle_id), 0) AS SIGNED) as current_km
 		FROM vehicle_service_tracking vst
 		LEFT JOIN vehicles v ON vst.vehicle_id = v.id
-		ORDER BY v.vehicle_type, v.vehicle_number
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
+		ORDER BY vt.type, v.vehicle_number
 	`)
 	if err != nil {
 		log.Printf("[GetServiceTracking] Query error: %v", err)

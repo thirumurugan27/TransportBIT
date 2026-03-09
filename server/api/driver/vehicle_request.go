@@ -15,6 +15,29 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func vehicleRequestColumns(columnNames ...string) map[string]bool {
+	known := map[string]bool{
+		"requester_id":       true,
+		"faculty_id":         true,
+		"Purpose":            true,
+		"PurposeOfVisit":     true,
+		"RequestUnder":       true,
+		"Vertical":           true,
+		"OralApproval":       false,
+		"TravellerName":      true,
+		"Address":            true,
+		"MobileNumber":       true,
+		"OnwardFromDateTime": true,
+		"OnwardTodateTime":   true,
+		"OnwardToDateTime":   false,
+	}
+	out := make(map[string]bool, len(columnNames))
+	for _, c := range columnNames {
+		out[c] = known[c]
+	}
+	return out
+}
+
 // GET /api/driver/vehicle-requests - Get vehicle requests assigned to driver
 func GetDriverVehicleRequests(c *gin.Context) {
 	userID := c.GetInt("user_id")
@@ -27,8 +50,9 @@ func GetDriverVehicleRequests(c *gin.Context) {
 		return
 	}
 
-	colExists, _ := config.HasColumns(
-		"vehiclerequests",
+	colExists := vehicleRequestColumns(
+		"requester_id",
+		"faculty_id",
 		"Purpose",
 		"PurposeOfVisit",
 		"RequestUnder",
@@ -71,26 +95,33 @@ func GetDriverVehicleRequests(c *gin.Context) {
 		mobileNumberExpr = "COALESCE(vr.MobileNumber, '') as MobileNumber"
 	}
 
+	onwardFromExpr := "COALESCE(DATE_FORMAT(vrt.from_datetime, '%d-%m-%Y %h:%i %p'), '') as OnwardFromDateTime"
+	onwardToExpr := "COALESCE(DATE_FORMAT(vrt.to_datetime, '%d-%m-%Y %h:%i %p'), '') as OnwardTodateTime"
+
 	// Fetch assigned vehicle requests
+	facultyIDExpr := "0 as faculty_id"
+	if colExists["faculty_id"] {
+		facultyIDExpr = "COALESCE(vr.faculty_id, 0) as faculty_id"
+	}
 	query := fmt.Sprintf(`
 		SELECT 
-			vr.id, vr.faculty_id,
+			vr.id, %s,
 			COALESCE(vr.BookingType, 'faculty') as BookingType,
 			COALESCE(vr.TripType, 'one_way') as TripType,
-			COALESCE(vr.TripMode, 'official') as TripMode,
+			'official' as TripMode,
 			%s,
 			%s,
 			%s,
 			%s,
 			COALESCE(vr.CountPerson, 1) as CountPerson,
-			COALESCE(vr.OnwardFromPlace, '') as OnwardFromPlace,
-			COALESCE(vr.OnwardToPlace, '') as OnwardToPlace,
-		COALESCE(DATE_FORMAT(vr.OnwardFromDateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as OnwardFromDateTime,
-		COALESCE(DATE_FORMAT(vr.OnwardTodateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as OnwardTodateTime,
-		COALESCE(vr.ReturnFromPlace, '') as ReturnFromPlace,
-		COALESCE(vr.ReturnToPlace, '') as ReturnToPlace,
-		COALESCE(DATE_FORMAT(vr.ReturnFromDateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as ReturnFromDateTime,
-		COALESCE(DATE_FORMAT(vr.ReturnTodateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as ReturnTodateTime,
+			COALESCE(vrt.from_place, '') as OnwardFromPlace,
+			COALESCE(vrt.to_place, '') as OnwardToPlace,
+			%s,
+			%s,
+			'' as ReturnFromPlace,
+			'' as ReturnToPlace,
+			'' as ReturnFromDateTime,
+			'' as ReturnTodateTime,
 			COALESCE(vr.ContactName, '') as ContactName,
 			COALESCE(vr.ContactPhone, '') as ContactPhone,
 			%s,
@@ -98,23 +129,24 @@ func GetDriverVehicleRequests(c *gin.Context) {
 			%s,
 			vr.status,
 			COALESCE(vr.admin_remarks, '') as admin_remarks,
-			u.full_name as faculty_name,
-			COALESCE(u.email, '') as faculty_email,
-			COALESCE(u.phone, '') as faculty_phone,
-			COALESCE(f.department, '') as faculty_department,
+			COALESCE(ru.full_name, '') as faculty_name,
+			COALESCE(ru.email, '') as faculty_email,
+			COALESCE(ru.phone, '') as faculty_phone,
+			COALESCE(rf.department, '') as faculty_department,
 			COALESCE(v.vehicle_number, '') as vehicle_number,
-			COALESCE(v.vehicle_type, '') as vehicle_type,
+			'' as vehicle_type,
 			COALESCE(v.vehicle_name, v.vehicle_number, '') as vehicle_name,
 			DATE_FORMAT(vr.created_at, '%%d-%%m-%%Y %%h:%%i %%p') as created_at,
 			COALESCE(DATE_FORMAT(vr.trip_started_at, '%%d-%%m-%%Y %%h:%%i %%p'), '') as trip_started_at,
 			COALESCE(DATE_FORMAT(vr.trip_ended_at, '%%d-%%m-%%Y %%h:%%i %%p'), '') as trip_ended_at
 		FROM vehiclerequests vr
-		JOIN faculty f ON vr.faculty_id = f.id
-		JOIN users u ON f.user_id = u.id
+		LEFT JOIN vehicle_request_trips vrt ON vrt.request_id = vr.id AND vrt.trip_order = 1
+		LEFT JOIN users ru ON vr.requester_id = ru.id
+		LEFT JOIN faculty rf ON rf.user_id = ru.id
 		LEFT JOIN vehicles v ON vr.vehicle_id = v.id
 		WHERE vr.driver_id = ? AND vr.status IN ('assigned', 'trip_started', 'completed')
-		ORDER BY vr.OnwardFromDateTime DESC
-	`, requestUnderExpr, purposeExpr, verticalExpr, oralApprovalExpr, mobileNumberExpr, travellerNameExpr, addressExpr)
+		ORDER BY COALESCE(vrt.from_datetime, vr.created_at) DESC
+	`, facultyIDExpr, requestUnderExpr, purposeExpr, verticalExpr, oralApprovalExpr, onwardFromExpr, onwardToExpr, mobileNumberExpr, travellerNameExpr, addressExpr)
 	rows, err := config.DB.Query(query, driverID)
 	if err != nil {
 		log.Printf("Error fetching driver vehicle requests: %v", err)
@@ -195,8 +227,9 @@ func GetDriverUpcomingVehicleRequests(c *gin.Context) {
 		return
 	}
 
-	colExists, _ := config.HasColumns(
-		"vehiclerequests",
+	colExists := vehicleRequestColumns(
+		"requester_id",
+		"faculty_id",
 		"Purpose",
 		"PurposeOfVisit",
 		"RequestUnder",
@@ -239,26 +272,33 @@ func GetDriverUpcomingVehicleRequests(c *gin.Context) {
 		mobileNumberExpr = "COALESCE(vr.MobileNumber, '') as MobileNumber"
 	}
 
+	onwardFromExpr := "COALESCE(DATE_FORMAT(vrt.from_datetime, '%d-%m-%Y %h:%i %p'), '') as OnwardFromDateTime"
+	onwardToExpr := "COALESCE(DATE_FORMAT(vrt.to_datetime, '%d-%m-%Y %h:%i %p'), '') as OnwardTodateTime"
+
 	// Fetch upcoming assigned vehicle requests (departure date >= today)
+	facultyIDExpr := "0 as faculty_id"
+	if colExists["faculty_id"] {
+		facultyIDExpr = "COALESCE(vr.faculty_id, 0) as faculty_id"
+	}
 	query := fmt.Sprintf(`
 		SELECT 
-			vr.id, vr.faculty_id,
+			vr.id, %s,
 			COALESCE(vr.BookingType, 'faculty') as BookingType,
 			COALESCE(vr.TripType, 'one_way') as TripType,
-			COALESCE(vr.TripMode, 'official') as TripMode,
+			'official' as TripMode,
 			%s,
 			%s,
 			%s,
 			%s,
 			COALESCE(vr.CountPerson, 1) as CountPerson,
-			COALESCE(vr.OnwardFromPlace, '') as OnwardFromPlace,
-			COALESCE(vr.OnwardToPlace, '') as OnwardToPlace,
-			COALESCE(DATE_FORMAT(vr.OnwardFromDateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as OnwardFromDateTime,
-			COALESCE(DATE_FORMAT(vr.OnwardTodateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as OnwardTodateTime,
-			COALESCE(vr.ReturnFromPlace, '') as ReturnFromPlace,
-			COALESCE(vr.ReturnToPlace, '') as ReturnToPlace,
-			COALESCE(DATE_FORMAT(vr.ReturnFromDateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as ReturnFromDateTime,
-			COALESCE(DATE_FORMAT(vr.ReturnTodateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as ReturnTodateTime,
+			COALESCE(vrt.from_place, '') as OnwardFromPlace,
+			COALESCE(vrt.to_place, '') as OnwardToPlace,
+			%s,
+			%s,
+			'' as ReturnFromPlace,
+			'' as ReturnToPlace,
+			'' as ReturnFromDateTime,
+			'' as ReturnTodateTime,
 			COALESCE(vr.ContactName, '') as ContactName,
 			COALESCE(vr.ContactPhone, '') as ContactPhone,
 			%s,
@@ -266,25 +306,26 @@ func GetDriverUpcomingVehicleRequests(c *gin.Context) {
 			%s,
 			vr.status,
 			COALESCE(vr.admin_remarks, '') as admin_remarks,
-			u.full_name as faculty_name,
-			COALESCE(u.email, '') as faculty_email,
-			COALESCE(u.phone, '') as faculty_phone,
-			COALESCE(f.department, '') as faculty_department,
+			COALESCE(ru.full_name, '') as faculty_name,
+			COALESCE(ru.email, '') as faculty_email,
+			COALESCE(ru.phone, '') as faculty_phone,
+			COALESCE(rf.department, '') as faculty_department,
 			COALESCE(v.vehicle_number, '') as vehicle_number,
-			COALESCE(v.vehicle_type, '') as vehicle_type,
+			'' as vehicle_type,
 			COALESCE(v.vehicle_name, v.vehicle_number, '') as vehicle_name,
 			DATE_FORMAT(vr.created_at, '%%d-%%m-%%Y %%h:%%i %%p') as created_at,
 			COALESCE(DATE_FORMAT(vr.trip_started_at, '%%d-%%m-%%Y %%h:%%i %%p'), '') as trip_started_at,
 			COALESCE(DATE_FORMAT(vr.trip_ended_at, '%%d-%%m-%%Y %%h:%%i %%p'), '') as trip_ended_at
 		FROM vehiclerequests vr
-		JOIN faculty f ON vr.faculty_id = f.id
-		JOIN users u ON f.user_id = u.id
+		LEFT JOIN vehicle_request_trips vrt ON vrt.request_id = vr.id AND vrt.trip_order = 1
+		LEFT JOIN users ru ON vr.requester_id = ru.id
+		LEFT JOIN faculty rf ON rf.user_id = ru.id
 		LEFT JOIN vehicles v ON vr.vehicle_id = v.id
 		WHERE vr.driver_id = ? 
 		AND vr.status IN ('assigned', 'trip_started')
-		AND DATE(vr.OnwardFromDateTime) >= CURDATE()
-		ORDER BY vr.OnwardFromDateTime ASC
-	`, requestUnderExpr, purposeExpr, verticalExpr, oralApprovalExpr, mobileNumberExpr, travellerNameExpr, addressExpr)
+		AND DATE(vrt.from_datetime) >= CURDATE()
+		ORDER BY vrt.from_datetime ASC
+	`, facultyIDExpr, requestUnderExpr, purposeExpr, verticalExpr, oralApprovalExpr, onwardFromExpr, onwardToExpr, mobileNumberExpr, travellerNameExpr, addressExpr)
 	rows, err := config.DB.Query(query, driverID)
 	if err != nil {
 		log.Printf("Error fetching upcoming vehicle requests: %v", err)
@@ -377,10 +418,9 @@ func VerifyStartOTP(c *gin.Context) {
 	var status, storedOTP string
 	var facultyName string
 	err = config.DB.QueryRow(`
-		SELECT vr.status, COALESCE(vr.start_otp, ''), u.full_name
+		SELECT vr.status, COALESCE(vr.start_otp, ''), COALESCE(ru.full_name, 'Requester')
 		FROM vehiclerequests vr
-		JOIN faculty f ON vr.faculty_id = f.id
-		JOIN users u ON f.user_id = u.id
+		LEFT JOIN users ru ON vr.requester_id = ru.id
 		WHERE vr.id = ? AND vr.driver_id = ?
 	`, req.RequestID, driverID).Scan(&status, &storedOTP, &facultyName)
 	if err == sql.ErrNoRows {
@@ -454,10 +494,9 @@ func VerifyEndOTP(c *gin.Context) {
 	var status, storedOTP string
 	var facultyName string
 	err = config.DB.QueryRow(`
-		SELECT vr.status, COALESCE(vr.end_otp, ''), u.full_name
+		SELECT vr.status, COALESCE(vr.end_otp, ''), COALESCE(ru.full_name, 'Requester')
 		FROM vehiclerequests vr
-		JOIN faculty f ON vr.faculty_id = f.id
-		JOIN users u ON f.user_id = u.id
+		LEFT JOIN users ru ON vr.requester_id = ru.id
 		WHERE vr.id = ? AND vr.driver_id = ?
 	`, req.RequestID, driverID).Scan(&status, &storedOTP, &facultyName)
 	if err == sql.ErrNoRows {

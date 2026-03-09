@@ -31,7 +31,7 @@ func GetTemporaryAssignments(c *gin.Context) {
 		       COALESCE(s.name, 'EV Cluster') as shift_name,
 		       COALESCE(TIME_FORMAT(s.start_time, '%h:%i %p'), '') as start_time,
 		       COALESCE(TIME_FORMAT(s.end_time, '%h:%i %p'), '') as end_time,
-		       v.vehicle_number, v.vehicle_type, COALESCE(v.vehicle_name, '') as vehicle_name
+		       v.vehicle_number, vt.type as vehicle_type, COALESCE(v.vehicle_name, '') as vehicle_name
 		FROM temporary_assignments ta
 		JOIN drivers d_orig ON ta.original_driver_id = d_orig.id
 		JOIN users u_orig ON d_orig.user_id = u_orig.id
@@ -39,6 +39,7 @@ func GetTemporaryAssignments(c *gin.Context) {
 		LEFT JOIN users u_repl ON d_repl.user_id = u_repl.id
 		LEFT JOIN shifts s ON ta.shift_id = s.id
 		JOIN vehicles v ON ta.vehicle_id = v.id
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 		WHERE (CURDATE() BETWEEN ta.start_date AND ta.end_date
 		   OR ta.start_date >= CURDATE())
 		AND ta.status = 'active'

@@ -1,5 +1,9 @@
 import React, {useState, useEffect} from "react";
 import {apiGet, apiPost, getToday} from "../../../utils/api";
+import {
+  fetchVehicleTypes,
+  toVehicleTypeLabel,
+} from "../../../utils/vehicleTypes";
 import {useAuth} from "../../../context/AuthContext";
 import {useToast} from "../../../context/ToastContext";
 import Loading from "../../../components/ui/Loading";
@@ -60,6 +64,13 @@ export default function KmManagement() {
   const [loading, setLoading] = useState(false);
   const [logsLoading, setLogsLoading] = useState(false);
   const [filterMeta, setFilterMeta] = useState({drivers: [], vehicles: []});
+  const [vehicleTypeOptions, setVehicleTypeOptions] = useState([
+    {value: "", label: "All Types"},
+    {value: "BUS", label: "Bus"},
+    {value: "CAR", label: "Car"},
+    {value: "BATTERY_VEHICLE", label: "Battery Vehicle"},
+    {value: "OTHER", label: "Others"},
+  ]);
   const [metaLoading, setMetaLoading] = useState(true);
 
   // Entry modal
@@ -105,7 +116,10 @@ export default function KmManagement() {
 
   // Fuel by vehicle
   const [fuelByVehicle, setFuelByVehicle] = useState([]);
-  const [fuelTotals, setFuelTotals] = useState({grand_total_fuel: 0, grand_total_km: 0});
+  const [fuelTotals, setFuelTotals] = useState({
+    grand_total_fuel: 0,
+    grand_total_km: 0,
+  });
   const [fuelPeriod, setFuelPeriod] = useState("month");
   const [fuelLoading, setFuelLoading] = useState(false);
 
@@ -191,7 +205,9 @@ export default function KmManagement() {
     }
     try {
       setAssignmentsLoading(true);
-      const res = await apiGet(`/api/admin/driver-assigned-vehicles?driver_id=${driverId}&date=${date}`);
+      const res = await apiGet(
+        `/api/admin/driver-assigned-vehicles?driver_id=${driverId}&date=${date}`,
+      );
       if (res.ok) {
         const data = await res.json();
         setDriverAssignments(Array.isArray(data) ? data : []);
@@ -210,7 +226,7 @@ export default function KmManagement() {
     if (showEntryModal && selectedDriverId && form.date) {
       fetchDriverAssignments(selectedDriverId, form.date);
       setSelectedAssignment(null);
-      setForm(prev => ({...prev, vehicle_id: ""}));
+      setForm((prev) => ({...prev, vehicle_id: ""}));
     }
   }, [selectedDriverId, form.date, showEntryModal]);
 
@@ -244,7 +260,9 @@ export default function KmManagement() {
         start_km: startKm,
         end_km: endKm,
         total_km: endKm - startKm,
-        fuel_consumed: form.fuel_consumed ? parseFloat(form.fuel_consumed) : null,
+        fuel_consumed: form.fuel_consumed
+          ? parseFloat(form.fuel_consumed)
+          : null,
         remarks: form.remarks?.trim() || "",
         vehicle_type: selectedAssignment?.vehicle_type || "",
         shift_id: selectedAssignment?.shift_id || null,
@@ -420,7 +438,20 @@ export default function KmManagement() {
   useEffect(() => {
     loadFilterMeta();
     fetchPendingCount();
+    loadVehicleTypeOptions();
   }, []);
+
+  const loadVehicleTypeOptions = async () => {
+    const masterTypes = await fetchVehicleTypes();
+    const mapped = [
+      {value: "", label: "All Types"},
+      ...masterTypes.map((t) => ({
+        value: t.type,
+        label: t.label || toVehicleTypeLabel(t.type),
+      })),
+    ];
+    setVehicleTypeOptions(mapped);
+  };
 
   const fetchPendingCount = async () => {
     try {
@@ -458,7 +489,9 @@ export default function KmManagement() {
   const fetchFuelByVehicle = async () => {
     try {
       setFuelLoading(true);
-      const res = await apiGet(`/api/admin/km-logs/fuel-by-vehicle?period=${fuelPeriod}`);
+      const res = await apiGet(
+        `/api/admin/km-logs/fuel-by-vehicle?period=${fuelPeriod}`,
+      );
       if (res.ok) {
         const data = await res.json();
         setFuelByVehicle(data.vehicles || []);
@@ -566,14 +599,6 @@ export default function KmManagement() {
     })),
   ];
 
-  const vehicleTypeOptions = [
-    {value: "", label: "All Types"},
-    {value: "BUS", label: "Bus"},
-    {value: "CAR", label: "Car"},
-    {value: "EV", label: "EV"},
-    {value: "BATTERY_VEHICLE", label: "Battery Vehicle"},
-  ];
-
   return (
     <div className="space-y-6 pb-12 animate-fadeIn">
       {/* Tab Navigation */}
@@ -595,7 +620,11 @@ export default function KmManagement() {
         <button
           onClick={() => {
             setActiveTab("pending");
-            setLogFilters((prev) => ({...prev, status: "pending", period: "all"}));
+            setLogFilters((prev) => ({
+              ...prev,
+              status: "pending",
+              period: "all",
+            }));
           }}
           className={`inline-flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-semibold rounded-md transition-all duration-300 relative ${
             activeTab === "pending"
@@ -687,7 +716,9 @@ export default function KmManagement() {
               <h3 className="font-bold text-primarytext text-sm flex items-center gap-2">
                 <Fuel size={16} className="text-pending" />
                 Fuel Consumption by Vehicle
-                <span className="text-xs font-normal text-secondarytext">(Excludes EVs)</span>
+                <span className="text-xs font-normal text-secondarytext">
+                  (Excludes EVs)
+                </span>
               </h3>
               <div className="flex items-center gap-2">
                 {fuelTotals.grand_total_fuel > 0 && (
@@ -723,10 +754,17 @@ export default function KmManagement() {
                   const maxFuel = fuelByVehicle[0]?.total_fuel || 1;
                   const barWidth = Math.max((v.total_fuel / maxFuel) * 100, 4);
                   return (
-                    <div key={v.vehicle_id} className="px-5 py-3 flex items-center gap-4 hover:bg-primarybg/50 transition-colors">
+                    <div
+                      key={v.vehicle_id}
+                      className="px-5 py-3 flex items-center gap-4 hover:bg-primarybg/50 transition-colors"
+                    >
                       <div className="flex-shrink-0 w-44">
-                        <p className="text-sm font-bold text-primarytext truncate">{v.vehicle_name}</p>
-                        <p className="text-[11px] text-secondarytext">{v.vehicle_number} &middot; {v.fuel_type}</p>
+                        <p className="text-sm font-bold text-primarytext truncate">
+                          {v.vehicle_name}
+                        </p>
+                        <p className="text-[11px] text-secondarytext">
+                          {v.vehicle_number} &middot; {v.fuel_type}
+                        </p>
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="h-5 bg-primarybg rounded-full overflow-hidden">
@@ -735,15 +773,20 @@ export default function KmManagement() {
                             style={{width: `${barWidth}%`}}
                           >
                             {barWidth > 20 && (
-                              <span className="text-[10px] font-bold text-white">{v.total_fuel.toFixed(1)} L</span>
+                              <span className="text-[10px] font-bold text-white">
+                                {v.total_fuel.toFixed(1)} L
+                              </span>
                             )}
                           </div>
                         </div>
                       </div>
                       <div className="flex-shrink-0 text-right w-28 space-y-0.5">
-                        <p className="text-sm font-bold text-pending">{v.total_fuel.toFixed(1)} L</p>
+                        <p className="text-sm font-bold text-pending">
+                          {v.total_fuel.toFixed(1)} L
+                        </p>
                         <p className="text-[11px] text-secondarytext">
-                          {v.trip_count} trip{v.trip_count !== 1 ? "s" : ""} &middot; {v.mileage.toFixed(1)} km/L
+                          {v.trip_count} trip{v.trip_count !== 1 ? "s" : ""}{" "}
+                          &middot; {v.mileage.toFixed(1)} km/L
                         </p>
                       </div>
                     </div>
@@ -895,7 +938,9 @@ export default function KmManagement() {
                         </td>
                         <td className="py-3 px-4 text-right text-sm text-secondarytext">
                           {log.fuel_consumed != null ? (
-                            <span className="font-medium text-primarytext">{formatNumber(log.fuel_consumed)} L</span>
+                            <span className="font-medium text-primarytext">
+                              {formatNumber(log.fuel_consumed)} L
+                            </span>
                           ) : (
                             <span className="text-gray-300">—</span>
                           )}
@@ -1040,26 +1085,37 @@ export default function KmManagement() {
                       Assignment <span className="text-red-500">*</span>
                     </label>
                     {!selectedDriverId ? (
-                      <p className="text-xs text-secondarytext italic py-2">Select a driver first</p>
+                      <p className="text-xs text-secondarytext italic py-2">
+                        Select a driver first
+                      </p>
                     ) : assignmentsLoading ? (
                       <div className="flex items-center gap-2 py-2">
                         <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                        <span className="text-xs text-secondarytext">Loading assignments...</span>
+                        <span className="text-xs text-secondarytext">
+                          Loading assignments...
+                        </span>
                       </div>
                     ) : driverAssignments.length === 0 ? (
-                      <p className="text-xs text-secondarytext italic py-2">No active assignments for this driver on selected date</p>
+                      <p className="text-xs text-secondarytext italic py-2">
+                        No active assignments for this driver on selected date
+                      </p>
                     ) : (
                       <div className="space-y-2">
                         {driverAssignments.map((a) => {
-                          const isSelected = selectedAssignment?.vehicle_id === a.vehicle_id && 
-                            selectedAssignment?.shift_name === (a.shift_name || '');
+                          const isSelected =
+                            selectedAssignment?.vehicle_id === a.vehicle_id &&
+                            selectedAssignment?.shift_name ===
+                              (a.shift_name || "");
                           return (
                             <button
-                              key={`${a.vehicle_id}-${a.shift_name || ''}`}
+                              key={`${a.vehicle_id}-${a.shift_name || ""}`}
                               type="button"
                               onClick={() => {
                                 setSelectedAssignment(a);
-                                setForm(prev => ({...prev, vehicle_id: String(a.vehicle_id)}));
+                                setForm((prev) => ({
+                                  ...prev,
+                                  vehicle_id: String(a.vehicle_id),
+                                }));
                               }}
                               className={`w-full flex items-center gap-3 p-3 rounded-md border text-left transition-all ${
                                 isSelected
@@ -1067,24 +1123,38 @@ export default function KmManagement() {
                                   : "border-gray-200 bg-primarybg hover:border-primary/40"
                               }`}
                             >
-                              <div className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${
-                                isSelected ? "bg-primary text-white" : "bg-primary/10 text-primary"
-                              }`}>
+                              <div
+                                className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${
+                                  isSelected
+                                    ? "bg-primary text-white"
+                                    : "bg-primary/10 text-primary"
+                                }`}
+                              >
                                 {getVehicleIcon(a.vehicle_type)}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-semibold text-primarytext">{a.vehicle_number}</p>
+                                <p className="text-sm font-semibold text-primarytext">
+                                  {a.vehicle_number}
+                                </p>
                                 <div className="flex items-center gap-2 mt-0.5">
-                                  <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">{a.vehicle_type}</span>
+                                  <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">
+                                    {a.vehicle_type}
+                                  </span>
                                   {a.shift_name && (
-                                    <span className="text-[10px] bg-pending/10 text-pending px-1.5 py-0.5 rounded-full">{a.shift_name}</span>
+                                    <span className="text-[10px] bg-pending/10 text-pending px-1.5 py-0.5 rounded-full">
+                                      {a.shift_name}
+                                    </span>
                                   )}
                                   {a.start_time && a.end_time && (
-                                    <span className="text-[10px] text-secondarytext">{a.start_time} - {a.end_time}</span>
+                                    <span className="text-[10px] text-secondarytext">
+                                      {a.start_time} - {a.end_time}
+                                    </span>
                                   )}
                                 </div>
                               </div>
-                              {isSelected && <Check className="w-4 h-4 text-primary shrink-0" />}
+                              {isSelected && (
+                                <Check className="w-4 h-4 text-primary shrink-0" />
+                              )}
                             </button>
                           );
                         })}
@@ -1169,7 +1239,13 @@ export default function KmManagement() {
                     />
                     {form.fuel_consumed && totalKm > 0 && (
                       <p className="text-xs text-secondarytext mt-0.5">
-                        Mileage: <span className="font-bold text-primary">{(totalKm / parseFloat(form.fuel_consumed)).toFixed(1)} km/L</span>
+                        Mileage:{" "}
+                        <span className="font-bold text-primary">
+                          {(totalKm / parseFloat(form.fuel_consumed)).toFixed(
+                            1,
+                          )}{" "}
+                          km/L
+                        </span>
                       </p>
                     )}
                   </div>
@@ -1236,7 +1312,9 @@ export default function KmManagement() {
               <Clock className="w-5 h-5 text-pending" />
               Pending KM Log Approvals
               {pendingCount > 0 && (
-                <span className="text-sm font-medium text-pending">({pendingCount})</span>
+                <span className="text-sm font-medium text-pending">
+                  ({pendingCount})
+                </span>
               )}
             </h2>
           </div>
@@ -1277,10 +1355,16 @@ export default function KmManagement() {
                       </div>
                       <div className="flex items-center gap-4 text-sm text-secondarytext">
                         <span>
-                          Start: <strong className="text-primarytext">{parseFloat(log.start_km).toLocaleString()} km</strong>
+                          Start:{" "}
+                          <strong className="text-primarytext">
+                            {parseFloat(log.start_km).toLocaleString()} km
+                          </strong>
                         </span>
                         <span>
-                          End: <strong className="text-primarytext">{parseFloat(log.end_km).toLocaleString()} km</strong>
+                          End:{" "}
+                          <strong className="text-primarytext">
+                            {parseFloat(log.end_km).toLocaleString()} km
+                          </strong>
                         </span>
                         <span className="text-primary font-semibold">
                           Total: {parseFloat(log.total_km).toFixed(1)} km
@@ -1293,7 +1377,9 @@ export default function KmManagement() {
                         )}
                       </div>
                       {log.remarks && (
-                        <p className="text-xs text-secondarytext italic">"{log.remarks}"</p>
+                        <p className="text-xs text-secondarytext italic">
+                          "{log.remarks}"
+                        </p>
                       )}
                     </div>
                     <div className="flex items-center gap-2">
@@ -1647,7 +1733,9 @@ export default function KmManagement() {
             <div className="flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-primary" />
-                <span className="text-sm font-semibold text-primarytext">Date:</span>
+                <span className="text-sm font-semibold text-primarytext">
+                  Date:
+                </span>
                 <input
                   type="date"
                   value={trackerDate}
@@ -1742,20 +1830,36 @@ export default function KmManagement() {
             ) : !trackerData || trackerData.assignments.length === 0 ? (
               <div className="text-center py-12 text-secondarytext">
                 <Calendar className="w-10 h-10 mx-auto mb-3 opacity-40" />
-                <p className="text-sm font-medium">No active assignments for this date</p>
+                <p className="text-sm font-medium">
+                  No active assignments for this date
+                </p>
               </div>
             ) : (
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-primarybg text-xs text-secondarytext uppercase tracking-wider">
-                    <th className="px-4 py-3 text-left font-semibold">Driver</th>
-                    <th className="px-4 py-3 text-left font-semibold">Vehicle</th>
+                    <th className="px-4 py-3 text-left font-semibold">
+                      Driver
+                    </th>
+                    <th className="px-4 py-3 text-left font-semibold">
+                      Vehicle
+                    </th>
                     <th className="px-4 py-3 text-left font-semibold">Shift</th>
-                    <th className="px-4 py-3 text-center font-semibold">Status</th>
-                    <th className="px-4 py-3 text-right font-semibold">Start KM</th>
-                    <th className="px-4 py-3 text-right font-semibold">End KM</th>
-                    <th className="px-4 py-3 text-right font-semibold">Total KM</th>
-                    <th className="px-4 py-3 text-center font-semibold">Approval</th>
+                    <th className="px-4 py-3 text-center font-semibold">
+                      Status
+                    </th>
+                    <th className="px-4 py-3 text-right font-semibold">
+                      Start KM
+                    </th>
+                    <th className="px-4 py-3 text-right font-semibold">
+                      End KM
+                    </th>
+                    <th className="px-4 py-3 text-right font-semibold">
+                      Total KM
+                    </th>
+                    <th className="px-4 py-3 text-center font-semibold">
+                      Approval
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-primarybg">
@@ -1779,13 +1883,17 @@ export default function KmManagement() {
                             <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                               <User className="w-3.5 h-3.5 text-primary" />
                             </div>
-                            <span className="font-medium text-primarytext">{a.driver_name}</span>
+                            <span className="font-medium text-primarytext">
+                              {a.driver_name}
+                            </span>
                           </div>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             {getVehicleIcon(a.vehicle_type)}
-                            <span className="text-primarytext">{a.vehicle_number}</span>
+                            <span className="text-primarytext">
+                              {a.vehicle_number}
+                            </span>
                             <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">
                               {a.vehicle_type}
                             </span>
@@ -1823,7 +1931,9 @@ export default function KmManagement() {
                                   : "bg-pending/10 text-pending"
                               }`}
                             >
-                              {a.km_status === "approved" ? "Approved" : "Pending"}
+                              {a.km_status === "approved"
+                                ? "Approved"
+                                : "Pending"}
                             </span>
                           ) : (
                             <span className="text-secondarytext">—</span>

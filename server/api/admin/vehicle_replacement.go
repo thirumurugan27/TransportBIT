@@ -68,7 +68,7 @@ func GetVehicleReplacements(c *gin.Context) {
 
 	query := `
 		SELECT 
-			r.id, r.vehicle_id, v.vehicle_number, v.vehicle_type, COALESCE(v.vehicle_name, v.vehicle_number),
+			r.id, r.vehicle_id, v.vehicle_number, COALESCE(vt.type, '') as vehicle_type, COALESCE(v.vehicle_name, v.vehicle_number),
 			r.replacement_vehicle_id, rv.vehicle_number,
 			r.driver_id, u.full_name,
 			r.reason, r.service_record_id, sr.title,
@@ -81,6 +81,7 @@ func GetVehicleReplacements(c *gin.Context) {
 			r.replacement_type, r.replacement_driver_id, ru.full_name
 		FROM vehicle_replacements r
 		JOIN vehicles v ON r.vehicle_id = v.id
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 		LEFT JOIN vehicles rv ON r.replacement_vehicle_id = rv.id
 		LEFT JOIN drivers d ON r.driver_id = d.id
 		LEFT JOIN users u ON d.user_id = u.id
@@ -639,9 +640,10 @@ func GetAvailableReplacementVehiclesNew(c *gin.Context) {
 	}
 
 	query := `
-		SELECT v.id, v.vehicle_number, v.vehicle_type, v.seating_capacity, v.fuel_type, v.status,
+		SELECT v.id, v.vehicle_number, COALESCE(vt.type, '') as vehicle_type, v.seating_capacity, v.fuel_type, v.status,
 		       COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name
 		FROM vehicles v
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 		WHERE v.status IN ('active', 'available')
 		AND v.id NOT IN (
 			SELECT DISTINCT vr.replacement_vehicle_id FROM vehicle_replacements vr
@@ -664,11 +666,11 @@ func GetAvailableReplacementVehiclesNew(c *gin.Context) {
 	}
 
 	if vehicleType != "" {
-		query += " AND v.vehicle_type = ?"
+		query += " AND COALESCE(vt.type, '') = ?"
 		args = append(args, vehicleType)
 	}
 
-	query += " ORDER BY v.vehicle_type, v.vehicle_number"
+	query += " ORDER BY COALESCE(vt.type, ''), v.vehicle_number"
 
 	rows, err := config.DB.Query(query, args...)
 	if err != nil {
@@ -1050,10 +1052,11 @@ func GetDriverVehicle(c *gin.Context) {
 
 	// Regular assignments
 	rows, err := config.DB.Query(`
-		SELECT DISTINCT v.id, v.vehicle_number, v.vehicle_type, COALESCE(v.vehicle_name, v.vehicle_number),
+		SELECT DISTINCT v.id, v.vehicle_number, COALESCE(vt.type, '') as vehicle_type, COALESCE(v.vehicle_name, v.vehicle_number),
 			   a.shift_id, COALESCE(s.name, ''), FALSE
 		FROM assignments a
 		JOIN vehicles v ON a.vehicle_id = v.id
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 		LEFT JOIN shifts s ON a.shift_id = s.id
 		WHERE a.driver_id = ? AND CURDATE() BETWEEN a.start_date AND a.end_date
 	`, driverID)
@@ -1068,10 +1071,11 @@ func GetDriverVehicle(c *gin.Context) {
 
 	// EV cluster assignments
 	evRows, err := config.DB.Query(`
-		SELECT DISTINCT v.id, v.vehicle_number, v.vehicle_type, COALESCE(v.vehicle_name, v.vehicle_number),
+		SELECT DISTINCT v.id, v.vehicle_number, COALESCE(vt.type, '') as vehicle_type, COALESCE(v.vehicle_name, v.vehicle_number),
 			   ev.shift_id, COALESCE(s.name, 'EV Duty'), TRUE
 		FROM ev_assignments ev
 		JOIN vehicles v ON ev.vehicle_id = v.id
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 		JOIN driver_clusters dc ON ev.cluster_id = dc.id
 		JOIN driver_cluster_members dcm ON dcm.cluster_id = dc.id AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to
 		LEFT JOIN shifts s ON ev.shift_id = s.id

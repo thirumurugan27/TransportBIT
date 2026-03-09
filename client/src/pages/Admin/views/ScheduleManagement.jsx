@@ -20,6 +20,7 @@ import {showError, showSuccess, showConfirm} from "../../../utils/swal";
 import {getAuthHeaders} from "../../../utils/auth";
 import CustomDropdown from "../../../components/ui/CustomDropdown";
 import CustomSearch from "../../../components/ui/CustomSearch";
+import {toVehicleTypeLabel} from "../../../utils/vehicleTypes";
 
 const API_BASE = import.meta.env.VITE_API_BASE;
 
@@ -68,16 +69,23 @@ export default function ScheduleManagement() {
     useState(false);
   const [vehicleTypeFilter, setVehicleTypeFilter] = useState("all");
   const [vehicleFuelFilter, setVehicleFuelFilter] = useState("all");
+  const [vehicleTypeOptions, setVehicleTypeOptions] = useState([
+    {value: "all", label: "All Types"},
+    {value: "BUS", label: "Bus"},
+    {value: "CAR", label: "Car"},
+    {value: "BATTERY_VEHICLE", label: "Battery Vehicle"},
+    {value: "OTHER", label: "Other"},
+  ]);
 
   // Search, filter, sort states for tabs
   const [groupSearch, setGroupSearch] = useState("");
   const [groupSort, setGroupSort] = useState("name-asc");
   const [groupDateFilter, setGroupDateFilter] = useState("active"); // "active" | "all" | "custom"
-  const [groupDateRange, setGroupDateRange] = useState({ start: "", end: "" });
+  const [groupDateRange, setGroupDateRange] = useState({start: "", end: ""});
   const [vehicleGroupSearch, setVehicleGroupSearch] = useState("");
   const [vehicleGroupSort, setVehicleGroupSort] = useState("name-asc");
   const [vgDateFilter, setVgDateFilter] = useState("active"); // "active" | "all" | "custom"
-  const [vgDateRange, setVgDateRange] = useState({ start: "", end: "" });
+  const [vgDateRange, setVgDateRange] = useState({start: "", end: ""});
   const [shiftSearch, setShiftSearch] = useState("");
   const [shiftSort, setShiftSort] = useState("name-asc");
 
@@ -141,6 +149,7 @@ export default function ScheduleManagement() {
         shiftsRes,
         driversRes,
         vehiclesRes,
+        vehicleTypesRes,
       ] = await Promise.all([
         fetch(`${API_BASE}/api/admin/clusters`, {
           credentials: "include",
@@ -159,6 +168,10 @@ export default function ScheduleManagement() {
           headers: getAuthHeaders(),
         }),
         fetch(`${API_BASE}/api/admin/vehicles`, {
+          credentials: "include",
+          headers: getAuthHeaders(),
+        }),
+        fetch(`${API_BASE}/api/vehicle-types`, {
           credentials: "include",
           headers: getAuthHeaders(),
         }),
@@ -183,6 +196,21 @@ export default function ScheduleManagement() {
       if (vehiclesRes.ok) {
         const data = await vehiclesRes.json();
         setVehicles(data || []);
+      }
+      if (vehicleTypesRes.ok) {
+        const data = await vehicleTypesRes.json();
+        const mapped = [
+          {value: "all", label: "All Types"},
+          ...(Array.isArray(data)
+            ? data.map((t) => ({
+                value: t.type,
+                label: t.label || toVehicleTypeLabel(t.type),
+              }))
+            : []),
+        ];
+        if (mapped.length > 1) {
+          setVehicleTypeOptions(mapped);
+        }
       }
     } catch (err) {
       console.error("Error fetching data:", err);
@@ -802,7 +830,11 @@ export default function ScheduleManagement() {
         if (from && to) return from <= today && to >= today;
         return true; // permanent groups are always active
       }
-      if (groupDateFilter === "custom" && groupDateRange.start && groupDateRange.end) {
+      if (
+        groupDateFilter === "custom" &&
+        groupDateRange.start &&
+        groupDateRange.end
+      ) {
         const from = parseDMY(cluster.valid_from);
         const to = parseDMY(cluster.valid_to);
         const rangeStart = new Date(groupDateRange.start);
@@ -877,7 +909,13 @@ export default function ScheduleManagement() {
       }
     });
     return result;
-  }, [vehicleGroups, vehicleGroupSearch, vehicleGroupSort, vgDateFilter, vgDateRange]);
+  }, [
+    vehicleGroups,
+    vehicleGroupSearch,
+    vehicleGroupSort,
+    vgDateFilter,
+    vgDateRange,
+  ]);
 
   // Filtered and sorted shifts
   const filteredShifts = useMemo(() => {
@@ -915,7 +953,6 @@ export default function ScheduleManagement() {
 
   return (
     <div className="space-y-6 pb-12 font-sans text-primarytext animate-fadeIn">
-
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-secondarybg rounded-md p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
@@ -1103,7 +1140,8 @@ export default function ScheduleManagement() {
                     value={groupDateFilter}
                     onChange={(val) => {
                       setGroupDateFilter(val);
-                      if (val !== "custom") setGroupDateRange({ start: "", end: "" });
+                      if (val !== "custom")
+                        setGroupDateRange({start: "", end: ""});
                     }}
                     options={[
                       {value: "active", label: "Active Groups"},
@@ -1129,19 +1167,32 @@ export default function ScheduleManagement() {
                   <input
                     type="date"
                     value={groupDateRange.start}
-                    onChange={(e) => setGroupDateRange(prev => ({ ...prev, start: e.target.value }))}
+                    onChange={(e) =>
+                      setGroupDateRange((prev) => ({
+                        ...prev,
+                        start: e.target.value,
+                      }))
+                    }
                     className="px-3 py-1.5 text-sm border border-gray-200 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
                   />
                   <span className="text-sm text-secondarytext">to</span>
                   <input
                     type="date"
                     value={groupDateRange.end}
-                    onChange={(e) => setGroupDateRange(prev => ({ ...prev, end: e.target.value }))}
+                    onChange={(e) =>
+                      setGroupDateRange((prev) => ({
+                        ...prev,
+                        end: e.target.value,
+                      }))
+                    }
                     className="px-3 py-1.5 text-sm border border-gray-200 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
                   />
                   {groupDateRange.start && groupDateRange.end && (
                     <button
-                      onClick={() => { setGroupDateFilter("active"); setGroupDateRange({ start: "", end: "" }); }}
+                      onClick={() => {
+                        setGroupDateFilter("active");
+                        setGroupDateRange({start: "", end: ""});
+                      }}
                       className="text-xs text-red hover:text-red/80 font-medium ml-1"
                     >
                       Clear
@@ -1167,7 +1218,8 @@ export default function ScheduleManagement() {
                     value={vgDateFilter}
                     onChange={(val) => {
                       setVgDateFilter(val);
-                      if (val !== "custom") setVgDateRange({ start: "", end: "" });
+                      if (val !== "custom")
+                        setVgDateRange({start: "", end: ""});
                     }}
                     options={[
                       {value: "active", label: "Active Groups"},
@@ -1193,19 +1245,29 @@ export default function ScheduleManagement() {
                   <input
                     type="date"
                     value={vgDateRange.start}
-                    onChange={(e) => setVgDateRange(prev => ({ ...prev, start: e.target.value }))}
+                    onChange={(e) =>
+                      setVgDateRange((prev) => ({
+                        ...prev,
+                        start: e.target.value,
+                      }))
+                    }
                     className="px-3 py-1.5 text-sm border border-gray-200 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
                   />
                   <span className="text-sm text-secondarytext">to</span>
                   <input
                     type="date"
                     value={vgDateRange.end}
-                    onChange={(e) => setVgDateRange(prev => ({ ...prev, end: e.target.value }))}
+                    onChange={(e) =>
+                      setVgDateRange((prev) => ({...prev, end: e.target.value}))
+                    }
                     className="px-3 py-1.5 text-sm border border-gray-200 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
                   />
                   {vgDateRange.start && vgDateRange.end && (
                     <button
-                      onClick={() => { setVgDateFilter("active"); setVgDateRange({ start: "", end: "" }); }}
+                      onClick={() => {
+                        setVgDateFilter("active");
+                        setVgDateRange({start: "", end: ""});
+                      }}
                       className="text-xs text-red hover:text-red/80 font-medium ml-1"
                     >
                       Clear
@@ -1220,22 +1282,22 @@ export default function ScheduleManagement() {
           {activeTab === "shifts" && (
             <>
               <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
-              <CustomSearch
-                value={shiftSearch}
-                onChange={setShiftSearch}
-                placeholder="Search shifts..."
-                className="flex-1 max-w-md"
-              />
-              <CustomDropdown
-                value={shiftSort}
-                onChange={setShiftSort}
-                options={[
-                  {value: "name-asc", label: "Name (A-Z)"},
-                  {value: "name-desc", label: "Name (Z-A)"},
-                  {value: "time-asc", label: "Start Time (Early)"},
-                  {value: "time-desc", label: "Start Time (Late)"},
-                ]}
-              />
+                <CustomSearch
+                  value={shiftSearch}
+                  onChange={setShiftSearch}
+                  placeholder="Search shifts..."
+                  className="flex-1 max-w-md"
+                />
+                <CustomDropdown
+                  value={shiftSort}
+                  onChange={setShiftSort}
+                  options={[
+                    {value: "name-asc", label: "Name (A-Z)"},
+                    {value: "name-desc", label: "Name (Z-A)"},
+                    {value: "time-asc", label: "Start Time (Early)"},
+                    {value: "time-desc", label: "Start Time (Late)"},
+                  ]}
+                />
               </div>
             </>
           )}
@@ -1922,13 +1984,7 @@ export default function ScheduleManagement() {
                       <CustomDropdown
                         value={vehicleTypeFilter}
                         onChange={setVehicleTypeFilter}
-                        options={[
-                          {value: "all", label: "All Types"},
-                          {value: "BUS", label: "Bus"},
-                          {value: "CAR", label: "Car"},
-                          {value: "BATTERY_VEHICLE", label: "Battery Vehicle"},
-                          {value: "OTHER", label: "Other"},
-                        ]}
+                        options={vehicleTypeOptions}
                         width="w-40"
                       />
                       <CustomDropdown
@@ -2138,8 +2194,6 @@ export default function ScheduleManagement() {
                         </div>
                       ))}
                     </div>
-
-
                   </div>
                 </div>
               )}

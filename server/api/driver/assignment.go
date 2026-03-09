@@ -72,7 +72,7 @@ func GetDriverTodayAssignment(c *gin.Context) {
 	var assignment DriverAssignment
 	err := config.DB.QueryRow(`
 		SELECT 
-				a.id, v.id as vehicle_id, COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name, v.vehicle_number, v.vehicle_type,
+				a.id, v.id as vehicle_id, COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name, v.vehicle_number, COALESCE(vt.type, '') as vehicle_type,
 			s.name as shift_name, 
 			TIME_FORMAT(s.start_time, '%h:%i %p') as start_time,
 			TIME_FORMAT(s.end_time, '%h:%i %p') as end_time,
@@ -80,6 +80,7 @@ func GetDriverTodayAssignment(c *gin.Context) {
 			a.status
 		FROM assignments a
 		JOIN vehicles v ON a.vehicle_id = v.id
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 		LEFT JOIN buses b ON b.vehicle_id = v.id
 		JOIN shifts s ON a.shift_id = s.id
 		WHERE a.driver_id = ? AND ? BETWEEN a.start_date AND a.end_date
@@ -94,7 +95,7 @@ func GetDriverTodayAssignment(c *gin.Context) {
 		// Try temporary assignments
 		err = config.DB.QueryRow(`
 			SELECT 
-				ta.id, v.id as vehicle_id, COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name, v.vehicle_number, v.vehicle_type,
+				ta.id, v.id as vehicle_id, COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name, v.vehicle_number, COALESCE(vt.type, '') as vehicle_type,
 				COALESCE(s.name, 'EV Duty') as shift_name, 
 				COALESCE(TIME_FORMAT(s.start_time, '%h:%i %p'), '08:00 AM') as start_time,
 				COALESCE(TIME_FORMAT(s.end_time, '%h:%i %p'), '05:00 PM') as end_time,
@@ -102,6 +103,7 @@ func GetDriverTodayAssignment(c *gin.Context) {
 				ta.status
 			FROM temporary_assignments ta
 			JOIN vehicles v ON ta.vehicle_id = v.id
+			LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 			LEFT JOIN buses b ON b.vehicle_id = v.id
 			LEFT JOIN shifts s ON ta.shift_id = s.id
 			WHERE ta.replacement_driver_id = ? 
@@ -152,7 +154,7 @@ func GetDriverTodayAssignments(c *gin.Context) {
 	// Check if today falls within the assignment date range (start_date to end_date)
 	rows, err := config.DB.Query(`
 		SELECT 
-				a.id, v.id as vehicle_id, COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name, v.vehicle_number, v.vehicle_type,
+				a.id, v.id as vehicle_id, COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name, v.vehicle_number, COALESCE(vt.type, '') as vehicle_type,
 			s.name as shift_name, 
 			TIME_FORMAT(s.start_time, '%h:%i %p') as start_time,
 			TIME_FORMAT(s.end_time, '%h:%i %p') as end_time,
@@ -165,6 +167,7 @@ func GetDriverTodayAssignments(c *gin.Context) {
 			COALESCE(u_orig.full_name, '') as original_driver_name
 		FROM assignments a
 		JOIN vehicles v ON a.vehicle_id = v.id
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 		LEFT JOIN buses b ON b.vehicle_id = v.id
 		JOIN shifts s ON a.shift_id = s.id
 		LEFT JOIN drivers d_orig ON a.original_driver_id = d_orig.id
@@ -270,7 +273,7 @@ func GetDriverTodayAssignments(c *gin.Context) {
 	// 3. Get TEMPORARY assignments (where this driver is the REPLACEMENT)
 	tempRows, err := config.DB.Query(`
 		SELECT 
-				ta.id, v.id as vehicle_id, COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name, v.vehicle_number, v.vehicle_type,
+				ta.id, v.id as vehicle_id, COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name, v.vehicle_number, COALESCE(vt.type, '') as vehicle_type,
 			COALESCE(s.name, 'EV Duty') as shift_name, 
 			COALESCE(TIME_FORMAT(s.start_time, '%h:%i %p'), '08:00 AM') as start_time,
 			COALESCE(TIME_FORMAT(s.end_time, '%h:%i %p'), '05:00 PM') as end_time,
@@ -282,6 +285,7 @@ func GetDriverTodayAssignments(c *gin.Context) {
 			COALESCE(u_orig.full_name, '') as original_driver_name
 		FROM temporary_assignments ta
 		JOIN vehicles v ON ta.vehicle_id = v.id
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 		LEFT JOIN buses b ON b.vehicle_id = v.id
 		LEFT JOIN shifts s ON ta.shift_id = s.id
 		LEFT JOIN drivers d_orig ON ta.original_driver_id = d_orig.id
@@ -359,7 +363,7 @@ func GetDriverAssignments(c *gin.Context) {
 
 	rows, err := config.DB.Query(`
 		SELECT 
-				a.id, v.id as vehicle_id, COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name, v.vehicle_number, v.vehicle_type,
+				a.id, v.id as vehicle_id, COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name, v.vehicle_number, COALESCE(vt.type, '') as vehicle_type,
 			s.name as shift_name, 
 			COALESCE(TIME_FORMAT(s.start_time, '%h:%i %p'), '') as start_time,
 			COALESCE(TIME_FORMAT(s.end_time, '%h:%i %p'), '') as end_time,
@@ -373,6 +377,7 @@ func GetDriverAssignments(c *gin.Context) {
 			COALESCE(a.description, '') as description
 		FROM assignments a
 		JOIN vehicles v ON a.vehicle_id = v.id
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 		LEFT JOIN buses b ON b.vehicle_id = v.id
 		JOIN shifts s ON a.shift_id = s.id
 		LEFT JOIN drivers d_orig ON a.original_driver_id = d_orig.id
@@ -503,7 +508,7 @@ func GetDriverAssignments(c *gin.Context) {
 
 	tempRows, err := config.DB.Query(`
 		SELECT 
-				ta.id, v.id as vehicle_id, COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name, v.vehicle_number, v.vehicle_type,
+				ta.id, v.id as vehicle_id, COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name, v.vehicle_number, COALESCE(vt.type, '') as vehicle_type,
 			COALESCE(s.name, 'EV Duty') as shift_name, 
 			COALESCE(TIME_FORMAT(s.start_time, '%h:%i %p'), '08:00 AM') as start_time,
 			COALESCE(TIME_FORMAT(s.end_time, '%h:%i %p'), '05:00 PM') as end_time,
@@ -514,6 +519,7 @@ func GetDriverAssignments(c *gin.Context) {
 			COALESCE(u_orig.full_name, '') as original_driver_name
 		FROM temporary_assignments ta
 		JOIN vehicles v ON ta.vehicle_id = v.id
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 		LEFT JOIN buses b ON b.vehicle_id = v.id
 		LEFT JOIN shifts s ON ta.shift_id = s.id
 		LEFT JOIN drivers d_orig ON ta.original_driver_id = d_orig.id
@@ -560,7 +566,7 @@ func GetDriverVehicleAlerts(c *gin.Context) {
 
 	// Get vehicles assigned to this driver with expiring documents
 	rows, err := config.DB.Query(`
-		SELECT v.id, COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name, v.vehicle_number, v.vehicle_type, v.status,
+		SELECT v.id, COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name, v.vehicle_number, COALESCE(vt.type, '') as vehicle_type, v.status,
 		       DATE_FORMAT(v.insurance_expire_date, '%d-%m-%Y'),
 		       DATE_FORMAT(v.fc_expire_date, '%d-%m-%Y'),
 		       DATE_FORMAT(v.permit_expire_date, '%d-%m-%Y'),
@@ -568,6 +574,7 @@ func GetDriverVehicleAlerts(c *gin.Context) {
 		       DATEDIFF(v.fc_expire_date, CURDATE()) as fc_days,
 		       DATEDIFF(v.permit_expire_date, CURDATE()) as permit_days
 		FROM vehicles v
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 		INNER JOIN assignments a ON a.vehicle_id = v.id
 		WHERE a.driver_id = ?
 		  AND CURDATE() BETWEEN a.start_date AND a.end_date
@@ -577,7 +584,7 @@ func GetDriverVehicleAlerts(c *gin.Context) {
 		    OR (v.fc_expire_date IS NOT NULL AND DATEDIFF(v.fc_expire_date, CURDATE()) <= 10)
 		    OR (v.permit_expire_date IS NOT NULL AND DATEDIFF(v.permit_expire_date, CURDATE()) <= 10)
 		  )
-		GROUP BY v.id, v.vehicle_name, v.vehicle_number, v.vehicle_type, v.status,
+		GROUP BY v.id, v.vehicle_name, v.vehicle_number, COALESCE(vt.type, ''), v.status,
 		         v.insurance_expire_date, v.fc_expire_date, v.permit_expire_date
 		ORDER BY
 		  LEAST(

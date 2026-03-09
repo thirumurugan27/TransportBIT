@@ -809,9 +809,10 @@ func GetDriverWorkload(c *gin.Context) {
 	// Fetch assigned vehicles for each driver
 	for i, dw := range resp.Drivers {
 		vRows, vErr := config.DB.Query(`
-			SELECT v.id, COALESCE(v.vehicle_number,''), COALESCE(v.vehicle_type,''), COALESCE(s.name,'')
+			SELECT v.id, COALESCE(v.vehicle_number,''), COALESCE(vt.type,''), COALESCE(s.name,'')
 			FROM assignments a
 			JOIN vehicles v ON a.vehicle_id = v.id
+			LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 			LEFT JOIN shifts s ON a.shift_id = s.id
 			WHERE a.driver_id = ? AND a.status IN ('assigned','active') AND CURDATE() BETWEEN a.start_date AND a.end_date
 		`, dw.DriverID)

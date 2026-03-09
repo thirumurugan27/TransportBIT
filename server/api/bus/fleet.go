@@ -82,7 +82,7 @@ type UpdateBusRouteRequest struct {
 func GetBusFleet(c *gin.Context) {
 	rows, err := config.DB.Query(`
 		SELECT 
-			v.id, v.vehicle_number, v.vehicle_type, v.fuel_type, v.seating_capacity, v.status,
+			v.id, v.vehicle_number, vt.type as vehicle_type, v.fuel_type, v.seating_capacity, v.status,
 			(SELECT d2.id FROM assignments a2 
 			 JOIN drivers d2 ON a2.driver_id = d2.id 
 			 WHERE a2.vehicle_id = v.id AND a2.status = 'assigned' AND DATE(a2.assigned_date) = CURDATE() 
@@ -97,8 +97,9 @@ func GetBusFleet(c *gin.Context) {
 			COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name,
 			(SELECT COUNT(*) FROM bus_stops bs WHERE bs.vehicle_id = v.id) as total_stops
 		FROM vehicles v
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 		LEFT JOIN buses b ON b.vehicle_id = v.id
-		WHERE v.vehicle_type = 'BUS'
+		WHERE vt.type = 'BUS'
 		ORDER BY COALESCE(v.vehicle_name, v.vehicle_number) ASC
 	`)
 	if err != nil {

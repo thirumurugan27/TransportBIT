@@ -33,6 +33,10 @@ import {
 
 import {apiGet, apiPost, apiDelete} from "../../../utils/api";
 import CustomDropdown from "../../../components/ui/CustomDropdown";
+import {
+  fetchVehicleTypes,
+  toVehicleTypeLabel,
+} from "../../../utils/vehicleTypes";
 
 // Parse dd-mm-yyyy date format from backend
 const parseDate = (dateStr) => {
@@ -67,13 +71,18 @@ const getStatusColor = (days) => {
 // Display date from backend (already in dd-mm-yyyy format)
 const formatDate = (dateStr) => dateStr || "-";
 
-const VEHICLE_TYPE_OPTIONS = [
-  {value: "ALL", label: "All Vehicles", icon: Bus},
-  {value: "BUS", label: "College Bus", icon: Bus},
-  {value: "CAR", label: "Car", icon: Car},
-  {value: "BATTERY_VEHICLE", label: "Battery Vehicle", icon: Zap},
-  {value: "OTHER", label: "Others", icon: Truck},
-];
+const vehicleTypeIcon = (type) => {
+  switch ((type || "").toUpperCase()) {
+    case "BUS":
+      return Bus;
+    case "CAR":
+      return Car;
+    case "BATTERY_VEHICLE":
+      return Zap;
+    default:
+      return Truck;
+  }
+};
 
 const toNullableNumber = (value) => {
   if (value === null || value === undefined || value === "") return null;
@@ -103,6 +112,13 @@ const buildVehiclePayload = (source, id = null) => {
 
 export default function Vehicles() {
   const [vehicles, setVehicles] = useState([]);
+  const [vehicleTypeOptions, setVehicleTypeOptions] = useState([
+    {value: "ALL", label: "All Vehicles", icon: Bus},
+    {value: "BUS", label: "College Bus", icon: Bus},
+    {value: "CAR", label: "Car", icon: Car},
+    {value: "BATTERY_VEHICLE", label: "Battery Vehicle", icon: Zap},
+    {value: "OTHER", label: "Others", icon: Truck},
+  ]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
@@ -193,8 +209,22 @@ export default function Vehicles() {
     }
   };
 
+  const fetchTypeOptions = async () => {
+    const masterTypes = await fetchVehicleTypes();
+    const mapped = [
+      {value: "ALL", label: "All Vehicles", icon: Bus},
+      ...masterTypes.map((t) => ({
+        value: t.type,
+        label: t.label || toVehicleTypeLabel(t.type),
+        icon: vehicleTypeIcon(t.type),
+      })),
+    ];
+    setVehicleTypeOptions(mapped);
+  };
+
   useEffect(() => {
     fetchVehicles();
+    fetchTypeOptions();
   }, []);
 
   // Close dropdown on click outside
@@ -238,18 +268,8 @@ export default function Vehicles() {
 
   // Get vehicle type display name
   const getVehicleTypeLabel = (type) => {
-    switch (type) {
-      case "BUS":
-        return "College Bus";
-      case "CAR":
-        return "Car";
-      case "BATTERY_VEHICLE":
-        return "Battery Vehicle";
-      case "OTHER":
-        return "Others";
-      default:
-        return type;
-    }
+    const found = vehicleTypeOptions.find((opt) => opt.value === type);
+    return found?.label || toVehicleTypeLabel(type) || type;
   };
 
   // Convert dd-mm-yyyy from backend to yyyy-mm-dd for HTML date inputs
@@ -797,7 +817,7 @@ export default function Vehicles() {
             className="flex items-center gap-3 px-4 py-3 bg-secondarybg border border-primary/10 rounded-md hover:border-primary/30 transition-all min-w-52 text-sm"
           >
             {(() => {
-              const opt = VEHICLE_TYPE_OPTIONS.find(
+              const opt = vehicleTypeOptions.find(
                 (t) => t.value === filterType,
               );
               const Icon = opt?.icon || Bus;
@@ -820,7 +840,7 @@ export default function Vehicles() {
 
           {showTypeDropdown && (
             <div className="absolute top-full left-0 mt-1.5 w-full bg-secondarybg border border-primary/10 rounded-md shadow-lg z-30 py-1 animate-fadeIn">
-              {VEHICLE_TYPE_OPTIONS.map((type) => {
+              {vehicleTypeOptions.map((type) => {
                 const Icon = type.icon;
                 const count =
                   type.value === "ALL"
@@ -2022,35 +2042,28 @@ export default function Vehicles() {
                           Category *
                         </label>
                         <div className="grid grid-cols-2 gap-2">
-                          {[
-                            {value: "BUS", label: "Bus", icon: Bus},
-                            {value: "CAR", label: "Car", icon: Car},
-                            {
-                              value: "BATTERY_VEHICLE",
-                              label: "Battery Vehicle",
-                              icon: Zap,
-                            },
-                            {value: "OTHER", label: "Other", icon: AlertCircle},
-                          ].map((type) => (
-                            <button
-                              key={type.value}
-                              type="button"
-                              onClick={() =>
-                                setVehicleForm({
-                                  ...vehicleForm,
-                                  vehicle_type: type.value,
-                                })
-                              }
-                              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-md text-sm font-medium border transition-all ${
-                                vehicleForm.vehicle_type === type.value
-                                  ? "bg-primary/10 border-primary text-primary ring-1 ring-primary"
-                                  : "bg-secondarybg border-primarybg text-secondarytext hover:bg-secondarybg/80 hover:border-primary/20"
-                              }`}
-                            >
-                              <type.icon size={15} />
-                              {type.label}
-                            </button>
-                          ))}
+                          {vehicleTypeOptions
+                            .filter((type) => type.value !== "ALL")
+                            .map((type) => (
+                              <button
+                                key={type.value}
+                                type="button"
+                                onClick={() =>
+                                  setVehicleForm({
+                                    ...vehicleForm,
+                                    vehicle_type: type.value,
+                                  })
+                                }
+                                className={`flex items-center justify-center gap-2 py-2 px-3 rounded-md text-sm font-medium border transition-all ${
+                                  vehicleForm.vehicle_type === type.value
+                                    ? "bg-primary/10 border-primary text-primary ring-1 ring-primary"
+                                    : "bg-secondarybg border-primarybg text-secondarytext hover:bg-secondarybg/80 hover:border-primary/20"
+                                }`}
+                              >
+                                <type.icon size={15} />
+                                {type.label}
+                              </button>
+                            ))}
                         </div>
                       </div>
                       <div>

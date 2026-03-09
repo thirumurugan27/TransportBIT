@@ -358,7 +358,7 @@ func generateKmFuelReportPDF(c *gin.Context) {
 func generateVehicleFleetReportPDF(c *gin.Context) {
 	rows, err := config.DB.Query(`
 		SELECT 
-			v.vehicle_number, v.vehicle_name, v.vehicle_type, v.fuel_type,
+			v.vehicle_number, v.vehicle_name, COALESCE(vt.type, '') as vehicle_type, v.fuel_type,
 			v.seating_capacity, v.status,
 			COALESCE(DATE_FORMAT(v.insurance_expire_date, '%d-%m-%Y'), '-'),
 			COALESCE(DATE_FORMAT(v.fc_expire_date, '%d-%m-%Y'), '-'),
@@ -372,7 +372,9 @@ func generateVehicleFleetReportPDF(c *gin.Context) {
 			CASE WHEN v.permit_expire_date < CURDATE() THEN 'EXPIRED'
 				 WHEN v.permit_expire_date < DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 'EXPIRING SOON'
 				 ELSE 'Valid' END
-		FROM vehicles v ORDER BY v.vehicle_number
+		FROM vehicles v
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
+		ORDER BY v.vehicle_number
 	`)
 	if err != nil {
 		log.Printf("PDF vehicle fleet report error: %v", err)
@@ -809,13 +811,14 @@ func generateBusDetailReportPDF(c *gin.Context) {
 			CONCAT(COALESCE(b.start_point, ''), ' - ', COALESCE(b.end_point, '')),
 			COALESCE(b.start_point, ''), COALESCE(b.end_point, ''),
 			b.vehicle_id, COALESCE(v.vehicle_number, ''), COALESCE(v.vehicle_name, ''),
-			COALESCE(v.vehicle_type, ''), COALESCE(v.fuel_type, ''), COALESCE(v.seating_capacity, 0),
+			COALESCE(vt.type, ''), COALESCE(v.fuel_type, ''), COALESCE(v.seating_capacity, 0),
 			COALESCE(v.status, ''),
 			DATE_FORMAT(v.insurance_expire_date, '%d-%m-%Y'),
 			DATE_FORMAT(v.fc_expire_date, '%d-%m-%Y'),
 			DATE_FORMAT(v.permit_expire_date, '%d-%m-%Y')
 		FROM buses b
 		JOIN vehicles v ON b.vehicle_id = v.id
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 		WHERE b.id = ?
 	`, busID).Scan(&vehicleID, &busName, &startPoint, &endPoint,
 		&vehicleID, &vehicleNumber, &vehicleName,
@@ -1123,12 +1126,13 @@ func generateVehicleGroupReportPDF(c *gin.Context) {
 	msno := 1
 	for _, g := range groups {
 		mRows, err := config.DB.Query(`
-			SELECT COALESCE(v.vehicle_number, '-'), COALESCE(v.vehicle_type, '-'), COALESCE(v.status, '-'),
+			SELECT COALESCE(v.vehicle_number, '-'), COALESCE(vt.type, '-'), COALESCE(v.status, '-'),
 				COALESCE(DATE_FORMAT(vgm.valid_from, '%d-%m-%Y'), '-'),
 				COALESCE(DATE_FORMAT(vgm.valid_to, '%d-%m-%Y'), '-'),
 				DATE_FORMAT(vgm.added_at, '%d-%m-%Y %h:%i %p')
 			FROM vehicle_group_members vgm
 			JOIN vehicles v ON vgm.vehicle_id = v.id
+			LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 			WHERE vgm.group_id = ?
 			ORDER BY v.vehicle_number
 		`, g.ID)

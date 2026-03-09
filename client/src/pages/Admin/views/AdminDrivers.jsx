@@ -23,6 +23,10 @@ import {
 } from "lucide-react";
 import {useToast} from "../../../context/ToastContext";
 import CustomDropdown from "../../../components/ui/CustomDropdown";
+import {
+  fetchVehicleTypes,
+  toVehicleTypeLabel,
+} from "../../../utils/vehicleTypes";
 
 import {apiGet, apiPost, apiPut, apiDelete} from "../../../utils/api";
 
@@ -30,6 +34,12 @@ export default function AdminDrivers() {
   const {showToast} = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const [drivers, setDrivers] = useState([]);
+  const [vehicleTypeOptions, setVehicleTypeOptions] = useState([
+    {value: "CAR", label: "Car"},
+    {value: "BUS", label: "Bus"},
+    {value: "BATTERY_VEHICLE", label: "Battery Vehicle"},
+    {value: "OTHER", label: "Others"},
+  ]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState("table");
@@ -121,7 +131,19 @@ export default function AdminDrivers() {
 
   useEffect(() => {
     fetchDrivers();
+    fetchAllowedVehicleTypes();
   }, []);
+
+  const fetchAllowedVehicleTypes = async () => {
+    const masterTypes = await fetchVehicleTypes();
+    const mapped = masterTypes.map((t) => ({
+      value: t.type,
+      label: t.label || toVehicleTypeLabel(t.type),
+    }));
+    if (mapped.length > 0) {
+      setVehicleTypeOptions(mapped);
+    }
+  };
 
   const fetchDrivers = async () => {
     setLoading(true);
@@ -1010,11 +1032,7 @@ export default function AdminDrivers() {
                               allowed_vehicle_type: val,
                             })
                           }
-                          options={[
-                            {value: "CAR", label: "Car"},
-                            {value: "BUS", label: "Bus"},
-                            {value: "EV", label: "EV"},
-                          ]}
+                          options={vehicleTypeOptions}
                           width="w-full"
                         />
                       </div>

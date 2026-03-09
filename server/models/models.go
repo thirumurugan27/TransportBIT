@@ -675,8 +675,9 @@ type Trip struct {
 
 // VehicleRequest - Faculty vehicle booking request (using vehiclerequests table)
 type VehicleRequest struct {
-	ID        int `json:"id"`
-	FacultyID int `json:"faculty_id"`
+	ID          int `json:"id"`
+	RequesterID int `json:"requester_id"`
+	FacultyID   int `json:"faculty_id"`
 
 	// Booking Details
 	BookingType  string `json:"booking_type"`
@@ -736,6 +737,10 @@ type VehicleRequest struct {
 	TripEndedAt         *string `json:"trip_ended_at,omitempty"`
 
 	// Joined fields
+	RequesterName     string `json:"requester_name"`
+	RequesterEmail    string `json:"requester_email"`
+	RequesterPhone    string `json:"requester_phone"`
+	RequesterRole     string `json:"requester_role"`
 	FacultyName       string `json:"faculty_name"`
 	FacultyEmail      string `json:"faculty_email"`
 	FacultyPhone      string `json:"faculty_phone"`

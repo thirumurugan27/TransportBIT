@@ -135,9 +135,9 @@ func GetAssignmentsByCategory(c *gin.Context) {
 
 	if category == "OTHER" {
 		// OTHER = vehicles that are not BUS, CAR, or BATTERY_VEHICLE (EV)
-		whereClause = "v.vehicle_type NOT IN ('BUS', 'CAR', 'BATTERY_VEHICLE')"
+		whereClause = "COALESCE(vt.type, '') NOT IN ('BUS', 'CAR', 'BATTERY_VEHICLE')"
 	} else {
-		whereClause = "v.vehicle_type = ?"
+		whereClause = "COALESCE(vt.type, '') = ?"
 		args = append(args, category)
 	}
 
@@ -161,7 +161,7 @@ func GetAssignmentsByCategory(c *gin.Context) {
 		           WHEN att.status = 'absent' THEN 'absent'
 		           ELSE 'not_marked'
 		       END as driver_status,
-		       v.id as vehicle_id, v.vehicle_number, v.vehicle_type, v.fuel_type,
+		       v.id as vehicle_id, v.vehicle_number, COALESCE(vt.type, '') as vehicle_type, v.fuel_type,
 		       COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name,
 		       s.id as shift_id, s.name as shift_name, 
 		       TIME_FORMAT(s.start_time, '%h:%i %p') as start_time, 
@@ -174,6 +174,7 @@ func GetAssignmentsByCategory(c *gin.Context) {
 		JOIN drivers d ON a.driver_id = d.id
 		JOIN users u ON d.user_id = u.id
 		JOIN vehicles v ON a.vehicle_id = v.id
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 		LEFT JOIN buses b ON v.id = b.vehicle_id
 		JOIN shifts s ON a.shift_id = s.id
 		LEFT JOIN attendance att ON att.user_id = d.user_id AND att.date = ?

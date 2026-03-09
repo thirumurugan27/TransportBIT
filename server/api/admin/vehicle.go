@@ -1,110 +1,16 @@
 package admin
-
 import (
 	"fmt"
 	"log"
 	"net/http"
-
+	"strings"
 	"transport-server/config"
 	"transport-server/models"
-
 	"github.com/gin-gonic/gin"
 )
-
-/* =========================
-   VEHICLE HANDLERS
-========================= */
-
-// RunVehicleMigrations adds new columns to the vehicles table if they don't exist,
-// and migrates data from vehicle_documents into vehicles.
-func RunVehicleMigrations() {
-	columns := []struct {
-		name string
-		ddl  string
-	}{
-		{"chassis_number", "VARCHAR(100) DEFAULT NULL"},
-		{"engine_number", "VARCHAR(100) DEFAULT NULL"},
-		{"permit_number", "VARCHAR(100) DEFAULT NULL"},
-		{"additional_permit", "VARCHAR(255) DEFAULT NULL"},
-		{"insurance_amount", "DECIMAL(12,2) DEFAULT NULL"},
-		{"road_tax_amount", "DECIMAL(12,2) DEFAULT NULL"},
-		{"pollution_expire", "DATE DEFAULT NULL"},
-		{"green_tax_expire", "DATE DEFAULT NULL"},
-		{"mv_tax_expire", "DATE DEFAULT NULL"},
-		// Document fields (migrated from vehicle_documents)
-		{"insurance_expire_date", "DATE DEFAULT NULL"},
-		{"insurance_start_date", "DATE DEFAULT NULL"},
-		{"insurance_remarks", "TEXT DEFAULT NULL"},
-		{"fc_expire_date", "DATE DEFAULT NULL"},
-		{"fc_start_date", "DATE DEFAULT NULL"},
-		{"fc_remarks", "TEXT DEFAULT NULL"},
-		{"permit_expire_date", "DATE DEFAULT NULL"},
-		{"permit_start_date", "DATE DEFAULT NULL"},
-		{"permit_remarks", "TEXT DEFAULT NULL"},
-	}
-	for _, col := range columns {
-		var count int
-		err := config.DB.QueryRow(`
-			SELECT COUNT(*) FROM information_schema.COLUMNS 
-			WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'vehicles' AND COLUMN_NAME = ?
-		`, col.name).Scan(&count)
-		if err != nil {
-			log.Printf("Vehicle migration check error (%s): %v", col.name, err)
-			continue
-		}
-		if count == 0 {
-			_, err = config.DB.Exec(fmt.Sprintf(
-				"ALTER TABLE vehicles ADD COLUMN `%s` %s",
-				col.name, col.ddl,
-			))
-			if err != nil {
-				log.Printf("Vehicle migration error (%s): %v", col.name, err)
-			} else {
-				log.Printf("Vehicle migration: added column %s", col.name)
-			}
-		}
-	}
-
-	// Migrate existing data from vehicle_documents into vehicles table
-	var vdExists int
-	config.DB.QueryRow(`SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'vehicle_documents'`).Scan(&vdExists)
-	if vdExists > 0 {
-		migrations := []struct {
-			docType    string
-			expireCol  string
-			startCol   string
-			remarksCol string
-		}{
-			{"insurance", "insurance_expire_date", "insurance_start_date", "insurance_remarks"},
-			{"fc", "fc_expire_date", "fc_start_date", "fc_remarks"},
-			{"permit", "permit_expire_date", "permit_start_date", "permit_remarks"},
-		}
-		for _, m := range migrations {
-			res, err := config.DB.Exec(fmt.Sprintf(`
-				UPDATE vehicles v
-				JOIN vehicle_documents vd ON vd.vehicle_id = v.id AND vd.document_type = ?
-				SET v.%s = vd.expire_date, v.%s = vd.start_date, v.%s = vd.remarks
-				WHERE v.%s IS NULL
-			`, m.expireCol, m.startCol, m.remarksCol, m.expireCol), m.docType)
-			if err != nil {
-				log.Printf("Vehicle document migration error (%s): %v", m.docType, err)
-			} else {
-				n, _ := res.RowsAffected()
-				if n > 0 {
-					log.Printf("Vehicle migration: migrated %d %s records from vehicle_documents", n, m.docType)
-				}
-			}
-		}
-	}
-
-	log.Println("Vehicle columns migration complete")
-}
-
-// GET /api/admin/vehicles - List all vehicles.
-// All document fields are stored directly on the vehicles table.
 func GetAllVehicles(c *gin.Context) {
 	query := `
-		SELECT v.id, v.vehicle_number, v.vehicle_type, v.fuel_type, v.seating_capacity, v.status,
+		SELECT v.id, v.vehicle_number, vt.type as vehicle_type, v.fuel_type, v.seating_capacity, v.status,
 		       DATE_FORMAT(v.insurance_expire_date, '%d-%m-%Y'),
 		       DATE_FORMAT(v.insurance_start_date,  '%d-%m-%Y'),
 		       v.insurance_remarks,
@@ -131,6 +37,7 @@ func GetAllVehicles(c *gin.Context) {
 		       vgm.group_id as vehicle_group_id,
 		       COALESCE(vg.name, '') as vehicle_group_name
 		FROM vehicles v
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 		LEFT JOIN buses b ON v.id = b.vehicle_id
 		LEFT JOIN vehicle_replacements vr ON v.id = vr.vehicle_id 
 		    AND vr.status IN ('approved', 'pending')
@@ -139,14 +46,12 @@ func GetAllVehicles(c *gin.Context) {
 		LEFT JOIN vehicle_groups vg ON vg.id = vgm.group_id
 		ORDER BY v.id DESC
 	`
-
 	rows, err := config.DB.Query(query)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	defer rows.Close()
-
 	type VehicleWithReplacement struct {
 		ID                       int      `json:"id"`
 		VehicleNumber            string   `json:"vehicle_number"`
@@ -184,7 +89,6 @@ func GetAllVehicles(c *gin.Context) {
 		VehicleGroupID           *int     `json:"vehicle_group_id"`
 		VehicleGroupName         string   `json:"vehicle_group_name"`
 	}
-
 	var vehicles []VehicleWithReplacement
 	for rows.Next() {
 		var v VehicleWithReplacement
@@ -201,10 +105,48 @@ func GetAllVehicles(c *gin.Context) {
 			&v.VehicleGroupID, &v.VehicleGroupName)
 		vehicles = append(vehicles, v)
 	}
-
 	c.JSON(http.StatusOK, vehicles)
 }
-
+// GET /api/admin/vehicle-types - list master vehicle types
+func GetVehicleTypes(c *gin.Context) {
+	rows, err := config.DB.Query(`
+		SELECT id, type, label
+		FROM vehicle_types
+		WHERE is_active = 1
+		ORDER BY id ASC
+	`)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer rows.Close()
+	type VehicleType struct {
+		ID    int    `json:"id"`
+		Type  string `json:"type"`
+		Label string `json:"label"`
+	}
+	var out []VehicleType
+	for rows.Next() {
+		var t VehicleType
+		if scanErr := rows.Scan(&t.ID, &t.Type, &t.Label); scanErr == nil {
+			out = append(out, t)
+		}
+	}
+	c.JSON(http.StatusOK, out)
+}
+func resolveVehicleTypeID(vehicleType string) (int, error) {
+	var vehicleTypeID int
+	err := config.DB.QueryRow(`
+		SELECT id
+		FROM vehicle_types
+		WHERE is_active = 1 AND UPPER(type) = UPPER(?)
+		LIMIT 1
+	`, vehicleType).Scan(&vehicleTypeID)
+	if err != nil {
+		return 0, err
+	}
+	return vehicleTypeID, nil
+}
 // POST /api/admin/vehicles/create - Create vehicle
 func CreateVehicle(c *gin.Context) {
 	var req models.CreateVehicleRequest
@@ -212,8 +154,17 @@ func CreateVehicle(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return
 	}
-
 	// Normalise empty strings → nil
+	req.VehicleType = strings.ToUpper(strings.TrimSpace(req.VehicleType))
+	if req.VehicleType == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "vehicle_type is required"})
+		return
+	}
+	vehicleTypeID, err := resolveVehicleTypeID(req.VehicleType)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid vehicle_type"})
+		return
+	}
 	req.InsuranceExpireDate = nullifyEmptyDate(req.InsuranceExpireDate)
 	req.InsuranceStartDate = nullifyEmptyDate(req.InsuranceStartDate)
 	req.InsuranceRemarks = nullifyEmptyString(req.InsuranceRemarks)
@@ -223,17 +174,16 @@ func CreateVehicle(c *gin.Context) {
 	req.PermitExpireDate = nullifyEmptyDate(req.PermitExpireDate)
 	req.PermitStartDate = nullifyEmptyDate(req.PermitStartDate)
 	req.PermitRemarks = nullifyEmptyString(req.PermitRemarks)
-
 	// Insert vehicle row with all fields including documents
 	result, err := config.DB.Exec(`
-		INSERT INTO vehicles (vehicle_name, vehicle_number, vehicle_type, fuel_type, seating_capacity,
+		INSERT INTO vehicles (vehicle_name, vehicle_number, vehicle_type_id, fuel_type, seating_capacity,
 			chassis_number, engine_number, permit_number, additional_permit,
 			insurance_amount, road_tax_amount, pollution_expire, green_tax_expire, mv_tax_expire,
 			insurance_expire_date, insurance_start_date, insurance_remarks,
 			fc_expire_date, fc_start_date, fc_remarks,
 			permit_expire_date, permit_start_date, permit_remarks)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, req.VehicleName, req.VehicleNumber, req.VehicleType, req.FuelType, req.SeatingCapacity,
+	`, req.VehicleName, req.VehicleNumber, vehicleTypeID, req.FuelType, req.SeatingCapacity,
 		req.ChassisNumber, req.EngineNumber, req.PermitNumber, req.AdditionalPermit,
 		req.InsuranceAmount, req.RoadTaxAmount, req.PollutionExpire, req.GreenTaxExpire, req.MVTaxExpire,
 		req.InsuranceExpireDate, req.InsuranceStartDate, req.InsuranceRemarks,
@@ -244,16 +194,13 @@ func CreateVehicle(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
 	vehicleID, _ := result.LastInsertId()
-
 	// Write initial audit log entries for any non-null document fields
 	userID := c.GetInt("user_id")
 	userName := c.GetString("username")
 	if userName == "" {
 		userName = "System"
 	}
-
 	type docField struct {
 		docType   string
 		fieldName string
@@ -275,7 +222,6 @@ func CreateVehicle(c *gin.Context) {
 			insertAuditLog(int(vehicleID), f.docType, f.fieldName, nil, f.value, userID, userName)
 		}
 	}
-
 	// If it's a bus, also create a record in the buses table
 	if req.VehicleType == "BUS" {
 		_, err = config.DB.Exec(`
@@ -286,10 +232,8 @@ func CreateVehicle(c *gin.Context) {
 			log.Printf("Create bus record error: %v", err)
 		}
 	}
-
 	c.JSON(http.StatusOK, gin.H{"message": "Vehicle created successfully"})
 }
-
 // nullifyEmptyDate converts a *string that holds an empty string into nil,
 // so the SQL driver sends NULL to MySQL DATE columns instead of ” (which MySQL strict mode rejects).
 func nullifyEmptyDate(s *string) *string {
@@ -298,7 +242,6 @@ func nullifyEmptyDate(s *string) *string {
 	}
 	return s
 }
-
 // nullifyEmptyString converts a *string that holds an empty string into nil.
 func nullifyEmptyString(s *string) *string {
 	if s == nil || *s == "" {
@@ -306,7 +249,6 @@ func nullifyEmptyString(s *string) *string {
 	}
 	return s
 }
-
 // ptrToString safely dereferences a *string pointer, returning "" if nil.
 func ptrToString(s *string) string {
 	if s == nil {
@@ -314,7 +256,6 @@ func ptrToString(s *string) string {
 	}
 	return *s
 }
-
 // formatDateForAudit converts a date string from YYYY-MM-DD to DD-MM-YYYY for audit log display.
 // If the string is not in YYYY-MM-DD format, it is returned as-is.
 func formatDateForAudit(s *string) *string {
@@ -328,7 +269,6 @@ func formatDateForAudit(s *string) *string {
 	}
 	return s
 }
-
 // insertAuditLog inserts a single audit log row into vehicle_document_audit_log.
 func insertAuditLog(vehicleID int, docType, fieldName string, oldVal, newVal *string, changedBy int, changedByName string) {
 	_, err := config.DB.Exec(`
@@ -339,7 +279,6 @@ func insertAuditLog(vehicleID int, docType, fieldName string, oldVal, newVal *st
 		log.Printf("Audit log insert error: %v", err)
 	}
 }
-
 // compareAndLog compares old and new *string values and logs any change.
 func compareAndLog(vehicleID int, docType, fieldName string, oldVal, newVal *string, userID int, userName string) {
 	oldStr := ptrToString(oldVal)
@@ -348,7 +287,6 @@ func compareAndLog(vehicleID int, docType, fieldName string, oldVal, newVal *str
 		insertAuditLog(vehicleID, docType, fieldName, oldVal, newVal, userID, userName)
 	}
 }
-
 // POST /api/admin/vehicles/update - Update vehicle
 func UpdateVehicle(c *gin.Context) {
 	var v models.Vehicle
@@ -356,7 +294,16 @@ func UpdateVehicle(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return
 	}
-
+	v.VehicleType = strings.ToUpper(strings.TrimSpace(v.VehicleType))
+	if v.VehicleType == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "vehicle_type is required"})
+		return
+	}
+	vehicleTypeID, err := resolveVehicleTypeID(v.VehicleType)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid vehicle_type"})
+		return
+	}
 	// Normalise empty strings → nil
 	v.InsuranceExpireDate = nullifyEmptyDate(v.InsuranceExpireDate)
 	v.InsuranceStartDate = nullifyEmptyDate(v.InsuranceStartDate)
@@ -367,12 +314,10 @@ func UpdateVehicle(c *gin.Context) {
 	v.PermitExpireDate = nullifyEmptyDate(v.PermitExpireDate)
 	v.PermitStartDate = nullifyEmptyDate(v.PermitStartDate)
 	v.PermitRemarks = nullifyEmptyString(v.PermitRemarks)
-
 	// ---- Read current document values BEFORE update for audit diff ----
 	var oldInsExpire, oldInsStart, oldInsRemarks *string
 	var oldFCExpire, oldFCStart, oldFCRemarks *string
 	var oldPermitExpire, oldPermitStart, oldPermitRemarks *string
-
 	readErr := config.DB.QueryRow(`
 		SELECT DATE_FORMAT(insurance_expire_date, '%d-%m-%Y'), DATE_FORMAT(insurance_start_date, '%d-%m-%Y'), insurance_remarks,
 		       DATE_FORMAT(fc_expire_date, '%d-%m-%Y'), DATE_FORMAT(fc_start_date, '%d-%m-%Y'), fc_remarks,
@@ -386,17 +331,16 @@ func UpdateVehicle(c *gin.Context) {
 	if readErr != nil {
 		log.Printf("Audit read-before-write error for vehicle %d: %v", v.ID, readErr)
 	}
-
 	// Update all vehicle fields including documents
-	_, err := config.DB.Exec(`
-		UPDATE vehicles SET vehicle_name=?, vehicle_number=?, vehicle_type=?, fuel_type=?, seating_capacity=?, status=?,
+	_, err = config.DB.Exec(`
+		UPDATE vehicles SET vehicle_name=?, vehicle_number=?, vehicle_type_id=?, fuel_type=?, seating_capacity=?, status=?,
 			chassis_number=?, engine_number=?, permit_number=?, additional_permit=?,
 			insurance_amount=?, road_tax_amount=?, pollution_expire=?, green_tax_expire=?, mv_tax_expire=?,
 			insurance_expire_date=?, insurance_start_date=?, insurance_remarks=?,
 			fc_expire_date=?, fc_start_date=?, fc_remarks=?,
 			permit_expire_date=?, permit_start_date=?, permit_remarks=?
 		WHERE id=?
-	`, v.VehicleName, v.VehicleNumber, v.VehicleType, v.FuelType, v.SeatingCapacity, v.Status,
+	`, v.VehicleName, v.VehicleNumber, vehicleTypeID, v.FuelType, v.SeatingCapacity, v.Status,
 		v.ChassisNumber, v.EngineNumber, v.PermitNumber, v.AdditionalPermit,
 		v.InsuranceAmount, v.RoadTaxAmount, v.PollutionExpire, v.GreenTaxExpire, v.MVTaxExpire,
 		v.InsuranceExpireDate, v.InsuranceStartDate, v.InsuranceRemarks,
@@ -407,14 +351,12 @@ func UpdateVehicle(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
 	// ---- Write audit log for any changed document fields ----
 	userID := c.GetInt("user_id")
 	userName := c.GetString("username")
 	if userName == "" {
 		userName = "System"
 	}
-
 	// Format new date values to DD-MM-YYYY before audit comparison so old and new are in the same format
 	compareAndLog(v.ID, "insurance", "start_date", oldInsStart, formatDateForAudit(v.InsuranceStartDate), userID, userName)
 	compareAndLog(v.ID, "insurance", "expire_date", oldInsExpire, formatDateForAudit(v.InsuranceExpireDate), userID, userName)
@@ -425,7 +367,6 @@ func UpdateVehicle(c *gin.Context) {
 	compareAndLog(v.ID, "permit", "start_date", oldPermitStart, formatDateForAudit(v.PermitStartDate), userID, userName)
 	compareAndLog(v.ID, "permit", "expire_date", oldPermitExpire, formatDateForAudit(v.PermitExpireDate), userID, userName)
 	compareAndLog(v.ID, "permit", "remarks", oldPermitRemarks, v.PermitRemarks, userID, userName)
-
 	// If it's a bus, update or create the bus record
 	if v.VehicleType == "BUS" {
 		_, err = config.DB.Exec(`
@@ -437,10 +378,8 @@ func UpdateVehicle(c *gin.Context) {
 			log.Printf("Update bus error: %v", err)
 		}
 	}
-
 	c.JSON(http.StatusOK, gin.H{"message": "Vehicle updated successfully"})
 }
-
 // DELETE /api/admin/vehicles/delete?id=X
 func DeleteVehicle(c *gin.Context) {
 	id := c.Query("id")
@@ -448,16 +387,13 @@ func DeleteVehicle(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "ID required"})
 		return
 	}
-
 	_, err := config.DB.Exec("DELETE FROM vehicles WHERE id=?", id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
 	c.JSON(http.StatusOK, gin.H{"message": "Vehicle deleted successfully"})
 }
-
 // GET /api/admin/vehicles/:id/document-history - Get audit log for a vehicle's documents
 func GetVehicleDocumentHistory(c *gin.Context) {
 	vehicleID := c.Param("id")
@@ -465,12 +401,9 @@ func GetVehicleDocumentHistory(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Vehicle ID required"})
 		return
 	}
-
 	docTypeFilter := c.Query("document_type") // optional: insurance, fc, permit
-
 	var query string
 	var args []interface{}
-
 	if docTypeFilter != "" && (docTypeFilter == "insurance" || docTypeFilter == "fc" || docTypeFilter == "permit") {
 		query = `
 			SELECT id, vehicle_id, document_type, field_name, old_value, new_value, 
@@ -490,7 +423,6 @@ func GetVehicleDocumentHistory(c *gin.Context) {
 		`
 		args = []interface{}{vehicleID}
 	}
-
 	rows, err := config.DB.Query(query, args...)
 	if err != nil {
 		log.Printf("Document history query error: %v", err)
@@ -498,7 +430,6 @@ func GetVehicleDocumentHistory(c *gin.Context) {
 		return
 	}
 	defer rows.Close()
-
 	var logs []models.VehicleDocumentAuditLog
 	for rows.Next() {
 		var l models.VehicleDocumentAuditLog
@@ -509,7 +440,6 @@ func GetVehicleDocumentHistory(c *gin.Context) {
 		}
 		logs = append(logs, l)
 	}
-
 	// Group by document type for easier frontend consumption
 	grouped := map[string][]models.VehicleDocumentAuditLog{
 		"insurance": {},
@@ -519,18 +449,16 @@ func GetVehicleDocumentHistory(c *gin.Context) {
 	for _, l := range logs {
 		grouped[l.DocumentType] = append(grouped[l.DocumentType], l)
 	}
-
 	c.JSON(http.StatusOK, gin.H{
 		"logs":    logs,
 		"grouped": grouped,
 		"total":   len(logs),
 	})
 }
-
 // GET /api/admin/vehicles/alerts - Get vehicles with expired/critical documents
 func GetVehicleDocumentAlerts(c *gin.Context) {
 	rows, err := config.DB.Query(`
-		SELECT v.id, v.vehicle_number, v.vehicle_type, v.status,
+		SELECT v.id, v.vehicle_number, vt.type as vehicle_type, v.status,
 		       DATE_FORMAT(v.insurance_expire_date, '%d-%m-%Y'),
 		       DATE_FORMAT(v.fc_expire_date, '%d-%m-%Y'),
 		       DATE_FORMAT(v.permit_expire_date, '%d-%m-%Y'),
@@ -538,6 +466,7 @@ func GetVehicleDocumentAlerts(c *gin.Context) {
 		       DATEDIFF(v.fc_expire_date, CURDATE()) as fc_days,
 		       DATEDIFF(v.permit_expire_date, CURDATE()) as permit_days
 		FROM vehicles v
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 		WHERE v.status IN ('active', 'available')
 		  AND (
 		    (v.insurance_expire_date IS NOT NULL AND DATEDIFF(v.insurance_expire_date, CURDATE()) <= 10)
@@ -557,7 +486,6 @@ func GetVehicleDocumentAlerts(c *gin.Context) {
 		return
 	}
 	defer rows.Close()
-
 	type VehicleAlert struct {
 		ID              int     `json:"id"`
 		VehicleNumber   string  `json:"vehicle_number"`
@@ -570,7 +498,6 @@ func GetVehicleDocumentAlerts(c *gin.Context) {
 		FCDays          *int    `json:"fc_days"`
 		PermitDays      *int    `json:"permit_days"`
 	}
-
 	var alerts []VehicleAlert
 	for rows.Next() {
 		var a VehicleAlert
@@ -579,39 +506,33 @@ func GetVehicleDocumentAlerts(c *gin.Context) {
 			&a.InsuranceDays, &a.FCDays, &a.PermitDays)
 		alerts = append(alerts, a)
 	}
-
 	// Count expired (< 0 days) and critical (0-10 days)
 	expired := 0
 	critical := 0
 	for _, a := range alerts {
 		hasExpired := false
 		hasCritical := false
-
 		if a.InsuranceDays != nil && *a.InsuranceDays < 0 {
 			hasExpired = true
 		} else if a.InsuranceDays != nil && *a.InsuranceDays <= 10 {
 			hasCritical = true
 		}
-
 		if a.FCDays != nil && *a.FCDays < 0 {
 			hasExpired = true
 		} else if a.FCDays != nil && *a.FCDays <= 10 {
 			hasCritical = true
 		}
-
 		if a.PermitDays != nil && *a.PermitDays < 0 {
 			hasExpired = true
 		} else if a.PermitDays != nil && *a.PermitDays <= 10 {
 			hasCritical = true
 		}
-
 		if hasExpired {
 			expired++
 		} else if hasCritical {
 			critical++
 		}
 	}
-
 	c.JSON(http.StatusOK, gin.H{
 		"alerts":   alerts,
 		"expired":  expired,
@@ -619,7 +540,6 @@ func GetVehicleDocumentAlerts(c *gin.Context) {
 		"total":    len(alerts),
 	})
 }
-
 // GetVehicleDocumentAuditSummary returns all audit logs (admin overview)
 func GetVehicleDocumentAuditSummary(c *gin.Context) {
 	limit := c.DefaultQuery("limit", "50")
@@ -637,7 +557,6 @@ func GetVehicleDocumentAuditSummary(c *gin.Context) {
 		return
 	}
 	defer rows.Close()
-
 	type AuditEntry struct {
 		ID            int     `json:"id"`
 		VehicleID     int     `json:"vehicle_id"`
@@ -651,7 +570,6 @@ func GetVehicleDocumentAuditSummary(c *gin.Context) {
 		ChangedByName string  `json:"changed_by_name"`
 		ChangedAt     string  `json:"changed_at"`
 	}
-
 	var entries []AuditEntry
 	for rows.Next() {
 		var e AuditEntry
@@ -662,6 +580,5 @@ func GetVehicleDocumentAuditSummary(c *gin.Context) {
 		}
 		entries = append(entries, e)
 	}
-
 	c.JSON(http.StatusOK, gin.H{"entries": entries, "total": len(entries)})
 }

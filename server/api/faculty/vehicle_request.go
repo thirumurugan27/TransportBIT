@@ -14,6 +14,62 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func vehicleRequestColumns(columnNames ...string) map[string]bool {
+	known := map[string]bool{
+		"requester_id":       true,
+		"faculty_id":         true,
+		"BookingType":        true,
+		"TripType":           true,
+		"TripMode":           false,
+		"RequestUnder":       true,
+		"Vertical":           true,
+		"OralApproval":       false,
+		"OnwardFromPlace":    true,
+		"OnwardToPlace":      true,
+		"OnwardFromDateTime": true,
+		"OnwardTodateTime":   true,
+		"ReturnFromPlace":    false,
+		"ReturnToPlace":      false,
+		"ReturnFromDateTime": false,
+		"ReturnTodateTime":   false,
+		"CountPerson":        true,
+		"Purpose":            true,
+		"PurposeOfVisit":     true,
+		"TravellerName":      true,
+		"Address":            true,
+		"MobileNumber":       true,
+		"ContactName":        true,
+		"ContactPhone":       true,
+		"TaskID":             true,
+		"OutcomeExpected":    false,
+		"OutcomeAuditable":   false,
+		"status":             true,
+	}
+	out := make(map[string]bool, len(columnNames))
+	for _, c := range columnNames {
+		out[c] = known[c]
+	}
+	return out
+}
+
+func upsertPrimaryVehicleRequestTrip(requestID int64, req models.CreateVehicleRequestInput) error {
+	if strings.TrimSpace(req.OnwardFromDateTime) == "" || strings.TrimSpace(req.OnwardFromPlace) == "" || strings.TrimSpace(req.OnwardToPlace) == "" {
+		return nil
+	}
+
+	_, err := config.DB.Exec(`
+		INSERT INTO vehicle_request_trips (request_id, trip_order, from_place, to_place, from_datetime, to_datetime)
+		VALUES (?, 1, ?, ?, ?, NULLIF(?, ''))
+		ON DUPLICATE KEY UPDATE
+			from_place = VALUES(from_place),
+			to_place = VALUES(to_place),
+			from_datetime = VALUES(from_datetime),
+			to_datetime = VALUES(to_datetime)
+	`, requestID, strings.TrimSpace(req.OnwardFromPlace), strings.TrimSpace(req.OnwardToPlace), req.OnwardFromDateTime, strings.TrimSpace(req.OnwardToDateTime))
+
+	return err
+}
+
 // POST /api/faculty/vehicle-request
 func CreateVehicleRequest(c *gin.Context) {
 	userID := c.GetInt("user_id")
@@ -163,7 +219,7 @@ func CreateVehicleRequest(c *gin.Context) {
 	// Insert using only the columns that exist in the current DB schema.
 	// This supports both legacy tables (PurposeOfVisit, Indenter*) and newer tables (Purpose, ContactName/Phone, RequestUnder, etc.).
 	colsToCheck := []string{
-		"faculty_id",
+		"requester_id", "faculty_id",
 		"BookingType", "TripType", "TripMode", "RequestUnder", "Vertical", "OralApproval",
 		"OnwardFromPlace", "OnwardToPlace", "OnwardFromDateTime", "OnwardTodateTime",
 		"ReturnFromPlace", "ReturnToPlace", "ReturnFromDateTime", "ReturnTodateTime",
@@ -175,20 +231,19 @@ func CreateVehicleRequest(c *gin.Context) {
 		"TaskID", "OutcomeExpected", "OutcomeAuditable",
 		"status",
 	}
-	colExists, colErr := config.HasColumns("vehiclerequests", colsToCheck...)
-	if colErr != nil {
-		log.Printf("Error checking vehiclerequests columns: %v", colErr)
-	}
+	colExists := vehicleRequestColumns(colsToCheck...)
 
 	// Require the core columns that are needed for a meaningful vehicle request
-	if colErr == nil {
-		required := []string{"faculty_id", "BookingType", "TripType", "TripMode", "OnwardFromPlace", "OnwardToPlace", "OnwardFromDateTime", "CountPerson"}
-		for _, rc := range required {
-			if !colExists[rc] {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Database schema missing required column: " + rc})
-				return
-			}
+	required := []string{"BookingType", "TripType", "CountPerson"}
+	for _, rc := range required {
+		if !colExists[rc] {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database schema missing required column: " + rc})
+			return
 		}
+	}
+	if !colExists["requester_id"] && !colExists["faculty_id"] {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database schema missing requester/faculty ownership column"})
+		return
 	}
 
 	columns := make([]string, 0, 24)
@@ -202,6 +257,7 @@ func CreateVehicleRequest(c *gin.Context) {
 		}
 	}
 
+	add("requester_id", userID)
 	add("faculty_id", facultyID)
 	add("BookingType", req.BookingType)
 	add("TripType", req.TripType)
@@ -259,6 +315,9 @@ func CreateVehicleRequest(c *gin.Context) {
 	}
 
 	requestID, _ := result.LastInsertId()
+	if err := upsertPrimaryVehicleRequestTrip(requestID, req); err != nil {
+		log.Printf("Error syncing normalized trip for request %d: %v", requestID, err)
+	}
 	c.JSON(http.StatusOK, gin.H{"message": "Vehicle request submitted successfully", "id": requestID})
 }
 
@@ -273,13 +332,30 @@ func GetMyVehicleRequests(c *gin.Context) {
 		return
 	}
 
-	colExists, _ := config.HasColumns("vehiclerequests",
+	colExists := vehicleRequestColumns(
+		"requester_id",
 		"Purpose", "PurposeOfVisit", "RequestUnder", "Vertical", "OralApproval",
 		"TaskID", "OutcomeExpected", "OutcomeAuditable",
 		"TravellerName", "MobileNumber", "Address",
 		"ReturnFromPlace", "ReturnToPlace", "ReturnFromDateTime", "ReturnTodateTime",
 		"ContactName", "ContactPhone",
 	)
+	requesterIDExpr := "0 as requester_id"
+	if colExists["requester_id"] {
+		requesterIDExpr = "COALESCE(vr.requester_id, 0) as requester_id"
+	}
+	bookingTypeExpr := "'faculty' as BookingType"
+	if colExists["BookingType"] {
+		bookingTypeExpr = "COALESCE(vr.BookingType, 'faculty') as BookingType"
+	}
+	tripTypeExpr := "'' as TripType"
+	if colExists["TripType"] {
+		tripTypeExpr = "COALESCE(vr.TripType, '') as TripType"
+	}
+	tripModeExpr := "'official' as TripMode"
+	if colExists["TripMode"] {
+		tripModeExpr = "COALESCE(vr.TripMode, 'official') as TripMode"
+	}
 	purposeExpr := "'' as Purpose"
 	if colExists["Purpose"] && colExists["PurposeOfVisit"] {
 		purposeExpr = "COALESCE(vr.Purpose, vr.PurposeOfVisit, '') as Purpose"
@@ -349,21 +425,36 @@ func GetMyVehicleRequests(c *gin.Context) {
 		addressExpr = "COALESCE(vr.Address, '') as Address"
 	}
 
+	ownerFilter := "vr.faculty_id = ?"
+	ownerArg := interface{}(facultyID)
+	requesterUserJoin := "LEFT JOIN users ru ON 1=0"
+	requesterFacultyJoin := "LEFT JOIN faculty rf ON 1=0"
+	if colExists["requester_id"] {
+		ownerFilter = "vr.requester_id = ?"
+		ownerArg = userID
+		requesterUserJoin = "LEFT JOIN users ru ON vr.requester_id = ru.id"
+		requesterFacultyJoin = "LEFT JOIN faculty rf ON rf.user_id = ru.id"
+	}
+
+	facultyIDExpr := "0 as faculty_id"
+	if colExists["faculty_id"] {
+		facultyIDExpr = "COALESCE(vr.faculty_id, COALESCE(f.id, rf.id), 0) as faculty_id"
+	}
 	query := fmt.Sprintf(`
 		SELECT 
-			vr.id, vr.faculty_id,
-			COALESCE(vr.BookingType, 'faculty') as BookingType,
-			COALESCE(vr.TripType, '') as TripType,
-			COALESCE(vr.TripMode, 'official') as TripMode,
+			vr.id, %s, %s,
+			%s,
+			%s,
+			%s,
 			%s,
 			%s,
 			%s,
 			%s,
 			COALESCE(vr.CountPerson, 1) as CountPerson,
-			COALESCE(vr.OnwardFromPlace, '') as OnwardFromPlace,
-			COALESCE(vr.OnwardToPlace, '') as OnwardToPlace,
-			COALESCE(DATE_FORMAT(vr.OnwardFromDateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as OnwardFromDateTime,
-			COALESCE(DATE_FORMAT(vr.OnwardTodateTime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as OnwardTodateTime,
+			COALESCE(vrt.from_place, '') as OnwardFromPlace,
+			COALESCE(vrt.to_place, '') as OnwardToPlace,
+			COALESCE(DATE_FORMAT(vrt.from_datetime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as OnwardFromDateTime,
+			COALESCE(DATE_FORMAT(vrt.to_datetime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as OnwardTodateTime,
 			%s,
 			%s,
 			%s,
@@ -379,31 +470,47 @@ func GetMyVehicleRequests(c *gin.Context) {
 			COALESCE(vr.status, 'pending') as status,
 			COALESCE(vr.admin_remarks, '') as admin_remarks,
 			COALESCE(v.vehicle_number, '') as vehicle_number,
-			COALESCE(v.vehicle_type, '') as vehicle_type,
+			'' as vehicle_type,
 			COALESCE(IFNULL(v.vehicle_name, v.vehicle_number), '') as vehicle_name,
 			COALESCE(ud.full_name, '') as driver_name,
 			COALESCE(ud.phone, '') as driver_phone,
-			COALESCE(uf.full_name, '') as faculty_name,
-			COALESCE(uf.phone, '') as faculty_phone,
-			COALESCE(f.department, '') as faculty_department,
+			COALESCE(ru.full_name, uf.full_name, '') as requester_name,
+			COALESCE(ru.email, uf.email, '') as requester_email,
+			COALESCE(ru.phone, uf.phone, '') as requester_phone,
+			'FACULTY' as requester_role,
+			COALESCE(uf.full_name, ru.full_name, '') as faculty_name,
+			COALESCE(uf.phone, ru.phone, '') as faculty_phone,
+			COALESCE(f.department, rf.department, '') as faculty_department,
 			DATE_FORMAT(COALESCE(vr.created_at, NOW()), '%%d-%%m-%%Y %%h:%%i %%p') as created_at
 		FROM vehiclerequests vr
+		LEFT JOIN vehicle_request_trips vrt ON vrt.request_id = vr.id AND vrt.trip_order = 1
 		LEFT JOIN vehicles v ON vr.vehicle_id = v.id
 		LEFT JOIN drivers d ON vr.driver_id = d.id
 		LEFT JOIN users ud ON d.user_id = ud.id
-		LEFT JOIN faculty f ON vr.faculty_id = f.id
+		%s
+		%s
+		LEFT JOIN faculty f ON 1=0
+		LEFT JOIN faculty ff ON 1=0
 		LEFT JOIN users uf ON f.user_id = uf.id
-		WHERE vr.faculty_id = ?
-		ORDER BY vr.created_at DESC
+		WHERE %s
+		ORDER BY COALESCE(vrt.from_datetime, vr.created_at) DESC
 	`,
+		requesterIDExpr,
+		facultyIDExpr,
+		bookingTypeExpr, tripTypeExpr, tripModeExpr,
 		requestUnderExpr, purposeExpr, verticalExpr, oralApprovalExpr,
 		returnFromPlaceExpr, returnToPlaceExpr, returnFromDateTimeExpr, returnToDateTimeExpr,
 		contactNameExpr, contactPhoneExpr,
 		taskIDExpr, outcomeExpectedExpr, outcomeAuditableExpr,
 		travellerNameExpr, mobileNumberExpr, addressExpr,
+		requesterUserJoin, requesterFacultyJoin,
+		ownerFilter,
 	)
+	if colExists["faculty_id"] {
+		query = strings.Replace(query, "LEFT JOIN faculty f ON 1=0", "LEFT JOIN faculty f ON vr.faculty_id = f.id", 1)
+	}
 
-	rows, err := config.DB.Query(query, facultyID)
+	rows, err := config.DB.Query(query, ownerArg)
 	if err != nil {
 		log.Printf("Error fetching vehicle requests: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error: " + err.Error()})
@@ -415,7 +522,7 @@ func GetMyVehicleRequests(c *gin.Context) {
 	for rows.Next() {
 		var r models.VehicleRequest
 		err := rows.Scan(
-			&r.ID, &r.FacultyID,
+			&r.ID, &r.RequesterID, &r.FacultyID,
 			&r.BookingType, &r.TripType, &r.TripMode, &r.RequestUnder, &r.Purpose, &r.Vertical, &r.OralApproval, &r.CountPerson,
 			&r.OnwardFromPlace, &r.OnwardToPlace, &r.OnwardFromDateTime, &r.OnwardToDateTime,
 			&r.ReturnFromPlace, &r.ReturnToPlace, &r.ReturnFromDateTime, &r.ReturnToDateTime,
@@ -425,6 +532,7 @@ func GetMyVehicleRequests(c *gin.Context) {
 			&r.Status, &r.AdminRemarks,
 			&r.VehicleNumber, &r.VehicleType, &r.VehicleName,
 			&r.DriverName, &r.DriverPhone,
+			&r.RequesterName, &r.RequesterEmail, &r.RequesterPhone, &r.RequesterRole,
 			&r.FacultyName, &r.FacultyPhone, &r.FacultyDepartment,
 			&r.CreatedAt,
 		)
@@ -458,8 +566,14 @@ func CancelVehicleRequest(c *gin.Context) {
 	}
 
 	var status string
-	err = config.DB.QueryRow(`SELECT status FROM vehiclerequests WHERE id = ? AND faculty_id = ?`,
-		req.RequestID, facultyID).Scan(&status)
+	ownerCols := vehicleRequestColumns("requester_id")
+	ownerQuery := `SELECT status FROM vehiclerequests WHERE id = ? AND faculty_id = ?`
+	ownerID := interface{}(facultyID)
+	if ownerCols["requester_id"] {
+		ownerQuery = `SELECT status FROM vehiclerequests WHERE id = ? AND requester_id = ?`
+		ownerID = userID
+	}
+	err = config.DB.QueryRow(ownerQuery, req.RequestID, ownerID).Scan(&status)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Request not found"})
 		return
@@ -495,14 +609,25 @@ func GetVehicleRequestOTP(c *gin.Context) {
 	}
 
 	requestID := c.Param("id")
-
-	var status string
-	var startOTP, endOTP sql.NullString
-	err = config.DB.QueryRow(`
+	ownerCols := vehicleRequestColumns("requester_id")
+	ownerQuery := `
 		SELECT status, start_otp, end_otp
 		FROM vehiclerequests
 		WHERE id = ? AND faculty_id = ?
-	`, requestID, facultyID).Scan(&status, &startOTP, &endOTP)
+	`
+	ownerID := interface{}(facultyID)
+	if ownerCols["requester_id"] {
+		ownerQuery = `
+			SELECT status, start_otp, end_otp
+			FROM vehiclerequests
+			WHERE id = ? AND requester_id = ?
+		`
+		ownerID = userID
+	}
+
+	var status string
+	var startOTP, endOTP sql.NullString
+	err = config.DB.QueryRow(ownerQuery, requestID, ownerID).Scan(&status, &startOTP, &endOTP)
 
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Request not found"})

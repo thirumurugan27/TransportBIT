@@ -55,25 +55,6 @@ type ClusterDriverInfo struct {
 	OnLeave    bool   `json:"on_leave"`
 }
 
-// RunEVMigrations ensures the ev_assignment_shifts junction table exists for multi-shift support
-func RunEVMigrations() {
-	_, err := config.DB.Exec(`
-		CREATE TABLE IF NOT EXISTS ev_assignment_shifts (
-			id INT NOT NULL AUTO_INCREMENT,
-			ev_assignment_id INT NOT NULL,
-			shift_id INT NOT NULL,
-			PRIMARY KEY (id),
-			KEY idx_ev_ass_shift (ev_assignment_id),
-			KEY idx_ev_shift_id (shift_id)
-		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
-	`)
-	if err != nil {
-		log.Printf("EV migrations warning: %v", err)
-	} else {
-		log.Println("EV assignment_shifts table ready")
-	}
-}
-
 /*
 =========================
 
@@ -84,9 +65,10 @@ func RunEVMigrations() {
 */
 func GetEVVehicles(c *gin.Context) {
 	rows, err := config.DB.Query(`
-		SELECT v.id, v.vehicle_number, v.vehicle_type, v.fuel_type, v.seating_capacity, v.status,
+		SELECT v.id, v.vehicle_number, vt.type as vehicle_type, v.fuel_type, v.seating_capacity, v.status,
 		       COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name
 		FROM vehicles v
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 		LEFT JOIN buses b ON b.vehicle_id = v.id
 		WHERE v.fuel_type = 'EV'
 		ORDER BY v.vehicle_number
@@ -199,9 +181,10 @@ func GetEVAssignments(c *gin.Context) {
 
 		// Fetch vehicles in this group
 		vRows, vErr := config.DB.Query(`
-			SELECT v.id, v.vehicle_number, v.vehicle_type 
+			SELECT v.id, v.vehicle_number, vt.type as vehicle_type 
 			FROM vehicle_group_members vgm
 			JOIN vehicles v ON v.id = vgm.vehicle_id
+			LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 			WHERE vgm.group_id = ? AND CURDATE() BETWEEN vgm.valid_from AND vgm.valid_to
 		`, a.VehicleGroupID)
 		if vErr == nil {
@@ -777,9 +760,10 @@ func GetEVAssignmentDetails(c *gin.Context) {
 	// Fetch vehicles in this group
 	var vehicleIDs []int
 	vRows, err := config.DB.Query(`
-		SELECT v.id, v.vehicle_number, v.vehicle_type 
+		SELECT v.id, v.vehicle_number, vt.type as vehicle_type 
 		FROM vehicle_group_members vgm
 		JOIN vehicles v ON v.id = vgm.vehicle_id
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 		WHERE vgm.group_id = ? AND CURDATE() BETWEEN vgm.valid_from AND vgm.valid_to
 	`, response.VehicleGroupID)
 	if err == nil {

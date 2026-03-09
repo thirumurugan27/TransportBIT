@@ -58,10 +58,11 @@ func GetDriverKmLogs(c *gin.Context) {
 		SELECT k.id, k.driver_id, DATE_FORMAT(k.date, '%d-%m-%Y') as date, 
 		       k.start_km, k.end_km, k.total_km, k.fuel_consumed,
 		       COALESCE(k.remarks, '') as remarks,
-			   COALESCE(v.vehicle_type, 'BUS') as vehicle_type, k.vehicle_id, v.vehicle_number,
+			   COALESCE(vt.type, '') as vehicle_type, k.vehicle_id, v.vehicle_number,
 			   COALESCE(k.status, 'approved') as status
 		FROM km_logs k
 		LEFT JOIN vehicles v ON k.vehicle_id = v.id
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 		WHERE k.driver_id = ?
 		ORDER BY k.date DESC
 		LIMIT 30

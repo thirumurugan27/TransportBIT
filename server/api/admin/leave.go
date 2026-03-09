@@ -542,12 +542,13 @@ func GetLeaveAffectedAssignments(c *gin.Context) {
 			s.name as shift_name,
 			TIME_FORMAT(s.start_time, '%h:%i %p') as shift_start_time,
 			TIME_FORMAT(s.end_time, '%h:%i %p') as shift_end_time,
-			v.vehicle_number, v.vehicle_type,
+			v.vehicle_number, COALESCE(vt.type, '') as vehicle_type,
 			COALESCE(v.vehicle_name, '') as vehicle_name,
 			0 as is_ev_cluster, 0 as cluster_id, '' as cluster_name
 		FROM assignments a
 		JOIN shifts s ON a.shift_id = s.id
 		JOIN vehicles v ON a.vehicle_id = v.id
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 		LEFT JOIN buses b ON v.id = b.vehicle_id
 		WHERE a.driver_id = ? 
 		AND a.status IN ('active', 'assigned')
@@ -588,11 +589,12 @@ func GetLeaveAffectedAssignments(c *gin.Context) {
 			COALESCE(dc.name, 'EV Assignment') as shift_name,
 			COALESCE(TIME_FORMAT(dc.start_time, '%h:%i %p'), '') as shift_start_time,
 			COALESCE(TIME_FORMAT(dc.end_time, '%h:%i %p'), '') as shift_end_time,
-			v.vehicle_number, v.vehicle_type,
+			v.vehicle_number, COALESCE(vt.type, '') as vehicle_type,
 			COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name,
 			1 as is_ev_cluster, dc.id as cluster_id, dc.name as cluster_name
 		FROM ev_assignments ev
 		JOIN vehicles v ON ev.vehicle_id = v.id
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 		JOIN driver_clusters dc ON ev.cluster_id = dc.id
 		JOIN driver_cluster_members dcm ON dcm.cluster_id = dc.id
 		JOIN drivers d ON d.id = dcm.driver_id

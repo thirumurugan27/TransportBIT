@@ -377,13 +377,14 @@ func GetVehicleGroupMembers(c *gin.Context) {
 
 	rows, err := config.DB.Query(`
 		SELECT vgm.id, vgm.group_id, vgm.vehicle_id,
-		       v.vehicle_number, v.vehicle_type,
+		       v.vehicle_number, COALESCE(vt.type, '') as vehicle_type,
 		       DATE_FORMAT(vgm.valid_from, '%d-%m-%Y') as valid_from,
 		       DATE_FORMAT(vgm.valid_to, '%d-%m-%Y') as valid_to,
 		       DATE_FORMAT(vgm.added_at, '%d-%m-%Y %h:%i %p') as added_at,
 		       v.status as vehicle_status
 		FROM vehicle_group_members vgm
 		JOIN vehicles v ON vgm.vehicle_id = v.id
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 		WHERE vgm.group_id = ?
 		ORDER BY vgm.valid_from DESC, v.vehicle_number
 	`, idParam)
@@ -660,9 +661,10 @@ func GetUnassignedEVVehicles(c *gin.Context) {
 
 	if validFrom != "" && validTo != "" {
 		query = `
-			SELECT v.id, v.vehicle_number, v.vehicle_type, NULL as group_id
+			SELECT v.id, v.vehicle_number, COALESCE(vt.type, '') as vehicle_type, NULL as group_id
 			FROM vehicles v
-			WHERE v.vehicle_type = 'BATTERY_VEHICLE' 
+			LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
+			WHERE COALESCE(vt.type, '') = 'BATTERY_VEHICLE' 
 			AND v.id NOT IN (
 				SELECT vgm.vehicle_id FROM vehicle_group_members vgm
 				WHERE NOT (? < vgm.valid_from OR ? > vgm.valid_to)
@@ -672,9 +674,10 @@ func GetUnassignedEVVehicles(c *gin.Context) {
 		args = []interface{}{validTo, validFrom}
 	} else {
 		query = `
-			SELECT v.id, v.vehicle_number, v.vehicle_type, NULL as group_id
+			SELECT v.id, v.vehicle_number, COALESCE(vt.type, '') as vehicle_type, NULL as group_id
 			FROM vehicles v
-			WHERE v.vehicle_type = 'BATTERY_VEHICLE' 
+			LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
+			WHERE COALESCE(vt.type, '') = 'BATTERY_VEHICLE' 
 			AND v.id NOT IN (
 				SELECT DISTINCT vgm.vehicle_id FROM vehicle_group_members vgm
 				WHERE CURDATE() BETWEEN vgm.valid_from AND vgm.valid_to
@@ -725,8 +728,9 @@ func GetAvailableVehiclesForGroup(c *gin.Context) {
 	}
 
 	query := `
-		SELECT v.id, v.vehicle_number, v.vehicle_type
+		SELECT v.id, v.vehicle_number, COALESCE(vt.type, '') as vehicle_type
 		FROM vehicles v
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 		WHERE v.id NOT IN (
 			SELECT vgm.vehicle_id FROM vehicle_group_members vgm
 			WHERE vgm.group_id != COALESCE(?, 0)
@@ -736,7 +740,7 @@ func GetAvailableVehiclesForGroup(c *gin.Context) {
 	args := []interface{}{excludeGroupID, validTo, validFrom}
 
 	if vehicleType != "" {
-		query += " AND v.vehicle_type = ?"
+		query += " AND COALESCE(vt.type, '') = ?"
 		args = append(args, vehicleType)
 	}
 

@@ -36,6 +36,7 @@ func RegisterRoutes(r *gin.Engine) {
 
 	// Shared dropdown data (for forms across roles)
 	authenticated.GET("/vehicles", admin.GetAllVehicles)
+	authenticated.GET("/vehicle-types", admin.GetVehicleTypes)
 	authenticated.GET("/stops", admin.GetAllStops)
 	authenticated.GET("/shifts", admin.GetAllShifts)
 	authenticated.GET("/drivers", admin.GetDrivers)
@@ -90,6 +91,7 @@ func registerAdminRoutes(adm *gin.RouterGroup) {
 
 	// Vehicle Management
 	adm.GET("/vehicles", admin.GetAllVehicles)
+	adm.GET("/vehicle-types", admin.GetVehicleTypes)
 	adm.POST("/vehicles/create", admin.CreateVehicle)
 	adm.POST("/vehicles/update", admin.UpdateVehicle)
 	adm.DELETE("/vehicles/delete", admin.DeleteVehicle)
