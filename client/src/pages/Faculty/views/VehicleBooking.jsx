@@ -23,6 +23,7 @@ import {
 import {useToast} from "../../../context/ToastContext";
 import {showConfirm} from "../../../utils/swal";
 import Loading from "../../../components/ui/Loading";
+import CustomDropdown from "../../../components/ui/CustomDropdown";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
@@ -357,50 +358,28 @@ export default function VehicleBooking() {
         </button>
       </div>
 
-      {/* Status Tabs */}
-      <div className="bg-white rounded-md shadow-sm border border-gray-100">
-        <div className="flex items-center gap-1 p-2 overflow-x-auto">
-          {STATUS_TABS.map((tab) => {
-            const TabIcon = tab.icon;
-            const isActive = activeTab === tab.key;
-            const count = counts[tab.key];
-            return (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-all ${
-                  isActive
-                    ? "bg-primary text-white shadow-sm"
-                    : "text-secondarytext hover:bg-gray-50 hover:text-primarytext"
-                }`}
-              >
-                <TabIcon size={16} />
-                {tab.label}
-                {count > 0 && (
-                  <span
-                    className={`px-1.5 py-0.5 rounded text-xs font-bold ${
-                      isActive ? "bg-white/20" : "bg-gray-100"
-                    }`}
-                  >
-                    {count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Search Bar */}
+      {/* Search & Filter */}
       <div className="bg-white rounded-md p-4 shadow-sm border border-gray-100">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-secondarytext w-4 h-4" />
-          <input
-            type="text"
-            placeholder="Search by purpose, request under, or ID..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-primarybg border border-gray-200 rounded-md focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all text-sm text-primarytext"
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-secondarytext w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Search by purpose, request under, or ID..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 bg-primarybg border border-gray-200 rounded-md focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all text-sm text-primarytext"
+            />
+          </div>
+          <CustomDropdown
+            value={activeTab}
+            onChange={setActiveTab}
+            options={STATUS_TABS.map((t) => ({
+              value: t.key,
+              label: t.label,
+              icon: t.icon,
+            }))}
+            width="w-44"
           />
         </div>
       </div>
@@ -447,13 +426,17 @@ export default function VehicleBooking() {
                     STATUS_CONFIG[req.status] || STATUS_CONFIG.pending;
 
                   const departureDateTime = req.onward_from_datetime;
-                  const routeDisplay = req.trips?.length > 1
-                    ? [req.trips[0].departure_location, ...req.trips.map(t => t.arrival_location)].join(' → ')
-                    : req.trips?.length === 1
-                      ? `${req.trips[0].departure_location}${req.trips[0].arrival_location ? ` → ${req.trips[0].arrival_location}` : ''}`
-                      : req.onward_from_place
-                        ? `${req.onward_from_place}${req.onward_to_place ? ` → ${req.onward_to_place}` : ''}`
-                        : null;
+                  const routeDisplay =
+                    req.trips?.length > 1
+                      ? [
+                          req.trips[0].departure_location,
+                          ...req.trips.map((t) => t.arrival_location),
+                        ].join(" → ")
+                      : req.trips?.length === 1
+                        ? `${req.trips[0].departure_location}${req.trips[0].arrival_location ? ` → ${req.trips[0].arrival_location}` : ""}`
+                        : req.onward_from_place
+                          ? `${req.onward_from_place}${req.onward_to_place ? ` → ${req.onward_to_place}` : ""}`
+                          : null;
                   return (
                     <tr
                       key={req.id}
@@ -477,9 +460,7 @@ export default function VehicleBooking() {
                             <p className="text-primarytext font-medium">
                               {departureDateTime || "-"}
                             </p>
-                            <p className="text-xs">
-                              {routeDisplay || "-"}
-                            </p>
+                            <p className="text-xs">{routeDisplay || "-"}</p>
                           </div>
                         ) : (
                           "-"
@@ -1037,7 +1018,8 @@ export default function VehicleBooking() {
                     </div>
                   ))}
 
-                  {(form.trip_type === "round_trip" || form.trip_type === "multi_stop") && (
+                  {(form.trip_type === "round_trip" ||
+                    form.trip_type === "multi_stop") && (
                     <button
                       onClick={addTrip}
                       className="w-full py-2.5 border-2 border-dashed border-primary/30 text-primary rounded-md hover:bg-primary/5 transition-colors text-sm font-medium"
@@ -1211,7 +1193,7 @@ export default function VehicleBooking() {
       {/* Details Modal */}
       {showDetailsModal && selectedRequest && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/50 animate-fadeIn">
-          <div className="bg-secondarybg w-full max-w-3xl rounded-md shadow-2xl overflow-hidden max-h-[90vh] flex flex-col border border-gray-100 animate-scaleIn">
+          <div className="bg-secondarybg w-full max-w-4xl rounded-md shadow-2xl overflow-hidden max-h-[90vh] flex flex-col border border-gray-100 animate-scaleIn">
             {/* Header */}
             <div className="px-6 py-4 bg-primarybg border-b border-gray-200">
               <div className="flex items-center justify-between">
@@ -1317,151 +1299,178 @@ export default function VehicleBooking() {
                 </div>
               </div>
 
-              {/* Trip Journey Details */}
-              {selectedRequest.onward_from_place && (
-                <div className="bg-primarybg rounded-md border border-gray-200 p-4">
-                  <h4 className="text-xs font-bold text-secondarytext uppercase tracking-wide mb-3 flex items-center gap-2">
-                    <MapPin size={14} className="text-primary" />
-                    Onward Journey
-                  </h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-secondarybg rounded-md p-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="w-2 h-2 rounded-full bg-primary"></div>
-                        <span className="text-xs font-semibold text-primary uppercase">
-                          From
-                        </span>
-                      </div>
-                      <p className="text-sm font-medium text-primarytext mb-1">
-                        {selectedRequest.onward_from_place}
-                      </p>
-                      {selectedRequest.onward_from_datetime && (
-                        <p className="text-xs text-secondarytext">
-                          {selectedRequest.onward_from_datetime}
-                        </p>
-                      )}
-                      {selectedRequest.trip_started_at && (
-                        <div className="mt-2 pt-2 border-t border-gray-200">
-                          <p className="text-xs text-green font-semibold flex items-center gap-1">
-                            <CheckCircle size={11} /> Started:{" "}
-                            {selectedRequest.trip_started_at}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                    <div className="bg-secondarybg rounded-md p-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="w-2 h-2 rounded-full bg-green"></div>
-                        <span className="text-xs font-semibold text-green uppercase">
-                          To
-                        </span>
-                      </div>
-                      <p className="text-sm font-medium text-primarytext mb-1">
-                        {selectedRequest.onward_to_place}
-                      </p>
-                      {selectedRequest.onward_to_datetime && (
-                        <p className="text-xs text-secondarytext">
-                          {selectedRequest.onward_to_datetime}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
+              {/* Trip Journey Details — unified section */}
+              {(() => {
+                const tripLegs =
+                  selectedRequest.trips?.length > 0
+                    ? selectedRequest.trips
+                    : selectedRequest.onward_from_place
+                      ? [
+                          {
+                            trip_order: 1,
+                            departure_location:
+                              selectedRequest.onward_from_place,
+                            departure_date:
+                              selectedRequest.onward_from_datetime?.split(
+                                " ",
+                              )[0] || "",
+                            departure_time:
+                              selectedRequest.onward_from_datetime
+                                ?.split(" ")
+                                .slice(1)
+                                .join(" ") || "",
+                            arrival_location: selectedRequest.onward_to_place,
+                            arrival_date:
+                              selectedRequest.onward_to_datetime?.split(
+                                " ",
+                              )[0] || "",
+                            arrival_time:
+                              selectedRequest.onward_to_datetime
+                                ?.split(" ")
+                                .slice(1)
+                                .join(" ") || "",
+                          },
+                          ...(selectedRequest.return_from_place
+                            ? [
+                                {
+                                  trip_order: 2,
+                                  departure_location:
+                                    selectedRequest.return_from_place,
+                                  departure_date:
+                                    selectedRequest.return_from_datetime?.split(
+                                      " ",
+                                    )[0] || "",
+                                  departure_time:
+                                    selectedRequest.return_from_datetime
+                                      ?.split(" ")
+                                      .slice(1)
+                                      .join(" ") || "",
+                                  arrival_location:
+                                    selectedRequest.return_to_place,
+                                  arrival_date:
+                                    selectedRequest.return_to_datetime?.split(
+                                      " ",
+                                    )[0] || "",
+                                  arrival_time:
+                                    selectedRequest.return_to_datetime
+                                      ?.split(" ")
+                                      .slice(1)
+                                      .join(" ") || "",
+                                },
+                              ]
+                            : []),
+                        ]
+                      : [];
 
-              {/* Return Trip */}
-              {selectedRequest.return_from_place && (
-                <div className="bg-primarybg rounded-md border border-gray-200 p-4">
-                  <h4 className="text-xs font-bold text-secondarytext uppercase tracking-wide mb-3 flex items-center gap-2">
-                    <MapPin size={14} className="text-green" />
-                    Return Journey
-                  </h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-secondarybg rounded-md p-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="w-2 h-2 rounded-full bg-primary"></div>
-                        <span className="text-xs font-semibold text-primary uppercase">
-                          From
-                        </span>
-                      </div>
-                      <p className="text-sm font-medium text-primarytext mb-1">
-                        {selectedRequest.return_from_place}
-                      </p>
-                      {selectedRequest.return_from_datetime && (
-                        <p className="text-xs text-secondarytext">
-                          {selectedRequest.return_from_datetime}
-                        </p>
-                      )}
-                    </div>
-                    <div className="bg-secondarybg rounded-md p-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="w-2 h-2 rounded-full bg-green"></div>
-                        <span className="text-xs font-semibold text-green uppercase">
-                          To
-                        </span>
-                      </div>
-                      <p className="text-sm font-medium text-primarytext mb-1">
-                        {selectedRequest.return_to_place}
-                      </p>
-                      {selectedRequest.return_to_datetime && (
-                        <p className="text-xs text-secondarytext">
-                          {selectedRequest.return_to_datetime}
-                        </p>
-                      )}
-                      {selectedRequest.trip_ended_at && (
-                        <div className="mt-2 pt-2 border-t border-gray-200">
-                          <p className="text-xs text-green font-semibold flex items-center gap-1">
-                            <CheckCircle size={11} /> Ended:{" "}
-                            {selectedRequest.trip_ended_at}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
+                if (tripLegs.length === 0) return null;
 
-              {/* Legacy trips format (if present) */}
-              {selectedRequest.trips?.map((trip, idx) => (
-                <div
-                  key={idx}
-                  className="bg-primarybg rounded-md border border-gray-200 p-4"
-                >
-                  <h4 className="text-xs font-bold text-secondarytext uppercase tracking-wide mb-3">
-                    Trip Leg {trip.trip_order}
-                  </h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-secondarybg rounded-md p-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        <MapPin size={12} className="text-primary" />
-                        <span className="text-xs font-semibold text-primary">
-                          Departure
+                return (
+                  <div className="bg-primarybg rounded-md border border-gray-200 p-4">
+                    <h4 className="text-xs font-bold text-secondarytext uppercase tracking-wide mb-3 flex items-center gap-2">
+                      <MapPin size={14} className="text-primary" />
+                      Trip Itinerary
+                      {tripLegs.length > 1 && (
+                        <span className="ml-auto text-[10px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-md">
+                          {tripLegs.length} Legs
                         </span>
-                      </div>
-                      <p className="text-sm font-medium text-primarytext mb-1">
-                        {trip.departure_location}
-                      </p>
-                      <p className="text-xs text-secondarytext">
-                        {trip.departure_date} at {trip.departure_time || "N/A"}
-                      </p>
-                    </div>
-                    <div className="bg-secondarybg rounded-md p-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        <MapPin size={12} className="text-green" />
-                        <span className="text-xs font-semibold text-green">
-                          Arrival
-                        </span>
-                      </div>
-                      <p className="text-sm font-medium text-primarytext mb-1">
-                        {trip.arrival_location}
-                      </p>
-                      <p className="text-xs text-secondarytext">
-                        {trip.arrival_date} at {trip.arrival_time || "N/A"}
-                      </p>
+                      )}
+                    </h4>
+                    <div className="space-y-3">
+                      {tripLegs.map((trip, idx) => (
+                        <div
+                          key={idx}
+                          className="bg-secondarybg rounded-md p-3 border border-gray-100 relative"
+                        >
+                          {tripLegs.length > 1 && (
+                            <span className="absolute top-2.5 right-2.5 text-[9px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded uppercase tracking-wide">
+                              Leg {trip.trip_order || idx + 1}
+                            </span>
+                          )}
+                          <div className="grid grid-cols-2 gap-3 pr-10">
+                            {/* Departure */}
+                            <div>
+                              <div className="flex items-center gap-1.5 mb-1.5">
+                                <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
+                                <span className="text-[10px] font-bold text-primary uppercase tracking-wide">
+                                  From
+                                </span>
+                              </div>
+                              <p className="text-sm font-semibold text-primarytext leading-tight mb-1">
+                                {trip.departure_location || "—"}
+                              </p>
+                              <div className="flex flex-wrap gap-1.5 mt-1">
+                                {trip.departure_date && (
+                                  <span className="inline-flex items-center gap-1.5 bg-primarybg border border-gray-200 text-primarytext font-semibold text-xs px-2.5 py-1.5 rounded">
+                                    <Calendar
+                                      size={11}
+                                      className="text-primary shrink-0"
+                                    />
+                                    {trip.departure_date}
+                                  </span>
+                                )}
+                                {trip.departure_time && (
+                                  <span className="inline-flex items-center gap-1.5 bg-primarybg border border-gray-200 text-primarytext font-semibold text-xs px-2.5 py-1.5 rounded">
+                                    <Clock
+                                      size={11}
+                                      className="text-secondarytext shrink-0"
+                                    />
+                                    {trip.departure_time}
+                                  </span>
+                                )}
+                              </div>
+                              {idx === 0 && selectedRequest.trip_started_at && (
+                                <p className="text-[10px] text-green font-semibold flex items-center gap-1 mt-1.5 pt-1.5 border-t border-gray-100">
+                                  <CheckCircle size={10} />
+                                  Started: {selectedRequest.trip_started_at}
+                                </p>
+                              )}
+                            </div>
+                            {/* Arrival */}
+                            <div>
+                              <div className="flex items-center gap-1.5 mb-1.5">
+                                <div className="w-2 h-2 rounded-full bg-green shrink-0" />
+                                <span className="text-[10px] font-bold text-green uppercase tracking-wide">
+                                  To
+                                </span>
+                              </div>
+                              <p className="text-sm font-semibold text-primarytext leading-tight mb-1">
+                                {trip.arrival_location || "—"}
+                              </p>
+                              <div className="flex flex-wrap gap-1.5 mt-1">
+                                {trip.arrival_date && (
+                                  <span className="inline-flex items-center gap-1.5 bg-primarybg border border-gray-200 text-primarytext font-semibold text-xs px-2.5 py-1.5 rounded">
+                                    <Calendar
+                                      size={11}
+                                      className="text-primary shrink-0"
+                                    />
+                                    {trip.arrival_date}
+                                  </span>
+                                )}
+                                {trip.arrival_time && (
+                                  <span className="inline-flex items-center gap-1.5 bg-primarybg border border-gray-200 text-primarytext font-semibold text-xs px-2.5 py-1.5 rounded">
+                                    <Clock
+                                      size={11}
+                                      className="text-secondarytext shrink-0"
+                                    />
+                                    {trip.arrival_time}
+                                  </span>
+                                )}
+                              </div>
+                              {idx === tripLegs.length - 1 &&
+                                selectedRequest.trip_ended_at && (
+                                  <p className="text-[10px] text-green font-semibold flex items-center gap-1 mt-1.5 pt-1.5 border-t border-gray-100">
+                                    <CheckCircle size={10} />
+                                    Ended: {selectedRequest.trip_ended_at}
+                                  </p>
+                                )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })()}
               {/* Travelling Person Details */}
               {(selectedRequest.traveller_name ||
                 selectedRequest.traveller_mobile ||

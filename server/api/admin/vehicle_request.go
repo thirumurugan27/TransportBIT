@@ -639,10 +639,10 @@ func GetVehicleRequestDetails(c *gin.Context) {
 	// Load all trip legs from vehicle_request_trips
 	tripRows, tripErr := config.DB.Query(`
 		SELECT trip_order, COALESCE(from_place, '') as from_place, COALESCE(to_place, '') as to_place,
-			COALESCE(DATE_FORMAT(from_datetime, '%Y-%m-%d'), '') as dep_date,
-			COALESCE(DATE_FORMAT(from_datetime, '%H:%i'), '') as dep_time,
-			COALESCE(DATE_FORMAT(to_datetime, '%Y-%m-%d'), '') as arr_date,
-			COALESCE(DATE_FORMAT(to_datetime, '%H:%i'), '') as arr_time
+			COALESCE(DATE_FORMAT(from_datetime, '%d-%m-%Y'), '') as dep_date,
+			COALESCE(DATE_FORMAT(from_datetime, '%h:%i %p'), '') as dep_time,
+			COALESCE(DATE_FORMAT(to_datetime, '%d-%m-%Y'), '') as arr_date,
+			COALESCE(DATE_FORMAT(to_datetime, '%h:%i %p'), '') as arr_time
 		FROM vehicle_request_trips
 		WHERE request_id = ?
 		ORDER BY trip_order ASC

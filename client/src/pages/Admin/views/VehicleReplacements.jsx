@@ -848,7 +848,7 @@ export default function VehicleReplacements({
             onClose={() => setShowApproveModal(null)}
           />
           <div className="p-6 space-y-4">
-            <div className="p-3 rounded-lg" style={{background: C.primarybg}}>
+            <div className="p-3 rounded-md" style={{background: C.primarybg}}>
               <div className="text-sm font-bold" style={{color: C.primarytext}}>
                 {showApproveModal.vehicle_number} • Driver:{" "}
                 {showApproveModal.driver_name}

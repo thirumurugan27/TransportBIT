@@ -655,18 +655,25 @@ export default function VehicleRequests() {
                     STATUS_CONFIG[req.status] || STATUS_CONFIG.pending;
                   const StatusIcon = cfg.icon;
                   const departureDateTime = req.onward_from_datetime;
-                  const routeDisplay = req.trips?.length > 1
-                    ? [req.trips[0].departure_location, ...req.trips.map(t => t.arrival_location)].join(' → ')
-                    : req.trips?.length === 1
-                      ? `${req.trips[0].departure_location}${req.trips[0].arrival_location ? ` → ${req.trips[0].arrival_location}` : ''}`
-                      : req.onward_from_place
-                        ? `${req.onward_from_place}${req.onward_to_place ? ` → ${req.onward_to_place}` : ''}`
-                        : null;
+                  const routeDisplay =
+                    req.trips?.length > 1
+                      ? [
+                          req.trips[0].departure_location,
+                          ...req.trips.map((t) => t.arrival_location),
+                        ].join(" → ")
+                      : req.trips?.length === 1
+                        ? `${req.trips[0].departure_location}${req.trips[0].arrival_location ? ` → ${req.trips[0].arrival_location}` : ""}`
+                        : req.onward_from_place
+                          ? `${req.onward_from_place}${req.onward_to_place ? ` → ${req.onward_to_place}` : ""}`
+                          : null;
 
                   return (
                     <tr
                       key={req.id}
-                      onClick={() => fetchRequestDetail(req.id)}
+                      onClick={() => {
+                        setSelectedRequest(req);
+                        fetchRequestDetail(req.id);
+                      }}
                       className="hover:bg-primarybg/30 transition-colors cursor-pointer group"
                     >
                       <td className="px-6 py-4">
@@ -733,7 +740,7 @@ export default function VehicleRequests() {
       {/* ========== DETAIL MODAL ========== */}
       {selectedRequest && (
         <div className="fixed inset-0 bg-slate-900/60  flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <div className="bg-secondarybg rounded-md shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-scaleIn">
+          <div className="bg-secondarybg rounded-md shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-scaleIn">
             {/* Header */}
             <div className="p-6 border-b border-primarybg/50">
               <div className="flex items-center justify-between">
@@ -748,9 +755,14 @@ export default function VehicleRequests() {
                   </div>
                   <div>
                     <h2 className="text-xl font-bold text-primarytext">
-                      Request Details
+                      {selectedRequest.trip_type
+                        ? selectedRequest.trip_type
+                            .split("_")
+                            .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                            .join(" ")
+                        : "Vehicle Request"}
                     </h2>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
                       <span
                         className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${STATUS_CONFIG[selectedRequest.status]?.color}`}
                       >
@@ -761,6 +773,11 @@ export default function VehicleRequests() {
                         {selectedRequest.faculty_department}
                       </p>
                     </div>
+                    {selectedRequest.purpose && (
+                      <p className="text-xs text-secondarytext mt-1.5 italic line-clamp-1">
+                        "{selectedRequest.purpose}"
+                      </p>
+                    )}
                   </div>
                 </div>
                 <button
@@ -793,59 +810,156 @@ export default function VehicleRequests() {
                           <div className="absolute top-3 right-3 px-2 py-0.5 bg-primary/5 text-primary text-[10px] font-bold rounded uppercase">
                             Leg {trip.trip_order}
                           </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="space-y-1">
-                              <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider">
-                                Departure
-                              </p>
+                          <div className="grid grid-cols-2 gap-5">
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-1.5">
+                                <div className="w-2.5 h-2.5 rounded-full bg-primary" />
+                                <p className="text-[10px] font-bold text-primary uppercase tracking-wider">
+                                  Departure
+                                </p>
+                              </div>
                               <p className="text-sm font-bold text-primarytext">
                                 {trip.departure_location}
                               </p>
-                              <p className="text-[11px] text-secondarytext font-mono">
-                                {trip.departure_date}{" "}
-                                {trip.departure_time &&
-                                  `· ${trip.departure_time}`}
-                              </p>
+                              <div className="flex flex-wrap gap-2 mt-1">
+                                {trip.departure_date && (
+                                  <span className="inline-flex items-center gap-1.5 bg-primarybg border border-gray-200 text-primarytext font-semibold text-xs px-2.5 py-1.5 rounded">
+                                    <Calendar
+                                      size={12}
+                                      className="text-primary shrink-0"
+                                    />
+                                    {trip.departure_date}
+                                  </span>
+                                )}
+                                {trip.departure_time && (
+                                  <span className="inline-flex items-center gap-1.5 bg-primarybg border border-gray-200 text-primarytext font-semibold text-xs px-2.5 py-1.5 rounded">
+                                    <Clock
+                                      size={12}
+                                      className="text-secondarytext shrink-0"
+                                    />
+                                    {trip.departure_time}
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            <div className="space-y-1">
-                              <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider">
-                                Arrival
-                              </p>
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-1.5">
+                                <div className="w-2.5 h-2.5 rounded-full bg-green" />
+                                <p className="text-[10px] font-bold text-green uppercase tracking-wider">
+                                  Arrival
+                                </p>
+                              </div>
                               <p className="text-sm font-bold text-primarytext">
                                 {trip.arrival_location}
                               </p>
-                              <p className="text-[11px] text-secondarytext font-mono">
-                                {trip.arrival_date}{" "}
-                                {trip.arrival_time && `· ${trip.arrival_time}`}
-                              </p>
+                              <div className="flex flex-wrap gap-2 mt-1">
+                                {trip.arrival_date && (
+                                  <span className="inline-flex items-center gap-1.5 bg-primarybg border border-gray-200 text-primarytext font-semibold text-xs px-2.5 py-1.5 rounded">
+                                    <Calendar
+                                      size={12}
+                                      className="text-primary shrink-0"
+                                    />
+                                    {trip.arrival_date}
+                                  </span>
+                                )}
+                                {trip.arrival_time && (
+                                  <span className="inline-flex items-center gap-1.5 bg-primarybg border border-gray-200 text-primarytext font-semibold text-xs px-2.5 py-1.5 rounded">
+                                    <Clock
+                                      size={12}
+                                      className="text-secondarytext shrink-0"
+                                    />
+                                    {trip.arrival_time}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
                       ))
                     ) : (
                       <div className="bg-secondarybg p-4 rounded-md border border-primarybg/50">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div className="space-y-1">
-                            <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider">
-                              From
-                            </p>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-2.5 h-2.5 rounded-full bg-primary" />
+                              <p className="text-[10px] font-bold text-primary uppercase tracking-wider">
+                                From
+                              </p>
+                            </div>
                             <p className="text-sm font-bold text-primarytext">
                               {selectedRequest.onward_from_place}
                             </p>
-                            <p className="text-[11px] text-secondarytext font-mono">
-                              {selectedRequest.onward_from_datetime}
-                            </p>
+                            {selectedRequest.onward_from_datetime && (
+                              <div className="flex flex-wrap gap-2 mt-1">
+                                <span className="inline-flex items-center gap-1.5 bg-primarybg border border-gray-200 text-primarytext font-semibold text-xs px-2.5 py-1.5 rounded">
+                                  <Calendar
+                                    size={12}
+                                    className="text-primary shrink-0"
+                                  />
+                                  {
+                                    selectedRequest.onward_from_datetime.split(
+                                      " ",
+                                    )[0]
+                                  }
+                                </span>
+                                {selectedRequest.onward_from_datetime
+                                  .split(" ")
+                                  .slice(1)
+                                  .join(" ") && (
+                                  <span className="inline-flex items-center gap-1.5 bg-primarybg border border-gray-200 text-primarytext font-semibold text-xs px-2.5 py-1.5 rounded">
+                                    <Clock
+                                      size={12}
+                                      className="text-secondarytext shrink-0"
+                                    />
+                                    {selectedRequest.onward_from_datetime
+                                      .split(" ")
+                                      .slice(1)
+                                      .join(" ")}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </div>
-                          <div className="space-y-1">
-                            <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider">
-                              To
-                            </p>
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-2.5 h-2.5 rounded-full bg-green" />
+                              <p className="text-[10px] font-bold text-green uppercase tracking-wider">
+                                To
+                              </p>
+                            </div>
                             <p className="text-sm font-bold text-primarytext">
                               {selectedRequest.onward_to_place}
                             </p>
-                            <p className="text-[11px] text-secondarytext font-mono">
-                              {selectedRequest.onward_to_datetime}
-                            </p>
+                            {selectedRequest.onward_to_datetime && (
+                              <div className="flex flex-wrap gap-2 mt-1">
+                                <span className="inline-flex items-center gap-1.5 bg-primarybg border border-gray-200 text-primarytext font-semibold text-xs px-2.5 py-1.5 rounded">
+                                  <Calendar
+                                    size={12}
+                                    className="text-primary shrink-0"
+                                  />
+                                  {
+                                    selectedRequest.onward_to_datetime.split(
+                                      " ",
+                                    )[0]
+                                  }
+                                </span>
+                                {selectedRequest.onward_to_datetime
+                                  .split(" ")
+                                  .slice(1)
+                                  .join(" ") && (
+                                  <span className="inline-flex items-center gap-1.5 bg-primarybg border border-gray-200 text-primarytext font-semibold text-xs px-2.5 py-1.5 rounded">
+                                    <Clock
+                                      size={12}
+                                      className="text-secondarytext shrink-0"
+                                    />
+                                    {selectedRequest.onward_to_datetime
+                                      .split(" ")
+                                      .slice(1)
+                                      .join(" ")}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>

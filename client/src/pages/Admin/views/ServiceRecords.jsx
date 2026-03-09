@@ -1609,7 +1609,7 @@ export default function ServiceRecords() {
           />
           <div className="p-6 space-y-5">
             {/* Service info */}
-            <div className="p-4 rounded-lg" style={{background: C.primarybg}}>
+            <div className="p-4 rounded-md" style={{background: C.primarybg}}>
               <div className="flex items-center gap-2 mb-2">
                 <Wrench size={16} style={{color: C.primary}} />
                 <span
@@ -1630,7 +1630,7 @@ export default function ServiceRecords() {
             </div>
 
             <div
-              className="p-4 rounded-lg border"
+              className="p-4 rounded-md border"
               style={{borderColor: "#FBC02D", background: "#FFFDE7"}}
             >
               <div className="flex items-center gap-2 mb-1">

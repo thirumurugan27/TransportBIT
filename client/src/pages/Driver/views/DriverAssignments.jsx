@@ -57,8 +57,75 @@ export default function DriverAssignments() {
     }
   };
 
+  const normalizeText = (value) =>
+    typeof value === "string" ? value.trim() : "";
+
+  const getAssignmentShifts = (assignment) => {
+    if (Array.isArray(assignment?.shifts) && assignment.shifts.length > 0) {
+      return assignment.shifts;
+    }
+    if (
+      assignment?.shift_name ||
+      assignment?.start_time ||
+      assignment?.end_time
+    ) {
+      return [
+        {
+          shift_id: assignment?.shift_id,
+          shift_name: assignment?.shift_name || "EV Duty",
+          start_time: assignment?.start_time || "",
+          end_time: assignment?.end_time || "",
+        },
+      ];
+    }
+    return [];
+  };
+
+  const getShiftHeadline = (assignment) => {
+    const shifts = getAssignmentShifts(assignment);
+    if (shifts.length === 0) return "EV Duty";
+    if (shifts.length === 1) return shifts[0].shift_name || "EV Duty";
+    return `${shifts[0].shift_name || "EV Duty"} +${shifts.length - 1} more`;
+  };
+
+  const getShiftTimeLabel = (assignment) => {
+    const shifts = getAssignmentShifts(assignment);
+    if (shifts.length <= 1) {
+      const firstShift = shifts[0] || {};
+      return `${firstShift.start_time || assignment?.start_time || "-"} - ${firstShift.end_time || assignment?.end_time || "-"}`;
+    }
+    return `${shifts.length} shifts assigned`;
+  };
+
+  const getVehicleDisplay = (vehicle) => {
+    const vehicleName = normalizeText(vehicle?.vehicle_name);
+    const vehicleNumber = normalizeText(vehicle?.vehicle_number);
+
+    if (vehicleName && vehicleNumber && vehicleName !== vehicleNumber) {
+      return {title: vehicleName, subtitle: vehicleNumber};
+    }
+
+    return {
+      title: vehicleNumber || vehicleName || "Unknown vehicle",
+      subtitle: vehicleName && vehicleName !== vehicleNumber ? vehicleName : "",
+    };
+  };
+
+  const getDateRangeLabel = (assignment) =>
+    assignment.start_date === assignment.end_date
+      ? assignment.start_date
+      : `${assignment.start_date} - ${assignment.end_date}`;
+
   const getStatusConfig = (status) => {
     switch (status?.toUpperCase()) {
+      case "ACTIVE":
+        return {
+          color: "text-green",
+          bg: "bg-green/10",
+          border: "border-green/20",
+          icon: <CheckCircle2 size={14} />,
+          label: "Active",
+        };
       case "COMPLETED":
         return {
           color: "text-green",
@@ -208,7 +275,7 @@ export default function DriverAssignments() {
             type="date"
             value={filterDate}
             onChange={(e) => setFilterDate(e.target.value)}
-            className="h-[38px] px-3 border border-gray-200 rounded-md bg-white text-gray-700 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm"
+            className="h-9.5 px-3 border border-gray-200 rounded-md bg-white text-gray-700 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm"
           />
           {filterDate !== new Date().toISOString().split("T")[0] && (
             <button
@@ -299,6 +366,7 @@ export default function DriverAssignments() {
 
                 // EV Assignment Card - Show as Group
                 if (isEV) {
+                  const shiftCount = getAssignmentShifts(assignment).length;
                   return (
                     <div
                       key={`ev-${assignment.id || index}`}
@@ -322,9 +390,7 @@ export default function DriverAssignments() {
                           </p>
                           <p className="text-base font-bold text-gray-800 flex items-center gap-2">
                             <Calendar size={16} className="text-gray-400" />
-                            {assignment.start_date === assignment.end_date
-                              ? assignment.start_date
-                              : `${assignment.start_date} - ${assignment.end_date}`}
+                            {getDateRangeLabel(assignment)}
                           </p>
                         </div>
                       </div>
@@ -341,12 +407,16 @@ export default function DriverAssignments() {
                               Shift / Time
                             </p>
                             <p className="text-sm font-bold text-primarytext">
-                              {assignment.shift_name}
+                              {getShiftHeadline(assignment)}
                             </p>
                             <p className="text-xs text-secondarytext font-mono mt-0.5">
-                              {assignment.start_time || "-"} -{" "}
-                              {assignment.end_time || "-"}
+                              {getShiftTimeLabel(assignment)}
                             </p>
+                            {shiftCount > 1 && (
+                              <p className="text-[11px] text-green mt-1 font-medium">
+                                {shiftCount} shift blocks configured
+                              </p>
+                            )}
                           </div>
                         </div>
 
@@ -362,8 +432,9 @@ export default function DriverAssignments() {
                             <p className="text-sm font-bold text-primarytext">
                               {assignment.vehicle_group_name}
                             </p>
-                            <p className="text-xs text-green mt-0.5">
-                              {assignment.group_vehicles?.length || 0} Vehicles
+                            <p className="text-xs text-green mt-0.5 font-medium">
+                              {assignment.group_vehicles?.length || 0} vehicles
+                              ready
                             </p>
                           </div>
                         </div>
@@ -380,8 +451,9 @@ export default function DriverAssignments() {
                             <p className="text-sm font-bold text-primarytext">
                               {assignment.driver_group_name}
                             </p>
-                            <p className="text-xs text-green mt-0.5">
-                              {assignment.group_drivers?.length || 0} Drivers
+                            <p className="text-xs text-green mt-0.5 font-medium">
+                              {assignment.group_drivers?.length || 0} drivers
+                              assigned
                             </p>
                           </div>
                         </div>
@@ -648,121 +720,226 @@ export default function DriverAssignments() {
 
       {/* EV Assignment Details Modal */}
       {selectedEVAssignment && (
-        <div className="fixed inset-0 bg-black/50  flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 animate-fadeIn">
-          <div className="bg-white rounded-t-2xl sm:rounded-md shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden animate-scaleIn">
+        <div className="fixed inset-0 bg-black/55 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 animate-fadeIn">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden animate-scaleIn">
             {/* Header */}
-            <div className="bg-green text-white p-4 sm:p-6 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-white/20 rounded-md">
+            <div className="bg-linear-to-r from-green to-emerald-600 text-white p-5 sm:p-6 flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                <div className="p-3 bg-white/15 rounded-xl shadow-sm">
                   <Zap size={24} />
                 </div>
-                <div>
-                  <h3 className="text-lg sm:text-xl font-bold">
+                <div className="min-w-0">
+                  <h3 className="text-lg sm:text-xl font-bold truncate">
                     EV Assignment Details
                   </h3>
-                  <p className="text-white/80 text-sm">
-                    {selectedEVAssignment.shift_name}
+                  <p className="text-white/80 text-sm mt-1 truncate">
+                    {selectedEVAssignment.vehicle_group_name || "EV Group"}
+                  </p>
+                  <p className="text-white/70 text-xs mt-1 truncate">
+                    {getAssignmentShifts(selectedEVAssignment)
+                      .map((shift) => shift.shift_name)
+                      .filter(Boolean)
+                      .join(" • ") || "EV Duty"}
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setSelectedEVAssignment(null)}
-                className="p-2 hover:bg-white/20 rounded-md transition-colors"
+                className="p-2 hover:bg-white/20 rounded-xl transition-colors shrink-0"
               >
                 <X size={24} />
               </button>
             </div>
 
             {/* Content */}
-            <div className="p-4 sm:p-6 space-y-5 max-h-[60vh] overflow-y-auto">
-              {/* Date & Time Info */}
-              <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                <div className="p-3 sm:p-4 bg-green/10 rounded-md">
+            <div className="p-5 sm:p-6 space-y-6 max-h-[68vh] overflow-y-auto bg-white">
+              <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+                <div className="p-4 bg-green/10 rounded-xl border border-green/10">
                   <p className="text-xs font-semibold text-secondarytext mb-1">
                     Date Range
                   </p>
-                  <p className="font-bold text-primarytext text-sm">
-                    {selectedEVAssignment.start_date ===
-                    selectedEVAssignment.end_date
-                      ? selectedEVAssignment.start_date
-                      : `${selectedEVAssignment.start_date} - ${selectedEVAssignment.end_date}`}
+                  <p className="font-bold text-primarytext text-sm leading-6">
+                    {getDateRangeLabel(selectedEVAssignment)}
                   </p>
                 </div>
-                <div className="p-3 sm:p-4 bg-green/10 rounded-md">
+                <div className="p-4 bg-green/10 rounded-xl border border-green/10">
                   <p className="text-xs font-semibold text-secondarytext mb-1">
-                    Shift Time
+                    Shift Coverage
                   </p>
-                  <p className="font-bold text-primarytext text-sm">
-                    {selectedEVAssignment.start_time || "-"} -{" "}
-                    {selectedEVAssignment.end_time || "-"}
+                  <p className="font-bold text-primarytext text-sm leading-6">
+                    {getShiftTimeLabel(selectedEVAssignment)}
+                  </p>
+                  <p className="text-[11px] text-green mt-1 font-medium">
+                    {getAssignmentShifts(selectedEVAssignment).length || 1}{" "}
+                    shift blocks
+                  </p>
+                </div>
+                <div className="p-4 bg-green/10 rounded-xl border border-green/10">
+                  <p className="text-xs font-semibold text-secondarytext mb-1">
+                    Vehicle Group
+                  </p>
+                  <p className="font-bold text-primarytext text-sm leading-6">
+                    {selectedEVAssignment.vehicle_group_name || "EV Group"}
+                  </p>
+                  <p className="text-[11px] text-green mt-1 font-medium">
+                    {selectedEVAssignment.group_vehicles?.length || 0} vehicles
+                  </p>
+                </div>
+                <div className="p-4 bg-green/10 rounded-xl border border-green/10">
+                  <p className="text-xs font-semibold text-secondarytext mb-1">
+                    Driver Group
+                  </p>
+                  <p className="font-bold text-primarytext text-sm leading-6">
+                    {selectedEVAssignment.driver_group_name || "Driver Group"}
+                  </p>
+                  <p className="text-[11px] text-green mt-1 font-medium">
+                    {selectedEVAssignment.group_drivers?.length || 0} drivers
                   </p>
                 </div>
               </div>
 
-              {/* Vehicle Group */}
-              <div>
-                <h4 className="font-bold text-primarytext mb-3 flex items-center gap-2">
-                  <Car size={18} className="text-green" />
-                  Vehicle Group: {selectedEVAssignment.vehicle_group_name}
-                </h4>
-                <div className="grid grid-cols-2 gap-3">
-                  {selectedEVAssignment.group_vehicles?.map((vehicle) => (
-                    <div
-                      key={vehicle.id}
-                      className="p-3 bg-primarybg rounded-md border border-gray-200"
-                    >
-                      <p className="font-bold text-primarytext">
-                        {vehicle.vehicle_name || vehicle.vehicle_number}
-                      </p>
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-green/10 text-green">
-                        {vehicle.fuel_type}
-                      </span>
-                    </div>
-                  ))}
+              <div className="bg-primarybg rounded-2xl border border-gray-100 p-4 sm:p-5">
+                <div className="flex items-center justify-between gap-3 mb-4">
+                  <h4 className="font-bold text-primarytext flex items-center gap-2">
+                    <Clock size={18} className="text-green" />
+                    Shift Schedule
+                  </h4>
+                  <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-green/10 text-green">
+                    {getAssignmentShifts(selectedEVAssignment).length || 1}{" "}
+                    shifts
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {getAssignmentShifts(selectedEVAssignment).map(
+                    (shift, index) => (
+                      <div
+                        key={shift.shift_id || `${shift.shift_name}-${index}`}
+                        className="p-4 bg-white rounded-xl border border-green/10 shadow-sm"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-bold text-primarytext text-sm">
+                              {shift.shift_name || `Shift ${index + 1}`}
+                            </p>
+                            <p className="text-xs text-secondarytext mt-1 font-mono">
+                              {shift.start_time || "-"} -{" "}
+                              {shift.end_time || "-"}
+                            </p>
+                          </div>
+                          <span className="text-[11px] font-semibold px-2 py-1 rounded-full bg-green/10 text-green whitespace-nowrap">
+                            Block {index + 1}
+                          </span>
+                        </div>
+                      </div>
+                    ),
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-primarybg rounded-2xl border border-gray-100 p-4 sm:p-5">
+                <div className="flex items-center justify-between gap-3 mb-4">
+                  <h4 className="font-bold text-primarytext flex items-center gap-2">
+                    <Car size={18} className="text-green" />
+                    Assigned Vehicles
+                  </h4>
+                  <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-green/10 text-green">
+                    {selectedEVAssignment.group_vehicles?.length || 0}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {selectedEVAssignment.group_vehicles?.map((vehicle) =>
+                    (() => {
+                      const vehicleDisplay = getVehicleDisplay(vehicle);
+                      return (
+                        <div
+                          key={vehicle.id}
+                          className="p-4 bg-white rounded-xl border border-green/10 shadow-sm"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="font-bold text-primarytext truncate">
+                                {vehicleDisplay.title}
+                              </p>
+                              <p className="text-xs text-secondarytext mt-1 truncate">
+                                {vehicleDisplay.subtitle ||
+                                  "Vehicle number unavailable"}
+                              </p>
+                            </div>
+                            <div className="flex flex-col items-end gap-2 shrink-0">
+                              <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-green/10 text-green">
+                                {vehicle.fuel_type || "EV"}
+                              </span>
+                              {vehicle.vehicle_type && (
+                                <span className="text-[11px] text-secondarytext font-medium">
+                                  {vehicle.vehicle_type}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })(),
+                  )}
                   {(!selectedEVAssignment.group_vehicles ||
                     selectedEVAssignment.group_vehicles.length === 0) && (
-                    <p className="col-span-2 text-gray-500 text-sm">
-                      No vehicles in this group
+                    <p className="sm:col-span-2 text-gray-500 text-sm text-center py-6">
+                      No vehicles are linked to this EV group yet.
                     </p>
                   )}
                 </div>
               </div>
 
-              {/* Driver Group */}
-              <div>
-                <h4 className="font-bold text-primarytext mb-3 flex items-center gap-2">
-                  <Users size={18} className="text-green" />
-                  Driver Group: {selectedEVAssignment.driver_group_name}
-                </h4>
-                <div className="grid grid-cols-2 gap-3">
+              <div className="bg-primarybg rounded-2xl border border-gray-100 p-4 sm:p-5">
+                <div className="flex items-center justify-between gap-3 mb-4">
+                  <h4 className="font-bold text-primarytext flex items-center gap-2">
+                    <Users size={18} className="text-green" />
+                    Assigned Drivers
+                  </h4>
+                  <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-green/10 text-green">
+                    {selectedEVAssignment.group_drivers?.length || 0}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {selectedEVAssignment.group_drivers?.map((driver) => (
                     <div
                       key={driver.id}
-                      className="p-3 bg-primarybg rounded-md border border-gray-200 flex items-center gap-3"
+                      className="p-4 bg-white rounded-xl border border-green/10 shadow-sm flex items-center gap-3"
                     >
-                      <div className="w-10 h-10 bg-green/10 rounded-md flex items-center justify-center text-green font-bold">
+                      <div className="w-11 h-11 bg-green/10 rounded-xl flex items-center justify-center text-green font-bold shrink-0">
                         {driver.name?.charAt(0).toUpperCase()}
                       </div>
-                      <p className="font-medium text-gray-800 text-sm">
-                        {driver.name}
-                      </p>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-gray-800 text-sm truncate">
+                          {driver.name}
+                        </p>
+                        <p className="text-xs text-secondarytext mt-1">
+                          {selectedEVAssignment.driver_group_name ||
+                            "Driver group member"}
+                        </p>
+                      </div>
                     </div>
                   ))}
                   {(!selectedEVAssignment.group_drivers ||
                     selectedEVAssignment.group_drivers.length === 0) && (
-                    <p className="col-span-2 text-gray-500 text-sm">
-                      No drivers in this group
+                    <p className="sm:col-span-2 text-gray-500 text-sm text-center py-6">
+                      No drivers are linked to this EV group yet.
                     </p>
                   )}
                 </div>
               </div>
 
-              {/* Status */}
-              <div className="flex items-center justify-between p-4 bg-green/10 rounded-md">
-                <span className="text-secondarytext font-medium">Status</span>
-                <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-bold bg-green/10 text-green">
+              <div className="flex items-center justify-between p-4 bg-green/10 rounded-xl border border-green/10">
+                <div>
+                  <p className="text-sm font-semibold text-primarytext">
+                    Assignment Status
+                  </p>
+                  <p className="text-xs text-secondarytext mt-1">
+                    EV group assignment is ready for duty.
+                  </p>
+                </div>
+                <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-bold bg-white text-green border border-green/15">
                   <div className="w-2 h-2 rounded-full bg-green animate-pulse" />
-                  {selectedEVAssignment.status}
+                  {getStatusConfig(selectedEVAssignment.status).label}
                 </span>
               </div>
             </div>
@@ -771,7 +948,7 @@ export default function DriverAssignments() {
             <div className="p-4 border-t border-gray-100 bg-gray-50">
               <button
                 onClick={() => setSelectedEVAssignment(null)}
-                className="w-full py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold rounded-md transition-colors"
+                className="w-full sm:w-auto sm:min-w-36 px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold rounded-xl transition-colors ml-auto block"
               >
                 Close
               </button>

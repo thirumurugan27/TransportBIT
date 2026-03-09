@@ -85,23 +85,77 @@ export default function DriverKmLog() {
 
   const fetchAssignedVehicles = async () => {
     try {
-      const res = await apiGet(`/api/driver/assignments?driver_id=${driverId}`);
+      const res = await apiGet(
+        `/api/driver/assignments?driver_id=${driverId}&date=${getToday()}`,
+      );
       if (res.ok) {
         const assignments = await res.json();
-        const uniqueVehicles = [];
-        const seenIds = new Set();
-        (assignments || []).forEach((a) => {
-          if (a.vehicle_id && !seenIds.has(a.vehicle_id)) {
-            seenIds.add(a.vehicle_id);
-            uniqueVehicles.push({
-              id: a.vehicle_id,
-              vehicle_name: a.vehicle_name,
-              vehicle_number: a.vehicle_number,
-              vehicle_type: a.vehicle_type || "N/A",
-              assignment_id: a.id,
+        const vehicleMap = new Map();
+
+        const upsertVehicle = (vehicle) => {
+          if (!vehicle?.id) return;
+
+          const existing = vehicleMap.get(vehicle.id);
+          vehicleMap.set(vehicle.id, {
+            ...existing,
+            ...vehicle,
+            assignment_id:
+              existing?.assignment_id || vehicle.assignment_id || null,
+            vehicle_name: vehicle.vehicle_name || existing?.vehicle_name || "",
+            vehicle_number:
+              vehicle.vehicle_number || existing?.vehicle_number || "",
+            vehicle_type:
+              vehicle.vehicle_type || existing?.vehicle_type || "EV",
+          });
+        };
+
+        (assignments || []).forEach((assignment) => {
+          if (assignment.vehicle_id) {
+            upsertVehicle({
+              id: assignment.vehicle_id,
+              vehicle_name: assignment.vehicle_name,
+              vehicle_number: assignment.vehicle_number,
+              vehicle_type: assignment.vehicle_type || "N/A",
+              assignment_id: assignment.is_ev_assignment ? null : assignment.id,
+            });
+          }
+
+          if (
+            assignment.is_ev_assignment &&
+            Array.isArray(assignment.group_vehicles)
+          ) {
+            assignment.group_vehicles.forEach((vehicle) => {
+              upsertVehicle({
+                id: vehicle.id,
+                vehicle_name: vehicle.vehicle_name,
+                vehicle_number: vehicle.vehicle_number,
+                vehicle_type:
+                  vehicle.vehicle_type ||
+                  assignment.vehicle_type ||
+                  vehicle.fuel_type ||
+                  "EV",
+                assignment_id: null,
+              });
             });
           }
         });
+
+        const uniqueVehicles = Array.from(vehicleMap.values()).sort(
+          (left, right) => {
+            const leftLabel = (
+              left.vehicle_name ||
+              left.vehicle_number ||
+              ""
+            ).toLowerCase();
+            const rightLabel = (
+              right.vehicle_name ||
+              right.vehicle_number ||
+              ""
+            ).toLowerCase();
+            return leftLabel.localeCompare(rightLabel);
+          },
+        );
+
         setVehicles(uniqueVehicles);
         if (uniqueVehicles.length > 0) {
           setForm((prev) => ({
@@ -142,7 +196,9 @@ export default function DriverKmLog() {
         assignment_id: form.assignment_id ? parseInt(form.assignment_id) : null,
         remarks: form.remarks,
         total_km: parseFloat(form.end_km) - parseFloat(form.start_km),
-        fuel_consumed: form.fuel_consumed ? parseFloat(form.fuel_consumed) : null,
+        fuel_consumed: form.fuel_consumed
+          ? parseFloat(form.fuel_consumed)
+          : null,
       };
 
       const res = await apiPost("/api/driver/km-log/add", payload);
@@ -164,7 +220,33 @@ export default function DriverKmLog() {
 
   const closeModal = () => {
     setShowModal(false);
-    setForm((prev) => ({...prev, start_km: 0, end_km: 0, remarks: "", fuel_consumed: ""}));
+    setForm((prev) => ({
+      ...prev,
+      start_km: 0,
+      end_km: 0,
+      remarks: "",
+      fuel_consumed: "",
+    }));
+  };
+
+  const normalizeText = (value) =>
+    typeof value === "string" ? value.trim() : "";
+
+  const getVehicleDisplay = (vehicle) => {
+    const vehicleName = normalizeText(vehicle?.vehicle_name);
+    const vehicleNumber = normalizeText(vehicle?.vehicle_number);
+
+    if (vehicleName && vehicleNumber && vehicleName !== vehicleNumber) {
+      return {
+        title: vehicleName,
+        subtitle: `${vehicleNumber} • ${vehicle?.vehicle_type || "Vehicle"}`,
+      };
+    }
+
+    return {
+      title: vehicleNumber || vehicleName || "Unknown vehicle",
+      subtitle: vehicle?.vehicle_type || "Vehicle",
+    };
   };
 
   const totalKm = parseFloat(form.end_km || 0) - parseFloat(form.start_km || 0);
@@ -184,11 +266,14 @@ export default function DriverKmLog() {
 
   const stats = calculateStats();
 
-  const vehicleOptions = vehicles.map((v) => ({
-    value: String(v.id),
-    label: v.vehicle_name || v.vehicle_number,
-    subtitle: v.vehicle_number,
-  }));
+  const vehicleOptions = vehicles.map((vehicle) => {
+    const display = getVehicleDisplay(vehicle);
+    return {
+      value: String(vehicle.id),
+      label: display.title,
+      subtitle: display.subtitle,
+    };
+  });
 
   return (
     <div className="space-y-5 animate-fadeIn">
@@ -298,7 +383,10 @@ export default function DriverKmLog() {
                       ? parseFloat(log.total_km)
                       : parseFloat(log.end_km) - parseFloat(log.start_km);
                   return (
-                    <div key={log.id} className={`p-4 space-y-2.5 ${log.status === "pending" ? "bg-pending/5" : ""}`}>
+                    <div
+                      key={log.id}
+                      className={`p-4 space-y-2.5 ${log.status === "pending" ? "bg-pending/5" : ""}`}
+                    >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Calendar size={13} className="text-secondarytext" />
@@ -434,7 +522,9 @@ export default function DriverKmLog() {
                           </td>
                           <td className="px-6 py-3.5 whitespace-nowrap text-right text-sm">
                             {log.fuel_consumed ? (
-                              <span className="font-medium text-pending">{parseFloat(log.fuel_consumed).toFixed(1)}</span>
+                              <span className="font-medium text-pending">
+                                {parseFloat(log.fuel_consumed).toFixed(1)}
+                              </span>
                             ) : (
                               <span className="text-secondarytext">—</span>
                             )}
@@ -457,7 +547,7 @@ export default function DriverKmLog() {
                             )}
                           </td>
                           <td className="px-6 py-3.5">
-                            <p className="text-sm text-secondarytext truncate max-w-[200px]">
+                            <p className="text-sm text-secondarytext truncate max-w-50">
                               {log.remarks || "—"}
                             </p>
                           </td>
@@ -531,7 +621,7 @@ export default function DriverKmLog() {
                     setForm((prev) => ({...prev, date: e.target.value}))
                   }
                   max={getToday()}
-                  className="w-full h-[42px] px-3 border border-gray-200 rounded-md bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+                  className="w-full h-10.5 px-3 border border-gray-200 rounded-md bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
                   required
                 />
               </div>
@@ -560,7 +650,8 @@ export default function DriverKmLog() {
                 />
                 {vehicles.length === 0 && (
                   <p className="text-xs text-orange-500 mt-1">
-                    No vehicles assigned. Contact admin.
+                    No active vehicles found for today. Contact admin if your EV
+                    group is missing.
                   </p>
                 )}
               </div>
@@ -577,7 +668,7 @@ export default function DriverKmLog() {
                     onChange={(e) =>
                       setForm((prev) => ({...prev, start_km: e.target.value}))
                     }
-                    className="w-full h-[42px] px-3 border border-gray-200 rounded-md bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+                    className="w-full h-10.5 px-3 border border-gray-200 rounded-md bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
                     placeholder="0.0"
                     required
                     min="0"
@@ -594,7 +685,7 @@ export default function DriverKmLog() {
                     onChange={(e) =>
                       setForm((prev) => ({...prev, end_km: e.target.value}))
                     }
-                    className="w-full h-[42px] px-3 border border-gray-200 rounded-md bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+                    className="w-full h-10.5 px-3 border border-gray-200 rounded-md bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
                     placeholder="0.0"
                     required
                     min={form.start_km || "0"}
@@ -632,14 +723,18 @@ export default function DriverKmLog() {
                       fuel_consumed: e.target.value,
                     }))
                   }
-                  className="w-full h-[42px] px-3 border border-gray-200 rounded-md bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+                  className="w-full h-10.5 px-3 border border-gray-200 rounded-md bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
                   placeholder="0.0"
                   min="0"
                   step="0.1"
                 />
                 {form.fuel_consumed && totalKm > 0 && (
                   <p className="text-xs text-secondarytext mt-0.5">
-                    Mileage: <span className="font-bold text-primary">{(totalKm / parseFloat(form.fuel_consumed)).toFixed(1)} km/L</span>
+                    Mileage:{" "}
+                    <span className="font-bold text-primary">
+                      {(totalKm / parseFloat(form.fuel_consumed)).toFixed(1)}{" "}
+                      km/L
+                    </span>
                   </p>
                 )}
               </div>

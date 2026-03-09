@@ -19,6 +19,8 @@ import {
 import {useToast} from "../../../context/ToastContext";
 import {useAuth} from "../../../context/AuthContext";
 import Loading from "../../../components/ui/Loading";
+import CustomDropdown from "../../../components/ui/CustomDropdown";
+import CustomSearch from "../../../components/ui/CustomSearch";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
@@ -32,6 +34,13 @@ const getAuthHeaders = () => {
   }
   return headers;
 };
+
+const DRIVER_STATUS_OPTIONS = [
+  {value: "all", label: "All Requests", icon: CalendarDays},
+  {value: "assigned", label: "Assigned", icon: CalendarDays},
+  {value: "trip_started", label: "On Trip", icon: Play},
+  {value: "completed", label: "Completed", icon: CheckCircle},
+];
 
 const STATUS_CONFIG = {
   assigned: {
@@ -91,6 +100,7 @@ export default function DriverVehicleRequests() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedRequest, setSelectedRequest] = useState(null);
 
   const [otpInput, setOtpInput] = useState("");
@@ -216,9 +226,18 @@ export default function DriverVehicleRequests() {
   }, [requests]);
 
   const filteredRequests = useMemo(() => {
-    if (filterStatus === "all") return requests;
-    return requests.filter((r) => r.status === filterStatus);
-  }, [requests, filterStatus]);
+    return requests.filter((r) => {
+      const matchesStatus = filterStatus === "all" || r.status === filterStatus;
+      const q = searchQuery.toLowerCase();
+      const matchesSearch =
+        !q ||
+        r.trip_type?.toLowerCase().includes(q) ||
+        r.id?.toString().includes(q) ||
+        r.trips?.[0]?.departure_location?.toLowerCase().includes(q) ||
+        r.trips?.[0]?.arrival_location?.toLowerCase().includes(q);
+      return matchesStatus && matchesSearch;
+    });
+  }, [requests, filterStatus, searchQuery]);
 
   const upcomingRequests = requests.filter(
     (r) => r.status === "assigned" || r.status === "trip_started",
@@ -227,123 +246,24 @@ export default function DriverVehicleRequests() {
   if (loading) return <Loading fullScreen={false} />;
 
   return (
-    <div className="space-y-4 sm:space-y-5 p-0 sm:p-2 lg:p-4 animate-fadeIn">
+    <div className="space-y-2 sm:space-y-5 p-0 sm:p-2 lg:p-4 animate-fadeIn">
       {/* Page Header */}
-      <div className="bg-white rounded-md shadow-sm border border-gray-100 p-3 sm:p-4 lg:p-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
-          <div>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-primary/10 rounded-md flex items-center justify-center">
-                <Truck className="text-primary" size={24} />
-              </div>
-              <div>
-                <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-800">
-                  Vehicle Requests
-                </h2>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Manage your assigned trips and vehicle requests
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {upcomingRequests.length > 0 && (
-            <div className="flex items-center gap-2.5 px-4 py-2.5 bg-green/10 text-green rounded-md border border-green/20">
-              <div className="w-2 h-2 rounded-full bg-green animate-pulse"></div>
-              <span className="text-sm font-bold">
-                {upcomingRequests.length} Active / Upcoming
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Tabs with Counts */}
-      <div className="bg-white rounded-md shadow-sm border border-gray-100 p-1 sm:p-1.5">
-        <div className="flex flex-wrap gap-1 sm:gap-2">
-          <button
-            onClick={() => setFilterStatus("all")}
-            className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-md text-xs sm:text-sm font-medium transition-all duration-200 ${
-              filterStatus === "all"
-                ? "bg-primary text-white shadow-md"
-                : "text-gray-600 hover:bg-gray-50"
-            }`}
-          >
-            <CalendarDays size={16} />
-            All Requests
-            <span
-              className={`ml-1 min-w-6 px-2 py-0.5 rounded-md text-xs font-bold ${
-                filterStatus === "all"
-                  ? "bg-white/25 text-white"
-                  : "bg-gray-100 text-gray-700"
-              }`}
-            >
-              {counts.all}
-            </span>
-          </button>
-
-          <button
-            onClick={() => setFilterStatus("assigned")}
-            className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-md text-xs sm:text-sm font-medium transition-all duration-200 ${
-              filterStatus === "assigned"
-                ? "bg-primary text-white shadow-md"
-                : "text-gray-600 hover:bg-gray-50"
-            }`}
-          >
-            {React.createElement(STATUS_CONFIG.assigned.icon, {size: 16})}
-            Assigned
-            <span
-              className={`ml-1 min-w-6 px-2 py-0.5 rounded-md text-xs font-bold ${
-                filterStatus === "assigned"
-                  ? "bg-white/25 text-white"
-                  : "bg-gray-100 text-gray-700"
-              }`}
-            >
-              {counts.assigned || 0}
-            </span>
-          </button>
-
-          <button
-            onClick={() => setFilterStatus("trip_started")}
-            className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-md text-xs sm:text-sm font-medium transition-all duration-200 ${
-              filterStatus === "trip_started"
-                ? "bg-primary text-white shadow-md"
-                : "text-gray-600 hover:bg-gray-50"
-            }`}
-          >
-            {React.createElement(STATUS_CONFIG.trip_started.icon, {size: 16})}
-            On Trip
-            <span
-              className={`ml-1 min-w-6 px-2 py-0.5 rounded-md text-xs font-bold ${
-                filterStatus === "trip_started"
-                  ? "bg-white/25 text-white"
-                  : "bg-gray-100 text-gray-700"
-              }`}
-            >
-              {counts.trip_started || 0}
-            </span>
-          </button>
-
-          <button
-            onClick={() => setFilterStatus("completed")}
-            className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-md text-xs sm:text-sm font-medium transition-all duration-200 ${
-              filterStatus === "completed"
-                ? "bg-primary text-white shadow-md"
-                : "text-gray-600 hover:bg-gray-50"
-            }`}
-          >
-            {React.createElement(STATUS_CONFIG.completed.icon, {size: 16})}
-            Completed
-            <span
-              className={`ml-1 min-w-6 px-2 py-0.5 rounded-md text-xs font-bold ${
-                filterStatus === "completed"
-                  ? "bg-white/25 text-white"
-                  : "bg-gray-100 text-gray-700"
-              }`}
-            >
-              {counts.completed || 0}
-            </span>
-          </button>
+      <p className="text-gray-600 font-medium text-xl">Vehicle Requests</p>
+      {/* Search & Filter */}
+      <div className="bg-white rounded-md shadow-sm border border-gray-100 p-4">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <CustomSearch
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search by trip type, location, or ID..."
+            className="flex-1"
+          />
+          <CustomDropdown
+            value={filterStatus}
+            onChange={setFilterStatus}
+            options={DRIVER_STATUS_OPTIONS}
+            width="w-44"
+          />
         </div>
       </div>
 
@@ -365,185 +285,198 @@ export default function DriverVehicleRequests() {
           filteredRequests.map((request) => {
             const config =
               STATUS_CONFIG[request.status] || STATUS_CONFIG.assigned;
-            // Trip Data from new backend structure
-            // If trips array is empty, fallback to flat fields
-            const onwardTrip = request.trips?.[0] || {
-              departure_location: request.onward_from_place,
-              departure_date: request.onward_from_datetime?.split(" ")[0],
-              departure_time: request.onward_from_datetime
-                ?.split(" ")
-                .slice(1)
-                .join(" "),
-              arrival_location: request.onward_to_place,
-              arrival_date: request.onward_to_datetime?.split(" ")[0],
-              arrival_time: request.onward_to_datetime
-                ?.split(" ")
-                .slice(1)
-                .join(" "),
-            };
 
-            // Check for return trip or last leg
-            const returnTrip =
-              request.trips?.length > 1
-                ? request.trips[request.trips.length - 1]
-                : null;
+            // Build unified trip legs - prefer trips array, fallback to flat fields
+            const tripLegs =
+              request.trips?.length > 0
+                ? request.trips
+                : request.onward_from_place
+                  ? [
+                      {
+                        trip_order: 1,
+                        departure_location: request.onward_from_place,
+                        departure_date:
+                          request.onward_from_datetime?.split(" ")[0] || "",
+                        departure_time:
+                          request.onward_from_datetime
+                            ?.split(" ")
+                            .slice(1)
+                            .join(" ") || "",
+                        arrival_location: request.onward_to_place || "",
+                        arrival_date:
+                          request.onward_to_datetime?.split(" ")[0] || "",
+                        arrival_time:
+                          request.onward_to_datetime
+                            ?.split(" ")
+                            .slice(1)
+                            .join(" ") || "",
+                      },
+                    ]
+                  : [];
+
+            const firstLeg = tripLegs[0];
+            const lastLeg = tripLegs[tripLegs.length - 1];
+            const hasMultipleLegs = tripLegs.length > 1;
 
             return (
               <div
                 key={request.id}
-                className="bg-white rounded-md shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200 overflow-hidden group"
+                className="bg-white rounded-md shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200 overflow-hidden"
               >
                 {/* Card Header */}
-                <div className="p-3 sm:p-5 border-b border-gray-100 bg-gray-50/50">
-                  <div className="flex justify-between items-start gap-4">
+                <div className="p-4 sm:p-5 border-b border-gray-100 bg-gray-50/50">
+                  <div className="flex justify-between items-start gap-3">
                     <div className="flex gap-3 flex-1 min-w-0">
                       <div
-                        className={`w-11 h-11 rounded-md flex items-center justify-center shrink-0 border ${config.color}`}
+                        className={`w-10 h-10 rounded-md flex items-center justify-center shrink-0 border ${config.color}`}
                       >
-                        {React.createElement(config.icon, {size: 22})}
+                        {React.createElement(config.icon, {size: 20})}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap mb-1">
-                          <h3 className="font-bold text-gray-800 text-base">
+                          <h3 className="font-bold text-gray-800 text-sm">
                             {getTripTypeLabel(request.trip_type)}
                           </h3>
                           <span
-                            className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide border ${config.color}`}
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${config.color}`}
                           >
                             {config.label}
                           </span>
+                          {hasMultipleLegs && (
+                            <span className="px-1.5 py-0.5 bg-primary/10 text-primary text-[9px] font-bold rounded uppercase tracking-wide">
+                              {tripLegs.length} Legs
+                            </span>
+                          )}
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-gray-500">
-                          <User size={13} />
+                        <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                          <User size={11} />
                           <span className="font-medium truncate">
                             {request.faculty_name}
                           </span>
-                          <span className="text-gray-300">•</span>
-                          <span className="truncate">
-                            {request.faculty_department}
-                          </span>
+                          {request.faculty_department && (
+                            <>
+                              <span className="text-gray-300">·</span>
+                              <span className="truncate text-[11px]">
+                                {request.faculty_department}
+                              </span>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
-
                     <button
                       onClick={() => setSelectedRequest(request)}
-                      className="p-2 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-md transition-all duration-200 shrink-0"
+                      className="p-2 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-md transition-all shrink-0"
+                      title="View details"
                     >
-                      <Eye size={18} />
+                      <Eye size={17} />
                     </button>
                   </div>
                 </div>
 
                 {/* Card Body - Trip Timeline */}
-                <div className="p-3 sm:p-5">
-                  <div className="relative pl-4 border-l-2 border-dashed border-gray-200 ml-2 space-y-5">
-                    {/* Departure - first leg start */}
-                    <div className="relative">
-                      <div className="absolute -left-5.5 top-1 w-4 h-4 rounded-full border-2 border-white bg-primary shadow-sm"></div>
-                      <div>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                {firstLeg && (
+                  <div className="p-4 sm:p-5">
+                    <div className="relative pl-5 border-l-2 border-dashed border-gray-200 space-y-4">
+                      {/* Origin */}
+                      <div className="relative">
+                        <div className="absolute -left-[23px] top-1 w-3.5 h-3.5 rounded-full border-2 border-white bg-primary shadow-sm" />
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">
                           Departure
                         </p>
-                        <p className="font-bold text-gray-800 text-sm mb-1">
-                          {onwardTrip.departure_location || "Start Point"}
+                        <p className="font-bold text-gray-800 text-sm leading-tight mb-1.5">
+                          {firstLeg.departure_location || "—"}
                         </p>
-                        <div className="flex items-center gap-2 flex-wrap text-xs text-gray-500">
-                          <span className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded border border-gray-100">
-                            <Calendar size={12} />
-                            {onwardTrip.departure_date || "Date N/A"}
-                          </span>
-                          <span className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded border border-gray-100">
-                            <Clock size={12} />
-                            {onwardTrip.departure_time || "Time N/A"}
-                          </span>
+                        <div className="flex items-center gap-1.5 flex-wrap text-[11px] text-gray-500">
+                          {firstLeg.departure_date && (
+                            <span className="flex items-center gap-1 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
+                              <Calendar size={11} />
+                              {firstLeg.departure_date}
+                            </span>
+                          )}
+                          {firstLeg.departure_time && (
+                            <span className="flex items-center gap-1 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
+                              <Clock size={11} />
+                              {firstLeg.departure_time}
+                            </span>
+                          )}
                         </div>
                       </div>
-                    </div>
 
-                    {/* Intermediate stops for round trips */}
-                    {request.trips?.length > 1 &&
-                      request.trips.slice(0, -1).map((trip, idx) => (
-                        <div className="relative" key={`stop-${idx}`}>
-                          <div className="absolute -left-5.5 top-1 w-4 h-4 rounded-full border-2 border-white bg-amber-400 shadow-sm"></div>
-                          <div>
-                            <p className="text-[10px] font-bold text-amber-500 uppercase tracking-wider mb-1">
-                              Stop {idx + 1}
+                      {/* Intermediate waypoints (middle legs, collapsed if > 2) */}
+                      {hasMultipleLegs &&
+                        tripLegs.length <= 4 &&
+                        tripLegs.slice(0, -1).map((leg, i) => (
+                          <div className="relative" key={i}>
+                            <div className="absolute -left-[23px] top-1 w-3.5 h-3.5 rounded-full border-2 border-white bg-amber-400 shadow-sm" />
+                            <p className="text-[10px] font-bold text-amber-500 uppercase tracking-wider mb-0.5">
+                              Stop {i + 1}
                             </p>
-                            <p className="font-bold text-gray-800 text-sm mb-1 line-clamp-1">
-                              {trip.arrival_location}
+                            <p className="font-semibold text-gray-800 text-sm leading-tight mb-1">
+                              {leg.arrival_location || "—"}
                             </p>
-                            <div className="flex items-center gap-2 flex-wrap text-xs text-gray-500">
-                              {trip.arrival_date && (
-                                <span className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded border border-gray-100">
-                                  <Calendar size={12} />
-                                  {trip.arrival_date}
-                                </span>
-                              )}
-                              {trip.arrival_time && (
-                                <span className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded border border-gray-100">
-                                  <Clock size={12} />
-                                  {trip.arrival_time}
-                                </span>
-                              )}
-                            </div>
+                            {(leg.arrival_date || leg.arrival_time) && (
+                              <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
+                                {leg.arrival_date && (
+                                  <span className="flex items-center gap-1 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
+                                    <Calendar size={11} />
+                                    {leg.arrival_date}
+                                  </span>
+                                )}
+                                {leg.arrival_time && (
+                                  <span className="flex items-center gap-1 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
+                                    <Clock size={11} />
+                                    {leg.arrival_time}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </div>
+                        ))}
+                      {hasMultipleLegs && tripLegs.length > 4 && (
+                        <div className="relative">
+                          <div className="absolute -left-[23px] top-1 w-3.5 h-3.5 rounded-full border-2 border-white bg-gray-300 shadow-sm" />
+                          <p className="text-[11px] text-gray-400 italic">
+                            + {tripLegs.length - 2} intermediate stops
+                          </p>
                         </div>
-                      ))}
+                      )}
 
-                    {/* Arrival - last leg end */}
-                    <div className="relative">
-                      <div className="absolute -left-5.5 top-1 w-4 h-4 rounded-full border-2 border-white bg-green shadow-sm"></div>
-                      <div>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                      {/* Destination */}
+                      <div className="relative">
+                        <div className="absolute -left-[23px] top-1 w-3.5 h-3.5 rounded-full border-2 border-white bg-green shadow-sm" />
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">
                           Arrival
                         </p>
-                        <p className="font-bold text-gray-800 text-sm mb-1 line-clamp-1">
-                          {returnTrip
-                            ? returnTrip.arrival_location
-                            : onwardTrip.arrival_location || "End Point"}
+                        <p className="font-bold text-gray-800 text-sm leading-tight mb-1.5">
+                          {lastLeg.arrival_location || "—"}
                         </p>
-                        <div className="flex items-center gap-2 flex-wrap text-xs text-gray-500">
-                          {(returnTrip?.arrival_date ||
-                            onwardTrip.arrival_date) && (
-                            <span className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded border border-gray-100">
-                              <Calendar size={12} />
-                              {returnTrip
-                                ? returnTrip.arrival_date
-                                : onwardTrip.arrival_date}
+                        <div className="flex items-center gap-1.5 flex-wrap text-[11px] text-gray-500">
+                          {lastLeg.arrival_date && (
+                            <span className="flex items-center gap-1 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
+                              <Calendar size={11} />
+                              {lastLeg.arrival_date}
                             </span>
                           )}
-                          {(returnTrip?.arrival_time ||
-                            onwardTrip.arrival_time) && (
-                            <span className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded border border-gray-100">
-                              <Clock size={12} />
-                              {returnTrip
-                                ? returnTrip.arrival_time
-                                : onwardTrip.arrival_time}
+                          {lastLeg.arrival_time && (
+                            <span className="flex items-center gap-1 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
+                              <Clock size={11} />
+                              {lastLeg.arrival_time}
                             </span>
                           )}
-                          {!returnTrip?.arrival_date &&
-                            !onwardTrip.arrival_date &&
-                            !returnTrip?.arrival_time &&
-                            !onwardTrip.arrival_time && (
-                              <span className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded border border-gray-100">
-                                <MapPin size={12} />
-                                {returnTrip ? "Return Trip" : "One Way"}
-                              </span>
-                            )}
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                )}
 
-                {/* Card Footer - Vehicle & Passengers */}
-                <div className="px-3 sm:px-5 py-3 sm:py-4 bg-gray-50/50 border-t border-gray-100 grid grid-cols-2 gap-2 sm:gap-4">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-md bg-white shadow-sm flex items-center justify-center text-gray-600 border border-gray-100">
-                      <Truck size={16} />
+                {/* Card Footer */}
+                <div className="px-4 sm:px-5 py-3 bg-gray-50/50 border-t border-gray-100 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-8 h-8 rounded bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                      <Truck size={15} />
                     </div>
-                    <div className="overflow-hidden flex-1">
+                    <div className="min-w-0">
                       <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wide">
                         Vehicle
                       </p>
@@ -552,13 +485,13 @@ export default function DriverVehicleRequests() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-md bg-white shadow-sm flex items-center justify-center text-gray-600 border border-gray-100">
-                      <Users size={16} />
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center text-gray-500 shrink-0">
+                      <Users size={15} />
                     </div>
                     <div>
                       <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wide">
-                        Passengers
+                        Pax
                       </p>
                       <p className="text-sm font-bold text-gray-800">
                         {request.count_person || 1}
@@ -575,7 +508,7 @@ export default function DriverVehicleRequests() {
       {/* Details Modal */}
       {selectedRequest && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50  animate-fadeIn">
-          <div className="bg-secondarybg rounded-t-2xl sm:rounded-md shadow-2xl w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col animate-scaleIn border border-gray-100">
+          <div className="bg-secondarybg rounded-t-2xl sm:rounded-md shadow-2xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col animate-scaleIn border border-gray-100">
             {/* Modal Header */}
             <div className="relative px-4 sm:px-6 py-4 sm:py-5 bg-gradient-to-br from-primary/5 to-primarybg border-b border-gray-200">
               <button
@@ -617,98 +550,147 @@ export default function DriverVehicleRequests() {
                 <h4 className="text-xs font-bold text-secondarytext uppercase tracking-wide mb-3 flex items-center gap-2">
                   <Navigation size={14} className="text-primary" />
                   Trip Itinerary
+                  {selectedRequest.trips?.length > 1 && (
+                    <span className="ml-auto text-[10px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-md">
+                      {selectedRequest.trips.length} Legs
+                    </span>
+                  )}
                 </h4>
 
-                {(selectedRequest.trips?.length > 0
-                  ? selectedRequest.trips
-                  : [
-                      {
-                        departure_location: selectedRequest.onward_from_place,
-                        arrival_location: selectedRequest.onward_to_place,
-                        departure_date:
-                          selectedRequest.onward_from_datetime?.split(" ")[0],
-                        departure_time: selectedRequest.onward_from_datetime
-                          ?.split(" ")
-                          .slice(1)
-                          .join(" "),
-                        arrival_date:
-                          selectedRequest.onward_to_datetime?.split(" ")[0],
-                        arrival_time: selectedRequest.onward_to_datetime
-                          ?.split(" ")
-                          .slice(1)
-                          .join(" "),
-                      },
-                    ]
-                ).map((trip, idx) => (
-                  <div
-                    key={idx}
-                    className="bg-secondarybg rounded-md p-3 border border-gray-200"
-                  >
-                    <div className="grid grid-cols-2 gap-3">
-                      {/* Departure */}
-                      <div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-2 h-2 rounded-full bg-primary"></div>
-                          <span className="text-xs font-semibold text-primary uppercase">
-                            From
-                          </span>
-                        </div>
-                        <p className="text-sm font-medium text-primarytext mb-2">
-                          {trip.departure_location || "N/A"}
-                        </p>
-                        <div className="flex flex-wrap gap-2 text-xs text-secondarytext">
-                          <span className="flex items-center gap-1 bg-primarybg px-2 py-1 rounded-md">
-                            <Calendar size={12} /> {trip.departure_date}
-                          </span>
-                          <span className="flex items-center gap-1 bg-primarybg px-2 py-1 rounded-md">
-                            <Clock size={12} /> {trip.departure_time || "N/A"}
-                          </span>
-                        </div>
-                        {selectedRequest.trip_started_at && (
-                          <div className="mt-2 pt-2 border-t border-gray-200">
-                            <p className="text-xs text-green font-semibold flex items-center gap-1">
-                              <CheckCircle size={11} /> Started:{" "}
-                              {selectedRequest.trip_started_at}
-                            </p>
-                          </div>
-                        )}
-                      </div>
+                {(() => {
+                  const tripLegs =
+                    selectedRequest.trips?.length > 0
+                      ? selectedRequest.trips
+                      : selectedRequest.onward_from_place
+                        ? [
+                            {
+                              trip_order: 1,
+                              departure_location:
+                                selectedRequest.onward_from_place,
+                              arrival_location: selectedRequest.onward_to_place,
+                              departure_date:
+                                selectedRequest.onward_from_datetime?.split(
+                                  " ",
+                                )[0] || "",
+                              departure_time:
+                                selectedRequest.onward_from_datetime
+                                  ?.split(" ")
+                                  .slice(1)
+                                  .join(" ") || "",
+                              arrival_date:
+                                selectedRequest.onward_to_datetime?.split(
+                                  " ",
+                                )[0] || "",
+                              arrival_time:
+                                selectedRequest.onward_to_datetime
+                                  ?.split(" ")
+                                  .slice(1)
+                                  .join(" ") || "",
+                            },
+                          ]
+                        : [];
 
-                      {/* Arrival */}
-                      <div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-2 h-2 rounded-full bg-green"></div>
-                          <span className="text-xs font-semibold text-green uppercase">
-                            To
-                          </span>
-                        </div>
-                        <p className="text-sm font-medium text-primarytext mb-2">
-                          {trip.arrival_location || "N/A"}
-                        </p>
-                        <div className="flex flex-wrap gap-2 text-xs text-secondarytext">
-                          {trip.arrival_date && (
-                            <span className="flex items-center gap-1 bg-primarybg px-2 py-1 rounded-md">
-                              <Calendar size={12} /> {trip.arrival_date}
+                  return (
+                    <div className="space-y-2">
+                      {tripLegs.map((trip, idx) => (
+                        <div
+                          key={idx}
+                          className="bg-secondarybg rounded-md p-3 border border-gray-200 relative"
+                        >
+                          {tripLegs.length > 1 && (
+                            <span className="text-[9px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded absolute top-2.5 right-2.5 uppercase tracking-wide">
+                              Leg {trip.trip_order || idx + 1}
                             </span>
                           )}
-                          {trip.arrival_time && (
-                            <span className="flex items-center gap-1 bg-primarybg px-2 py-1 rounded-md">
-                              <Clock size={12} /> {trip.arrival_time}
-                            </span>
-                          )}
-                        </div>
-                        {selectedRequest.trip_ended_at && (
-                          <div className="mt-2 pt-2 border-t border-gray-200">
-                            <p className="text-xs text-green font-semibold flex items-center gap-1">
-                              <CheckCircle size={11} /> Completed:{" "}
-                              {selectedRequest.trip_ended_at}
-                            </p>
+                          <div className="grid grid-cols-2 gap-3 pr-10">
+                            {/* Departure */}
+                            <div>
+                              <div className="flex items-center gap-1.5 mb-1.5">
+                                <div className="w-2 h-2 rounded-full bg-primary" />
+                                <span className="text-[10px] font-bold text-primary uppercase tracking-wide">
+                                  From
+                                </span>
+                              </div>
+                              <p className="text-sm font-medium text-primarytext mb-1 leading-tight">
+                                {trip.departure_location || "—"}
+                              </p>
+                              <div className="flex flex-wrap gap-1.5 mt-1">
+                                {trip.departure_date && (
+                                  <span className="inline-flex items-center gap-1.5 bg-primarybg border border-gray-200 text-primarytext font-semibold text-xs px-2.5 py-1.5 rounded">
+                                    <Calendar
+                                      size={11}
+                                      className="text-primary shrink-0"
+                                    />
+                                    {trip.departure_date}
+                                  </span>
+                                )}
+                                {trip.departure_time && (
+                                  <span className="inline-flex items-center gap-1.5 bg-primarybg border border-gray-200 text-primarytext font-semibold text-xs px-2.5 py-1.5 rounded">
+                                    <Clock
+                                      size={11}
+                                      className="text-secondarytext shrink-0"
+                                    />
+                                    {trip.departure_time}
+                                  </span>
+                                )}
+                              </div>
+                              {idx === 0 && selectedRequest.trip_started_at && (
+                                <p className="text-[10px] text-green font-semibold flex items-center gap-1 mt-1.5 pt-1.5 border-t border-gray-100">
+                                  <CheckCircle size={10} /> Started:{" "}
+                                  {selectedRequest.trip_started_at}
+                                </p>
+                              )}
+                            </div>
+                            {/* Arrival */}
+                            <div>
+                              <div className="flex items-center gap-1.5 mb-1.5">
+                                <div className="w-2 h-2 rounded-full bg-green" />
+                                <span className="text-[10px] font-bold text-green uppercase tracking-wide">
+                                  To
+                                </span>
+                              </div>
+                              <p className="text-sm font-medium text-primarytext mb-1 leading-tight">
+                                {trip.arrival_location || "—"}
+                              </p>
+                              <div className="flex flex-wrap gap-1.5 mt-1">
+                                {trip.arrival_date && (
+                                  <span className="inline-flex items-center gap-1.5 bg-primarybg border border-gray-200 text-primarytext font-semibold text-xs px-2.5 py-1.5 rounded">
+                                    <Calendar
+                                      size={11}
+                                      className="text-primary shrink-0"
+                                    />
+                                    {trip.arrival_date}
+                                  </span>
+                                )}
+                                {trip.arrival_time && (
+                                  <span className="inline-flex items-center gap-1.5 bg-primarybg border border-gray-200 text-primarytext font-semibold text-xs px-2.5 py-1.5 rounded">
+                                    <Clock
+                                      size={11}
+                                      className="text-secondarytext shrink-0"
+                                    />
+                                    {trip.arrival_time}
+                                  </span>
+                                )}
+                              </div>
+                              {idx === tripLegs.length - 1 &&
+                                selectedRequest.trip_ended_at && (
+                                  <p className="text-[10px] text-green font-semibold flex items-center gap-1 mt-1.5 pt-1.5 border-t border-gray-100">
+                                    <CheckCircle size={10} /> Ended:{" "}
+                                    {selectedRequest.trip_ended_at}
+                                  </p>
+                                )}
+                            </div>
                           </div>
-                        )}
-                      </div>
+                        </div>
+                      ))}
+                      {tripLegs.length === 0 && (
+                        <p className="text-sm text-secondarytext text-center py-4">
+                          No trip details available
+                        </p>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })()}
               </div>
 
               {/* Passenger Details */}

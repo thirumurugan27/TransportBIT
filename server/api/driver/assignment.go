@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"transport-server/config"
 
@@ -38,12 +39,22 @@ type DriverAssignment struct {
 	// Group details (vehicles and drivers in the group)
 	GroupVehicles []GroupVehicle `json:"group_vehicles,omitempty"`
 	GroupDrivers  []GroupDriver  `json:"group_drivers,omitempty"`
+	Shifts        []ShiftInfo    `json:"shifts,omitempty"`
+}
+
+type ShiftInfo struct {
+	ShiftID   int    `json:"shift_id"`
+	ShiftName string `json:"shift_name"`
+	StartTime string `json:"start_time"`
+	EndTime   string `json:"end_time"`
 }
 
 // GroupVehicle - vehicle in a vehicle group
 type GroupVehicle struct {
 	ID            int    `json:"id"`
+	VehicleName   string `json:"vehicle_name"`
 	VehicleNumber string `json:"vehicle_number"`
+	VehicleType   string `json:"vehicle_type"`
 	FuelType      string `json:"fuel_type"`
 }
 
@@ -51,6 +62,98 @@ type GroupVehicle struct {
 type GroupDriver struct {
 	ID   int    `json:"id"`
 	Name string `json:"name"`
+}
+
+func getEVAssignmentShifts(assignmentID int) []ShiftInfo {
+	var shifts []ShiftInfo
+
+	rows, err := config.DB.Query(`
+		SELECT s.id,
+		       COALESCE(s.name, 'EV Duty') as shift_name,
+		       COALESCE(TIME_FORMAT(s.start_time, '%h:%i %p'), '') as start_time,
+		       COALESCE(TIME_FORMAT(s.end_time, '%h:%i %p'), '') as end_time
+		FROM ev_assignment_shifts eas
+		JOIN shifts s ON s.id = eas.shift_id
+		WHERE eas.ev_assignment_id = ?
+		ORDER BY s.start_time ASC, s.name ASC
+	`, assignmentID)
+	if err != nil {
+		log.Printf("Error getting EV assignment shifts: %v", err)
+		return shifts
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var shift ShiftInfo
+		if err := rows.Scan(&shift.ShiftID, &shift.ShiftName, &shift.StartTime, &shift.EndTime); err == nil {
+			shifts = append(shifts, shift)
+		}
+	}
+
+	return shifts
+}
+
+func buildShiftSummary(shifts []ShiftInfo, fallback string) string {
+	if len(shifts) == 0 {
+		if strings.TrimSpace(fallback) != "" {
+			return fallback
+		}
+		return "EV Duty"
+	}
+
+	names := make([]string, 0, len(shifts))
+	seen := make(map[string]struct{}, len(shifts))
+	for _, shift := range shifts {
+		name := strings.TrimSpace(shift.ShiftName)
+		if name == "" {
+			name = "EV Duty"
+		}
+		if _, exists := seen[name]; exists {
+			continue
+		}
+		seen[name] = struct{}{}
+		names = append(names, name)
+	}
+
+	if len(names) == 0 {
+		return "EV Duty"
+	}
+
+	return strings.Join(names, ", ")
+}
+
+func hydrateEVAssignmentDetails(assignment *DriverAssignment, date string) {
+	if assignment.VehicleGroupID != nil {
+		assignment.GroupVehicles = getGroupVehicles(*assignment.VehicleGroupID, date)
+	}
+	if assignment.DriverGroupID != nil {
+		assignment.GroupDrivers = getGroupDrivers(*assignment.DriverGroupID, date)
+	}
+
+	assignment.Shifts = getEVAssignmentShifts(assignment.ID)
+	if len(assignment.Shifts) == 0 && (assignment.ShiftName != "" || assignment.StartTime != "" || assignment.EndTime != "") {
+		assignment.Shifts = []ShiftInfo{{
+			ShiftName: assignment.ShiftName,
+			StartTime: assignment.StartTime,
+			EndTime:   assignment.EndTime,
+		}}
+	}
+
+	assignment.ShiftName = buildShiftSummary(assignment.Shifts, assignment.ShiftName)
+	if len(assignment.Shifts) == 1 {
+		assignment.StartTime = assignment.Shifts[0].StartTime
+		assignment.EndTime = assignment.Shifts[0].EndTime
+	} else if len(assignment.Shifts) > 1 {
+		assignment.StartTime = assignment.Shifts[0].StartTime
+		assignment.EndTime = assignment.Shifts[len(assignment.Shifts)-1].EndTime
+	}
+
+	if assignment.VehicleName == "" {
+		assignment.VehicleName = assignment.VehicleGroupName
+	}
+	if assignment.VehicleNumber == "" {
+		assignment.VehicleNumber = assignment.VehicleGroupName
+	}
 }
 
 /*
@@ -254,17 +357,13 @@ func GetDriverTodayAssignments(c *gin.Context) {
 				if vehicleGroupID.Valid {
 					id := int(vehicleGroupID.Int64)
 					a.VehicleGroupID = &id
-					// Get vehicles in this group
-					a.GroupVehicles = getGroupVehicles(id, date)
 				}
 				if vehicleGroupName.Valid {
 					a.VehicleGroupName = vehicleGroupName.String
 					a.VehicleNumber = vehicleGroupName.String // Use group name as display
+					a.VehicleName = vehicleGroupName.String
 				}
-				// Get drivers in the driver group
-				if driverGroupID.Valid {
-					a.GroupDrivers = getGroupDrivers(int(driverGroupID.Int64), date)
-				}
+				hydrateEVAssignmentDetails(&a, date)
 				assignments = append(assignments, a)
 			}
 		}
@@ -473,8 +572,6 @@ func GetDriverAssignments(c *gin.Context) {
 				if driverGroupID.Valid {
 					id := int(driverGroupID.Int64)
 					a.DriverGroupID = &id
-					// Get drivers in the driver group (use empty date for all-time query)
-					a.GroupDrivers = getGroupDrivers(id, "")
 				}
 				if driverGroupName.Valid {
 					a.DriverGroupName = driverGroupName.String
@@ -482,13 +579,13 @@ func GetDriverAssignments(c *gin.Context) {
 				if vehicleGroupID.Valid {
 					id := int(vehicleGroupID.Int64)
 					a.VehicleGroupID = &id
-					// Get vehicles in this group (use empty date for all-time query)
-					a.GroupVehicles = getGroupVehicles(id, "")
 				}
 				if vehicleGroupName.Valid {
 					a.VehicleGroupName = vehicleGroupName.String
 					a.VehicleNumber = vehicleGroupName.String // Use group name as display
+					a.VehicleName = vehicleGroupName.String
 				}
+				hydrateEVAssignmentDetails(&a, filterDate)
 				assignments = append(assignments, a)
 			} else {
 				log.Printf("Scan EV assignment error: %v", err)
@@ -673,21 +770,33 @@ func getGroupVehicles(groupID int, date string) []GroupVehicle {
 	if date != "" {
 		// Get vehicles valid on specific date
 		query = `
-			SELECT v.id, v.vehicle_number, COALESCE(v.fuel_type, 'EV') as fuel_type
+			SELECT v.id,
+			       COALESCE(NULLIF(v.vehicle_name, ''), v.vehicle_number, '') as vehicle_name,
+			       COALESCE(v.vehicle_number, '') as vehicle_number,
+			       COALESCE(vt.type, v.fuel_type, 'EV') as vehicle_type,
+			       COALESCE(v.fuel_type, 'EV') as fuel_type
 			FROM vehicle_group_members vgm
 			JOIN vehicles v ON v.id = vgm.vehicle_id
-			WHERE vgm.group_id = ? AND ? BETWEEN vgm.valid_from AND vgm.valid_to
-			ORDER BY v.vehicle_number
+			LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
+			WHERE vgm.group_id = ?
+			  AND (vgm.valid_from IS NULL OR ? >= vgm.valid_from)
+			  AND (vgm.valid_to IS NULL OR ? <= vgm.valid_to)
+			ORDER BY COALESCE(NULLIF(v.vehicle_name, ''), v.vehicle_number), v.vehicle_number
 		`
-		args = []interface{}{groupID, date}
+		args = []interface{}{groupID, date, date}
 	} else {
 		// Get all vehicles in group (any time)
 		query = `
-			SELECT DISTINCT v.id, v.vehicle_number, COALESCE(v.fuel_type, 'EV') as fuel_type
+			SELECT DISTINCT v.id,
+			       COALESCE(NULLIF(v.vehicle_name, ''), v.vehicle_number, '') as vehicle_name,
+			       COALESCE(v.vehicle_number, '') as vehicle_number,
+			       COALESCE(vt.type, v.fuel_type, 'EV') as vehicle_type,
+			       COALESCE(v.fuel_type, 'EV') as fuel_type
 			FROM vehicle_group_members vgm
 			JOIN vehicles v ON v.id = vgm.vehicle_id
+			LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 			WHERE vgm.group_id = ?
-			ORDER BY v.vehicle_number
+			ORDER BY COALESCE(NULLIF(v.vehicle_name, ''), v.vehicle_number), v.vehicle_number
 		`
 		args = []interface{}{groupID}
 	}
@@ -701,7 +810,7 @@ func getGroupVehicles(groupID int, date string) []GroupVehicle {
 
 	for rows.Next() {
 		var v GroupVehicle
-		if err := rows.Scan(&v.ID, &v.VehicleNumber, &v.FuelType); err == nil {
+		if err := rows.Scan(&v.ID, &v.VehicleName, &v.VehicleNumber, &v.VehicleType, &v.FuelType); err == nil {
 			vehicles = append(vehicles, v)
 		}
 	}

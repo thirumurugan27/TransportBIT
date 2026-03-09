@@ -373,6 +373,7 @@ func GetMyVehicleRequests(c *gin.Context) {
 
 	colExists := vehicleRequestColumns(
 		"requester_id",
+		"BookingType", "TripType", "TripMode", "CountPerson",
 		"Purpose", "PurposeOfVisit", "RequestUnder", "Vertical", "OralApproval",
 		"TaskID", "OutcomeExpected", "OutcomeAuditable",
 		"TravellerName", "MobileNumber", "Address",

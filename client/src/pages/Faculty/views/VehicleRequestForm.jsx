@@ -37,7 +37,6 @@ const formatTime = (timeStr) => {
 
 const emptyTrip = {
   trip_order: 1,
-  task_id: "",
   departure_date: "",
   departure_time: "",
   departure_location: "",
@@ -45,7 +44,6 @@ const emptyTrip = {
   arrival_time: "",
   arrival_location: "",
   passenger_contacts: "",
-  outcome_auditable: "",
 };
 
 export default function VehicleRequestForm() {
@@ -167,6 +165,8 @@ export default function VehicleRequestForm() {
     request_under: "",
     vertical: "",
     purpose: "",
+    task_id: "",
+    outcome_auditable: "",
     total_passengers: 1,
     declaration_accepted: false,
     // Travelling Persons Contact Details
@@ -240,6 +240,14 @@ export default function VehicleRequestForm() {
       showToast("Vertical field is required", "warning");
       return false;
     }
+    if (!form.task_id.trim()) {
+      showToast("Task ID is required", "warning");
+      return false;
+    }
+    if (!form.outcome_auditable.trim()) {
+      showToast("Auditable Outcome is required", "warning");
+      return false;
+    }
     return true;
   };
 
@@ -296,8 +304,8 @@ export default function VehicleRequestForm() {
         vertical: form.vertical,
         purpose: form.purpose,
         count_person: parseInt(form.total_passengers) || 1,
-        task_id: onwardTrip.task_id || "",
-        outcome_auditable: onwardTrip.outcome_auditable || "",
+        task_id: form.task_id || "",
+        outcome_auditable: form.outcome_auditable || "",
 
         // Onward journey
         onward_from_place: onwardTrip.departure_location || "",
@@ -332,8 +340,8 @@ export default function VehicleRequestForm() {
           departure_time: t.departure_time || "",
           arrival_date: t.arrival_date || "",
           arrival_time: t.arrival_time || "",
-          task_id: t.task_id || "",
-          outcome_auditable: t.outcome_auditable || "",
+          task_id: form.task_id || "",
+          outcome_auditable: form.outcome_auditable || "",
         })),
 
         // Contact info (Faculty/Indenter)
@@ -379,7 +387,7 @@ export default function VehicleRequestForm() {
   if (loading) return <Loading fullScreen={false} />;
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 p-4 animate-fadeIn">
+    <div className="max-w-7xl mx-auto space-y-6 p-4 animate-fadeIn">
       {/* Header */}
       <div className="bg-secondarybg rounded-md shadow-sm border border-gray-100 p-6">
         <div className="flex items-center justify-between">
@@ -461,10 +469,6 @@ export default function VehicleRequestForm() {
                   separately.
                 </li>
                 <li>
-                  • For faculty external visit, single submission is enough for
-                  round trip.
-                </li>
-                <li>
                   • For local Sathy transport requests, submitting this form
                   alone is sufficient; an Apex request is not mandatory.
                 </li>
@@ -515,58 +519,19 @@ export default function VehicleRequestForm() {
                 </div>
                 Trip Configuration
               </h3>
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className={labelClass}>
-                      Trip Type <span className="text-red-500">*</span>
-                    </label>
-                    <CustomDropdown
-                      value={form.trip_type}
-                      onChange={(value) => handleFormChange("trip_type", value)}
-                      options={TRIP_TYPES}
-                      placeholder="Select Trip Type"
-                      width="w-full"
-                    />
-                  </div>
-                  <div>
-                    <label className={labelClass}>
-                      Request Under <span className="text-red-500">*</span>
-                    </label>
-                    <CustomDropdown
-                      value={form.request_under}
-                      onChange={(value) => {
-                        handleFormChange("request_under", value);
-                        handleFormChange("vertical", "");
-                      }}
-                      options={REQUEST_UNDER_OPTIONS}
-                      placeholder="Select Request Under"
-                      width="w-full"
-                    />
-                  </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClass}>
+                    Trip Type <span className="text-red-500">*</span>
+                  </label>
+                  <CustomDropdown
+                    value={form.trip_type}
+                    onChange={(value) => handleFormChange("trip_type", value)}
+                    options={TRIP_TYPES}
+                    placeholder="Select Trip Type"
+                    width="w-full"
+                  />
                 </div>
-
-                {form.request_under && (
-                  <div>
-                    <label className={labelClass}>
-                      Vertical <span className="text-red-500">*</span>
-                    </label>
-                    <SearchableDropdown
-                      value={form.vertical}
-                      onChange={(value) => handleFormChange("vertical", value)}
-                      options={
-                        VERTICAL_OPTIONS[form.request_under]?.map((v) => ({
-                          value: v,
-                          label: v,
-                        })) || []
-                      }
-                      placeholder="Select or search vertical"
-                      searchPlaceholder="Type to search..."
-                      width="w-full"
-                    />
-                  </div>
-                )}
-
                 <div>
                   <label className={labelClass}>Total Passengers</label>
                   <input
@@ -577,7 +542,7 @@ export default function VehicleRequestForm() {
                       handleFormChange("total_passengers", e.target.value)
                     }
                     className={inputClass}
-                    placeholder="Number"
+                    placeholder="Number of passengers"
                   />
                 </div>
               </div>
@@ -623,7 +588,6 @@ export default function VehicleRequestForm() {
                 <div>
                   <label className={labelClass}>Address</label>
                   <textarea
-                    type="text"
                     value={form.traveller_address}
                     onChange={(e) =>
                       handleFormChange("traveller_address", e.target.value)
@@ -635,7 +599,7 @@ export default function VehicleRequestForm() {
               </div>
             </div>
 
-            {/* Purpose Section */}
+            {/* Purpose Details Section */}
             <div className="mb-6">
               <h3 className="text-sm font-semibold text-gray-800 mb-4 flex items-center gap-2">
                 <div className="w-6 h-6 rounded-md bg-purple-100 flex items-center justify-center">
@@ -643,29 +607,71 @@ export default function VehicleRequestForm() {
                 </div>
                 Purpose Details
               </h3>
-              <div className="space-y-3">
-                <div className="p-3 bg-amber-50 rounded-md border border-amber-100 text-xs text-amber-900">
-                  <p className="font-semibold mb-1.5">
-                    📝 Please specify the reason accurately for monthly report
-                    documentation:
-                  </p>
-                  <p className="mb-1.5">Examples:</p>
-                  <ul className="list-disc pl-4 space-y-0.5">
-                    <li>
-                      For an industry visit by faculty members organized by
-                      IECC/Placement/Department.
-                    </li>
-                    <li>
-                      For guest pick-up/drop-off for a workshop organized by
-                      IECC, titled "Bridging the Gap: Industry–Institute Synergy
-                      Workshop".
-                    </li>
-                  </ul>
+
+              <div className="space-y-5">
+                {/* Request Under & Vertical */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelClass}>
+                      Request Under <span className="text-red-500">*</span>
+                    </label>
+                    <CustomDropdown
+                      value={form.request_under}
+                      onChange={(value) => {
+                        handleFormChange("request_under", value);
+                        handleFormChange("vertical", "");
+                      }}
+                      options={REQUEST_UNDER_OPTIONS}
+                      placeholder="Select Request Under"
+                      width="w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>
+                      Vertical <span className="text-red-500">*</span>
+                    </label>
+                    <SearchableDropdown
+                      value={form.vertical}
+                      onChange={(value) => handleFormChange("vertical", value)}
+                      options={
+                        VERTICAL_OPTIONS[form.request_under]?.map((v) => ({
+                          value: v,
+                          label: v,
+                        })) || []
+                      }
+                      placeholder={
+                        form.request_under
+                          ? "Select or search vertical"
+                          : "Select Request Under first"
+                      }
+                      searchPlaceholder="Type to search..."
+                      width="w-full"
+                    />
+                  </div>
                 </div>
+
+                {/* Purpose of Trip */}
                 <div>
                   <label className={labelClass}>
                     Purpose of Trip <span className="text-red-500">*</span>
                   </label>
+                  <div className="mb-2 p-3 bg-amber-50 border border-amber-100 rounded-md text-xs text-amber-800">
+                    <p className="font-semibold mb-1">
+                      📝 Please specify the reason accurately for monthly report
+                      documentation:
+                    </p>
+                    <ul className="list-disc pl-4 space-y-0.5">
+                      <li>
+                        For an industry visit by faculty members organized by
+                        IECC/Placement/Department.
+                      </li>
+                      <li>
+                        For guest pick-up/drop-off for a workshop organized by
+                        IECC, titled "Bridging the Gap: Industry–Institute
+                        Synergy Workshop".
+                      </li>
+                    </ul>
+                  </div>
                   <textarea
                     value={form.purpose}
                     onChange={(e) =>
@@ -675,6 +681,77 @@ export default function VehicleRequestForm() {
                     placeholder="Describe the purpose of your trip request..."
                     className="w-full px-4 py-3 border border-gray-200 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200 text-sm bg-primarybg resize-none"
                   />
+                </div>
+
+                {/* Task ID & Auditable */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelClass}>
+                      Task ID <span className="text-red-500">*</span>
+                    </label>
+                    <div className="mb-2 p-3 bg-blue-50 border border-blue-100 rounded-md text-xs text-blue-800">
+                      <p className="font-semibold mb-1">
+                        📋 TASK ID / INVMR — e.g. T123456 / INVMR1234
+                      </p>
+                      <ol className="list-decimal pl-4 space-y-0.5">
+                        <li>
+                          Submit the Apex request (including transport) via the
+                          Inventory Apex request form.
+                        </li>
+                        <li>
+                          Even for guest pick-up only, the Apex request is
+                          mandatory to obtain the Task ID.
+                        </li>
+                        <li>
+                          If not yet assigned, enter the Inventory reference
+                          number (e.g. INVMR1234) temporarily.
+                        </li>
+                      </ol>
+                      <p className="mt-1.5 text-red-600 font-semibold">
+                        ** For local Sathyamangalam requests, enter: "Local"
+                      </p>
+                    </div>
+                    <input
+                      type="text"
+                      value={form.task_id}
+                      onChange={(e) =>
+                        handleFormChange("task_id", e.target.value)
+                      }
+                      placeholder="e.g. T123456 or INVMR1234"
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>
+                      Auditable Outcome <span className="text-red-500">*</span>
+                    </label>
+                    <div className="mb-2 p-3 bg-purple-50 border border-purple-100 rounded-md text-xs text-purple-800">
+                      <p className="font-semibold mb-1">
+                        📊 Outcome expected &amp; Auditable:
+                      </p>
+                      <div className="grid grid-cols-2 gap-x-3">
+                        <ul className="list-disc pl-4 space-y-0.5">
+                          <li>Infrastructure</li>
+                          <li>Regular Maintenance</li>
+                          <li>Skill</li>
+                        </ul>
+                        <ul className="list-disc pl-4 space-y-0.5">
+                          <li>Placement / Internship</li>
+                          <li>Product Development</li>
+                          <li>Awards / Achievements</li>
+                        </ul>
+                      </div>
+                    </div>
+                    <input
+                      type="text"
+                      value={form.outcome_auditable}
+                      onChange={(e) =>
+                        handleFormChange("outcome_auditable", e.target.value)
+                      }
+                      placeholder="e.g. Skill, Placement / Internship, Awards"
+                      className={inputClass}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -886,85 +963,12 @@ export default function VehicleRequestForm() {
                     </div>
                   </div>
                 </div>
-
-                {/* Additional Details */}
-                <div className="space-y-4 pt-4 border-t border-gray-100">
-                  <div>
-                    <div className="mb-2 p-3 bg-amber-50 rounded-md border border-amber-100 text-xs text-amber-900">
-                      <p className="font-bold mb-1">
-                        📋 TASK ID/INVMR: eg: T123456/INVMR1234
-                      </p>
-                      <p className="text-red-600 font-semibold mb-2">
-                        **For Local Sathyamangalam request mention: "Local"
-                      </p>
-                      <ol className="list-decimal pl-4 space-y-1">
-                        <li>
-                          The Apex request, including transport, must be
-                          submitted through the Inventory Apex request form for
-                          proper approval.
-                        </li>
-                        <li>
-                          Even if only a guest pick-up is required, the Apex
-                          request process is mandatory to obtain the Task ID.
-                        </li>
-                        <li>
-                          If the task has not yet been assigned, enter the
-                          Inventory reference number (e.g., INVMR1234)
-                          temporarily.
-                        </li>
-                      </ol>
-                    </div>
-                    <label className={labelClass}>Task ID</label>
-                    <input
-                      type="text"
-                      value={trip.task_id}
-                      onChange={(e) =>
-                        handleTripChange(idx, "task_id", e.target.value)
-                      }
-                      placeholder="Task ID or INVMR reference"
-                      className={inputClass}
-                    />
-                  </div>
-
-                  <div>
-                    <div className="mb-2 p-3 bg-purple-50 rounded-md border border-purple-100 text-xs text-purple-900">
-                      <p className="font-bold mb-1">
-                        📊 Outcome expected & Auditable:
-                      </p>
-                      <div className="grid grid-cols-2 gap-x-4 mt-2">
-                        <ul className="list-disc pl-4 space-y-0.5">
-                          <li>Infrastructure</li>
-                          <li>Regular Maintenance</li>
-                          <li>Skill</li>
-                        </ul>
-                        <ul className="list-disc pl-4 space-y-0.5">
-                          <li>Placement / Internship</li>
-                          <li>Product development</li>
-                          <li>Awards / Achievements</li>
-                        </ul>
-                      </div>
-                    </div>
-                    <label className={labelClass}>Auditable</label>
-                    <input
-                      type="text"
-                      value={trip.outcome_auditable}
-                      onChange={(e) =>
-                        handleTripChange(
-                          idx,
-                          "outcome_auditable",
-                          e.target.value,
-                        )
-                      }
-                      placeholder="e.g., Skill, Placement/Internship, Awards"
-                      className={inputClass}
-                    />
-                  </div>
-                </div>
               </div>
             </div>
           ))}
 
-          {(form.trip_type === "round_trip" || form.trip_type === "multi_stop") && (
+          {(form.trip_type === "round_trip" ||
+            form.trip_type === "multi_stop") && (
             <button
               onClick={addTrip}
               className="w-full py-3 border-2 border-dashed border-primary/30 text-primary rounded-md hover:bg-primary/5 transition-all duration-200 text-sm font-medium"
@@ -1078,6 +1082,32 @@ export default function VehicleRequestForm() {
                 </div>
               </div>
 
+              {/* Task ID & Auditable */}
+              {(form.task_id || form.outcome_auditable) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                  {form.task_id && (
+                    <div className="p-3 bg-amber-50 rounded-md border border-amber-100">
+                      <p className="text-secondarytext font-medium mb-0.5">
+                        Task ID
+                      </p>
+                      <p className="text-primarytext font-semibold">
+                        {form.task_id}
+                      </p>
+                    </div>
+                  )}
+                  {form.outcome_auditable && (
+                    <div className="p-3 bg-purple-50 rounded-md border border-purple-100">
+                      <p className="text-secondarytext font-medium mb-0.5">
+                        Auditable
+                      </p>
+                      <p className="text-primarytext font-semibold">
+                        {form.outcome_auditable}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Travelling Persons Contact Details */}
               {(form.traveller_name ||
                 form.traveller_mobile ||
@@ -1165,30 +1195,6 @@ export default function VehicleRequestForm() {
                     </p>
                   </div>
                 </div>
-                {(trip.task_id || trip.outcome_auditable) && (
-                  <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                    {trip.task_id && (
-                      <div>
-                        <p className="text-secondarytext font-medium mb-0.5">
-                          Task ID
-                        </p>
-                        <p className="text-primarytext font-semibold">
-                          {trip.task_id}
-                        </p>
-                      </div>
-                    )}
-                    {trip.outcome_auditable && (
-                      <div>
-                        <p className="text-secondarytext font-medium mb-0.5">
-                          Auditable
-                        </p>
-                        <p className="text-primarytext font-semibold">
-                          {trip.outcome_auditable}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
             </div>
           ))}
