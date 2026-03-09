@@ -28,6 +28,7 @@ import {
   SubReminderIcon,
   SubVendorIcon,
   ReportIcon,
+  FuelIcon,
 } from "../components/layout/Icons";
 
 // Admin Menu Configuration
@@ -159,6 +160,12 @@ export const adminMenuConfig = {
       path: "/km-management",
     },
     {
+      key: "fuelIndents",
+      label: "Fuel Indents",
+      icon: <FuelIcon />,
+      path: "/fuel-indents",
+    },
+    {
       key: "studentTransport",
       label: "Student Transport",
       icon: <BusIcon />,
@@ -214,6 +221,12 @@ export const driverMenuConfig = {
       label: "Service & Repair",
       icon: <WrenchIcon />,
       path: "/service-repair",
+    },
+    {
+      key: "fuelIndent",
+      label: "Fuel Indent",
+      icon: <FuelIcon />,
+      path: "/fuel-indent",
     },
     {
       key: "profile",

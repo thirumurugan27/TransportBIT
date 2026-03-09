@@ -10,6 +10,7 @@ import DriverApplyLeave from "./views/DriverApplyLeave";
 import DriverProfile from "./views/DriverProfile";
 import Notifications from "./views/Notifications";
 import DriverServiceRepair from "./views/DriverServiceRepair";
+import DriverFuelIndent from "./views/DriverFuelIndent";
 import {useAuth} from "../../context/AuthContext";
 
 export default function DriverDashboard() {
@@ -45,6 +46,7 @@ export default function DriverDashboard() {
             <Route path="apply-leave" element={<DriverApplyLeave />} />
             <Route path="notifications" element={<Notifications />} />
             <Route path="service-repair" element={<DriverServiceRepair />} />
+            <Route path="fuel-indent" element={<DriverFuelIndent />} />
             <Route path="profile" element={<DriverProfile />} />
             <Route path="*" element={<DriverHome />} />
           </Routes>

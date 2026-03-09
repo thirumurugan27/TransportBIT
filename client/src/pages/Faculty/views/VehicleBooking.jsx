@@ -79,6 +79,7 @@ const TRIP_TYPES = [
   {value: "guest_pickup", label: "Guest Pick up"},
   {value: "guest_drop", label: "Guest Drop"},
   {value: "faculty_staff_visit", label: "Faculty/Staff Visit"},
+  {value: "round_trip", label: "Round Trip"},
 ];
 
 const REQUEST_UNDER_OPTIONS = [
@@ -446,8 +447,13 @@ export default function VehicleBooking() {
                     STATUS_CONFIG[req.status] || STATUS_CONFIG.pending;
 
                   const departureDateTime = req.onward_from_datetime;
-                  const departurePlace = req.onward_from_place;
-                  const arrivalPlace = req.onward_to_place;
+                  const routeDisplay = req.trips?.length > 1
+                    ? [req.trips[0].departure_location, ...req.trips.map(t => t.arrival_location)].join(' → ')
+                    : req.trips?.length === 1
+                      ? `${req.trips[0].departure_location}${req.trips[0].arrival_location ? ` → ${req.trips[0].arrival_location}` : ''}`
+                      : req.onward_from_place
+                        ? `${req.onward_from_place}${req.onward_to_place ? ` → ${req.onward_to_place}` : ''}`
+                        : null;
                   return (
                     <tr
                       key={req.id}
@@ -466,15 +472,13 @@ export default function VehicleBooking() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-sm text-secondarytext">
-                        {departureDateTime || departurePlace ? (
+                        {departureDateTime || routeDisplay ? (
                           <div>
                             <p className="text-primarytext font-medium">
                               {departureDateTime || "-"}
                             </p>
                             <p className="text-xs">
-                              {departurePlace
-                                ? `${departurePlace}${arrivalPlace ? ` → ${arrivalPlace}` : ""}`
-                                : "-"}
+                              {routeDisplay || "-"}
                             </p>
                           </div>
                         ) : (
@@ -1033,7 +1037,7 @@ export default function VehicleBooking() {
                     </div>
                   ))}
 
-                  {form.trip_type === "multi_stop" && (
+                  {(form.trip_type === "round_trip" || form.trip_type === "multi_stop") && (
                     <button
                       onClick={addTrip}
                       className="w-full py-2.5 border-2 border-dashed border-primary/30 text-primary rounded-md hover:bg-primary/5 transition-colors text-sm font-medium"

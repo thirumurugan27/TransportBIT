@@ -205,10 +205,10 @@ func CreateVehicleRequest(c *gin.Context) {
 	if strings.TrimSpace(indenterMobile) == "" {
 		indenterMobile = req.ContactPhone
 	}
-	
+
 	// Travelling person's mobile number (from the form's "Travelling Persons Contact Details" section)
 	travellerMobile := strings.TrimSpace(req.MobileNumber)
-	
+
 	guestName := strings.TrimSpace(req.GuestName)
 	address := strings.TrimSpace(req.Address)
 	taskID := strings.TrimSpace(req.TaskID)
@@ -282,12 +282,12 @@ func CreateVehicleRequest(c *gin.Context) {
 	// Contact / legacy-personal fields (Faculty/Indenter)
 	add("ContactName", req.ContactName)
 	add("ContactPhone", req.ContactPhone)
-	
+
 	// Travelling Persons Contact Details
 	add("MobileNumber", travellerMobile)
 	add("TravellerName", guestName)
 	add("Address", address)
-	
+
 	add("TaskID", taskID)
 	add("OutcomeExpected", outcomeExpected)
 	add("OutcomeAuditable", outcomeAuditable)
@@ -315,9 +315,48 @@ func CreateVehicleRequest(c *gin.Context) {
 	}
 
 	requestID, _ := result.LastInsertId()
-	if err := upsertPrimaryVehicleRequestTrip(requestID, req); err != nil {
-		log.Printf("Error syncing normalized trip for request %d: %v", requestID, err)
+
+	// Store trip legs in vehicle_request_trips
+	if len(req.Trips) > 0 {
+		// Multi-leg trips provided (round_trip or multi_stop)
+		for i, trip := range req.Trips {
+			fromDT := ""
+			if trip.DepartureDate != "" && trip.DepartureTime != "" {
+				fromDT = trip.DepartureDate + " " + trip.DepartureTime
+			}
+			toDT := ""
+			if trip.ArrivalDate != "" && trip.ArrivalTime != "" {
+				toDT = trip.ArrivalDate + " " + trip.ArrivalTime
+			}
+			if fromDTNorm, err := normalizeDateTime(fromDT); err == nil {
+				fromDT = fromDTNorm
+			}
+			if toDTNorm, err := normalizeDateTime(toDT); err == nil {
+				toDT = toDTNorm
+			}
+			_, err := config.DB.Exec(`
+				INSERT INTO vehicle_request_trips (request_id, trip_order, from_place, to_place, from_datetime, to_datetime)
+				VALUES (?, ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''))
+				ON DUPLICATE KEY UPDATE
+					from_place = VALUES(from_place),
+					to_place = VALUES(to_place),
+					from_datetime = VALUES(from_datetime),
+					to_datetime = VALUES(to_datetime)
+			`, requestID, i+1,
+				strings.TrimSpace(trip.DepartureLocation),
+				strings.TrimSpace(trip.ArrivalLocation),
+				fromDT, toDT)
+			if err != nil {
+				log.Printf("Error inserting trip leg %d for request %d: %v", i+1, requestID, err)
+			}
+		}
+	} else {
+		// Fallback: single onward trip
+		if err := upsertPrimaryVehicleRequestTrip(requestID, req); err != nil {
+			log.Printf("Error syncing normalized trip for request %d: %v", requestID, err)
+		}
 	}
+
 	c.JSON(http.StatusOK, gin.H{"message": "Vehicle request submitted successfully", "id": requestID})
 }
 
@@ -452,9 +491,9 @@ func GetMyVehicleRequests(c *gin.Context) {
 			%s,
 			COALESCE(vr.CountPerson, 1) as CountPerson,
 			COALESCE(vrt.from_place, '') as OnwardFromPlace,
-			COALESCE(vrt.to_place, '') as OnwardToPlace,
+			COALESCE(vrt_last.to_place, vrt.to_place, '') as OnwardToPlace,
 			COALESCE(DATE_FORMAT(vrt.from_datetime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as OnwardFromDateTime,
-			COALESCE(DATE_FORMAT(vrt.to_datetime, '%%d-%%m-%%Y %%h:%%i %%p'), '') as OnwardTodateTime,
+			COALESCE(DATE_FORMAT(COALESCE(vrt_last.to_datetime, vrt.to_datetime), '%%d-%%m-%%Y %%h:%%i %%p'), '') as OnwardTodateTime,
 			%s,
 			%s,
 			%s,
@@ -484,6 +523,9 @@ func GetMyVehicleRequests(c *gin.Context) {
 			DATE_FORMAT(COALESCE(vr.created_at, NOW()), '%%d-%%m-%%Y %%h:%%i %%p') as created_at
 		FROM vehiclerequests vr
 		LEFT JOIN vehicle_request_trips vrt ON vrt.request_id = vr.id AND vrt.trip_order = 1
+		LEFT JOIN vehicle_request_trips vrt_last ON vrt_last.request_id = vr.id AND vrt_last.trip_order = (
+			SELECT MAX(trip_order) FROM vehicle_request_trips WHERE request_id = vr.id AND trip_order > 1
+		)
 		LEFT JOIN vehicles v ON vr.vehicle_id = v.id
 		LEFT JOIN drivers d ON vr.driver_id = d.id
 		LEFT JOIN users ud ON d.user_id = ud.id
@@ -540,6 +582,29 @@ func GetMyVehicleRequests(c *gin.Context) {
 			log.Printf("Scan error: %v", err)
 			continue
 		}
+
+		// Load all trip legs from vehicle_request_trips
+		r.Trips = []models.Trip{}
+		tripRows, tripErr := config.DB.Query(`
+			SELECT trip_order, COALESCE(from_place, '') as from_place, COALESCE(to_place, '') as to_place,
+				COALESCE(DATE_FORMAT(from_datetime, '%d-%m-%Y'), '') as dep_date,
+				COALESCE(DATE_FORMAT(from_datetime, '%h:%i %p'), '') as dep_time,
+				COALESCE(DATE_FORMAT(to_datetime, '%d-%m-%Y'), '') as arr_date,
+				COALESCE(DATE_FORMAT(to_datetime, '%h:%i %p'), '') as arr_time
+			FROM vehicle_request_trips
+			WHERE request_id = ?
+			ORDER BY trip_order ASC
+		`, r.ID)
+		if tripErr == nil {
+			for tripRows.Next() {
+				var t models.Trip
+				if err := tripRows.Scan(&t.TripOrder, &t.DepartureLocation, &t.ArrivalLocation, &t.DepartureDate, &t.DepartureTime, &t.ArrivalDate, &t.ArrivalTime); err == nil {
+					r.Trips = append(r.Trips, t)
+				}
+			}
+			tripRows.Close()
+		}
+
 		requests = append(requests, r)
 	}
 

@@ -22,6 +22,22 @@ func generateOTP() string {
 	return fmt.Sprintf("%06d", r.Intn(1000000))
 }
 
+// splitDateTime splits a formatted date-time string into date and time parts
+func splitDateTime(dtStr string) (string, string) {
+	if dtStr == "" {
+		return "", ""
+	}
+	if len(dtStr) >= 10 {
+		date := dtStr[:10]
+		timeStr := ""
+		if len(dtStr) > 11 {
+			timeStr = dtStr[11:]
+		}
+		return date, timeStr
+	}
+	return dtStr, ""
+}
+
 func vehicleRequestColumns(columnNames ...string) map[string]bool {
 	// Canonical cleaned schema flags for vehicle request module.
 	known := map[string]bool{
@@ -113,13 +129,22 @@ func pickExistingColumn(colExists map[string]bool, candidates ...string) string 
 
 func loadVehicleRequestSchedule(requestID int) (sql.NullString, sql.NullString, sql.NullString, sql.NullString, error) {
 	var onwardFrom, onwardTo, returnFrom, returnTo sql.NullString
+
+	// Try to load from vehicle_request_trips: first leg start + last leg end
 	err := config.DB.QueryRow(`
 		SELECT
-			DATE_FORMAT(from_datetime, '%Y-%m-%d %H:%i:%s') as onward_from,
-			DATE_FORMAT(to_datetime, '%Y-%m-%d %H:%i:%s') as onward_to
-		FROM vehicle_request_trips
-		WHERE request_id = ? AND trip_order = 1
-	`, requestID).Scan(&onwardFrom, &onwardTo)
+			DATE_FORMAT(first_leg.from_datetime, '%Y-%m-%d %H:%i:%s') as onward_from,
+			DATE_FORMAT(COALESCE(last_leg.to_datetime, first_leg.to_datetime), '%Y-%m-%d %H:%i:%s') as onward_to
+		FROM vehicle_request_trips first_leg
+		LEFT JOIN (
+			SELECT request_id, to_datetime
+			FROM vehicle_request_trips vrt_inner
+			WHERE vrt_inner.request_id = ? AND vrt_inner.trip_order = (
+				SELECT MAX(trip_order) FROM vehicle_request_trips WHERE request_id = vrt_inner.request_id
+			)
+		) last_leg ON last_leg.request_id = first_leg.request_id
+		WHERE first_leg.request_id = ? AND first_leg.trip_order = 1
+	`, requestID, requestID).Scan(&onwardFrom, &onwardTo)
 	if err == nil {
 		return onwardFrom, onwardTo, returnFrom, returnTo, nil
 	}
@@ -388,6 +413,29 @@ func GetAllVehicleRequests(c *gin.Context) {
 			log.Printf("Scan error: %v", err)
 			continue
 		}
+
+		// Load all trip legs from vehicle_request_trips
+		r.Trips = []models.Trip{}
+		tripRows, tripErr := config.DB.Query(`
+			SELECT trip_order, COALESCE(from_place, '') as from_place, COALESCE(to_place, '') as to_place,
+				COALESCE(DATE_FORMAT(from_datetime, '%d-%m-%Y'), '') as dep_date,
+				COALESCE(DATE_FORMAT(from_datetime, '%h:%i %p'), '') as dep_time,
+				COALESCE(DATE_FORMAT(to_datetime, '%d-%m-%Y'), '') as arr_date,
+				COALESCE(DATE_FORMAT(to_datetime, '%h:%i %p'), '') as arr_time
+			FROM vehicle_request_trips
+			WHERE request_id = ?
+			ORDER BY trip_order ASC
+		`, r.ID)
+		if tripErr == nil {
+			for tripRows.Next() {
+				var t models.Trip
+				if err := tripRows.Scan(&t.TripOrder, &t.DepartureLocation, &t.ArrivalLocation, &t.DepartureDate, &t.DepartureTime, &t.ArrivalDate, &t.ArrivalTime); err == nil {
+					r.Trips = append(r.Trips, t)
+				}
+			}
+			tripRows.Close()
+		}
+
 		requests = append(requests, r)
 	}
 
@@ -586,6 +634,57 @@ func GetVehicleRequestDetails(c *gin.Context) {
 		log.Printf("Error fetching vehicle request: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
+	}
+
+	// Load all trip legs from vehicle_request_trips
+	tripRows, tripErr := config.DB.Query(`
+		SELECT trip_order, COALESCE(from_place, '') as from_place, COALESCE(to_place, '') as to_place,
+			COALESCE(DATE_FORMAT(from_datetime, '%Y-%m-%d'), '') as dep_date,
+			COALESCE(DATE_FORMAT(from_datetime, '%H:%i'), '') as dep_time,
+			COALESCE(DATE_FORMAT(to_datetime, '%Y-%m-%d'), '') as arr_date,
+			COALESCE(DATE_FORMAT(to_datetime, '%H:%i'), '') as arr_time
+		FROM vehicle_request_trips
+		WHERE request_id = ?
+		ORDER BY trip_order ASC
+	`, r.ID)
+	if tripErr == nil {
+		defer tripRows.Close()
+		r.Trips = []models.Trip{}
+		for tripRows.Next() {
+			var t models.Trip
+			if err := tripRows.Scan(&t.TripOrder, &t.DepartureLocation, &t.ArrivalLocation, &t.DepartureDate, &t.DepartureTime, &t.ArrivalDate, &t.ArrivalTime); err == nil {
+				r.Trips = append(r.Trips, t)
+			}
+		}
+	}
+
+	// Fallback: if no trips loaded from table, construct from onward/return fields
+	if len(r.Trips) == 0 {
+		r.Trips = []models.Trip{}
+		if r.OnwardFromPlace != "" || r.OnwardToPlace != "" {
+			onwardDate, onwardTime := splitDateTime(r.OnwardFromDateTime)
+			onwardArrivalDate, onwardArrivalTime := splitDateTime(r.OnwardToDateTime)
+			r.Trips = append(r.Trips, models.Trip{
+				DepartureLocation: r.OnwardFromPlace,
+				ArrivalLocation:   r.OnwardToPlace,
+				DepartureDate:     onwardDate,
+				DepartureTime:     onwardTime,
+				ArrivalDate:       onwardArrivalDate,
+				ArrivalTime:       onwardArrivalTime,
+			})
+		}
+		if r.ReturnFromPlace != "" || r.ReturnToPlace != "" {
+			returnDate, returnTime := splitDateTime(r.ReturnFromDateTime)
+			returnArrivalDate, returnArrivalTime := splitDateTime(r.ReturnToDateTime)
+			r.Trips = append(r.Trips, models.Trip{
+				DepartureLocation: r.ReturnFromPlace,
+				ArrivalLocation:   r.ReturnToPlace,
+				DepartureDate:     returnDate,
+				DepartureTime:     returnTime,
+				ArrivalDate:       returnArrivalDate,
+				ArrivalTime:       returnArrivalTime,
+			})
+		}
 	}
 
 	c.JSON(http.StatusOK, r)
@@ -1097,13 +1196,17 @@ func checkDriverConflict(driverID int, onwardFrom, onwardTo, returnFrom, returnT
 
 	// 1️⃣  Conflicting vehicle requests (status assigned / trip_started)
 	// Use vehicle_request_trips as primary datetime source, fall back to main table columns.
+	// For round trips, use first leg start and last leg end as the full occupied range.
 	vrConflictQuery := `
 		SELECT vr.id, COALESCE(v.vehicle_number,'N/A'), COALESCE(vt.type, ''),
 			   COALESCE(vrt.from_datetime, vr.OnwardFromDateTime) as onward_from,
-			   COALESCE(vrt.to_datetime, vr.OnwardTodateTime) as onward_to,
+			   COALESCE(vrt_last.to_datetime, vrt.to_datetime, vr.OnwardTodateTime) as onward_to,
 			   COALESCE(u.full_name,'') as faculty_name
 		FROM vehiclerequests vr
 		LEFT JOIN vehicle_request_trips vrt ON vrt.request_id = vr.id AND vrt.trip_order = 1
+		LEFT JOIN vehicle_request_trips vrt_last ON vrt_last.request_id = vr.id AND vrt_last.trip_order = (
+			SELECT MAX(trip_order) FROM vehicle_request_trips WHERE request_id = vr.id AND trip_order > 1
+		)
 		LEFT JOIN vehicles v ON vr.vehicle_id = v.id
 		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 		LEFT JOIN faculty f ON vr.faculty_id = f.id
@@ -1113,7 +1216,7 @@ func checkDriverConflict(driverID int, onwardFrom, onwardTo, returnFrom, returnT
 		AND COALESCE(vrt.from_datetime, vr.OnwardFromDateTime) IS NOT NULL
 		AND (
 			COALESCE(vrt.from_datetime, vr.OnwardFromDateTime) <= ?
-			AND COALESCE(vrt.to_datetime, vr.OnwardTodateTime, vrt.from_datetime, vr.OnwardFromDateTime) >= ?
+			AND COALESCE(vrt_last.to_datetime, vrt.to_datetime, vr.OnwardTodateTime, vrt.from_datetime, vr.OnwardFromDateTime) >= ?
 		)
 	`
 	vrRows, err := config.DB.Query(vrConflictQuery, driverID, tripEnd, tripStart)
@@ -1315,14 +1418,18 @@ func checkVehicleConflict(vehicleID int, onwardFrom, onwardTo, returnFrom, retur
 
 	// 1️⃣  Conflicting vehicle requests
 	// Use vehicle_request_trips as primary datetime source, fall back to main table columns.
+	// For round trips, use first leg start and last leg end as the full occupied range.
 	vrConflictQuery := `
 		SELECT vr.id,
 			   COALESCE(vrt.from_datetime, vr.OnwardFromDateTime) as onward_from,
-			   COALESCE(vrt.to_datetime, vr.OnwardTodateTime) as onward_to,
+			   COALESCE(vrt_last.to_datetime, vrt.to_datetime, vr.OnwardTodateTime) as onward_to,
 			   COALESCE(d.full_name,'') as driver_name,
 			   COALESCE(u.full_name,'') as faculty_name
 		FROM vehiclerequests vr
 		LEFT JOIN vehicle_request_trips vrt ON vrt.request_id = vr.id AND vrt.trip_order = 1
+		LEFT JOIN vehicle_request_trips vrt_last ON vrt_last.request_id = vr.id AND vrt_last.trip_order = (
+			SELECT MAX(trip_order) FROM vehicle_request_trips WHERE request_id = vr.id AND trip_order > 1
+		)
 		LEFT JOIN drivers dr ON vr.driver_id = dr.id
 		LEFT JOIN users d ON dr.user_id = d.id
 		LEFT JOIN faculty f ON vr.faculty_id = f.id
@@ -1332,7 +1439,7 @@ func checkVehicleConflict(vehicleID int, onwardFrom, onwardTo, returnFrom, retur
 		AND COALESCE(vrt.from_datetime, vr.OnwardFromDateTime) IS NOT NULL
 		AND (
 			COALESCE(vrt.from_datetime, vr.OnwardFromDateTime) <= ?
-			AND COALESCE(vrt.to_datetime, vr.OnwardTodateTime, vrt.from_datetime, vr.OnwardFromDateTime) >= ?
+			AND COALESCE(vrt_last.to_datetime, vrt.to_datetime, vr.OnwardTodateTime, vrt.from_datetime, vr.OnwardFromDateTime) >= ?
 		)
 	`
 	vrRows, err := config.DB.Query(vrConflictQuery, vehicleID, tripEnd, tripStart)

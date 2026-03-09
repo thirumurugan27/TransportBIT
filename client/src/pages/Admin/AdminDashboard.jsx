@@ -20,6 +20,7 @@ import ServiceTypes from "./views/ServiceTypes";
 import ServiceReminders from "./views/ServiceReminders";
 import Vendors from "./views/Vendors";
 import Reports from "./views/Reports";
+import AdminFuelIndents from "./views/AdminFuelIndents";
 
 import {useAuth} from "../../context/AuthContext";
 import {apiGet, getToday} from "../../utils/api";
@@ -122,6 +123,7 @@ export default function AdminDashboard() {
             <Route path="service-reminders" element={<ServiceReminders />} />
             <Route path="vendors" element={<Vendors />} />
             <Route path="reports" element={<Reports />} />
+            <Route path="fuel-indents" element={<AdminFuelIndents />} />
             <Route path="*" element={<AdminHome />} />
           </Routes>
         </main>

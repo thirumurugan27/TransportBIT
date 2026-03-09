@@ -181,33 +181,53 @@ func GetDriverVehicleRequests(c *gin.Context) {
 			r.TripEndedAt = &tripEndedAt
 		}
 
-		// Map to structured Trips slice
+		// Load trips from vehicle_request_trips table
 		r.Trips = []models.Trip{}
+		tripRows, tripErr := config.DB.Query(`
+			SELECT trip_order, COALESCE(from_place, '') as from_place, COALESCE(to_place, '') as to_place,
+				COALESCE(DATE_FORMAT(from_datetime, '%d-%m-%Y'), '') as dep_date,
+				COALESCE(DATE_FORMAT(from_datetime, '%h:%i %p'), '') as dep_time,
+				COALESCE(DATE_FORMAT(to_datetime, '%d-%m-%Y'), '') as arr_date,
+				COALESCE(DATE_FORMAT(to_datetime, '%h:%i %p'), '') as arr_time
+			FROM vehicle_request_trips
+			WHERE request_id = ?
+			ORDER BY trip_order ASC
+		`, r.ID)
+		if tripErr == nil {
+			for tripRows.Next() {
+				var t models.Trip
+				if err := tripRows.Scan(&t.TripOrder, &t.DepartureLocation, &t.ArrivalLocation, &t.DepartureDate, &t.DepartureTime, &t.ArrivalDate, &t.ArrivalTime); err == nil {
+					r.Trips = append(r.Trips, t)
+				}
+			}
+			tripRows.Close()
+		}
 
-		// Onward Trip
-		onwardDate, onwardTime := splitDateTime(r.OnwardFromDateTime)
-		onwardArrivalDate, onwardArrivalTime := splitDateTime(r.OnwardToDateTime)
-		r.Trips = append(r.Trips, models.Trip{
-			DepartureLocation: r.OnwardFromPlace,
-			ArrivalLocation:   r.OnwardToPlace,
-			DepartureDate:     onwardDate,
-			DepartureTime:     onwardTime,
-			ArrivalDate:       onwardArrivalDate,
-			ArrivalTime:       onwardArrivalTime,
-		})
-
-		// Return Trip (if exists)
-		if r.TripType == "round_trip" || r.ReturnFromPlace != "" {
-			returnDate, returnTime := splitDateTime(r.ReturnFromDateTime)
-			returnArrivalDate, returnArrivalTime := splitDateTime(r.ReturnToDateTime)
+		// Fallback: construct from onward/return fields
+		if len(r.Trips) == 0 {
+			onwardDate, onwardTime := splitDateTime(r.OnwardFromDateTime)
+			onwardArrivalDate, onwardArrivalTime := splitDateTime(r.OnwardToDateTime)
 			r.Trips = append(r.Trips, models.Trip{
-				DepartureLocation: r.ReturnFromPlace,
-				ArrivalLocation:   r.ReturnToPlace,
-				DepartureDate:     returnDate,
-				DepartureTime:     returnTime,
-				ArrivalDate:       returnArrivalDate,
-				ArrivalTime:       returnArrivalTime,
+				DepartureLocation: r.OnwardFromPlace,
+				ArrivalLocation:   r.OnwardToPlace,
+				DepartureDate:     onwardDate,
+				DepartureTime:     onwardTime,
+				ArrivalDate:       onwardArrivalDate,
+				ArrivalTime:       onwardArrivalTime,
 			})
+
+			if r.ReturnFromPlace != "" || r.ReturnToPlace != "" {
+				returnDate, returnTime := splitDateTime(r.ReturnFromDateTime)
+				returnArrivalDate, returnArrivalTime := splitDateTime(r.ReturnToDateTime)
+				r.Trips = append(r.Trips, models.Trip{
+					DepartureLocation: r.ReturnFromPlace,
+					ArrivalLocation:   r.ReturnToPlace,
+					DepartureDate:     returnDate,
+					DepartureTime:     returnTime,
+					ArrivalDate:       returnArrivalDate,
+					ArrivalTime:       returnArrivalTime,
+				})
+			}
 		}
 
 		requests = append(requests, r)
@@ -360,33 +380,53 @@ func GetDriverUpcomingVehicleRequests(c *gin.Context) {
 			r.TripEndedAt = &tripEndedAt
 		}
 
-		// Map to structured Trips slice
+		// Load trips from vehicle_request_trips table
 		r.Trips = []models.Trip{}
+		tripRows2, tripErr2 := config.DB.Query(`
+			SELECT trip_order, COALESCE(from_place, '') as from_place, COALESCE(to_place, '') as to_place,
+				COALESCE(DATE_FORMAT(from_datetime, '%d-%m-%Y'), '') as dep_date,
+				COALESCE(DATE_FORMAT(from_datetime, '%h:%i %p'), '') as dep_time,
+				COALESCE(DATE_FORMAT(to_datetime, '%d-%m-%Y'), '') as arr_date,
+				COALESCE(DATE_FORMAT(to_datetime, '%h:%i %p'), '') as arr_time
+			FROM vehicle_request_trips
+			WHERE request_id = ?
+			ORDER BY trip_order ASC
+		`, r.ID)
+		if tripErr2 == nil {
+			for tripRows2.Next() {
+				var t models.Trip
+				if err := tripRows2.Scan(&t.TripOrder, &t.DepartureLocation, &t.ArrivalLocation, &t.DepartureDate, &t.DepartureTime, &t.ArrivalDate, &t.ArrivalTime); err == nil {
+					r.Trips = append(r.Trips, t)
+				}
+			}
+			tripRows2.Close()
+		}
 
-		// Onward Trip
-		onwardDate, onwardTime := splitDateTime(r.OnwardFromDateTime)
-		onwardArrivalDate, onwardArrivalTime := splitDateTime(r.OnwardToDateTime)
-		r.Trips = append(r.Trips, models.Trip{
-			DepartureLocation: r.OnwardFromPlace,
-			ArrivalLocation:   r.OnwardToPlace,
-			DepartureDate:     onwardDate,
-			DepartureTime:     onwardTime,
-			ArrivalDate:       onwardArrivalDate,
-			ArrivalTime:       onwardArrivalTime,
-		})
-
-		// Return Trip (if exists)
-		if r.TripType == "round_trip" || r.ReturnFromPlace != "" {
-			returnDate, returnTime := splitDateTime(r.ReturnFromDateTime)
-			returnArrivalDate, returnArrivalTime := splitDateTime(r.ReturnToDateTime)
+		// Fallback: construct from onward/return fields
+		if len(r.Trips) == 0 {
+			onwardDate, onwardTime := splitDateTime(r.OnwardFromDateTime)
+			onwardArrivalDate, onwardArrivalTime := splitDateTime(r.OnwardToDateTime)
 			r.Trips = append(r.Trips, models.Trip{
-				DepartureLocation: r.ReturnFromPlace,
-				ArrivalLocation:   r.ReturnToPlace,
-				DepartureDate:     returnDate,
-				DepartureTime:     returnTime,
-				ArrivalDate:       returnArrivalDate,
-				ArrivalTime:       returnArrivalTime,
+				DepartureLocation: r.OnwardFromPlace,
+				ArrivalLocation:   r.OnwardToPlace,
+				DepartureDate:     onwardDate,
+				DepartureTime:     onwardTime,
+				ArrivalDate:       onwardArrivalDate,
+				ArrivalTime:       onwardArrivalTime,
 			})
+
+			if r.ReturnFromPlace != "" || r.ReturnToPlace != "" {
+				returnDate, returnTime := splitDateTime(r.ReturnFromDateTime)
+				returnArrivalDate, returnArrivalTime := splitDateTime(r.ReturnToDateTime)
+				r.Trips = append(r.Trips, models.Trip{
+					DepartureLocation: r.ReturnFromPlace,
+					ArrivalLocation:   r.ReturnToPlace,
+					DepartureDate:     returnDate,
+					DepartureTime:     returnTime,
+					ArrivalDate:       returnArrivalDate,
+					ArrivalTime:       returnArrivalTime,
+				})
+			}
 		}
 
 		requests = append(requests, r)

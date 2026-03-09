@@ -91,6 +91,7 @@ type EnhancedDashboardStats struct {
 	PendingStopChanges       int `json:"pending_stop_changes"`
 	PendingTransportRequests int `json:"pending_transport_requests"`
 	ActiveReplacements       int `json:"active_replacements"`
+	PendingFuelIndents       int `json:"pending_fuel_indents"`
 
 	// Student transport
 	TotalStudents     int     `json:"total_students"`
@@ -194,6 +195,7 @@ func GetDashboardStats(c *gin.Context) {
 	config.DB.QueryRow(`SELECT COUNT(*) FROM stop_change_requests WHERE status = 'pending'`).Scan(&s.PendingStopChanges)
 	config.DB.QueryRow(`SELECT COUNT(*) FROM transport_requests WHERE status = 'pending'`).Scan(&s.PendingTransportRequests)
 	config.DB.QueryRow(`SELECT COUNT(*) FROM vehicle_replacements WHERE status IN ('pending','approved','active')`).Scan(&s.ActiveReplacements)
+	config.DB.QueryRow(`SELECT COUNT(*) FROM fuel_indents WHERE status = 'pending'`).Scan(&s.PendingFuelIndents)
 
 	// Document alerts — per type (expiring within 10 days OR already expired)
 	// All document fields are now stored directly on the vehicles table
@@ -371,6 +373,12 @@ func GetDashboardStats(c *gin.Context) {
 		s.PendingActions = append(s.PendingActions, PendingAction{
 			Label: "Vehicle Replacements", Count: s.ActiveReplacements,
 			Route: "/admin-dashboard/vehicle-replacements", Color: "pending", Icon: "replace",
+		})
+	}
+	if s.PendingFuelIndents > 0 {
+		s.PendingActions = append(s.PendingActions, PendingAction{
+			Label: "Fuel Indents", Count: s.PendingFuelIndents,
+			Route: "/admin-dashboard/fuel-indents", Color: "pending", Icon: "fuel",
 		})
 	}
 	if s.InsuranceAlerts > 0 {

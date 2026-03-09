@@ -438,7 +438,7 @@ export default function DriverVehicleRequests() {
                 {/* Card Body - Trip Timeline */}
                 <div className="p-3 sm:p-5">
                   <div className="relative pl-4 border-l-2 border-dashed border-gray-200 ml-2 space-y-5">
-                    {/* Departure */}
+                    {/* Departure - first leg start */}
                     <div className="relative">
                       <div className="absolute -left-5.5 top-1 w-4 h-4 rounded-full border-2 border-white bg-primary shadow-sm"></div>
                       <div>
@@ -461,7 +461,37 @@ export default function DriverVehicleRequests() {
                       </div>
                     </div>
 
-                    {/* Arrival */}
+                    {/* Intermediate stops for round trips */}
+                    {request.trips?.length > 1 &&
+                      request.trips.slice(0, -1).map((trip, idx) => (
+                        <div className="relative" key={`stop-${idx}`}>
+                          <div className="absolute -left-5.5 top-1 w-4 h-4 rounded-full border-2 border-white bg-amber-400 shadow-sm"></div>
+                          <div>
+                            <p className="text-[10px] font-bold text-amber-500 uppercase tracking-wider mb-1">
+                              Stop {idx + 1}
+                            </p>
+                            <p className="font-bold text-gray-800 text-sm mb-1 line-clamp-1">
+                              {trip.arrival_location}
+                            </p>
+                            <div className="flex items-center gap-2 flex-wrap text-xs text-gray-500">
+                              {trip.arrival_date && (
+                                <span className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded border border-gray-100">
+                                  <Calendar size={12} />
+                                  {trip.arrival_date}
+                                </span>
+                              )}
+                              {trip.arrival_time && (
+                                <span className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded border border-gray-100">
+                                  <Clock size={12} />
+                                  {trip.arrival_time}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                    {/* Arrival - last leg end */}
                     <div className="relative">
                       <div className="absolute -left-5.5 top-1 w-4 h-4 rounded-full border-2 border-white bg-green shadow-sm"></div>
                       <div>
@@ -470,31 +500,31 @@ export default function DriverVehicleRequests() {
                         </p>
                         <p className="font-bold text-gray-800 text-sm mb-1 line-clamp-1">
                           {returnTrip
-                            ? returnTrip.departure_location
+                            ? returnTrip.arrival_location
                             : onwardTrip.arrival_location || "End Point"}
                         </p>
                         <div className="flex items-center gap-2 flex-wrap text-xs text-gray-500">
-                          {(returnTrip?.departure_date ||
+                          {(returnTrip?.arrival_date ||
                             onwardTrip.arrival_date) && (
                             <span className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded border border-gray-100">
                               <Calendar size={12} />
                               {returnTrip
-                                ? returnTrip.departure_date
+                                ? returnTrip.arrival_date
                                 : onwardTrip.arrival_date}
                             </span>
                           )}
-                          {(returnTrip?.departure_time ||
+                          {(returnTrip?.arrival_time ||
                             onwardTrip.arrival_time) && (
                             <span className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded border border-gray-100">
                               <Clock size={12} />
                               {returnTrip
-                                ? returnTrip.departure_time
+                                ? returnTrip.arrival_time
                                 : onwardTrip.arrival_time}
                             </span>
                           )}
-                          {!returnTrip?.departure_date &&
+                          {!returnTrip?.arrival_date &&
                             !onwardTrip.arrival_date &&
-                            !returnTrip?.departure_time &&
+                            !returnTrip?.arrival_time &&
                             !onwardTrip.arrival_time && (
                               <span className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded border border-gray-100">
                                 <MapPin size={12} />

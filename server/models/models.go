@@ -388,17 +388,23 @@ type DashboardStats struct {
 ========================= */
 
 type FuelIndent struct {
-	ID              int     `json:"id"`
-	VehicleID       int     `json:"vehicle_id"`
-	DriverID        int     `json:"driver_id"`
-	FuelRequested   float64 `json:"fuel_requested"`
-	FuelFilled      float64 `json:"fuel_filled"`
-	OdometerReading int     `json:"odometer_reading"`
-	Status          string  `json:"status"` // pending, completed, rejected
-	RequestedAt     string  `json:"requested_at"`
-	CompletedAt     *string `json:"completed_at"`
+	ID               int     `json:"id"`
+	VehicleID        int     `json:"vehicle_id"`
+	DriverID         int     `json:"driver_id"`
+	FuelRequested    float64 `json:"fuel_requested"`
+	FuelFilled       float64 `json:"fuel_filled"`
+	OdometerReading  int     `json:"odometer_reading"`
+	Status           string  `json:"status"` // pending, completed, rejected
+	RequestedAt      string  `json:"requested_at"`
+	CompletedAt      *string `json:"completed_at"`
+	FuelIndentNumber string  `json:"fuel_indent_number"`
+	VehicleType      string  `json:"vehicle_type"`
+	FuelType         string  `json:"fuel_type"`
+	FilledDate       string  `json:"filled_date"`
+	FilledTime       string  `json:"filled_time"`
 	// Joined fields
 	VehicleNumber string `json:"vehicle_number"`
+	VehicleName   string `json:"vehicle_name"`
 	DriverName    string `json:"driver_name"`
 }
 
@@ -407,6 +413,18 @@ type CreateFuelIndentRequest struct {
 	DriverID        int     `json:"driver_id"`
 	FuelRequested   float64 `json:"fuel_requested"`
 	OdometerReading int     `json:"odometer_reading"`
+}
+
+type DriverCreateFuelIndentRequest struct {
+	VehicleID        int     `json:"vehicle_id"`
+	DriverID         int     `json:"driver_id"`
+	VehicleType      string  `json:"vehicle_type"`
+	FuelType         string  `json:"fuel_type"`
+	FuelIndentNumber string  `json:"fuel_indent_number"`
+	FilledDate       string  `json:"filled_date"`
+	FilledTime       string  `json:"filled_time"`
+	OdometerReading  int     `json:"odometer_reading"`
+	FilledLiters     float64 `json:"filled_liters"`
 }
 
 type CompleteFuelIndentRequest struct {
@@ -665,6 +683,7 @@ type UpdateFacultyRequest struct {
 // VehicleRequest - Faculty vehicle booking request
 // Trip - Individual journey segment
 type Trip struct {
+	TripOrder         int    `json:"trip_order"`
 	DepartureLocation string `json:"departure_location"`
 	ArrivalLocation   string `json:"arrival_location"`
 	DepartureDate     string `json:"departure_date"`
@@ -752,6 +771,20 @@ type VehicleRequest struct {
 	DriverPhone       string `json:"driver_phone"`
 }
 
+// TripInput - Individual trip leg input from the frontend
+type TripInput struct {
+	TripOrder         int    `json:"trip_order"`
+	DepartureLocation string `json:"departure_location"`
+	ArrivalLocation   string `json:"arrival_location"`
+	DepartureDate     string `json:"departure_date"`
+	DepartureTime     string `json:"departure_time"`
+	ArrivalDate       string `json:"arrival_date"`
+	ArrivalTime       string `json:"arrival_time"`
+	TaskID            string `json:"task_id"`
+	OutcomeAuditable  string `json:"outcome_auditable"`
+	PassengerContacts string `json:"passenger_contacts"`
+}
+
 // CreateVehicleRequestInput - Input for creating a vehicle request
 type CreateVehicleRequestInput struct {
 	BookingType  string `json:"booking_type"`
@@ -788,6 +821,9 @@ type CreateVehicleRequestInput struct {
 	TaskID           string `json:"task_id"`
 	OutcomeExpected  string `json:"outcome_expected"`
 	OutcomeAuditable string `json:"outcome_auditable"`
+
+	// Multi-leg trips (for round_trip)
+	Trips []TripInput `json:"trips"`
 }
 
 // AssignVehicleRequestInput - Input for assigning vehicle and driver to a request

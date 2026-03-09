@@ -45,16 +45,6 @@ import {
 
 import {apiGet} from "../../../utils/api";
 
-// Color mapping
-const TYPE_COLORS = [
-  {bg: "bg-primary/10", text: "text-primary", bar: "bg-primary"},
-  {bg: "bg-green/10", text: "text-green", bar: "bg-green"},
-  {bg: "bg-pending/10", text: "text-pending", bar: "bg-pending"},
-  {bg: "bg-customblue/10", text: "text-customblue", bar: "bg-customblue"},
-  {bg: "bg-red/10", text: "text-red", bar: "bg-red"},
-  {bg: "bg-primarydull/10", text: "text-primarydull", bar: "bg-primarydull"},
-];
-
 const ICON_MAP = {
   calendar: Calendar,
   truck: Truck,
@@ -71,6 +61,7 @@ const ICON_MAP = {
   "file-text": FileText,
   "alert-circle": AlertCircle,
   "refresh-cw": RefreshCw,
+  fuel: Fuel,
 };
 
 const ACTION_COLORS = {
@@ -372,49 +363,6 @@ function WeeklyChart({data}) {
                   <span className="w-1 h-1 rounded-full bg-primary" />
                 )}
               </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// Breakdown bar
-function BreakdownBar({items, label}) {
-  const total = items.reduce((s, x) => s + x.count, 0);
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-sm font-bold text-primarytext">{label}</p>
-        <p className="text-xs font-semibold text-secondarytext">
-          {total} total
-        </p>
-      </div>
-      <div className="flex h-3 rounded-full overflow-hidden bg-primarybg">
-        {items.map((item, i) => {
-          const c = TYPE_COLORS[i % TYPE_COLORS.length];
-          const w = pct(item.count, total);
-          return (
-            <div
-              key={i}
-              className={`${c.bar} transition-all duration-500`}
-              style={{width: `${w}%`}}
-              title={`${item.label}: ${item.count}`}
-            />
-          );
-        })}
-      </div>
-      <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3">
-        {items.map((item, i) => {
-          const c = TYPE_COLORS[i % TYPE_COLORS.length];
-          return (
-            <div key={i} className="flex items-center gap-1.5">
-              <span className={`w-2.5 h-2.5 rounded-full ${c.bar}`} />
-              <span className="text-xs text-secondarytext">
-                {item.label}{" "}
-                <span className="font-bold text-primarytext">{item.count}</span>
-              </span>
             </div>
           );
         })}
@@ -1448,83 +1396,10 @@ export default function AdminHome() {
         </div>
       </div>
 
-      {/* Row 4: Recent Activity + Vehicle Requests */}
-      {/* Row 4: Recent Activity */}
-      <div className="bg-secondarybg rounded-md border border-gray-100 shadow-sm overflow-hidden">
-        <div className="p-5 pb-3 border-b border-gray-50">
-          <h2 className="text-base font-bold text-primarytext flex items-center gap-2">
-            <span className="w-1.5 h-5 bg-primarydull rounded-full" />
-            Recent Activity
-          </h2>
-          <p className="text-xs text-secondarytext mt-1">
-            Latest system events
-          </p>
-        </div>
-        <div className="p-4 max-h-[350px] overflow-y-auto">
-          {stats.recent_activity?.length > 0 ? (
-            <div className="space-y-1">
-              {stats.recent_activity.map((item, i) => {
-                const ActIcon = ACTIVITY_ICONS[item.type] || Activity;
-                const colors =
-                  ACTION_COLORS[item.color] || ACTION_COLORS.primary;
-                return (
-                  <div
-                    key={i}
-                    className="flex items-start gap-3 p-2.5 rounded-md hover:bg-primarybg/50 transition-colors"
-                  >
-                    <div
-                      className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 mt-0.5 ${colors.bg}`}
-                    >
-                      <ActIcon className={`w-4 h-4 ${colors.text}`} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-primarytext leading-snug">
-                        {item.message}
-                      </p>
-                      <p className="text-[10px] text-secondarytext mt-1">
-                        {timeAgo(item.timestamp)}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-10 text-secondarytext">
-              <Activity className="w-10 h-10 mb-2 opacity-20" />
-              <p className="text-sm">No recent activity</p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Row 5: Fleet Composition + Monthly Operations */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Fleet Breakdown */}
-        <div className="bg-secondarybg rounded-md p-6 border border-gray-100 shadow-sm space-y-6">
-          <h2 className="text-base font-bold text-primarytext flex items-center gap-2">
-            <span className="w-1.5 h-5 bg-customblue rounded-full" />
-            Fleet Composition
-          </h2>
-          {stats.vehicles_by_type?.length > 0 && (
-            <BreakdownBar
-              items={stats.vehicles_by_type}
-              label="By Vehicle Type"
-            />
-          )}
-          {stats.vehicles_by_fuel?.length > 0 && (
-            <BreakdownBar items={stats.vehicles_by_fuel} label="By Fuel Type" />
-          )}
-          {!stats.vehicles_by_type?.length &&
-            !stats.vehicles_by_fuel?.length && (
-              <p className="text-sm text-secondarytext py-4 text-center">
-                No vehicle data available
-              </p>
-            )}
-        </div>
-
+      {/* Row 4: Monthly Operations + Recent Activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Monthly Operations */}
-        <div className="bg-secondarybg rounded-md p-6 border border-gray-100 shadow-sm">
+        <div className="lg:col-span-2 bg-secondarybg rounded-md p-6 border border-gray-100 shadow-sm">
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-base font-bold text-primarytext flex items-center gap-2">
               <span className="w-1.5 h-5 bg-primarydull rounded-full" />
@@ -1633,6 +1508,55 @@ export default function AdminHome() {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Recent Activity */}
+        <div className="lg:col-span-3 bg-secondarybg rounded-md border border-gray-100 shadow-sm overflow-hidden">
+          <div className="p-5 pb-3 border-b border-gray-50">
+            <h2 className="text-base font-bold text-primarytext flex items-center gap-2">
+              <span className="w-1.5 h-5 bg-primarydull rounded-full" />
+              Recent Activity
+            </h2>
+            <p className="text-xs text-secondarytext mt-1">
+              Latest system events
+            </p>
+          </div>
+          <div className="p-4 max-h-[350px] overflow-y-auto">
+            {stats.recent_activity?.length > 0 ? (
+              <div className="space-y-1">
+                {stats.recent_activity.map((item, i) => {
+                  const ActIcon = ACTIVITY_ICONS[item.type] || Activity;
+                  const colors =
+                    ACTION_COLORS[item.color] || ACTION_COLORS.primary;
+                  return (
+                    <div
+                      key={i}
+                      className="flex items-start gap-3 p-2.5 rounded-md hover:bg-primarybg/50 transition-colors"
+                    >
+                      <div
+                        className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 mt-0.5 ${colors.bg}`}
+                      >
+                        <ActIcon className={`w-4 h-4 ${colors.text}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-primarytext leading-snug">
+                          {item.message}
+                        </p>
+                        <p className="text-[10px] text-secondarytext mt-1">
+                          {timeAgo(item.timestamp)}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-10 text-secondarytext">
+                <Activity className="w-10 h-10 mb-2 opacity-20" />
+                <p className="text-sm">No recent activity</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

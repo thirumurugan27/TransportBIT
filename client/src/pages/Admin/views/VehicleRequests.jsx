@@ -655,8 +655,13 @@ export default function VehicleRequests() {
                     STATUS_CONFIG[req.status] || STATUS_CONFIG.pending;
                   const StatusIcon = cfg.icon;
                   const departureDateTime = req.onward_from_datetime;
-                  const departurePlace = req.onward_from_place;
-                  const arrivalPlace = req.onward_to_place;
+                  const routeDisplay = req.trips?.length > 1
+                    ? [req.trips[0].departure_location, ...req.trips.map(t => t.arrival_location)].join(' → ')
+                    : req.trips?.length === 1
+                      ? `${req.trips[0].departure_location}${req.trips[0].arrival_location ? ` → ${req.trips[0].arrival_location}` : ''}`
+                      : req.onward_from_place
+                        ? `${req.onward_from_place}${req.onward_to_place ? ` → ${req.onward_to_place}` : ''}`
+                        : null;
 
                   return (
                     <tr
@@ -680,8 +685,7 @@ export default function VehicleRequests() {
                       <td className="px-6 py-4">
                         <div className="flex flex-col gap-1">
                           <p className="text-xs font-bold text-primarytext">
-                            {departurePlace}{" "}
-                            {arrivalPlace && `→ ${arrivalPlace}`}
+                            {routeDisplay || "-"}
                           </p>
                           <p className="text-[10px] text-secondarytext font-mono">
                             {departureDateTime || "-"}

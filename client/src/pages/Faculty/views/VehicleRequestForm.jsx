@@ -60,6 +60,7 @@ export default function VehicleRequestForm() {
     {value: "guest_pickup", label: "Guest Pick up"},
     {value: "guest_drop", label: "Guest Drop"},
     {value: "faculty_staff_visit", label: "Faculty/Staff Visit"},
+    {value: "round_trip", label: "Round Trip"},
   ];
 
   const REQUEST_UNDER_OPTIONS = [
@@ -285,7 +286,7 @@ export default function VehicleRequestForm() {
         return;
       }
 
-      const returnTrip = trips.length > 1 ? trips[1] : null;
+      const returnTrip = trips.length > 1 ? trips[trips.length - 1] : null;
 
       const requestBody = {
         booking_type: "faculty",
@@ -310,7 +311,7 @@ export default function VehicleRequestForm() {
             ? `${onwardTrip.arrival_date} ${onwardTrip.arrival_time}`
             : "",
 
-        // Return journey (for round trip)
+        // Return journey (for round trip - last leg)
         return_from_place: returnTrip?.departure_location || "",
         return_to_place: returnTrip?.arrival_location || "",
         return_from_datetime:
@@ -321,6 +322,19 @@ export default function VehicleRequestForm() {
           returnTrip?.arrival_date && returnTrip?.arrival_time
             ? `${returnTrip.arrival_date} ${returnTrip.arrival_time}`
             : "",
+
+        // All trip legs (for round_trip with multiple stops)
+        trips: trips.map((t, i) => ({
+          trip_order: i + 1,
+          departure_location: t.departure_location || "",
+          arrival_location: t.arrival_location || "",
+          departure_date: t.departure_date || "",
+          departure_time: t.departure_time || "",
+          arrival_date: t.arrival_date || "",
+          arrival_time: t.arrival_time || "",
+          task_id: t.task_id || "",
+          outcome_auditable: t.outcome_auditable || "",
+        })),
 
         // Contact info (Faculty/Indenter)
         contact_name: profile?.full_name || "",
@@ -683,6 +697,18 @@ export default function VehicleRequestForm() {
       {/* Step 2: Trip Legs */}
       {step === 2 && (
         <div className="space-y-5">
+          {form.trip_type === "round_trip" && (
+            <div className="bg-amber-50 p-4 rounded-md border border-amber-200">
+              <p className="text-sm font-semibold text-amber-900 mb-1">
+                🔄 Round Trip
+              </p>
+              <p className="text-xs text-amber-800">
+                Add all your stops as separate trip legs (A → B → C → ... → A).
+                The last leg should return to the starting point. Use the "+ Add
+                Another Trip Leg" button below to add intermediate stops.
+              </p>
+            </div>
+          )}
           {trips.map((trip, idx) => (
             <div
               key={idx}
@@ -938,7 +964,7 @@ export default function VehicleRequestForm() {
             </div>
           ))}
 
-          {form.trip_type === "multi_stop" && (
+          {(form.trip_type === "round_trip" || form.trip_type === "multi_stop") && (
             <button
               onClick={addTrip}
               className="w-full py-3 border-2 border-dashed border-primary/30 text-primary rounded-md hover:bg-primary/5 transition-all duration-200 text-sm font-medium"

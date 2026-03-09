@@ -204,6 +204,9 @@ func registerAdminRoutes(adm *gin.RouterGroup) {
 	adm.GET("/fuel-indents", admin.GetFuelIndents)
 	adm.POST("/fuel-indents/create", admin.CreateFuelIndent)
 	adm.POST("/fuel-indents/complete", admin.CompleteFuelIndent)
+	adm.POST("/fuel-indents/approve", admin.ApproveFuelIndent)
+	adm.POST("/fuel-indents/reject", admin.RejectFuelIndent)
+	adm.GET("/fuel-indents/pending-count", admin.GetPendingFuelIndentCount)
 	adm.GET("/odometer-readings", admin.GetOdometerReadings)
 	adm.POST("/odometer-readings/create", admin.CreateOdometerReading)
 
@@ -378,6 +381,11 @@ func registerDriverRoutes(drv *gin.RouterGroup) {
 	drv.POST("/services/report", driver.ReportIssue)
 	drv.GET("/services/my-requests", driver.GetMyServiceRequests)
 	drv.GET("/services/vehicle-history", driver.GetVehicleServiceHistory)
+
+	// Fuel Indent (Driver)
+	drv.GET("/fuel-indents", driver.GetDriverFuelIndents)
+	drv.POST("/fuel-indents/create", driver.CreateDriverFuelIndent)
+	drv.GET("/drivers-dropdown", driver.GetDriversDropdown)
 }
 
 // registerStudentRoutes sets up all student endpoints under /api/student
