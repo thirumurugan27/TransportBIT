@@ -309,11 +309,14 @@ func activateVehicleReplacement(requestID int, req VehicleReplacementRequest) {
 		config.DB.QueryRow(`
 			SELECT COALESCE(ev.shift_id, 0)
 			FROM ev_assignments ev
+			JOIN vehicle_group_members vgm ON vgm.group_id = ev.vehicle_group_id
 			JOIN driver_clusters dc ON ev.cluster_id = dc.id
 			JOIN driver_cluster_members dcm ON dcm.cluster_id = dc.id
-			WHERE ev.vehicle_id = ? AND dcm.driver_id = ?
+			WHERE vgm.vehicle_id = ? AND dcm.driver_id = ?
 			AND CURDATE() BETWEEN ev.start_date AND ev.end_date
 			AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to
+			AND (vgm.valid_from IS NULL OR CURDATE() >= vgm.valid_from)
+			AND (vgm.valid_to IS NULL OR CURDATE() <= vgm.valid_to)
 			LIMIT 1
 		`, req.VehicleID, req.DriverID).Scan(&shiftID)
 	}
@@ -403,11 +406,14 @@ func activateDriverReplacement(requestID int, req VehicleReplacementRequest) {
 		config.DB.QueryRow(`
 			SELECT COALESCE(ev.shift_id, 0)
 			FROM ev_assignments ev
+			JOIN vehicle_group_members vgm ON vgm.group_id = ev.vehicle_group_id
 			JOIN driver_clusters dc ON ev.cluster_id = dc.id
 			JOIN driver_cluster_members dcm ON dcm.cluster_id = dc.id
-			WHERE ev.vehicle_id = ? AND dcm.driver_id = ?
+			WHERE vgm.vehicle_id = ? AND dcm.driver_id = ?
 			AND CURDATE() BETWEEN ev.start_date AND ev.end_date
 			AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to
+			AND (vgm.valid_from IS NULL OR CURDATE() >= vgm.valid_from)
+			AND (vgm.valid_to IS NULL OR CURDATE() <= vgm.valid_to)
 			LIMIT 1
 		`, req.VehicleID, req.DriverID).Scan(&shiftID)
 	}
@@ -750,12 +756,15 @@ func GetVehicleDriversNew(c *gin.Context) {
 			   COALESCE(CONCAT(TIME_FORMAT(s.start_time, '%h:%i %p'), ' - ', TIME_FORMAT(s.end_time, '%h:%i %p')), ''),
 			   TRUE
 		FROM ev_assignments ev
+		JOIN vehicle_group_members vgm ON vgm.group_id = ev.vehicle_group_id
 		JOIN driver_clusters dc ON ev.cluster_id = dc.id
 		JOIN driver_cluster_members dcm ON dcm.cluster_id = dc.id AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to
 		JOIN drivers d ON d.id = dcm.driver_id
 		JOIN users u ON d.user_id = u.id
 		LEFT JOIN shifts s ON ev.shift_id = s.id
-		WHERE ev.vehicle_id = ? AND CURDATE() BETWEEN ev.start_date AND ev.end_date AND ev.status = 'active'
+		WHERE vgm.vehicle_id = ? AND CURDATE() BETWEEN ev.start_date AND ev.end_date AND ev.status = 'active'
+		AND (vgm.valid_from IS NULL OR CURDATE() >= vgm.valid_from)
+		AND (vgm.valid_to IS NULL OR CURDATE() <= vgm.valid_to)
 	`, vehicleID)
 	if err == nil {
 		defer evRows.Close()
@@ -1074,12 +1083,15 @@ func GetDriverVehicle(c *gin.Context) {
 		SELECT DISTINCT v.id, v.vehicle_number, COALESCE(vt.type, '') as vehicle_type, COALESCE(v.vehicle_name, v.vehicle_number),
 			   ev.shift_id, COALESCE(s.name, 'EV Duty'), TRUE
 		FROM ev_assignments ev
-		JOIN vehicles v ON ev.vehicle_id = v.id
+		JOIN vehicle_group_members vgm ON vgm.group_id = ev.vehicle_group_id
+		JOIN vehicles v ON v.id = vgm.vehicle_id
 		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 		JOIN driver_clusters dc ON ev.cluster_id = dc.id
 		JOIN driver_cluster_members dcm ON dcm.cluster_id = dc.id AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to
 		LEFT JOIN shifts s ON ev.shift_id = s.id
 		WHERE dcm.driver_id = ? AND CURDATE() BETWEEN ev.start_date AND ev.end_date AND ev.status = 'active'
+		AND (vgm.valid_from IS NULL OR CURDATE() >= vgm.valid_from)
+		AND (vgm.valid_to IS NULL OR CURDATE() <= vgm.valid_to)
 	`, driverID)
 	if err == nil {
 		defer evRows.Close()

@@ -210,7 +210,8 @@ export default function KmManagement() {
       );
       if (res.ok) {
         const data = await res.json();
-        setDriverAssignments(Array.isArray(data) ? data : []);
+        const list = Array.isArray(data) ? data : (Array.isArray(data?.vehicles) ? data.vehicles : []);
+        setDriverAssignments(list);
       } else {
         setDriverAssignments([]);
       }

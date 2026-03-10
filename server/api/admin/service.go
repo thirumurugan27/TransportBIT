@@ -545,10 +545,13 @@ func StartServiceRecord(c *gin.Context) {
 			// Try EV cluster
 			config.DB.QueryRow(`
 				SELECT dcm.driver_id FROM ev_assignments ev
+				JOIN vehicle_group_members vgm ON vgm.group_id = ev.vehicle_group_id
 				JOIN driver_clusters dc ON ev.cluster_id = dc.id
 				JOIN driver_cluster_members dcm ON dcm.cluster_id = dc.id
-				WHERE ev.vehicle_id = ? AND CURDATE() BETWEEN ev.start_date AND ev.end_date
+				WHERE vgm.vehicle_id = ? AND CURDATE() BETWEEN ev.start_date AND ev.end_date
 				AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to
+				AND (vgm.valid_from IS NULL OR CURDATE() >= vgm.valid_from)
+				AND (vgm.valid_to IS NULL OR CURDATE() <= vgm.valid_to)
 				LIMIT 1
 			`, vehicleID).Scan(&driverID)
 		}

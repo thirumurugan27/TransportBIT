@@ -583,7 +583,7 @@ func GetLeaveAffectedAssignments(c *gin.Context) {
 
 	// Also check for EV cluster assignments where this driver is a member
 	evRows, err := config.DB.Query(`
-		SELECT ev.id, 0 as shift_id, ev.vehicle_id,
+		SELECT ev.id, 0 as shift_id, v.id as vehicle_id,
 			DATE_FORMAT(ev.start_date, '%d-%m-%Y') as start_date,
 			DATE_FORMAT(ev.end_date, '%d-%m-%Y') as end_date,
 			COALESCE(dc.name, 'EV Assignment') as shift_name,
@@ -593,7 +593,8 @@ func GetLeaveAffectedAssignments(c *gin.Context) {
 			COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name,
 			1 as is_ev_cluster, dc.id as cluster_id, dc.name as cluster_name
 		FROM ev_assignments ev
-		JOIN vehicles v ON ev.vehicle_id = v.id
+		JOIN vehicle_group_members vgm ON vgm.group_id = ev.vehicle_group_id
+		JOIN vehicles v ON v.id = vgm.vehicle_id
 		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 		JOIN driver_clusters dc ON ev.cluster_id = dc.id
 		JOIN driver_cluster_members dcm ON dcm.cluster_id = dc.id
@@ -605,6 +606,8 @@ func GetLeaveAffectedAssignments(c *gin.Context) {
 			(ev.start_date <= ? AND ev.end_date >= ?) OR
 			(ev.start_date >= ? AND ev.end_date <= ?)
 		)
+		AND (vgm.valid_from IS NULL OR ev.end_date >= vgm.valid_from)
+		AND (vgm.valid_to IS NULL OR ev.start_date <= vgm.valid_to)
 		ORDER BY ev.start_date
 	`, driverID, startDate, startDate, endDate, endDate, startDate, endDate)
 

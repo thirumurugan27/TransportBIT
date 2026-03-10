@@ -139,7 +139,7 @@ func GetDriverAssignedVehicles(c *gin.Context) {
 		}
 	}
 
-	// Query EV assignments via cluster
+	// Query EV assignments via cluster -> vehicle group -> individual vehicles
 	evQuery := `
 		SELECT v.id, v.vehicle_number, COALESCE(vt.type, 'EV') as vehicle_type,
 		       NULLIF(COALESCE(v.vehicle_name, ''), '') as vehicle_name,
@@ -151,7 +151,8 @@ func GetDriverAssignedVehicles(c *gin.Context) {
 		       DATE_FORMAT(ev.start_date, '%d-%m-%Y') as start_date,
 		       DATE_FORMAT(ev.end_date, '%d-%m-%Y') as end_date
 		FROM ev_assignments ev
-		JOIN vehicles v ON ev.vehicle_id = v.id
+		JOIN vehicle_group_members vgm ON vgm.group_id = ev.vehicle_group_id
+		JOIN vehicles v ON v.id = vgm.vehicle_id
 		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 		JOIN driver_clusters dc ON ev.cluster_id = dc.id
 		JOIN driver_cluster_members dcm ON dcm.cluster_id = dc.id
@@ -160,11 +161,14 @@ func GetDriverAssignedVehicles(c *gin.Context) {
 		WHERE d.id = ?
 		AND ev.status = 'active'
 		AND ` + dateFilter + ` BETWEEN ev.start_date AND ev.end_date
+		AND ` + dateFilter + ` BETWEEN dcm.valid_from AND dcm.valid_to
+		AND (vgm.valid_from IS NULL OR ` + dateFilter + ` >= vgm.valid_from)
+		AND (vgm.valid_to IS NULL OR ` + dateFilter + ` <= vgm.valid_to)
 	`
 
 	evArgs := []interface{}{driverID}
 	if dateParam != "" {
-		evArgs = append(evArgs, dateParam)
+		evArgs = append(evArgs, dateParam, dateParam, dateParam, dateParam)
 	}
 
 	evRows, err := config.DB.Query(evQuery, evArgs...)
