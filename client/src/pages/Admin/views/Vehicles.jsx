@@ -1271,42 +1271,8 @@ export default function Vehicles() {
                         </td>
                         <td className="px-6 py-5">
                           <span
-                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md ${
-                              v.vehicle_type === "BUS"
-                                ? "bg-primary/10 text-primary"
-                                : v.vehicle_type === "CAR"
-                                  ? "bg-green/10 text-green"
-                                  : v.vehicle_type === "BATTERY_VEHICLE"
-                                    ? "bg-pending/10 text-pending"
-                                    : "bg-secondarytext/10 text-secondarytext"
-                            }`}
-                          >
-                            {v.vehicle_type === "BUS" && (
-                              <>
-                                <Bus size={12} />
-                                College Bus
-                              </>
-                            )}
-                            {v.vehicle_type === "CAR" && (
-                              <>
-                                <Car size={12} />
-                                {v.seating_capacity <= 5
-                                  ? "Car (5-Seater)"
-                                  : "Car (7-Seater)"}
-                              </>
-                            )}
-                            {v.vehicle_type === "BATTERY_VEHICLE" && (
-                              <>
-                                <Zap size={12} />
-                                Battery Vehicle
-                              </>
-                            )}
-                            {v.vehicle_type === "OTHER" && (
-                              <>
-                                <Truck size={12} />
-                                Special Purpose
-                              </>
-                            )}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md `}
+                          >{v.vehicle_type}
                           </span>
                         </td>
                         <td className="px-6 py-5">
