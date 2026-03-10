@@ -96,7 +96,6 @@ const statusConfig = {
 
 const initialForm = {
   vehicle_id: "",
-  service_type_id: "",
   title: "",
   description: "",
   severity: "medium",
@@ -110,7 +109,6 @@ export default function DriverServiceRepair() {
   const [searchQuery, setSearchQuery] = useState("");
   const [requests, setRequests] = useState([]);
   const [vehicles, setVehicles] = useState([]);
-  const [serviceTypes, setServiceTypes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState(initialForm);
   const [submitting, setSubmitting] = useState(false);
@@ -120,7 +118,6 @@ export default function DriverServiceRepair() {
   useEffect(() => {
     fetchVehicles();
     fetchMyRequests();
-    fetchServiceTypes();
   }, []);
 
   // Also extract vehicles from driver's own service requests
@@ -179,15 +176,6 @@ export default function DriverServiceRepair() {
     }
   };
 
-  const fetchServiceTypes = async () => {
-    try {
-      const res = await apiGet("/api/driver/service-types");
-      if (res.ok) setServiceTypes(await res.json());
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
   const fetchMyRequests = async () => {
     setLoading(true);
     try {
@@ -210,9 +198,6 @@ export default function DriverServiceRepair() {
     try {
       const payload = {
         vehicle_id: parseInt(form.vehicle_id),
-        service_type_id: form.service_type_id
-          ? parseInt(form.service_type_id)
-          : null,
         title: form.title,
         description: form.description,
         severity: form.severity,
@@ -234,13 +219,6 @@ export default function DriverServiceRepair() {
       setSubmitting(false);
     }
   };
-
-  const serviceTypeOptions = serviceTypes
-    .filter((t) => t.is_active)
-    .map((t) => ({
-      value: String(t.id),
-      label: t.name,
-    }));
 
   const vehicleOptions = vehicles.map((v) => ({
     value: String(v.id),
@@ -279,7 +257,6 @@ export default function DriverServiceRepair() {
       filtered = filtered.filter(
         (r) =>
           (r.title || "").toLowerCase().includes(q) ||
-          (r.service_type_name || "").toLowerCase().includes(q) ||
           (r.vehicle_number || "").toLowerCase().includes(q) ||
           (r.description || "").toLowerCase().includes(q),
       );
@@ -572,20 +549,6 @@ export default function DriverServiceRepair() {
                     placeholder="Search vehicle..."
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1.5">
-                    Service Type{" "}
-                    <span className="text-secondarytext font-normal text-[10px]">
-                      (Optional)
-                    </span>
-                  </label>
-                  <SearchableSelect
-                    options={serviceTypeOptions}
-                    value={String(form.service_type_id)}
-                    onChange={(val) => setForm({...form, service_type_id: val})}
-                    placeholder="Select type..."
-                  />
-                </div>
               </div>
 
               <div>
@@ -818,11 +781,6 @@ export default function DriverServiceRepair() {
                     value:
                       detailModal.vehicle_name || detailModal.vehicle_number,
                     icon: Bus,
-                  },
-                  detailModal.service_type_name && {
-                    label: "Service Type",
-                    value: detailModal.service_type_name,
-                    icon: Wrench,
                   },
                   detailModal.odometer_at_service > 0 && {
                     label: "Odometer",

@@ -3,6 +3,7 @@ package admin
 import (
 	"log"
 	"net/http"
+	"strings"
 	"time"
 	"transport-server/config"
 
@@ -121,17 +122,79 @@ func GetAssignmentsByCategory(c *gin.Context) {
 		category = "BUS"
 	}
 
-	filterDate := c.Query("date") // YYYY-MM-DD, defaults to today
-	if filterDate == "" {
-		filterDate = time.Now().Format("2006-01-02")
+	legacyDate := strings.TrimSpace(c.Query("date"))
+	filterRange := strings.ToLower(strings.TrimSpace(c.Query("range")))
+	customStartDate := strings.TrimSpace(c.Query("start_date"))
+	customEndDate := strings.TrimSpace(c.Query("end_date"))
+	if filterRange == "" {
+		filterRange = "today"
+	}
+
+	now := time.Now()
+	today := now.Format("2006-01-02")
+	attendanceDate := today
+	var rangeStart string
+	var rangeEnd string
+
+	if legacyDate != "" {
+		rangeStart = legacyDate
+		rangeEnd = legacyDate
+		attendanceDate = legacyDate
+	} else {
+		dayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+
+		switch filterRange {
+		case "today":
+			rangeStart = dayStart.Format("2006-01-02")
+			rangeEnd = rangeStart
+		case "week":
+			weekday := int(dayStart.Weekday())
+			if weekday == 0 {
+				weekday = 7
+			}
+			weekStart := dayStart.AddDate(0, 0, -(weekday - 1))
+			weekEnd := weekStart.AddDate(0, 0, 6)
+			rangeStart = weekStart.Format("2006-01-02")
+			rangeEnd = weekEnd.Format("2006-01-02")
+		case "month":
+			monthStart := time.Date(dayStart.Year(), dayStart.Month(), 1, 0, 0, 0, 0, dayStart.Location())
+			monthEnd := monthStart.AddDate(0, 1, -1)
+			rangeStart = monthStart.Format("2006-01-02")
+			rangeEnd = monthEnd.Format("2006-01-02")
+		case "all":
+			// No date filter for all-time.
+		case "custom":
+			if customStartDate != "" {
+				rangeStart = customStartDate
+			} else {
+				rangeStart = dayStart.Format("2006-01-02")
+			}
+			if customEndDate != "" {
+				rangeEnd = customEndDate
+			} else {
+				rangeEnd = rangeStart
+			}
+		default:
+			filterRange = "today"
+			rangeStart = dayStart.Format("2006-01-02")
+			rangeEnd = rangeStart
+		}
+
+		if rangeStart != "" && rangeEnd != "" {
+			startTime, errStart := time.Parse("2006-01-02", rangeStart)
+			endTime, errEnd := time.Parse("2006-01-02", rangeEnd)
+			if errStart == nil && errEnd == nil && endTime.Before(startTime) {
+				rangeStart, rangeEnd = rangeEnd, rangeStart
+			}
+		}
 	}
 
 	// Build the query based on category
 	var whereClause string
 	var args []interface{}
 
-	// filterDate arg for the attendance JOIN (must come first in args)
-	args = append(args, filterDate)
+	// attendance date arg for the attendance JOIN (must come first in args)
+	args = append(args, attendanceDate)
 
 	if category == "OTHER" {
 		// OTHER = vehicles that are not BUS, CAR, or BATTERY_VEHICLE (EV)
@@ -141,9 +204,11 @@ func GetAssignmentsByCategory(c *gin.Context) {
 		args = append(args, category)
 	}
 
-	// Add date filter - show assignments where selected date falls within the range
-	whereClause += " AND ? BETWEEN a.start_date AND a.end_date"
-	args = append(args, filterDate)
+	// Date overlap filter for selected range. For all-time, skip date filtering.
+	if rangeStart != "" && rangeEnd != "" {
+		whereClause += " AND a.start_date <= ? AND a.end_date >= ?"
+		args = append(args, rangeEnd, rangeStart)
+	}
 
 	query := `
 		SELECT a.id, DATE_FORMAT(a.assigned_date, '%d-%m-%Y') as assigned_date,

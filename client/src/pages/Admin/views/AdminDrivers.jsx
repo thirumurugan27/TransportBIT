@@ -107,7 +107,7 @@ export default function AdminDrivers() {
       label: "Present",
       value: drivers.filter((d) => d.status === "present").length,
       icon: BadgeCheck,
-      color: "bg-customgreen/10 text-customgreen",
+      color: "bg-freen/10 text-freen",
     },
     {
       label: "Absent",
@@ -470,7 +470,7 @@ export default function AdminDrivers() {
                   <span
                     className={`px-4 py-2 rounded-md text-sm font-semibold ${
                       driver.status === "present"
-                        ? "bg-customgreen/10 text-customgreen"
+                        ? "bg-freen/10 text-freen"
                         : driver.status === "absent"
                           ? "bg-customred/10 text-customred"
                           : driver.status === "on_leave"
@@ -588,7 +588,7 @@ export default function AdminDrivers() {
                           <span
                             className={`px-3 py-1.5 rounded-md text-xs font-semibold ${
                               driver.status === "present"
-                                ? "bg-customgreen/10 text-customgreen"
+                                ? "bg-freen/10 text-freen"
                                 : driver.status === "absent"
                                   ? "bg-customred/10 text-customred"
                                   : driver.status === "on_leave"
@@ -781,7 +781,7 @@ export default function AdminDrivers() {
                       <span
                         className={`px-3 py-1 rounded-md text-xs font-semibold ${
                           selectedDriver.status === "present"
-                            ? "bg-customgreen/20 text-customgreen"
+                            ? "bg-freen/20 text-freen"
                             : selectedDriver.status === "absent"
                               ? "bg-customred/20 text-customred"
                               : selectedDriver.status === "on_leave"

@@ -14,7 +14,6 @@ import (
 
 func RegisterRoutes(r *gin.Engine) {
 	api := r.Group("/api")
-
 	// ========================================
 	// PUBLIC ROUTES (no authentication)
 	// ========================================
@@ -274,11 +273,6 @@ func registerAdminRoutes(adm *gin.RouterGroup) {
 	adm.GET("/vehicle-requests/pending-count", admin.GetPendingVehicleRequestCount)
 
 	// Service & Repair
-	adm.GET("/service-types", admin.GetServiceTypes)
-	adm.POST("/service-types/create", admin.CreateServiceType)
-	adm.POST("/service-types/update", admin.UpdateServiceType)
-	adm.DELETE("/service-types/delete", admin.DeleteServiceType)
-
 	adm.GET("/services", admin.GetAllServiceRecords)
 	adm.GET("/services/stats", admin.GetServiceStats)
 	adm.GET("/services/:id", admin.GetServiceRecordByID)
@@ -355,6 +349,7 @@ func registerDriverRoutes(drv *gin.RouterGroup) {
 	// KM Logs
 	drv.GET("/km-logs", driver.GetDriverKmLogs)
 	drv.POST("/km-log/add", driver.AddDriverKmLog)
+	drv.GET("/km-log/assigned-vehicles", driver.GetDriverKmLogAssignedVehicles)
 	drv.GET("/vehicle-last-log", driver.GetLastLogForVehicle)
 
 	// Leave
@@ -377,7 +372,6 @@ func registerDriverRoutes(drv *gin.RouterGroup) {
 	drv.POST("/vehicle-request/verify-end-otp", driver.VerifyEndOTP)
 
 	// Service & Repair (Driver)
-	drv.GET("/service-types", admin.GetServiceTypes)
 	drv.POST("/services/report", driver.ReportIssue)
 	drv.GET("/services/my-requests", driver.GetMyServiceRequests)
 	drv.GET("/services/vehicle-history", driver.GetVehicleServiceHistory)

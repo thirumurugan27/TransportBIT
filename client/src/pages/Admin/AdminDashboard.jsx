@@ -16,7 +16,6 @@ import VehicleRequests from "./views/VehicleRequests";
 import AdminStudentTransport from "./views/AdminStudentTransport";
 import ServiceRecords from "./views/ServiceRecords";
 import PartsPurchases from "./views/PartsPurchases";
-import ServiceTypes from "./views/ServiceTypes";
 import ServiceReminders from "./views/ServiceReminders";
 import Vendors from "./views/Vendors";
 import Reports from "./views/Reports";
@@ -119,7 +118,6 @@ export default function AdminDashboard() {
             />
             <Route path="service-records" element={<ServiceRecords />} />
             <Route path="parts-purchases" element={<PartsPurchases />} />
-            <Route path="service-types" element={<ServiceTypes />} />
             <Route path="service-reminders" element={<ServiceReminders />} />
             <Route path="vendors" element={<Vendors />} />
             <Route path="reports" element={<Reports />} />

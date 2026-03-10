@@ -189,7 +189,6 @@ func GenerateServiceReport(c *gin.Context) {
 	query := `
 		SELECT 
 			v.vehicle_number, v.vehicle_name,
-			COALESCE(st.name, '-') as service_type,
 			sr.title, sr.severity,
 			sr.status,
 			COALESCE(sr.workshop_name, '-') as workshop,
@@ -200,7 +199,6 @@ func GenerateServiceReport(c *gin.Context) {
 			DATE_FORMAT(sr.created_at, '%d-%m-%Y')
 		FROM service_records sr
 		JOIN vehicles v ON sr.vehicle_id = v.id
-		LEFT JOIN service_types st ON sr.service_type_id = st.id
 		WHERE sr.created_at BETWEEN ? AND DATE_ADD(?, INTERVAL 1 DAY)
 	`
 	args := []interface{}{startDate, endDate}
@@ -224,7 +222,7 @@ func GenerateServiceReport(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheet)
 
 	period := fmt.Sprintf("Period: %s to %s | Generated: %s", startDate, endDate, time.Now().Format("02-01-2006 03:04 PM"))
-	headers := []string{"S.No", "Vehicle No", "Vehicle Name", "Service Type", "Title", "Severity", "Status", "Workshop", "Labor Cost", "Parts Cost", "Total Cost", "Scheduled", "Started", "Completed", "Created"}
+	headers := []string{"S.No", "Vehicle No", "Vehicle Name", "Title", "Severity", "Status", "Workshop", "Labor Cost", "Parts Cost", "Total Cost", "Scheduled", "Started", "Completed", "Created"}
 	styleTitleRow(f, sheet, "SERVICE RECORDS REPORT", period, len(headers))
 
 	for i, h := range headers {
@@ -237,26 +235,25 @@ func GenerateServiceReport(c *gin.Context) {
 	sno := 1
 	var totalLabor, totalParts, totalCost float64
 	for rows.Next() {
-		var vNum, vName, sType, title, severity, status, workshop, scheduled, started, completed, created string
+		var vNum, vName, title, severity, status, workshop, scheduled, started, completed, created string
 		var labor, parts, total float64
-		if err := rows.Scan(&vNum, &vName, &sType, &title, &severity, &status, &workshop, &labor, &parts, &total, &scheduled, &started, &completed, &created); err != nil {
+		if err := rows.Scan(&vNum, &vName, &title, &severity, &status, &workshop, &labor, &parts, &total, &scheduled, &started, &completed, &created); err != nil {
 			continue
 		}
 		f.SetCellValue(sheet, fmt.Sprintf("A%d", row), sno)
 		f.SetCellValue(sheet, fmt.Sprintf("B%d", row), vNum)
 		f.SetCellValue(sheet, fmt.Sprintf("C%d", row), vName)
-		f.SetCellValue(sheet, fmt.Sprintf("D%d", row), sType)
-		f.SetCellValue(sheet, fmt.Sprintf("E%d", row), title)
-		f.SetCellValue(sheet, fmt.Sprintf("F%d", row), severity)
-		f.SetCellValue(sheet, fmt.Sprintf("G%d", row), status)
-		f.SetCellValue(sheet, fmt.Sprintf("H%d", row), workshop)
-		f.SetCellValue(sheet, fmt.Sprintf("I%d", row), labor)
-		f.SetCellValue(sheet, fmt.Sprintf("J%d", row), parts)
-		f.SetCellValue(sheet, fmt.Sprintf("K%d", row), total)
-		f.SetCellValue(sheet, fmt.Sprintf("L%d", row), scheduled)
-		f.SetCellValue(sheet, fmt.Sprintf("M%d", row), started)
-		f.SetCellValue(sheet, fmt.Sprintf("N%d", row), completed)
-		f.SetCellValue(sheet, fmt.Sprintf("O%d", row), created)
+		f.SetCellValue(sheet, fmt.Sprintf("D%d", row), title)
+		f.SetCellValue(sheet, fmt.Sprintf("E%d", row), severity)
+		f.SetCellValue(sheet, fmt.Sprintf("F%d", row), status)
+		f.SetCellValue(sheet, fmt.Sprintf("G%d", row), workshop)
+		f.SetCellValue(sheet, fmt.Sprintf("H%d", row), labor)
+		f.SetCellValue(sheet, fmt.Sprintf("I%d", row), parts)
+		f.SetCellValue(sheet, fmt.Sprintf("J%d", row), total)
+		f.SetCellValue(sheet, fmt.Sprintf("K%d", row), scheduled)
+		f.SetCellValue(sheet, fmt.Sprintf("L%d", row), started)
+		f.SetCellValue(sheet, fmt.Sprintf("M%d", row), completed)
+		f.SetCellValue(sheet, fmt.Sprintf("N%d", row), created)
 		totalLabor += labor
 		totalParts += parts
 		totalCost += total
@@ -266,15 +263,15 @@ func GenerateServiceReport(c *gin.Context) {
 
 	// Total row
 	totalStyle, _ := f.NewStyle(&excelize.Style{Font: &excelize.Font{Bold: true, Size: 11}, Alignment: &excelize.Alignment{Horizontal: "right"}})
-	f.SetCellValue(sheet, fmt.Sprintf("H%d", row), "TOTAL")
-	f.SetCellValue(sheet, fmt.Sprintf("I%d", row), totalLabor)
-	f.SetCellValue(sheet, fmt.Sprintf("J%d", row), totalParts)
-	f.SetCellValue(sheet, fmt.Sprintf("K%d", row), totalCost)
-	for _, col := range []string{"H", "I", "J", "K"} {
+	f.SetCellValue(sheet, fmt.Sprintf("G%d", row), "TOTAL")
+	f.SetCellValue(sheet, fmt.Sprintf("H%d", row), totalLabor)
+	f.SetCellValue(sheet, fmt.Sprintf("I%d", row), totalParts)
+	f.SetCellValue(sheet, fmt.Sprintf("J%d", row), totalCost)
+	for _, col := range []string{"G", "H", "I", "J"} {
 		f.SetCellStyle(sheet, fmt.Sprintf("%s%d", col, row), fmt.Sprintf("%s%d", col, row), totalStyle)
 	}
 
-	setColWidths(f, sheet, map[string]float64{"A": 6, "B": 14, "C": 16, "D": 16, "E": 20, "F": 10, "G": 12, "H": 16, "I": 12, "J": 12, "K": 12, "L": 12, "M": 12, "N": 12, "O": 12})
+	setColWidths(f, sheet, map[string]float64{"A": 6, "B": 14, "C": 16, "D": 20, "E": 10, "F": 12, "G": 16, "H": 12, "I": 12, "J": 12, "K": 12, "L": 12, "M": 12, "N": 12})
 
 	filename := fmt.Sprintf("Service_Report_%s_to_%s.xlsx", startDate, endDate)
 	sendExcel(c, f, filename)

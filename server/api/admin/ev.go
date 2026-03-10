@@ -1,10 +1,11 @@
-package admin
+﻿package admin
 
 import (
 	"database/sql"
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"transport-server/config"
@@ -107,9 +108,68 @@ func GetEVVehicles(c *gin.Context) {
 =========================
 */
 func GetEVAssignments(c *gin.Context) {
-	filterDate := c.Query("date") // YYYY-MM-DD, defaults to today
-	if filterDate == "" {
-		filterDate = time.Now().Format("2006-01-02")
+	legacyDate := strings.TrimSpace(c.Query("date"))
+	filterRange := strings.ToLower(strings.TrimSpace(c.Query("range")))
+	customStartDate := strings.TrimSpace(c.Query("start_date"))
+	customEndDate := strings.TrimSpace(c.Query("end_date"))
+	if filterRange == "" {
+		filterRange = "today"
+	}
+
+	now := time.Now()
+	today := now.Format("2006-01-02")
+	var rangeStart string
+	var rangeEnd string
+
+	if legacyDate != "" {
+		rangeStart = legacyDate
+		rangeEnd = legacyDate
+	} else {
+		dayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+
+		switch filterRange {
+		case "today":
+			rangeStart = dayStart.Format("2006-01-02")
+			rangeEnd = rangeStart
+		case "week":
+			weekday := int(dayStart.Weekday())
+			if weekday == 0 {
+				weekday = 7
+			}
+			weekStart := dayStart.AddDate(0, 0, -(weekday - 1))
+			weekEnd := weekStart.AddDate(0, 0, 6)
+			rangeStart = weekStart.Format("2006-01-02")
+			rangeEnd = weekEnd.Format("2006-01-02")
+		case "month":
+			monthStart := time.Date(dayStart.Year(), dayStart.Month(), 1, 0, 0, 0, 0, dayStart.Location())
+			monthEnd := monthStart.AddDate(0, 1, -1)
+			rangeStart = monthStart.Format("2006-01-02")
+			rangeEnd = monthEnd.Format("2006-01-02")
+		case "all":
+			// No date filter for all-time.
+		case "custom":
+			if customStartDate != "" {
+				rangeStart = customStartDate
+			} else {
+				rangeStart = dayStart.Format("2006-01-02")
+			}
+			if customEndDate != "" {
+				rangeEnd = customEndDate
+			} else {
+				rangeEnd = rangeStart
+			}
+		default:
+			rangeStart = dayStart.Format("2006-01-02")
+			rangeEnd = rangeStart
+		}
+
+		if rangeStart != "" && rangeEnd != "" {
+			startTime, errStart := time.Parse("2006-01-02", rangeStart)
+			endTime, errEnd := time.Parse("2006-01-02", rangeEnd)
+			if errStart == nil && errEnd == nil && endTime.Before(startTime) {
+				rangeStart, rangeEnd = rangeEnd, rangeStart
+			}
+		}
 	}
 
 	query := `
@@ -131,11 +191,21 @@ func GetEVAssignments(c *gin.Context) {
 		LEFT JOIN vehicle_groups vg ON ea.vehicle_group_id = vg.id
 		JOIN driver_clusters c ON ea.cluster_id = c.id
 		LEFT JOIN shifts s ON ea.shift_id = s.id
-		WHERE ? BETWEEN ea.start_date AND ea.end_date
+	`
+
+	args := []interface{}{}
+	if rangeStart != "" && rangeEnd != "" {
+		query += `
+		WHERE ea.start_date <= ? AND ea.end_date >= ?
+		`
+		args = append(args, rangeEnd, rangeStart)
+	}
+
+	query += `
 		ORDER BY ea.start_date DESC, ea.id DESC
 	`
 
-	rows, err := config.DB.Query(query, filterDate)
+	rows, err := config.DB.Query(query, args...)
 	if err != nil {
 		log.Printf("Get EV assignments error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching EV assignments"})
@@ -185,8 +255,8 @@ func GetEVAssignments(c *gin.Context) {
 			FROM vehicle_group_members vgm
 			JOIN vehicles v ON v.id = vgm.vehicle_id
 			LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
-			WHERE vgm.group_id = ? AND CURDATE() BETWEEN vgm.valid_from AND vgm.valid_to
-		`, a.VehicleGroupID)
+			WHERE vgm.group_id = ? AND ? BETWEEN vgm.valid_from AND vgm.valid_to
+		`, a.VehicleGroupID, today)
 		if vErr == nil {
 			defer vRows.Close()
 			for vRows.Next() {
@@ -201,7 +271,7 @@ func GetEVAssignments(c *gin.Context) {
 		// Calculate driver count (which is actually drivers in the cluster, confusingly named in struct)
 		// We'll keep the struct field semantics: drivers in the cluster
 		var driverCount int
-		config.DB.QueryRow("SELECT COUNT(DISTINCT dcm.driver_id) FROM driver_cluster_members dcm WHERE dcm.cluster_id = ? AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to", a.ClusterID).Scan(&driverCount)
+		config.DB.QueryRow("SELECT COUNT(DISTINCT dcm.driver_id) FROM driver_cluster_members dcm WHERE dcm.cluster_id = ? AND ? BETWEEN dcm.valid_from AND dcm.valid_to", a.ClusterID, today).Scan(&driverCount)
 		a.DriverCount = driverCount
 
 		// We can reuse the drivers field or add a vehicles field.
@@ -213,22 +283,22 @@ func GetEVAssignments(c *gin.Context) {
 					       SELECT 1 FROM leave_requests lr
 					       WHERE lr.driver_id = d.id
 					         AND lr.status = 'admin_approved'
-					         AND CURDATE() BETWEEN lr.start_date AND lr.end_date
+				         AND ? BETWEEN lr.start_date AND lr.end_date
 				       ) THEN 'on_leave'
 				    ELSE COALESCE((
 					       SELECT att.status FROM attendance att
-					       WHERE att.user_id = d.user_id AND att.date = CURDATE()
+				       WHERE att.user_id = d.user_id AND att.date = ?
 				       ), 'active')
 			       END as driver_status,
 			       EXISTS(SELECT 1 FROM leave_requests lr
 			              WHERE lr.driver_id = d.id
 			              AND lr.status = 'admin_approved'
-			              AND CURDATE() BETWEEN lr.start_date AND lr.end_date) as on_leave
+				              AND ? BETWEEN lr.start_date AND lr.end_date) as on_leave
 			FROM driver_cluster_members dcm
 			JOIN drivers d ON d.id = dcm.driver_id
 			JOIN users u ON d.user_id = u.id
-			WHERE dcm.cluster_id = ? AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to
-		`, a.ClusterID)
+			WHERE dcm.cluster_id = ? AND ? BETWEEN dcm.valid_from AND dcm.valid_to
+		`, today, today, today, a.ClusterID, today)
 
 		if driverRows != nil {
 			for driverRows.Next() {

@@ -99,7 +99,7 @@ func generateServiceReportPDF(c *gin.Context) {
 	query := `
 		SELECT 
 			v.vehicle_number, v.vehicle_name,
-			COALESCE(st.name, '-'), sr.title, sr.severity, sr.status,
+			sr.title, sr.severity, sr.status,
 			COALESCE(sr.workshop_name, '-'),
 			sr.labor_cost, sr.parts_cost, sr.total_cost,
 			COALESCE(DATE_FORMAT(sr.scheduled_date, '%d-%m-%Y'), '-'),
@@ -107,7 +107,6 @@ func generateServiceReportPDF(c *gin.Context) {
 			COALESCE(DATE_FORMAT(sr.completed_at, '%d-%m-%Y'), '-')
 		FROM service_records sr
 		JOIN vehicles v ON sr.vehicle_id = v.id
-		LEFT JOIN service_types st ON sr.service_type_id = st.id
 		WHERE sr.created_at BETWEEN ? AND DATE_ADD(?, INTERVAL 1 DAY)
 	`
 	args := []interface{}{startDate, endDate}
@@ -125,20 +124,20 @@ func generateServiceReportPDF(c *gin.Context) {
 	}
 	defer rows.Close()
 
-	headers := []string{"S.No", "Vehicle No", "Vehicle", "Type", "Title", "Severity", "Status", "Workshop", "Labor", "Parts", "Total", "Scheduled", "Started", "Completed"}
-	// 14 cols – Vehicle No, Status, Parts wider; scaleWidths fills landscape width
-	widths := []float64{8, 26, 22, 16, 28, 14, 22, 22, 14, 22, 16, 20, 20, 20}
+	headers := []string{"S.No", "Vehicle No", "Vehicle", "Title", "Severity", "Status", "Workshop", "Labor", "Parts", "Total", "Scheduled", "Started", "Completed"}
+	// 13 cols
+	widths := []float64{8, 26, 22, 28, 14, 22, 22, 14, 22, 16, 20, 20, 20}
 	var data [][]string
 	sno := 1
 	var totalLabor, totalParts, totalCost float64
 	for rows.Next() {
-		var vNum, vName, sType, title, severity, status, workshop, scheduled, started, completed string
+		var vNum, vName, title, severity, status, workshop, scheduled, started, completed string
 		var labor, parts, total float64
-		if err := rows.Scan(&vNum, &vName, &sType, &title, &severity, &status, &workshop, &labor, &parts, &total, &scheduled, &started, &completed); err != nil {
+		if err := rows.Scan(&vNum, &vName, &title, &severity, &status, &workshop, &labor, &parts, &total, &scheduled, &started, &completed); err != nil {
 			continue
 		}
 		data = append(data, []string{
-			fmt.Sprintf("%d", sno), vNum, vName, sType, title, severity, status, workshop,
+			fmt.Sprintf("%d", sno), vNum, vName, title, severity, status, workshop,
 			utils.FmtMoney(labor), utils.FmtMoney(parts), utils.FmtMoney(total),
 			scheduled, started, completed,
 		})
@@ -153,10 +152,10 @@ func generateServiceReportPDF(c *gin.Context) {
 	pr.AddTable(headers, data, widths)
 
 	totals := make([]string, len(headers))
-	totals[7] = "TOTAL"
-	totals[8] = utils.FmtMoney(totalLabor)
-	totals[9] = utils.FmtMoney(totalParts)
-	totals[10] = utils.FmtMoney(totalCost)
+	totals[6] = "TOTAL"
+	totals[7] = utils.FmtMoney(totalLabor)
+	totals[8] = utils.FmtMoney(totalParts)
+	totals[9] = utils.FmtMoney(totalCost)
 	pr.AddTotalRow(totals, widths)
 
 	pr.Send(c, fmt.Sprintf("Service_Report_%s_to_%s.pdf", startDate, endDate))

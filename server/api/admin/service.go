@@ -15,100 +15,6 @@ import (
 )
 
 // ==========================================
-// SERVICE TYPE HANDLERS (Master Data)
-// ==========================================
-
-// GetServiceTypes returns all service types
-func GetServiceTypes(c *gin.Context) {
-	rows, err := config.DB.Query(`
-		SELECT id, name, COALESCE(description, ''), estimated_duration_hours, is_active, 
-		       DATE_FORMAT(created_at, '%d-%m-%Y %h:%i %p')
-		FROM service_types
-		ORDER BY name ASC
-	`)
-	if err != nil {
-		c.JSON(http.StatusOK, []models.ServiceType{})
-		return
-	}
-	defer rows.Close()
-
-	var types []models.ServiceType
-	for rows.Next() {
-		var st models.ServiceType
-		if err := rows.Scan(&st.ID, &st.Name, &st.Description, &st.EstimatedDurationHours, &st.IsActive, &st.CreatedAt); err != nil {
-			continue
-		}
-		types = append(types, st)
-	}
-	if types == nil {
-		types = []models.ServiceType{}
-	}
-	c.JSON(http.StatusOK, types)
-}
-
-// CreateServiceType creates a new service type
-func CreateServiceType(c *gin.Context) {
-	var req models.CreateServiceTypeRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-		return
-	}
-	if req.Name == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Service type name is required"})
-		return
-	}
-
-	result, err := config.DB.Exec(`
-		INSERT INTO service_types (name, description, estimated_duration_hours)
-		VALUES (?, ?, ?)
-	`, req.Name, req.Description, req.EstimatedDurationHours)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create service type: " + err.Error()})
-		return
-	}
-
-	id, _ := result.LastInsertId()
-	c.JSON(http.StatusOK, gin.H{"message": "Service type created successfully", "id": id})
-}
-
-// UpdateServiceType updates an existing service type
-func UpdateServiceType(c *gin.Context) {
-	var req models.UpdateServiceTypeRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-		return
-	}
-
-	_, err := config.DB.Exec(`
-		UPDATE service_types SET name = ?, description = ?, estimated_duration_hours = ?, is_active = ?
-		WHERE id = ?
-	`, req.Name, req.Description, req.EstimatedDurationHours, req.IsActive, req.ID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update service type: " + err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Service type updated successfully"})
-}
-
-// DeleteServiceType deletes a service type
-func DeleteServiceType(c *gin.Context) {
-	id := c.Query("id")
-	if id == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Service type ID is required"})
-		return
-	}
-
-	_, err := config.DB.Exec(`DELETE FROM service_types WHERE id = ?`, id)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete service type: " + err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Service type deleted successfully"})
-}
-
-// ==========================================
 // SERVICE RECORD HANDLERS
 // ==========================================
 
@@ -122,7 +28,7 @@ func GetAllServiceRecords(c *gin.Context) {
 
 	query := `
 		SELECT 
-			sr.id, sr.vehicle_id, sr.service_type_id, sr.reported_by, sr.assigned_to_admin,
+			sr.id, sr.vehicle_id, sr.reported_by, sr.assigned_to_admin,
 			sr.title, COALESCE(sr.description, ''), sr.severity, sr.status,
 			sr.odometer_at_service, 
 			DATE_FORMAT(sr.scheduled_date, '%d-%m-%Y'), 
@@ -135,11 +41,10 @@ func GetAllServiceRecords(c *gin.Context) {
 			DATE_FORMAT(sr.created_at, '%d-%m-%Y %h:%i %p'), 
 			DATE_FORMAT(sr.updated_at, '%d-%m-%Y %h:%i %p'),
 			COALESCE(v.vehicle_number, ''), COALESCE(v.vehicle_name, ''), COALESCE(vt.type, ''),
-			COALESCE(st.name, ''), COALESCE(reporter.full_name, ''), COALESCE(adm.full_name, '')
+			COALESCE(reporter.full_name, ''), COALESCE(adm.full_name, '')
 		FROM service_records sr
 		LEFT JOIN vehicles v ON sr.vehicle_id = v.id
 		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
-		LEFT JOIN service_types st ON sr.service_type_id = st.id
 		LEFT JOIN users reporter ON sr.reported_by = reporter.id
 		LEFT JOIN users adm ON sr.assigned_to_admin = adm.id
 		WHERE 1=1
@@ -179,11 +84,11 @@ func GetAllServiceRecords(c *gin.Context) {
 	var records []models.ServiceRecord
 	for rows.Next() {
 		var sr models.ServiceRecord
-		var serviceTypeID, reportedBy, assignedToAdmin, odometerAtService, nextServiceKm sql.NullInt64
+		var reportedBy, assignedToAdmin, odometerAtService, nextServiceKm sql.NullInt64
 		var scheduledDate, startedAt, completedAt, nextServiceDate sql.NullString
 
 		if err := rows.Scan(
-			&sr.ID, &sr.VehicleID, &serviceTypeID, &reportedBy, &assignedToAdmin,
+			&sr.ID, &sr.VehicleID, &reportedBy, &assignedToAdmin,
 			&sr.Title, &sr.Description, &sr.Severity, &sr.Status,
 			&odometerAtService, &scheduledDate, &startedAt, &completedAt,
 			&sr.WorkshopName, &sr.MechanicName, &sr.MechanicContact,
@@ -192,15 +97,11 @@ func GetAllServiceRecords(c *gin.Context) {
 			&sr.AdminRemarks, &sr.RejectionReason,
 			&sr.CreatedAt, &sr.UpdatedAt,
 			&sr.VehicleNumber, &sr.VehicleName, &sr.VehicleType,
-			&sr.ServiceTypeName, &sr.ReportedByName, &sr.AdminName,
+			&sr.ReportedByName, &sr.AdminName,
 		); err != nil {
 			continue
 		}
 
-		if serviceTypeID.Valid {
-			id := int(serviceTypeID.Int64)
-			sr.ServiceTypeID = &id
-		}
 		if reportedBy.Valid {
 			id := int(reportedBy.Int64)
 			sr.ReportedBy = &id
@@ -244,12 +145,12 @@ func GetServiceRecordByID(c *gin.Context) {
 	id := c.Param("id")
 
 	var sr models.ServiceRecord
-	var serviceTypeID, reportedBy, assignedToAdmin, odometerAtService, nextServiceKm sql.NullInt64
+	var reportedBy, assignedToAdmin, odometerAtService, nextServiceKm sql.NullInt64
 	var scheduledDate, startedAt, completedAt, nextServiceDate sql.NullString
 
 	err := config.DB.QueryRow(`
 		SELECT 
-			sr.id, sr.vehicle_id, sr.service_type_id, sr.reported_by, sr.assigned_to_admin,
+			sr.id, sr.vehicle_id, sr.reported_by, sr.assigned_to_admin,
 			sr.title, COALESCE(sr.description, ''), sr.severity, sr.status,
 			sr.odometer_at_service, 
 			DATE_FORMAT(sr.scheduled_date, '%d-%m-%Y'), 
@@ -262,16 +163,15 @@ func GetServiceRecordByID(c *gin.Context) {
 			DATE_FORMAT(sr.created_at, '%d-%m-%Y %h:%i %p'), 
 			DATE_FORMAT(sr.updated_at, '%d-%m-%Y %h:%i %p'),
 			COALESCE(v.vehicle_number, ''), COALESCE(v.vehicle_name, ''), COALESCE(vt.type, ''),
-			COALESCE(st.name, ''), COALESCE(reporter.full_name, ''), COALESCE(adm.full_name, '')
+			COALESCE(reporter.full_name, ''), COALESCE(adm.full_name, '')
 		FROM service_records sr
 		LEFT JOIN vehicles v ON sr.vehicle_id = v.id
 		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
-		LEFT JOIN service_types st ON sr.service_type_id = st.id
 		LEFT JOIN users reporter ON sr.reported_by = reporter.id
 		LEFT JOIN users adm ON sr.assigned_to_admin = adm.id
 		WHERE sr.id = ?
 	`, id).Scan(
-		&sr.ID, &sr.VehicleID, &serviceTypeID, &reportedBy, &assignedToAdmin,
+		&sr.ID, &sr.VehicleID, &reportedBy, &assignedToAdmin,
 		&sr.Title, &sr.Description, &sr.Severity, &sr.Status,
 		&odometerAtService, &scheduledDate, &startedAt, &completedAt,
 		&sr.WorkshopName, &sr.MechanicName, &sr.MechanicContact,
@@ -280,17 +180,13 @@ func GetServiceRecordByID(c *gin.Context) {
 		&sr.AdminRemarks, &sr.RejectionReason,
 		&sr.CreatedAt, &sr.UpdatedAt,
 		&sr.VehicleNumber, &sr.VehicleName, &sr.VehicleType,
-		&sr.ServiceTypeName, &sr.ReportedByName, &sr.AdminName,
+		&sr.ReportedByName, &sr.AdminName,
 	)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Service record not found"})
 		return
 	}
 
-	if serviceTypeID.Valid {
-		v := int(serviceTypeID.Int64)
-		sr.ServiceTypeID = &v
-	}
 	if reportedBy.Valid {
 		v := int(reportedBy.Int64)
 		sr.ReportedBy = &v
@@ -350,10 +246,10 @@ func CreateServiceRecord(c *gin.Context) {
 
 	result, err := config.DB.Exec(`
 		INSERT INTO service_records 
-		(vehicle_id, service_type_id, assigned_to_admin, title, description, severity, status,
+		(vehicle_id, assigned_to_admin, title, description, severity, status,
 		 odometer_at_service, scheduled_date, workshop_name, mechanic_name, mechanic_contact, labor_cost)
-		VALUES (?, ?, ?, ?, ?, ?, 'approved', ?, ?, ?, ?, ?, ?)
-	`, req.VehicleID, req.ServiceTypeID, adminID, req.Title, req.Description, severity,
+		VALUES (?, ?, ?, ?, ?, 'approved', ?, ?, ?, ?, ?, ?)
+	`, req.VehicleID, adminID, req.Title, req.Description, severity,
 		req.OdometerAtService, req.ScheduledDate, req.WorkshopName, req.MechanicName, req.MechanicContact, req.LaborCost)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create service record: " + err.Error()})
@@ -378,12 +274,12 @@ func UpdateServiceRecord(c *gin.Context) {
 
 	_, err := config.DB.Exec(`
 		UPDATE service_records SET
-			service_type_id = ?, title = ?, description = ?, severity = ?,
+			title = ?, description = ?, severity = ?,
 			odometer_at_service = ?, scheduled_date = ?,
 			workshop_name = ?, mechanic_name = ?, mechanic_contact = ?,
 			labor_cost = ?, admin_remarks = ?
 		WHERE id = ?
-	`, req.ServiceTypeID, req.Title, req.Description, req.Severity,
+	`, req.Title, req.Description, req.Severity,
 		req.OdometerAtService, req.ScheduledDate,
 		req.WorkshopName, req.MechanicName, req.MechanicContact,
 		req.LaborCost, req.AdminRemarks, req.ID)
@@ -625,6 +521,12 @@ func CompleteServiceRecord(c *gin.Context) {
 	tx.QueryRow(`SELECT labor_cost FROM service_records WHERE id = ?`, idInt).Scan(&laborCost)
 	totalCost := laborCost + partsCost
 
+	// Treat empty next_service_date string as NULL to avoid MySQL date parse error
+	var nextServiceDate interface{} = nil
+	if body.NextServiceDate != nil && *body.NextServiceDate != "" {
+		nextServiceDate = *body.NextServiceDate
+	}
+
 	// Complete the service record
 	_, err = tx.Exec(`
 		UPDATE service_records SET 
@@ -632,7 +534,7 @@ func CompleteServiceRecord(c *gin.Context) {
 			next_service_date = ?, next_service_km = ?,
 			parts_cost = ?, total_cost = ?
 		WHERE id = ? AND (status = 'in_progress' OR status = 'approved')
-	`, now, body.AdminRemarks, body.NextServiceDate, body.NextServiceKm, partsCost, totalCost, idInt)
+	`, now, body.AdminRemarks, nextServiceDate, body.NextServiceKm, partsCost, totalCost, idInt)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to complete service: " + err.Error()})
 		return

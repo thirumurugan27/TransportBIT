@@ -236,7 +236,6 @@ const SEVERITY_OPTIONS = [
 
 const initialForm = {
   vehicle_id: "",
-  service_type_id: "",
   title: "",
   description: "",
   severity: "medium",
@@ -288,7 +287,6 @@ export default function ServiceRecords() {
   const [records, setRecords] = useState([]);
   const [stats, setStats] = useState(null);
   const [vehicles, setVehicles] = useState([]);
-  const [serviceTypes, setServiceTypes] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -334,7 +332,6 @@ export default function ServiceRecords() {
     fetchRecords();
     fetchStats();
     fetchVehicles();
-    fetchServiceTypes();
   };
 
   const fetchRecords = async () => {
@@ -372,22 +369,12 @@ export default function ServiceRecords() {
     }
   };
 
-  const fetchServiceTypes = async () => {
-    try {
-      const res = await apiGet("/api/admin/service-types");
-      if (res.ok) setServiceTypes(await res.json());
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       const body = {
         ...form,
         vehicle_id: parseInt(form.vehicle_id),
-        service_type_id: parseInt(form.service_type_id) || 0,
         odometer_reading: parseInt(form.odometer_reading) || 0,
         labor_cost: parseFloat(form.labor_cost) || 0,
       };
@@ -556,7 +543,6 @@ export default function ServiceRecords() {
     setEditingRecord(record);
     setForm({
       vehicle_id: record.vehicle_id,
-      service_type_id: record.service_type_id || "",
       title: record.title,
       description: record.description || "",
       severity: record.severity,
@@ -592,8 +578,7 @@ export default function ServiceRecords() {
     return (
       r.title?.toLowerCase().includes(q) ||
       r.vehicle_number?.toLowerCase().includes(q) ||
-      r.workshop_name?.toLowerCase().includes(q) ||
-      r.service_type_name?.toLowerCase().includes(q)
+      r.workshop_name?.toLowerCase().includes(q)
     );
   });
 
@@ -756,7 +741,6 @@ export default function ServiceRecords() {
                   {[
                     "Vehicle",
                     "Title",
-                    "Type",
                     "Status",
                     "Severity",
                     "Cost",
@@ -813,12 +797,6 @@ export default function ServiceRecords() {
                       >
                         {r.title}
                       </p>
-                    </td>
-                    <td
-                      className="py-3 px-4"
-                      style={{fontSize: 13, color: C.secondarytext}}
-                    >
-                      {r.service_type_name || "—"}
                     </td>
                     <td className="py-3 px-4">
                       <Pill
@@ -959,10 +937,6 @@ export default function ServiceRecords() {
               icon={Wrench}
               title="Service Details"
               items={[
-                {
-                  label: "Service Type",
-                  value: showDetailModal.service_type_name,
-                },
                 {
                   label: "Odometer Reading",
                   value: showDetailModal.odometer_reading
@@ -1274,22 +1248,6 @@ export default function ServiceRecords() {
               />
             </div>
             <div>
-              <Label>Service Type</Label>
-              <SearchableSelect
-                value={form.service_type_id}
-                onChange={(val) => setForm({...form, service_type_id: val})}
-                placeholder="Select Service Type"
-                options={serviceTypes
-                  .filter((t) => t.is_active)
-                  .map((t) => ({
-                    value: t.id,
-                    label: t.name,
-                    subtitle: t.description || "",
-                  }))}
-                emptyMessage="No service types"
-              />
-            </div>
-            <div>
               <Label>Title</Label>
               <input
                 type="text"
@@ -1558,36 +1516,20 @@ export default function ServiceRecords() {
                 placeholder="Completion notes"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Next Service Date</Label>
-                <input
-                  type="date"
-                  value={completeForm.next_service_date}
-                  onChange={(e) =>
-                    setCompleteForm({
-                      ...completeForm,
-                      next_service_date: e.target.value,
-                    })
-                  }
-                  className={inputCls}
-                />
-              </div>
-              <div>
-                <Label>Next Service KM</Label>
-                <input
-                  type="number"
-                  value={completeForm.next_service_km}
-                  onChange={(e) =>
-                    setCompleteForm({
-                      ...completeForm,
-                      next_service_km: e.target.value,
-                    })
-                  }
-                  className={inputCls}
-                  min="0"
-                />
-              </div>
+            <div>
+              <Label>Next Service KM</Label>
+              <input
+                type="number"
+                value={completeForm.next_service_km}
+                onChange={(e) =>
+                  setCompleteForm({
+                    ...completeForm,
+                    next_service_km: e.target.value,
+                  })
+                }
+                className={inputCls}
+                min="0"
+              />
             </div>
             <button
               onClick={handleComplete}

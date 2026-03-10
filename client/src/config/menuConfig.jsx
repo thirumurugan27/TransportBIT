@@ -24,7 +24,6 @@ import {
   SubAttendanceIcon,
   SubServiceRecordIcon,
   SubPartsIcon,
-  SubServiceTypeIcon,
   SubReminderIcon,
   SubVendorIcon,
   ReportIcon,
@@ -138,12 +137,6 @@ export const adminMenuConfig = {
           label: "Service Records",
           icon: <SubServiceRecordIcon />,
           path: "/service-records",
-        },
-        {
-          key: "serviceTypes",
-          label: "Service Types",
-          icon: <SubServiceTypeIcon />,
-          path: "/service-types",
         },
         {
           key: "serviceReminders",

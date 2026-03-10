@@ -2587,7 +2587,7 @@ export default function Vehicles() {
                   <button
                     type="button"
                     onClick={handleSubmit}
-                    className="px-5 py-2.5 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors font-semibold text-sm flex items-center gap-2"
+                    className="px-5 py-2.5 bg-primary text-white rounded-md hover:bg-green-700 transition-colors font-semibold text-sm flex items-center gap-2"
                   >
                     {isEditing ? <Edit2 size={16} /> : <Plus size={16} />}
                     {isEditing ? "Update Vehicle" : "Create Vehicle"}

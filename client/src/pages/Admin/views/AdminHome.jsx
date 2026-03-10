@@ -848,42 +848,49 @@ export default function AdminHome() {
 
   return (
     <div className="space-y-6 pb-8 animate-fadeIn">
-      {/* Welcome Header + Quick Summary */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+      {/* Welcome Header */}
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-primarytext tracking-tight">
-            {getGreeting()}, Admin
-          </h1>
-          <p className="text-sm text-secondarytext mt-1">
-            Here's what's happening today &mdash;{" "}
-            {new Date().toLocaleDateString("en-IN", {
-              weekday: "long",
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-            })}
+          <h1 className="text-xl font-bold text-primarytext">Dashboard</h1>
+          <p className="text-sm text-secondarytext mt-0.5">
+            Transport management overview
           </p>
         </div>
-        <div className="flex items-center gap-3 flex-wrap">
-          {totalPendingCount > 0 && (
-            <div className="flex items-center gap-2 bg-pending/10 border border-pending/20 rounded-md px-4 py-2.5">
-              <Bell className="w-4 h-4 text-pending" />
-              <span className="text-sm font-bold text-pending">
-                {totalPendingCount} pending actions
-              </span>
-            </div>
-          )}
+        <div className="flex items-center gap-3">
           {heavyWorkloadDrivers.length > 0 && (
-            <div className="flex items-center gap-2 bg-red/10 border border-red/20 rounded-md px-4 py-2.5">
-              <Zap className="w-4 h-4 text-red" />
-              <span className="text-sm font-bold text-red">
-                {heavyWorkloadDrivers.length} overloaded drivers
+            <div className="flex items-center gap-1.5 bg-red/10 border border-red/20 text-red rounded-full px-3 py-1.5">
+              <Zap className="w-3.5 h-3.5" />
+              <span className="text-xs font-bold">
+                {heavyWorkloadDrivers.length} overloaded
               </span>
             </div>
           )}
+          <button
+            onClick={() =>
+              document
+                .getElementById("action-center")
+                ?.scrollIntoView({behavior: "smooth"})
+            }
+            className="relative"
+            title={`${totalPendingCount} pending action${totalPendingCount !== 1 ? "s" : ""}`}
+          >
+            {totalPendingCount > 0 ? (
+              <>
+                <div className="w-10 h-10 bg-pending/10 border border-pending/20 rounded-full flex items-center justify-center hover:bg-pending/20 transition-colors">
+                  <Bell className="w-5 h-5 text-pending" />
+                </div>
+                <span className="absolute -top-1 -right-1 min-w-4.5 h-4.5 bg-pending text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 leading-none border-2 border-primarybg">
+                  {totalPendingCount}
+                </span>
+              </>
+            ) : (
+              <div className="w-10 h-10 bg-green/10 border border-green/20 rounded-full flex items-center justify-center hover:bg-green/20 transition-colors">
+                <Bell className="w-5 h-5 text-green" />
+              </div>
+            )}
+          </button>
         </div>
       </div>
-
       {/* Critical Alerts */}
       {(stats.absent_drivers > 0 ||
         stats.expired_documents > 0 ||
@@ -951,48 +958,7 @@ export default function AdminHome() {
               <ChevronRight className="w-4 h-4 text-pending/30 group-hover:text-pending transition-colors shrink-0" />
             </div>
           )}
-          {stats.expiring_driver_groups + stats.expired_driver_groups > 0 && (
-            <div
-              onClick={() => navigate("/admin-dashboard/schedule-management")}
-              className="flex items-center gap-3 bg-gradient-to-r from-red/5 to-red/10 border border-red/15 rounded-md px-4 py-3.5 cursor-pointer hover:shadow-md transition-all group"
-            >
-              <div className="w-10 h-10 bg-red/15 rounded-md flex items-center justify-center shrink-0">
-                <Users className="w-5 h-5 text-red" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-red">
-                  {stats.expiring_driver_groups + stats.expired_driver_groups}{" "}
-                  Driver Group Alerts
-                </p>
-                <p className="text-xs text-red/60 truncate">
-                  {stats.expired_driver_groups} expired,{" "}
-                  {stats.expiring_driver_groups} expiring soon
-                </p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-red/30 group-hover:text-red transition-colors shrink-0" />
-            </div>
-          )}
-          {stats.expiring_vehicle_groups + stats.expired_vehicle_groups > 0 && (
-            <div
-              onClick={() => navigate("/admin-dashboard/schedule-management")}
-              className="flex items-center gap-3 bg-gradient-to-r from-red/5 to-red/10 border border-red/15 rounded-md px-4 py-3.5 cursor-pointer hover:shadow-md transition-all group"
-            >
-              <div className="w-10 h-10 bg-red/15 rounded-md flex items-center justify-center shrink-0">
-                <Layers className="w-5 h-5 text-red" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-red">
-                  {stats.expiring_vehicle_groups + stats.expired_vehicle_groups}{" "}
-                  Vehicle Group Alerts
-                </p>
-                <p className="text-xs text-red/60 truncate">
-                  {stats.expired_vehicle_groups} expired,{" "}
-                  {stats.expiring_vehicle_groups} expiring soon
-                </p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-red/30 group-hover:text-red transition-colors shrink-0" />
-            </div>
-          )}
+
           {stats.expired_assignments > 0 && (
             <div
               onClick={() => navigate("/admin-dashboard/all-assignments")}
@@ -1083,7 +1049,10 @@ export default function AdminHome() {
       {/* Row 2: Action Center + Driver Workload */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Action Center */}
-        <div className="lg:col-span-2 bg-secondarybg rounded-md border border-gray-100 shadow-sm overflow-hidden flex flex-col">
+        <div
+          id="action-center"
+          className="lg:col-span-2 bg-secondarybg rounded-md border border-gray-100 shadow-sm overflow-hidden flex flex-col"
+        >
           {/* Header */}
           <div className="p-5 pb-3 border-b border-gray-100">
             <div className="flex items-center justify-between">

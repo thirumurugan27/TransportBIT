@@ -210,7 +210,11 @@ export default function KmManagement() {
       );
       if (res.ok) {
         const data = await res.json();
-        const list = Array.isArray(data) ? data : (Array.isArray(data?.vehicles) ? data.vehicles : []);
+        const list = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.vehicles)
+            ? data.vehicles
+            : [];
         setDriverAssignments(list);
       } else {
         setDriverAssignments([]);
@@ -603,7 +607,7 @@ export default function KmManagement() {
   return (
     <div className="space-y-6 pb-12 animate-fadeIn">
       {/* Tab Navigation */}
-      <div className="inline-flex items-center gap-2 p-1.5 bg-gray-100 rounded-md">
+      <div className="inline-flex items-center gap-2 p-1.5 bg-secondarybg rounded-md">
         <button
           onClick={() => {
             setActiveTab("overview");
@@ -711,92 +715,6 @@ export default function KmManagement() {
             ))}
           </div>
 
-          {/* Fuel Consumption by Vehicle (Non-EV) */}
-          <div className="bg-secondarybg rounded-md border border-primarybg shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-primarybg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <h3 className="font-bold text-primarytext text-sm flex items-center gap-2">
-                <Fuel size={16} className="text-pending" />
-                Fuel Consumption by Vehicle
-                <span className="text-xs font-normal text-secondarytext">
-                  (Excludes EVs)
-                </span>
-              </h3>
-              <div className="flex items-center gap-2">
-                {fuelTotals.grand_total_fuel > 0 && (
-                  <span className="text-xs bg-pending/10 text-pending font-bold px-2 py-1 rounded-md">
-                    Total: {fuelTotals.grand_total_fuel.toFixed(1)} L
-                  </span>
-                )}
-                <CustomDropdown
-                  value={fuelPeriod}
-                  onChange={setFuelPeriod}
-                  options={[
-                    {value: "today", label: "Today"},
-                    {value: "week", label: "This Week"},
-                    {value: "month", label: "This Month"},
-                    {value: "year", label: "This Year"},
-                  ]}
-                  placeholder="Period"
-                  width="w-36"
-                />
-              </div>
-            </div>
-            {fuelLoading ? (
-              <div className="flex items-center justify-center py-10">
-                <div className="w-6 h-6 border-3 border-primary/30 border-t-primary rounded-full animate-spin" />
-              </div>
-            ) : fuelByVehicle.length === 0 ? (
-              <div className="py-10 text-center text-secondarytext text-sm">
-                No fuel consumption data for this period.
-              </div>
-            ) : (
-              <div className="divide-y divide-primarybg">
-                {fuelByVehicle.map((v) => {
-                  const maxFuel = fuelByVehicle[0]?.total_fuel || 1;
-                  const barWidth = Math.max((v.total_fuel / maxFuel) * 100, 4);
-                  return (
-                    <div
-                      key={v.vehicle_id}
-                      className="px-5 py-3 flex items-center gap-4 hover:bg-primarybg/50 transition-colors"
-                    >
-                      <div className="flex-shrink-0 w-44">
-                        <p className="text-sm font-bold text-primarytext truncate">
-                          {v.vehicle_name}
-                        </p>
-                        <p className="text-[11px] text-secondarytext">
-                          {v.vehicle_number} &middot; {v.fuel_type}
-                        </p>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="h-5 bg-primarybg rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-pending/80 to-pending rounded-full flex items-center justify-end pr-2 transition-all duration-500"
-                            style={{width: `${barWidth}%`}}
-                          >
-                            {barWidth > 20 && (
-                              <span className="text-[10px] font-bold text-white">
-                                {v.total_fuel.toFixed(1)} L
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex-shrink-0 text-right w-28 space-y-0.5">
-                        <p className="text-sm font-bold text-pending">
-                          {v.total_fuel.toFixed(1)} L
-                        </p>
-                        <p className="text-[11px] text-secondarytext">
-                          {v.trip_count} trip{v.trip_count !== 1 ? "s" : ""}{" "}
-                          &middot; {v.mileage.toFixed(1)} km/L
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
           {/* Toolbar */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-secondarybg p-5 rounded-md border border-primarybg shadow-sm">
             <div className="flex items-center gap-3 w-full sm:w-auto flex-wrap">
@@ -849,7 +767,7 @@ export default function KmManagement() {
             </div>
             <button
               onClick={() => setShowEntryModal(true)}
-              className="bg-primary hover:bg-primarydull text-secondarybg px-6 py-3 rounded-md flex items-center gap-2 shadow-lg shadow-primary/30 transition-all duration-300 text-sm font-bold hover:scale-105 whitespace-nowrap"
+              className="bg-primary text-secondarybg px-6 py-3 cursor-pointer rounded-md flex items-center gap-2 text-sm font-bold whitespace-nowrap"
             >
               <Plus size={18} strokeWidth={2.5} /> KM Log Entry
             </button>
@@ -1794,8 +1712,8 @@ export default function KmManagement() {
                   onClick={() => setTrackerFilter("entered")}
                   className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
                     trackerFilter === "entered"
-                      ? "bg-customgreen text-white"
-                      : "bg-customgreen/10 text-customgreen hover:bg-customgreen/20"
+                      ? "bg-green text-white"
+                      : "bg-green/10 text-freen hover:bg-freen/20"
                   }`}
                 >
                   <Check className="w-3.5 h-3.5 inline mr-1" />
@@ -1875,7 +1793,7 @@ export default function KmManagement() {
                         key={a.assignment_id}
                         className={`transition-colors ${
                           a.km_entered
-                            ? "hover:bg-customgreen/5"
+                            ? "hover:bg-freen/5"
                             : "bg-red/5 hover:bg-red/10"
                         }`}
                       >
@@ -1905,7 +1823,7 @@ export default function KmManagement() {
                         </td>
                         <td className="px-4 py-3 text-center">
                           {a.km_entered ? (
-                            <span className="inline-flex items-center gap-1 text-xs font-bold text-customgreen bg-customgreen/10 px-2.5 py-1 rounded-full">
+                            <span className="inline-flex items-center gap-1 text-xs font-bold text-freen bg-freen/10 px-2.5 py-1 rounded-full">
                               <Check className="w-3 h-3" /> Entered
                             </span>
                           ) : (
@@ -1928,7 +1846,7 @@ export default function KmManagement() {
                             <span
                               className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                                 a.km_status === "approved"
-                                  ? "bg-customgreen/10 text-customgreen"
+                                  ? "bg-freen/10 text-freen"
                                   : "bg-pending/10 text-pending"
                               }`}
                             >

@@ -79,10 +79,14 @@ const detectInterShiftConflicts = (selectedShifts) => {
   const conflictPairs = [];
   for (let i = 0; i < selectedShifts.length; i++) {
     for (let j = i + 1; j < selectedShifts.length; j++) {
-      if (timesOverlap(
-        selectedShifts[i].start_time, selectedShifts[i].end_time,
-        selectedShifts[j].start_time, selectedShifts[j].end_time,
-      )) {
+      if (
+        timesOverlap(
+          selectedShifts[i].start_time,
+          selectedShifts[i].end_time,
+          selectedShifts[j].start_time,
+          selectedShifts[j].end_time,
+        )
+      ) {
         conflictPairs.push([selectedShifts[i].name, selectedShifts[j].name]);
       }
     }
@@ -210,7 +214,12 @@ function MultiShiftSelect({shifts, selectedIds, onChange, formatTimeAMPM}) {
                       selectedIds.includes(sh.id),
                     );
                     return selectedShifts.some((sel) =>
-                      timesOverlap(s.start_time, s.end_time, sel.start_time, sel.end_time),
+                      timesOverlap(
+                        s.start_time,
+                        s.end_time,
+                        sel.start_time,
+                        sel.end_time,
+                      ),
                     );
                   })();
 
@@ -314,16 +323,15 @@ export default function Assignments() {
   const [evDetails, setEvDetails] = useState(null);
   const [loadingEvDetails, setLoadingEvDetails] = useState(false);
 
-  // Sort and Filter States
+  // Filter States
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState("vehicle"); // vehicle, driver, date
-  const [sortOrder, setSortOrder] = useState("asc"); // asc, desc
   const [filterShift, setFilterShift] = useState(""); // empty means all
   const [filterStatus, setFilterStatus] = useState(""); // empty means all
   const [showFilters, setShowFilters] = useState(false);
-  const [filterDate, setFilterDate] = useState(
-    new Date().toISOString().split("T")[0],
-  ); // YYYY-MM-DD, defaults to today
+  const todayDate = new Date().toISOString().split("T")[0];
+  const [filterRange, setFilterRange] = useState("today"); // today, week, month, all, custom
+  const [filterStartDate, setFilterStartDate] = useState(todayDate);
+  const [filterEndDate, setFilterEndDate] = useState(todayDate);
 
   // Lifted search state for Temporary and Replacements tabs
   const [tempSearchQuery, setTempSearchQuery] = useState("");
@@ -438,19 +446,33 @@ export default function Assignments() {
   const fetchAllData = async () => {
     setLoading(true);
     try {
+      const buildAssignmentUrl = (category) => {
+        const params = new URLSearchParams({
+          category,
+          range: filterRange,
+        });
+
+        if (filterRange === "custom") {
+          params.set("start_date", filterStartDate);
+          params.set("end_date", filterEndDate);
+        }
+
+        return `/api/admin/assignments/by-category?${params.toString()}`;
+      };
+
+      const evParams = new URLSearchParams({range: filterRange});
+      if (filterRange === "custom") {
+        evParams.set("start_date", filterStartDate);
+        evParams.set("end_date", filterEndDate);
+      }
+
       const [bus, car, ev, other, s, v, d, c, vg] = await Promise.all([
-        apiGet(
-          `/api/admin/assignments/by-category?category=BUS&date=${filterDate}`,
-        ).then((r) => r.json()),
-        apiGet(
-          `/api/admin/assignments/by-category?category=CAR&date=${filterDate}`,
-        ).then((r) => r.json()),
-        apiGet(`/api/admin/ev-assignments?date=${filterDate}`).then((r) =>
+        apiGet(buildAssignmentUrl("BUS")).then((r) => r.json()),
+        apiGet(buildAssignmentUrl("CAR")).then((r) => r.json()),
+        apiGet(`/api/admin/ev-assignments?${evParams.toString()}`).then((r) =>
           r.json(),
         ),
-        apiGet(
-          `/api/admin/assignments/by-category?category=OTHER&date=${filterDate}`,
-        ).then((r) => r.json()),
+        apiGet(buildAssignmentUrl("OTHER")).then((r) => r.json()),
         apiGet("/api/admin/shifts").then((r) => r.json()),
         apiGet("/api/admin/vehicles").then((r) => r.json()),
         apiGet("/api/admin/drivers").then((r) => r.json()),
@@ -476,7 +498,7 @@ export default function Assignments() {
 
   useEffect(() => {
     fetchAllData();
-  }, [filterDate]);
+  }, [filterRange, filterStartDate, filterEndDate]);
 
   // Filter and Sort Logic
   const getFilteredAndSortedAssignments = (assignments) => {
@@ -520,39 +542,23 @@ export default function Assignments() {
       }
     }
 
-    // Sort
+    // Keep a stable, clean default order by vehicle/group name.
     filtered.sort((a, b) => {
-      let compareA, compareB;
+      const compareA = (
+        a.vehicle_name ||
+        a.vehicle_number ||
+        a.vehicle_group_name ||
+        ""
+      ).toLowerCase();
+      const compareB = (
+        b.vehicle_name ||
+        b.vehicle_number ||
+        b.vehicle_group_name ||
+        ""
+      ).toLowerCase();
 
-      switch (sortBy) {
-        case "vehicle":
-          compareA = (
-            a.vehicle_name ||
-            a.vehicle_number ||
-            a.vehicle_group_name ||
-            ""
-          ).toLowerCase();
-          compareB = (
-            b.vehicle_name ||
-            b.vehicle_number ||
-            b.vehicle_group_name ||
-            ""
-          ).toLowerCase();
-          break;
-        case "driver":
-          compareA = (a.driver_name || "").toLowerCase();
-          compareB = (b.driver_name || "").toLowerCase();
-          break;
-        case "date":
-          compareA = new Date(a.start_date);
-          compareB = new Date(b.start_date);
-          break;
-        default:
-          return 0;
-      }
-
-      if (compareA < compareB) return sortOrder === "asc" ? -1 : 1;
-      if (compareA > compareB) return sortOrder === "asc" ? 1 : -1;
+      if (compareA < compareB) return -1;
+      if (compareA > compareB) return 1;
       return 0;
     });
 
@@ -1191,28 +1197,21 @@ export default function Assignments() {
               className="flex-1"
             />
 
-            {/* Sort By */}
+            {/* Time Range */}
             <div className="lg:w-48">
               <CustomDropdown
-                value={sortBy}
-                onChange={setSortBy}
+                value={filterRange}
+                onChange={setFilterRange}
                 options={[
-                  {value: "vehicle", label: "Sort by Vehicle"},
-                  {value: "driver", label: "Sort by Driver"},
-                  {value: "date", label: "Sort by Date"},
+                  {value: "today", label: "Today"},
+                  {value: "week", label: "This Week"},
+                  {value: "month", label: "This Month"},
+                  {value: "all", label: "All Time"},
+                  {value: "custom", label: "Custom Range"},
                 ]}
                 width="w-full"
               />
             </div>
-
-            {/* Sort Order */}
-            <button
-              onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
-              className="w-full lg:w-auto h-[42px] px-4 border border-gray-200 rounded-md bg-primarybg hover:bg-gray-50 transition-all flex items-center justify-center"
-              title={sortOrder === "asc" ? "Ascending" : "Descending"}
-            >
-              <span className="text-lg">{sortOrder === "asc" ? "↑" : "↓"}</span>
-            </button>
 
             {/* Filter Toggle */}
             <button
@@ -1221,21 +1220,17 @@ export default function Assignments() {
                 showFilters ||
                 filterShift ||
                 filterStatus ||
-                filterDate !== new Date().toISOString().split("T")[0]
+                filterRange !== "today"
                   ? "bg-primary text-white hover:bg-primary/90 shadow-sm"
                   : "border border-gray-200 bg-primarybg text-primarytext hover:border-primary hover:text-primary"
               }`}
             >
               <Filter size={16} /> Filters
-              {(filterShift ||
-                filterStatus ||
-                filterDate !== new Date().toISOString().split("T")[0]) && (
+              {(filterShift || filterStatus || filterRange !== "today") && (
                 <span className="bg-white text-primary rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
                   {(filterShift ? 1 : 0) +
                     (filterStatus ? 1 : 0) +
-                    (filterDate !== new Date().toISOString().split("T")[0]
-                      ? 1
-                      : 0)}
+                    (filterRange !== "today" ? 1 : 0)}
                 </span>
               )}
             </button>
@@ -1244,19 +1239,35 @@ export default function Assignments() {
           {/* Filter Options */}
           {showFilters && (
             <div className="mt-5 pt-5 border-t border-gray-100">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Date Filter */}
-                <div>
-                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-2">
-                    Filter by Date
-                  </label>
-                  <input
-                    type="date"
-                    value={filterDate}
-                    onChange={(e) => setFilterDate(e.target.value)}
-                    className="w-full h-[42px] px-3 border border-gray-200 rounded-md bg-primarybg text-primarytext focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm"
-                  />
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Custom Date Range */}
+                {filterRange === "custom" && (
+                  <>
+                    <div>
+                      <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-2">
+                        Start Date
+                      </label>
+                      <input
+                        type="date"
+                        value={filterStartDate}
+                        onChange={(e) => setFilterStartDate(e.target.value)}
+                        className="w-full h-[42px] px-3 border border-gray-200 rounded-md bg-primarybg text-primarytext focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-2">
+                        End Date
+                      </label>
+                      <input
+                        type="date"
+                        value={filterEndDate}
+                        min={filterStartDate}
+                        onChange={(e) => setFilterEndDate(e.target.value)}
+                        className="w-full h-[42px] px-3 border border-gray-200 rounded-md bg-primarybg text-primarytext focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm"
+                      />
+                    </div>
+                  </>
+                )}
 
                 {/* Shift Filter */}
                 <div>
@@ -1299,15 +1310,15 @@ export default function Assignments() {
               </div>
 
               {/* Clear Filters */}
-              {(filterShift ||
-                filterStatus ||
-                filterDate !== new Date().toISOString().split("T")[0]) && (
+              {(filterShift || filterStatus || filterRange !== "today") && (
                 <div className="mt-4 flex justify-end">
                   <button
                     onClick={() => {
                       setFilterShift("");
                       setFilterStatus("");
-                      setFilterDate(new Date().toISOString().split("T")[0]);
+                      setFilterRange("today");
+                      setFilterStartDate(todayDate);
+                      setFilterEndDate(todayDate);
                     }}
                     className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-md transition-colors text-sm font-semibold"
                   >
@@ -1405,7 +1416,10 @@ export default function Assignments() {
                                 {a.cluster_name}
                                 {a.shifts && a.shifts.length > 0 ? (
                                   a.shifts.map((s, i) => (
-                                    <span key={s.shift_id || i} className="flex items-center gap-0.5">
+                                    <span
+                                      key={s.shift_id || i}
+                                      className="flex items-center gap-0.5"
+                                    >
                                       <span className="opacity-50">•</span>
                                       <span>{s.shift_name}</span>
                                     </span>
@@ -1454,11 +1468,15 @@ export default function Assignments() {
                                 </span>
                               ))
                             ) : (
-                              <span className="text-xs text-secondarytext">Default Schedule</span>
+                              <span className="text-xs text-secondarytext">
+                                Default Schedule
+                              </span>
                             )
                           ) : (
                             <span className="text-xs text-secondarytext">
-                              {formatTimeAMPM(a.start_time || a.shift_start_time)}{" "}
+                              {formatTimeAMPM(
+                                a.start_time || a.shift_start_time,
+                              )}{" "}
                               - {formatTimeAMPM(a.end_time || a.shift_end_time)}
                             </span>
                           )}
@@ -1561,16 +1579,25 @@ export default function Assignments() {
               ) : (
                 <div className="text-center py-12 text-secondarytext">
                   <p>
-                    {searchQuery || filterShift || filterStatus
+                    {searchQuery ||
+                    filterShift ||
+                    filterStatus ||
+                    filterRange !== "today"
                       ? `No assignments match your search or filter criteria`
                       : `No assignments found for ${activeTab}`}
                   </p>
-                  {(searchQuery || filterShift || filterStatus) && (
+                  {(searchQuery ||
+                    filterShift ||
+                    filterStatus ||
+                    filterRange !== "today") && (
                     <button
                       onClick={() => {
                         setSearchQuery("");
                         setFilterShift("");
                         setFilterStatus("");
+                        setFilterRange("today");
+                        setFilterStartDate(todayDate);
+                        setFilterEndDate(todayDate);
                       }}
                       className="mt-3 px-4 py-2 text-primary hover:bg-primary/10 rounded-md transition-colors text-sm font-medium"
                     >
@@ -1743,8 +1770,6 @@ export default function Assignments() {
                       </div>
                     );
                   })()}
-
-
               </div>
 
               {createModalType === "ev" ? (
@@ -2317,7 +2342,10 @@ export default function Assignments() {
                           </span>
                           {evDetails.shifts && evDetails.shifts.length > 0 ? (
                             evDetails.shifts.map((s, i) => (
-                              <span key={s.shift_id || i} className="flex items-center gap-1">
+                              <span
+                                key={s.shift_id || i}
+                                className="flex items-center gap-1"
+                              >
                                 <span className="text-gray-400">•</span>
                                 <span>{s.shift_name}</span>
                               </span>
@@ -2325,7 +2353,9 @@ export default function Assignments() {
                           ) : (
                             <>
                               <span>•</span>
-                              <span>{evDetails.shift_name || "Default Schedule"}</span>
+                              <span>
+                                {evDetails.shift_name || "Default Schedule"}
+                              </span>
                             </>
                           )}
                         </div>
@@ -2381,14 +2411,18 @@ export default function Assignments() {
                     ) : (
                       <div className="space-y-2">
                         <div className="flex justify-between items-center">
-                          <span className="text-sm text-secondarytext">Shift Name</span>
+                          <span className="text-sm text-secondarytext">
+                            Shift Name
+                          </span>
                           <span className="font-semibold text-primarytext">
                             {evDetails.shift_name || "Default"}
                           </span>
                         </div>
                         {evDetails.shift_start_time && (
                           <div className="flex justify-between items-center">
-                            <span className="text-sm text-secondarytext">Time</span>
+                            <span className="text-sm text-secondarytext">
+                              Time
+                            </span>
                             <span className="font-semibold text-primarytext">
                               {formatTimeAMPM(evDetails.shift_start_time)} –{" "}
                               {formatTimeAMPM(evDetails.shift_end_time)}

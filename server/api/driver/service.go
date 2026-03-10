@@ -21,7 +21,6 @@ type DriverServiceRecord struct {
 	Description       string  `json:"description"`
 	Severity          string  `json:"severity"`
 	Status            string  `json:"status"`
-	ServiceTypeName   string  `json:"service_type_name"`
 	ScheduledDate     *string `json:"scheduled_date"`
 	CompletedAt       *string `json:"completed_at"`
 	AdminRemarks      string  `json:"admin_remarks"`
@@ -61,9 +60,9 @@ func ReportIssue(c *gin.Context) {
 
 	result, err := config.DB.Exec(`
 		INSERT INTO service_records 
-		(vehicle_id, service_type_id, reported_by, title, description, severity, status, odometer_at_service)
-		VALUES (?, ?, ?, ?, ?, ?, 'reported', ?)
-	`, req.VehicleID, req.ServiceTypeID, userID, req.Title, req.Description, severity, req.OdometerAtService)
+		(vehicle_id, reported_by, title, description, severity, status, odometer_at_service)
+		VALUES (?, ?, ?, ?, ?, 'reported', ?)
+	`, req.VehicleID, userID, req.Title, req.Description, severity, req.OdometerAtService)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to report issue: " + err.Error()})
 		return
@@ -100,12 +99,11 @@ func GetMyServiceRequests(c *gin.Context) {
 		SELECT 
 			sr.id, sr.vehicle_id, COALESCE(v.vehicle_number, ''), COALESCE(v.vehicle_name, ''),
 			sr.title, COALESCE(sr.description, ''), sr.severity, sr.status,
-			COALESCE(st.name, ''), COALESCE(DATE_FORMAT(sr.scheduled_date, '%d-%m-%Y'), ''), COALESCE(DATE_FORMAT(sr.completed_at, '%d-%m-%Y %h:%i %p'), ''),
+			COALESCE(DATE_FORMAT(sr.scheduled_date, '%d-%m-%Y'), ''), COALESCE(DATE_FORMAT(sr.completed_at, '%d-%m-%Y %h:%i %p'), ''),
 			COALESCE(sr.admin_remarks, ''), COALESCE(sr.rejection_reason, ''),
 			sr.total_cost, sr.odometer_at_service, DATE_FORMAT(sr.created_at, '%d-%m-%Y %h:%i %p')
 		FROM service_records sr
 		LEFT JOIN vehicles v ON sr.vehicle_id = v.id
-		LEFT JOIN service_types st ON sr.service_type_id = st.id
 		WHERE sr.reported_by = ?
 		ORDER BY sr.created_at DESC
 	`, userID)
@@ -131,12 +129,11 @@ func GetVehicleServiceHistory(c *gin.Context) {
 		SELECT 
 			sr.id, sr.vehicle_id, COALESCE(v.vehicle_number, ''), COALESCE(v.vehicle_name, ''),
 			sr.title, COALESCE(sr.description, ''), sr.severity, sr.status,
-			COALESCE(st.name, ''), COALESCE(DATE_FORMAT(sr.scheduled_date, '%d-%m-%Y'), ''), COALESCE(DATE_FORMAT(sr.completed_at, '%d-%m-%Y %h:%i %p'), ''),
+			COALESCE(DATE_FORMAT(sr.scheduled_date, '%d-%m-%Y'), ''), COALESCE(DATE_FORMAT(sr.completed_at, '%d-%m-%Y %h:%i %p'), ''),
 			COALESCE(sr.admin_remarks, ''), COALESCE(sr.rejection_reason, ''),
 			sr.total_cost, sr.odometer_at_service, DATE_FORMAT(sr.created_at, '%d-%m-%Y %h:%i %p')
 		FROM service_records sr
 		LEFT JOIN vehicles v ON sr.vehicle_id = v.id
-		LEFT JOIN service_types st ON sr.service_type_id = st.id
 		WHERE sr.vehicle_id = ? AND sr.status IN ('completed', 'in_progress', 'approved')
 		ORDER BY sr.created_at DESC
 	`, vehicleID)
@@ -161,7 +158,7 @@ func scanDriverServiceRecords(rows *sql.Rows) []DriverServiceRecord {
 		if err := rows.Scan(
 			&r.ID, &r.VehicleID, &r.VehicleNumber, &r.VehicleName,
 			&r.Title, &r.Description, &r.Severity, &r.Status,
-			&r.ServiceTypeName, &scheduledDate, &completedAt,
+			&scheduledDate, &completedAt,
 			&r.AdminRemarks, &r.RejectionReason,
 			&r.TotalCost, &odometerAtService, &r.CreatedAt,
 		); err != nil {

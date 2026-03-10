@@ -5,11 +5,10 @@ import {useToast} from "../../../context/ToastContext";
 import Loading from "../../../components/ui/Loading";
 import SearchableSelect from "../../../components/ui/SearchableSelect";
 import {
-  Map,
+  Map as MapIcon,
   Route,
   TrendingUp,
   Plus,
-  Truck,
   Calendar,
   AlertCircle,
   X,
@@ -26,6 +25,7 @@ export default function DriverKmLog() {
   const [submitting, setSubmitting] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [vehicles, setVehicles] = useState([]);
+  const [vehiclesLoading, setVehiclesLoading] = useState(false);
   const {user} = useAuth();
   const driverId = user?.driver_id;
 
@@ -42,7 +42,7 @@ export default function DriverKmLog() {
   useEffect(() => {
     if (driverId) {
       fetchLogs();
-      fetchAssignedVehicles();
+      fetchAssignedVehicles(getToday());
     }
   }, [driverId]);
 
@@ -83,90 +83,79 @@ export default function DriverKmLog() {
     }
   };
 
-  const fetchAssignedVehicles = async () => {
+  const fetchAssignedVehicles = async (dateValue = form.date) => {
+    setVehiclesLoading(true);
     try {
       const res = await apiGet(
-        `/api/driver/assignments?driver_id=${driverId}&date=${getToday()}`,
+        `/api/driver/km-log/assigned-vehicles?driver_id=${driverId}&date=${dateValue}`,
       );
-      if (res.ok) {
-        const assignments = await res.json();
-        const vehicleMap = new Map();
-
-        const upsertVehicle = (vehicle) => {
-          if (!vehicle?.id) return;
-
-          const existing = vehicleMap.get(vehicle.id);
-          vehicleMap.set(vehicle.id, {
-            ...existing,
-            ...vehicle,
-            assignment_id:
-              existing?.assignment_id || vehicle.assignment_id || null,
-            vehicle_name: vehicle.vehicle_name || existing?.vehicle_name || "",
-            vehicle_number:
-              vehicle.vehicle_number || existing?.vehicle_number || "",
-            vehicle_type:
-              vehicle.vehicle_type || existing?.vehicle_type || "EV",
-          });
-        };
-
-        (assignments || []).forEach((assignment) => {
-          if (assignment.vehicle_id) {
-            upsertVehicle({
-              id: assignment.vehicle_id,
-              vehicle_name: assignment.vehicle_name,
-              vehicle_number: assignment.vehicle_number,
-              vehicle_type: assignment.vehicle_type || "N/A",
-              assignment_id: assignment.is_ev_assignment ? null : assignment.id,
-            });
-          }
-
-          if (
-            assignment.is_ev_assignment &&
-            Array.isArray(assignment.group_vehicles)
-          ) {
-            assignment.group_vehicles.forEach((vehicle) => {
-              upsertVehicle({
-                id: vehicle.id,
-                vehicle_name: vehicle.vehicle_name,
-                vehicle_number: vehicle.vehicle_number,
-                vehicle_type:
-                  vehicle.vehicle_type ||
-                  assignment.vehicle_type ||
-                  vehicle.fuel_type ||
-                  "EV",
-                assignment_id: null,
-              });
-            });
-          }
-        });
-
-        const uniqueVehicles = Array.from(vehicleMap.values()).sort(
-          (left, right) => {
-            const leftLabel = (
-              left.vehicle_name ||
-              left.vehicle_number ||
-              ""
-            ).toLowerCase();
-            const rightLabel = (
-              right.vehicle_name ||
-              right.vehicle_number ||
-              ""
-            ).toLowerCase();
-            return leftLabel.localeCompare(rightLabel);
-          },
-        );
-
-        setVehicles(uniqueVehicles);
-        if (uniqueVehicles.length > 0) {
-          setForm((prev) => ({
-            ...prev,
-            vehicle_id: uniqueVehicles[0].id,
-            assignment_id: uniqueVehicles[0].assignment_id?.toString() || "",
-          }));
-        }
+      if (!res.ok) {
+        throw new Error("Failed to load assigned vehicles");
       }
+
+      const assignedVehicles = await res.json();
+      const vehicleMap = new globalThis.Map();
+
+      const upsertVehicle = (vehicle) => {
+        if (!vehicle?.id) return;
+
+        const existing = vehicleMap.get(vehicle.id);
+        vehicleMap.set(vehicle.id, {
+          ...existing,
+          ...vehicle,
+          assignment_id:
+            existing?.assignment_id || vehicle.assignment_id || null,
+          vehicle_name: vehicle.vehicle_name || existing?.vehicle_name || "",
+          vehicle_number:
+            vehicle.vehicle_number || existing?.vehicle_number || "",
+          vehicle_type:
+            vehicle.vehicle_type || existing?.vehicle_type || "Vehicle",
+          source: vehicle.source || existing?.source || "assignment",
+          source_label:
+            vehicle.source_label || existing?.source_label || "Assigned",
+        });
+      };
+
+      (assignedVehicles || []).forEach(upsertVehicle);
+
+      const uniqueVehicles = Array.from(vehicleMap.values()).sort(
+        (left, right) => {
+          const leftLabel = (
+            left.vehicle_name ||
+            left.vehicle_number ||
+            ""
+          ).toLowerCase();
+          const rightLabel = (
+            right.vehicle_name ||
+            right.vehicle_number ||
+            ""
+          ).toLowerCase();
+          return leftLabel.localeCompare(rightLabel);
+        },
+      );
+
+      setVehicles(uniqueVehicles);
+      setForm((prev) => {
+        const currentMatch = uniqueVehicles.find(
+          (vehicle) => String(vehicle.id) === String(prev.vehicle_id),
+        );
+        const fallback = uniqueVehicles[0];
+        if (!currentMatch && !fallback) {
+          return {...prev, vehicle_id: "", assignment_id: ""};
+        }
+
+        const selected = currentMatch || fallback;
+        return {
+          ...prev,
+          vehicle_id: String(selected.id),
+          assignment_id: selected.assignment_id?.toString() || "",
+        };
+      });
     } catch (err) {
       console.error(err);
+      showToast("Failed to load assigned vehicles", "error");
+    } finally {
+      setVehiclesLoading(false);
     }
   };
 
@@ -239,13 +228,13 @@ export default function DriverKmLog() {
     if (vehicleName && vehicleNumber && vehicleName !== vehicleNumber) {
       return {
         title: vehicleName,
-        subtitle: `${vehicleNumber} • ${vehicle?.vehicle_type || "Vehicle"}`,
+        subtitle: `${vehicleNumber} • ${vehicle?.vehicle_type || "Vehicle"} • ${vehicle?.source_label || "Assigned"}`,
       };
     }
 
     return {
       title: vehicleNumber || vehicleName || "Unknown vehicle",
-      subtitle: vehicle?.vehicle_type || "Vehicle",
+      subtitle: `${vehicle?.vehicle_type || "Vehicle"} • ${vehicle?.source_label || "Assigned"}`,
     };
   };
 
@@ -286,7 +275,10 @@ export default function DriverKmLog() {
           </p>
         </div>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={() => {
+            setShowModal(true);
+            fetchAssignedVehicles(form.date);
+          }}
           className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-md hover:bg-primary/90 transition-colors text-sm font-medium"
         >
           <Plus size={18} />
@@ -302,11 +294,11 @@ export default function DriverKmLog() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="bg-secondarybg rounded-md border border-gray-100 p-4 relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
-                <Map size={56} className="text-primary" />
+                <MapIcon size={56} className="text-primary" />
               </div>
               <div className="flex items-center gap-3 relative z-10">
                 <div className="p-2.5 bg-primary/10 rounded-md">
-                  <Map size={20} className="text-primary" />
+                  <MapIcon size={20} className="text-primary" />
                 </div>
                 <div>
                   <p className="text-xs font-bold text-secondarytext uppercase tracking-wider">
@@ -617,9 +609,13 @@ export default function DriverKmLog() {
                 <input
                   type="date"
                   value={form.date}
-                  onChange={(e) =>
-                    setForm((prev) => ({...prev, date: e.target.value}))
-                  }
+                  onChange={(e) => {
+                    const nextDate = e.target.value;
+                    setForm((prev) => ({...prev, date: nextDate}));
+                    if (driverId) {
+                      fetchAssignedVehicles(nextDate);
+                    }
+                  }}
                   max={getToday()}
                   className="w-full h-10.5 px-3 border border-gray-200 rounded-md bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
                   required
@@ -634,6 +630,7 @@ export default function DriverKmLog() {
                 <SearchableSelect
                   options={vehicleOptions}
                   value={String(form.vehicle_id)}
+                  disabled={vehiclesLoading}
                   onChange={(val) => {
                     const selectedVehicle = vehicles.find(
                       (v) => String(v.id) === val,
@@ -645,13 +642,22 @@ export default function DriverKmLog() {
                         selectedVehicle?.assignment_id?.toString() || "",
                     }));
                   }}
-                  placeholder="Search and select vehicle"
+                  placeholder={
+                    vehiclesLoading
+                      ? "Loading assigned vehicles..."
+                      : "Search and select vehicle"
+                  }
                   emptyMessage="No vehicles assigned"
                 />
+                {vehiclesLoading && (
+                  <p className="text-xs text-secondarytext mt-1">
+                    Loading assigned vehicles for selected date...
+                  </p>
+                )}
                 {vehicles.length === 0 && (
                   <p className="text-xs text-orange-500 mt-1">
-                    No active vehicles found for today. Contact admin if your EV
-                    group is missing.
+                    No assigned vehicles found for this date (including EV group
+                    and vehicle requests). Contact admin if this looks wrong.
                   </p>
                 )}
               </div>
@@ -769,7 +775,7 @@ export default function DriverKmLog() {
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={submitting || vehiclesLoading || !form.vehicle_id}
                   className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-md hover:bg-primary/90 disabled:opacity-50 font-medium text-sm transition-colors"
                 >
                   {submitting ? (
