@@ -498,6 +498,7 @@ func GetAdminKmLogs(c *gin.Context) {
         SELECT
             kl.id,
             DATE_FORMAT(kl.date, '%d-%m-%Y') as date,
+			COALESCE(DATE_FORMAT(kl.created_at, '%h:%i %p'), '-') as recorded_time,
             kl.start_km,
             kl.end_km,
             kl.total_km,
@@ -544,6 +545,7 @@ func GetAdminKmLogs(c *gin.Context) {
 	type adminKmLog struct {
 		ID            int      `json:"id"`
 		Date          string   `json:"date"`
+		RecordedTime  string   `json:"recorded_time"`
 		StartKm       float64  `json:"start_km"`
 		EndKm         float64  `json:"end_km"`
 		TotalKm       float64  `json:"total_km"`
@@ -563,7 +565,7 @@ func GetAdminKmLogs(c *gin.Context) {
 	var logs []adminKmLog
 	for rows.Next() {
 		var l adminKmLog
-		if err := rows.Scan(&l.ID, &l.Date, &l.StartKm, &l.EndKm, &l.TotalKm, &l.FuelConsumed, &l.Remarks,
+		if err := rows.Scan(&l.ID, &l.Date, &l.RecordedTime, &l.StartKm, &l.EndKm, &l.TotalKm, &l.FuelConsumed, &l.Remarks,
 			&l.VehicleName, &l.VehicleNumber, &l.VehicleType, &l.DriverName, &l.ClusterName,
 			&l.Shift, &l.RouteName, &l.RecordedBy, &l.Status); err == nil {
 			logs = append(logs, l)

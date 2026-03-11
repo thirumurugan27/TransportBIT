@@ -64,4 +64,30 @@ func runMigrations() {
 			log.Printf("Migration: added column %s to fuel_indents", col.name)
 		}
 	}
+
+	// Drop unique constraint on km_logs(driver_id, date) to allow multiple logs per day
+	var uniqueCount int
+	err := DB.QueryRow(
+		"SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'km_logs' AND INDEX_NAME = 'unique_driver_date'",
+	).Scan(&uniqueCount)
+	if err == nil && uniqueCount > 0 {
+		if _, err := DB.Exec("ALTER TABLE km_logs DROP INDEX unique_driver_date"); err != nil {
+			log.Printf("Migration warning (drop unique_driver_date): %v", err)
+		} else {
+			log.Println("Migration: dropped unique_driver_date constraint from km_logs")
+		}
+	}
+
+	// Add payment_type column to transport_payments if not present
+	var ptCount int
+	err = DB.QueryRow(
+		"SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'transport_payments' AND COLUMN_NAME = 'payment_type'",
+	).Scan(&ptCount)
+	if err == nil && ptCount == 0 {
+		if _, err := DB.Exec("ALTER TABLE transport_payments ADD COLUMN payment_type VARCHAR(20) NOT NULL DEFAULT 'payment'"); err != nil {
+			log.Printf("Migration warning (payment_type): %v", err)
+		} else {
+			log.Println("Migration: added payment_type column to transport_payments")
+		}
+	}
 }

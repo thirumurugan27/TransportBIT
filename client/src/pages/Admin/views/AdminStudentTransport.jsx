@@ -96,6 +96,7 @@ export default function AdminStudentTransport() {
     transaction_id: "",
     receipt_number: "",
     remarks: "",
+    payment_type: "payment",
   });
   const [processForm, setProcessForm] = useState({
     request_id: 0,
@@ -294,7 +295,7 @@ export default function AdminStudentTransport() {
         paymentForm,
       );
       if (res.ok) {
-        showToast("Payment recorded successfully!", "success");
+        showToast(paymentForm.payment_type === "refund" ? "Refund recorded successfully!" : "Payment recorded successfully!", "success");
         setShowPaymentModal(false);
         setPaymentForm({
           student_transport_id: 0,
@@ -304,6 +305,7 @@ export default function AdminStudentTransport() {
           transaction_id: "",
           receipt_number: "",
           remarks: "",
+          payment_type: "payment",
         });
         fetchPayments();
         fetchStudentTransports();
@@ -1088,20 +1090,41 @@ export default function AdminStudentTransport() {
                                 {getStatusBadge(st.status)}
                               </td>
                               <td className="px-4 py-3">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setPaymentForm({
-                                      ...paymentForm,
-                                      student_transport_id: st.id,
-                                    });
-                                    setShowPaymentModal(true);
-                                  }}
-                                  className="flex items-center gap-1 text-primary hover:text-primarydull text-sm font-medium"
-                                >
-                                  <CreditCard className="w-4 h-4" />
-                                  Add Payment
-                                </button>
+                                {st.balance < 0 ? (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setPaymentForm({
+                                        ...paymentForm,
+                                        student_transport_id: st.id,
+                                        amount: Math.abs(st.balance),
+                                        payment_type: "refund",
+                                      });
+                                      setShowPaymentModal(true);
+                                    }}
+                                    className="flex items-center gap-1 text-red hover:text-red/80 text-sm font-medium"
+                                  >
+                                    <IndianRupee className="w-4 h-4" />
+                                    Refund ₹{Math.abs(st.balance)?.toLocaleString()}
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setPaymentForm({
+                                        ...paymentForm,
+                                        student_transport_id: st.id,
+                                        payment_type: "payment",
+                                        amount: 0,
+                                      });
+                                      setShowPaymentModal(true);
+                                    }}
+                                    className="flex items-center gap-1 text-primary hover:text-primarydull text-sm font-medium"
+                                  >
+                                    <CreditCard className="w-4 h-4" />
+                                    Add Payment
+                                  </button>
+                                )}
                               </td>
                             </tr>
                           ))}
@@ -1179,6 +1202,9 @@ export default function AdminStudentTransport() {
                               Student
                             </th>
                             <th className="px-4 py-3 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
+                              Type
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
                               Amount
                             </th>
                             <th className="px-4 py-3 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
@@ -1204,8 +1230,19 @@ export default function AdminStudentTransport() {
                               <td className="px-4 py-3 text-sm font-medium text-primarytext">
                                 {p.student_name}
                               </td>
-                              <td className="px-4 py-3 text-sm text-green font-semibold">
-                                ₹{p.amount?.toLocaleString()}
+                              <td className="px-4 py-3">
+                                {p.payment_type === "refund" ? (
+                                  <span className="text-xs font-bold text-red bg-red/10 px-2 py-0.5 rounded">
+                                    REFUND
+                                  </span>
+                                ) : (
+                                  <span className="text-xs font-bold text-green bg-green/10 px-2 py-0.5 rounded">
+                                    PAYMENT
+                                  </span>
+                                )}
+                              </td>
+                              <td className={`px-4 py-3 text-sm font-semibold ${p.payment_type === "refund" ? "text-red" : "text-green"}`}>
+                                {p.payment_type === "refund" ? "-" : "+"}₹{p.amount?.toLocaleString()}
                               </td>
                               <td className="px-4 py-3 text-sm text-primarytext capitalize">
                                 {p.payment_method}
@@ -1570,11 +1607,11 @@ export default function AdminStudentTransport() {
           <div className="bg-secondarybg rounded-md shadow-2xl max-w-lg w-full border border-primarybg animate-scaleIn">
             <div className="flex items-center justify-between p-6 border-b border-primarybg">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-md bg-green/10 flex items-center justify-center">
-                  <CreditCard className="w-5 h-5 text-green" />
+                <div className={`w-10 h-10 rounded-md flex items-center justify-center ${paymentForm.payment_type === "refund" ? "bg-red/10" : "bg-green/10"}`}>
+                  <CreditCard className={`w-5 h-5 ${paymentForm.payment_type === "refund" ? "text-red" : "text-green"}`} />
                 </div>
                 <h3 className="text-xl font-bold text-primarytext">
-                  Record Payment
+                  {paymentForm.payment_type === "refund" ? "Record Refund" : "Record Payment"}
                 </h3>
               </div>
               <button
@@ -1697,9 +1734,9 @@ export default function AdminStudentTransport() {
               </button>
               <button
                 onClick={handleRecordPayment}
-                className="flex-1 py-3 bg-green text-white rounded-md hover:opacity-90 transition-opacity font-medium"
+                className={`flex-1 py-3 text-white rounded-md hover:opacity-90 transition-opacity font-medium ${paymentForm.payment_type === "refund" ? "bg-red" : "bg-green"}`}
               >
-                Record Payment
+                {paymentForm.payment_type === "refund" ? "Record Refund" : "Record Payment"}
               </button>
             </div>
           </div>

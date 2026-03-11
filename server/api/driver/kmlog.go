@@ -40,6 +40,7 @@ type KmLogRequest struct {
 	VehicleID    *int     `json:"vehicle_id"`
 	AssignmentID *int     `json:"assignment_id"`
 	ShiftID      *int     `json:"shift_id"`
+	Force        bool     `json:"force"`
 }
 type KmLogAssignedVehicle struct {
 	ID            int    `json:"id"`
@@ -381,6 +382,26 @@ func AddDriverKmLog(c *gin.Context) {
 	// Calculate total if not provided or incorrect
 	if req.TotalKm == 0 {
 		req.TotalKm = req.EndKm - req.StartKm
+	}
+
+	// Check for duplicate entry unless force flag is set
+	if !req.Force {
+		var existingID int
+		var dupErr error
+		if req.ShiftID != nil {
+			dupErr = config.DB.QueryRow(`SELECT id FROM km_logs WHERE driver_id = ? AND date = ? AND vehicle_id = ? AND shift_id = ?`,
+				req.DriverID, req.Date, *req.VehicleID, *req.ShiftID).Scan(&existingID)
+		} else {
+			dupErr = config.DB.QueryRow(`SELECT id FROM km_logs WHERE driver_id = ? AND date = ? AND vehicle_id = ?`,
+				req.DriverID, req.Date, *req.VehicleID).Scan(&existingID)
+		}
+		if dupErr == nil {
+			c.JSON(http.StatusConflict, gin.H{
+				"code":  "duplicate",
+				"error": "You have already submitted a KM log for this date and vehicle. Do you want to add another log?",
+			})
+			return
+		}
 	}
 
 	// Fetch driver user info for recorded_by metadata

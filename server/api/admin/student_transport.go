@@ -319,7 +319,8 @@ func GetAllTransportPayments(c *gin.Context) {
 			p.amount, DATE_FORMAT(p.payment_date, '%d-%m-%Y'),
 			p.payment_method, COALESCE(p.transaction_id, ''),
 			COALESCE(p.receipt_number, ''), COALESCE(p.remarks, ''),
-			COALESCE(p.recorded_by, 0), COALESCE(admin.full_name, 'System')
+			COALESCE(p.recorded_by, 0), COALESCE(admin.full_name, 'System'),
+			COALESCE(p.payment_type, 'payment')
 		FROM transport_payments p
 		JOIN student_transport st ON p.student_transport_id = st.id
 		JOIN users u ON st.user_id = u.id
@@ -340,7 +341,7 @@ func GetAllTransportPayments(c *gin.Context) {
 			&p.ID, &p.StudentTransportID, &p.StudentName,
 			&p.Amount, &p.PaymentDate, &p.PaymentMethod,
 			&p.TransactionID, &p.ReceiptNumber, &p.Remarks,
-			&p.RecordedBy, &p.RecordedByName,
+			&p.RecordedBy, &p.RecordedByName, &p.PaymentType,
 		); err != nil {
 			continue
 		}
@@ -364,29 +365,50 @@ func RecordTransportPayment(c *gin.Context) {
 		req.PaymentDate = time.Now().Format("2006-01-02")
 	}
 
-	// Insert payment
+	if req.PaymentType == "" {
+		req.PaymentType = "payment"
+	}
+
+	if req.PaymentType != "payment" && req.PaymentType != "refund" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payment type"})
+		return
+	}
+
+	// Insert payment/refund record
 	_, err := config.DB.Exec(`
 		INSERT INTO transport_payments 
-		(student_transport_id, amount, payment_date, payment_method, transaction_id, receipt_number, remarks, recorded_by)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-	`, req.StudentTransportID, req.Amount, req.PaymentDate, req.PaymentMethod, req.TransactionID, req.ReceiptNumber, req.Remarks, adminID)
+		(student_transport_id, amount, payment_date, payment_method, transaction_id, receipt_number, remarks, recorded_by, payment_type)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, req.StudentTransportID, req.Amount, req.PaymentDate, req.PaymentMethod, req.TransactionID, req.ReceiptNumber, req.Remarks, adminID, req.PaymentType)
 	if err != nil {
-		log.Printf("Error recording payment: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to record payment"})
+		log.Printf("Error recording %s: %v", req.PaymentType, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to record %s", req.PaymentType)})
 		return
 	}
 
 	// Update paid amount in student_transport
-	_, err = config.DB.Exec(`
-		UPDATE student_transport 
-		SET paid_amount = paid_amount + ?
-		WHERE id = ?
-	`, req.Amount, req.StudentTransportID)
+	if req.PaymentType == "refund" {
+		_, err = config.DB.Exec(`
+			UPDATE student_transport 
+			SET paid_amount = paid_amount - ?
+			WHERE id = ?
+		`, req.Amount, req.StudentTransportID)
+	} else {
+		_, err = config.DB.Exec(`
+			UPDATE student_transport 
+			SET paid_amount = paid_amount + ?
+			WHERE id = ?
+		`, req.Amount, req.StudentTransportID)
+	}
 	if err != nil {
 		log.Printf("Error updating paid amount: %v", err)
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Payment recorded successfully"})
+	msg := "Payment recorded successfully"
+	if req.PaymentType == "refund" {
+		msg = "Refund recorded successfully"
+	}
+	c.JSON(http.StatusOK, gin.H{"message": msg})
 }
 
 // =====================

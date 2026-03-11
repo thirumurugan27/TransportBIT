@@ -22,21 +22,22 @@ type AdminProfile struct {
 	Email        string `json:"email"`
 	ProfileImage string `json:"profile_image"`
 }
+
 /* =========================
    DRIVER MODELS
 ========================= */
 type CreateDriverRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-	FullName string `json:"full_name"`
-	Phone    string `json:"phone"`
-	Email    string `json:"email"`
-	LicenseNumber   string `json:"license_number"`
-	LicenseType     string `json:"license_type"`
-	LicenseExpiry   string `json:"license_expiry"`
-	ExperienceYears int    `json:"experience_years"`
-	DateOfJoining   string `json:"date_of_joining"`
-	DateOfRelieving string `json:"date_of_relieving"`
+	Username           string `json:"username"`
+	Password           string `json:"password"`
+	FullName           string `json:"full_name"`
+	Phone              string `json:"phone"`
+	Email              string `json:"email"`
+	LicenseNumber      string `json:"license_number"`
+	LicenseType        string `json:"license_type"`
+	LicenseExpiry      string `json:"license_expiry"`
+	ExperienceYears    int    `json:"experience_years"`
+	DateOfJoining      string `json:"date_of_joining"`
+	DateOfRelieving    string `json:"date_of_relieving"`
 	AllowedVehicleType string `json:"allowed_vehicle_type"`
 	HomeVehicleID      *int   `json:"home_vehicle_id"`
 	HomeStopID         *int   `json:"home_stop_id"`
@@ -61,38 +62,40 @@ type DriverResponse struct {
 	ClusterID          *int   `json:"cluster_id"`
 	ClusterName        string `json:"cluster_name"`
 }
+
 /* =========================
    VEHICLE MODELS
 ========================= */
 type Vehicle struct {
-	ID              int    `json:"id"`
-	VehicleNumber   string `json:"vehicle_number"`
-	VehicleType     string `json:"vehicle_type"`
-	FuelType        string `json:"fuel_type"`
-	SeatingCapacity int    `json:"seating_capacity"`
-	Status          string `json:"status"`
-	VehicleName     string `json:"vehicle_name"`
-	StartPoint      string `json:"start_point"`
-	EndPoint        string `json:"end_point"`
-	ChassisNumber    *string  `json:"chassis_number"`
-	EngineNumber     *string  `json:"engine_number"`
-	PermitNumber     *string  `json:"permit_number"`
-	AdditionalPermit *string  `json:"additional_permit"`
-	InsuranceAmount  *float64 `json:"insurance_amount"`
-	RoadTaxAmount    *float64 `json:"road_tax_amount"`
-	PollutionExpire  *string  `json:"pollution_expire"`
-	GreenTaxExpire   *string  `json:"green_tax_expire"`
-	MVTaxExpire      *string  `json:"mv_tax_expire"`
-	InsuranceExpireDate *string `json:"insurance_expire_date"`
-	InsuranceStartDate  *string `json:"insurance_start_date"`
-	InsuranceRemarks    *string `json:"insurance_remarks"`
-	FCExpireDate        *string `json:"fc_expire_date"`
-	FCStartDate         *string `json:"fc_start_date"`
-	FCRemarks           *string `json:"fc_remarks"`
-	PermitExpireDate    *string `json:"permit_expire_date"`
-	PermitStartDate     *string `json:"permit_start_date"`
-	PermitRemarks       *string `json:"permit_remarks"`
+	ID                  int      `json:"id"`
+	VehicleNumber       string   `json:"vehicle_number"`
+	VehicleType         string   `json:"vehicle_type"`
+	FuelType            string   `json:"fuel_type"`
+	SeatingCapacity     int      `json:"seating_capacity"`
+	Status              string   `json:"status"`
+	VehicleName         string   `json:"vehicle_name"`
+	StartPoint          string   `json:"start_point"`
+	EndPoint            string   `json:"end_point"`
+	ChassisNumber       *string  `json:"chassis_number"`
+	EngineNumber        *string  `json:"engine_number"`
+	PermitNumber        *string  `json:"permit_number"`
+	AdditionalPermit    *string  `json:"additional_permit"`
+	InsuranceAmount     *float64 `json:"insurance_amount"`
+	RoadTaxAmount       *float64 `json:"road_tax_amount"`
+	PollutionExpire     *string  `json:"pollution_expire"`
+	GreenTaxExpire      *string  `json:"green_tax_expire"`
+	MVTaxExpire         *string  `json:"mv_tax_expire"`
+	InsuranceExpireDate *string  `json:"insurance_expire_date"`
+	InsuranceStartDate  *string  `json:"insurance_start_date"`
+	InsuranceRemarks    *string  `json:"insurance_remarks"`
+	FCExpireDate        *string  `json:"fc_expire_date"`
+	FCStartDate         *string  `json:"fc_start_date"`
+	FCRemarks           *string  `json:"fc_remarks"`
+	PermitExpireDate    *string  `json:"permit_expire_date"`
+	PermitStartDate     *string  `json:"permit_start_date"`
+	PermitRemarks       *string  `json:"permit_remarks"`
 }
+
 // VehicleDocument represents a single document row in vehicle_documents table.
 type VehicleDocument struct {
 	ID           int     `json:"id"`
@@ -134,6 +137,7 @@ type CreateVehicleRequest struct {
 	PermitStartDate     *string `json:"permit_start_date"`
 	PermitRemarks       *string `json:"permit_remarks"`
 }
+
 // VehicleDocumentAuditLog represents a single field-level change to a vehicle document
 type VehicleDocumentAuditLog struct {
 	ID            int     `json:"id"`
@@ -146,6 +150,7 @@ type VehicleDocumentAuditLog struct {
 	ChangedByName string  `json:"changed_by_name"`
 	ChangedAt     string  `json:"changed_at"`
 }
+
 /* =========================
    STOP MODELS
 ========================= */
@@ -158,6 +163,7 @@ type CreateStopRequest struct {
 	StopName string `json:"stop_name"`
 	Location string `json:"location"`
 }
+
 /* =========================
    SHIFT MODELS
 ======================== */
@@ -182,6 +188,7 @@ type CreateShiftWithSlotsRequest struct {
 	StartTime   string `json:"start_time"`
 	EndTime     string `json:"end_time"`
 }
+
 /* =========================
    ASSIGNMENT MODELS
 ========================= */
@@ -506,6 +513,7 @@ type TransportPayment struct {
 	Remarks            string  `json:"remarks"`
 	RecordedBy         int     `json:"recorded_by"`
 	RecordedByName     string  `json:"recorded_by_name"`
+	PaymentType        string  `json:"payment_type"`
 }
 
 type RecordPaymentRequest struct {
@@ -516,6 +524,7 @@ type RecordPaymentRequest struct {
 	TransactionID      string  `json:"transaction_id"`
 	ReceiptNumber      string  `json:"receipt_number"`
 	Remarks            string  `json:"remarks"`
+	PaymentType        string  `json:"payment_type"`
 }
 
 // StopChangeRequest - Student request to change stop
@@ -873,11 +882,11 @@ type ServiceRecord struct {
 	CreatedAt         string  `json:"created_at"`
 	UpdatedAt         string  `json:"updated_at"`
 	// Joined fields
-	VehicleNumber   string `json:"vehicle_number"`
-	VehicleName     string `json:"vehicle_name"`
-	VehicleType     string `json:"vehicle_type"`
-	ReportedByName  string `json:"reported_by_name"`
-	AdminName       string `json:"admin_name"`
+	VehicleNumber  string `json:"vehicle_number"`
+	VehicleName    string `json:"vehicle_name"`
+	VehicleType    string `json:"vehicle_type"`
+	ReportedByName string `json:"reported_by_name"`
+	AdminName      string `json:"admin_name"`
 }
 
 type CreateServiceRecordRequest struct {

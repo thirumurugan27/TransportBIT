@@ -40,6 +40,11 @@ const formatNumber = (value, fraction = 1) =>
     .toFixed(fraction)
     .replace(/\.0+$/, "");
 
+const formatRecordedTime = (value) => {
+  if (!value || value === "-") return "Time unavailable";
+  return value;
+};
+
 const getVehicleIcon = (type) => {
   switch (type?.toUpperCase()) {
     case "BUS":
@@ -818,7 +823,13 @@ export default function KmManagement() {
                         className={`hover:bg-primarybg transition-colors ${log.status === "pending" ? "bg-pending/5" : ""}`}
                       >
                         <td className="py-3 px-4 text-sm text-primarytext">
-                          {log.date}
+                          <div className="flex flex-col">
+                            <span>{log.date}</span>
+                            <span className="mt-1 inline-flex items-center gap-1 text-xs text-secondarytext">
+                              <Clock size={12} />
+                              {formatRecordedTime(log.recorded_time)}
+                            </span>
+                          </div>
                         </td>
                         <td className="py-3 px-4 text-sm font-medium text-primarytext">
                           {log.driver_name}

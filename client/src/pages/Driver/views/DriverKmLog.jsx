@@ -2,6 +2,7 @@ import React, {useState, useEffect} from "react";
 import {useAuth} from "../../../context/AuthContext";
 import {apiGet, apiPost, getToday} from "../../../utils/api";
 import {useToast} from "../../../context/ToastContext";
+import {showConfirm} from "../../../utils/swal";
 import Loading from "../../../components/ui/Loading";
 import SearchableSelect from "../../../components/ui/SearchableSelect";
 import {
@@ -159,8 +160,8 @@ export default function DriverKmLog() {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (e, force = false) => {
+    if (e) e.preventDefault();
     if (parseFloat(form.end_km) <= parseFloat(form.start_km)) {
       showToast("End KM must be greater than Start KM", "warning");
       return;
@@ -188,16 +189,26 @@ export default function DriverKmLog() {
         fuel_consumed: form.fuel_consumed
           ? parseFloat(form.fuel_consumed)
           : null,
+        force,
       };
 
       const res = await apiPost("/api/driver/km-log/add", payload);
+      const data = await res.json();
+
       if (res.ok) {
         showToast("KM log submitted for approval!", "success");
         closeModal();
         fetchLogs();
+      } else if (data.code === "duplicate") {
+        const confirmed = await showConfirm(
+          "Log Already Exists",
+          data.error || "You have already submitted a KM log for this date and vehicle. Do you want to add another log?",
+        );
+        if (confirmed) {
+          await handleSubmit(null, true);
+        }
       } else {
-        const errData = await res.json();
-        showToast("Failed: " + (errData.error || "Unknown error"), "error");
+        showToast("Failed: " + (data.error || "Unknown error"), "error");
       }
     } catch (err) {
       console.error(err);
