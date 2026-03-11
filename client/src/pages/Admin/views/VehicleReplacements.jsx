@@ -175,6 +175,31 @@ const initialForm = {
   notes: "",
 };
 
+const getVehicleIdentity = (name, number) => {
+  const cleanName = typeof name === "string" ? name.trim() : "";
+  const cleanNumber = typeof number === "string" ? number.trim() : "";
+
+  if (
+    cleanName &&
+    cleanNumber &&
+    cleanName.toLowerCase() !== cleanNumber.toLowerCase()
+  ) {
+    return {title: cleanName, subtitle: cleanNumber};
+  }
+
+  return {
+    title: cleanNumber || cleanName || "—",
+    subtitle: null,
+  };
+};
+
+const getVehicleDisplayLine = (name, number) => {
+  const identity = getVehicleIdentity(name, number);
+  return identity.subtitle
+    ? `${identity.title} (${identity.subtitle})`
+    : identity.title;
+};
+
 export default function VehicleReplacements({
   searchQuery: searchQueryProp,
   statusFilter: statusFilterProp,
@@ -451,9 +476,11 @@ export default function VehicleReplacements({
     if (effectiveSearch) {
       const q = effectiveSearch.toLowerCase();
       const match =
+        r.vehicle_name?.toLowerCase().includes(q) ||
         r.vehicle_number?.toLowerCase().includes(q) ||
         r.driver_name?.toLowerCase().includes(q) ||
         r.reason?.toLowerCase().includes(q) ||
+        r.replacement_vehicle_name?.toLowerCase().includes(q) ||
         r.replacement_vehicle_number?.toLowerCase().includes(q);
       if (!match) return false;
     }
@@ -480,56 +507,64 @@ export default function VehicleReplacements({
           {filtered.map((r) => (
             <div
               key={r.id}
-              className="rounded-md border border-gray-100 bg-primarybg p-4 hover:shadow-lg hover:border-primary/30 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer active:scale-[0.99]"
+              className="rounded-md border border-[#E4E8F4] bg-white p-4 sm:p-5 shadow-sm hover:shadow-md hover:border-[#CFC8FF] transition-all duration-200 cursor-pointer active:scale-[0.99]"
               onClick={() => setShowDetailModal(r)}
             >
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-md flex items-center justify-center text-white bg-primary shrink-0">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="flex items-start gap-4 min-w-0 flex-1">
+                  <div className="w-12 h-12 rounded-md flex items-center justify-center text-white bg-primary shrink-0 shadow-sm">
                     <RefreshCw size={20} />
                   </div>
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-semibold text-primarytext">
-                        {r.vehicle_number}
-                      </p>
-                      {r.replacement_vehicle_number && (
-                        <>
-                          <RefreshCw size={13} className="text-secondarytext" />
-                          <span className="font-semibold text-green">
-                            {r.replacement_vehicle_number}
-                          </span>
-                        </>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap mb-3">
+                      <Pill label={r.status} style={STATUS_STYLE[r.status]} />
+                      <span className="px-3 py-1.5 rounded-md bg-[#F8F9FD] text-secondarytext text-xs font-bold uppercase border border-[#E4E8F4]">
+                        {REASON_LABELS[r.reason] || r.reason}
+                      </span>
+                      {r.days_remaining > 0 && r.status === "approved" && (
+                        <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-green-50 text-green border border-green-100">
+                          {r.days_remaining}d left
+                        </span>
+                      )}
+                      {r.days_remaining <= 0 && r.status === "approved" && (
+                        <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-red-50 text-red border border-red-100">
+                          Overdue
+                        </span>
                       )}
                     </div>
-                    <p className="text-xs text-secondarytext">
-                      {r.driver_name}
-                    </p>
-                    <p className="text-sm text-secondarytext">
-                      {r.start_date} → {r.end_date}
-                    </p>
+
+                    <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center">
+                      <VehicleIdentityCard
+                        label="Vehicle"
+                        name={r.vehicle_name}
+                        number={r.vehicle_number}
+                      />
+                      <div className="hidden md:flex items-center justify-center text-secondarytext/70">
+                        <RefreshCw size={16} />
+                      </div>
+                      <VehicleIdentityCard
+                        label="Replacement Vehicle"
+                        name={r.replacement_vehicle_name}
+                        number={r.replacement_vehicle_number}
+                        accentColor={C.green}
+                      />
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-secondarytext">
+                      <span className="font-medium">
+                        {r.driver_name || "Driver not assigned"}
+                      </span>
+                      <span className="hidden sm:inline text-[#CBD2E8]">•</span>
+                      <span>
+                        {r.start_date} → {r.end_date}
+                      </span>
+                      {r.service_title && (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-[#F8F9FD] px-2.5 py-1 text-xs font-medium text-secondarytext border border-[#E4E8F4]">
+                          <Wrench size={12} /> {r.service_title}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="px-3 py-1.5 rounded-md bg-white text-secondarytext text-xs font-bold uppercase border border-gray-200">
-                    {REASON_LABELS[r.reason] || r.reason}
-                  </span>
-                  {r.service_title && (
-                    <span className="px-3 py-1.5 rounded-md bg-white text-secondarytext text-xs font-medium border border-gray-200 flex items-center gap-1">
-                      <Wrench size={12} /> {r.service_title}
-                    </span>
-                  )}
-                  <Pill label={r.status} style={STATUS_STYLE[r.status]} />
-                  {r.days_remaining > 0 && r.status === "approved" && (
-                    <span className="text-xs font-bold px-2 py-1 rounded bg-green-50 text-green">
-                      {r.days_remaining}d left
-                    </span>
-                  )}
-                  {r.days_remaining <= 0 && r.status === "approved" && (
-                    <span className="text-xs font-bold px-2 py-1 rounded bg-red-50 text-red">
-                      Overdue
-                    </span>
-                  )}
                 </div>
               </div>
             </div>
@@ -539,38 +574,57 @@ export default function VehicleReplacements({
 
       {/* ─── Detail Modal ─── */}
       {showDetailModal && (
-        <Modal onClose={() => setShowDetailModal(null)} maxWidth="max-w-md">
+        <Modal onClose={() => setShowDetailModal(null)} maxWidth="max-w-xl">
           <ModalHeader
             title="Replacement Details"
             onClose={() => setShowDetailModal(null)}
           />
           <div className="p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span
-                  className="text-xs font-bold"
-                  style={{color: C.secondarytext}}
-                >
-                  #{showDetailModal.id}
-                </span>
-              </div>
               <Pill
                 label={showDetailModal.status}
                 style={STATUS_STYLE[showDetailModal.status]}
               />
             </div>
 
-            <div className="space-y-3">
+            <div className="rounded-md border border-[#E4E8F4] bg-[#F8F9FD] p-4">
+              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center">
+                <VehicleIdentityCard
+                  label="Current Vehicle"
+                  name={showDetailModal.vehicle_name}
+                  number={showDetailModal.vehicle_number}
+                  compact
+                />
+                <div className="hidden md:flex items-center justify-center text-secondarytext/70">
+                  <RefreshCw size={16} />
+                </div>
+                <VehicleIdentityCard
+                  label="Replacement Vehicle"
+                  name={showDetailModal.replacement_vehicle_name}
+                  number={showDetailModal.replacement_vehicle_number}
+                  accentColor={C.green}
+                  compact
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
               <DetailRow
                 icon={<Car size={14} />}
                 label="Vehicle"
-                value={showDetailModal.vehicle_number}
+                value={getVehicleDisplayLine(
+                  showDetailModal.vehicle_name,
+                  showDetailModal.vehicle_number,
+                )}
               />
               {showDetailModal.replacement_vehicle_number && (
                 <DetailRow
                   icon={<RefreshCw size={14} />}
                   label="Replacement Vehicle"
-                  value={showDetailModal.replacement_vehicle_number}
+                  value={getVehicleDisplayLine(
+                    showDetailModal.replacement_vehicle_name,
+                    showDetailModal.replacement_vehicle_number,
+                  )}
                   valueColor={C.green}
                 />
               )}
@@ -956,6 +1010,37 @@ export default function VehicleReplacements({
 }
 
 // ─── Helper components ───
+function VehicleIdentityCard({
+  label,
+  name,
+  number,
+  accentColor,
+  compact = false,
+}) {
+  const identity = getVehicleIdentity(name, number);
+
+  return (
+    <div
+      className={`rounded-md border border-[#E4E8F4] bg-white ${compact ? "p-3" : "p-3.5"} min-w-0`}
+    >
+      <p className="text-[10px] font-bold uppercase tracking-widest text-secondarytext mb-1.5">
+        {label}
+      </p>
+      <p
+        className={`${compact ? "text-base" : "text-[15px]"} font-bold truncate`}
+        style={{color: accentColor || C.primarytext}}
+      >
+        {identity.title}
+      </p>
+      {identity.subtitle && (
+        <p className="text-xs text-secondarytext truncate mt-0.5">
+          {identity.subtitle}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function DetailRow({icon, label, value, valueColor}) {
   return (
     <div className="flex items-start gap-3">

@@ -291,11 +291,11 @@ func GetAllVehicleRequests(c *gin.Context) {
 	}
 	approvedAtExpr := "NULL as approved_at"
 	if colExists["approved_at"] {
-		approvedAtExpr = "DATE_FORMAT(vr.approved_at, '%%d-%%m-%%Y %%h:%%i %%p') as approved_at"
+		approvedAtExpr = "DATE_FORMAT(vr.approved_at, '%d-%m-%Y %h:%i %p') as approved_at"
 	}
 	assignedAtExpr := "NULL as assigned_at"
 	if colExists["assigned_at"] {
-		assignedAtExpr = "DATE_FORMAT(vr.assigned_at, '%%d-%%m-%%Y %%h:%%i %%p') as assigned_at"
+		assignedAtExpr = "DATE_FORMAT(vr.assigned_at, '%d-%m-%Y %h:%i %p') as assigned_at"
 	}
 	startOtpExpr := "'' as start_otp"
 	if colExists["start_otp"] {
@@ -307,19 +307,19 @@ func GetAllVehicleRequests(c *gin.Context) {
 	}
 	startOtpGeneratedAtExpr := "NULL as start_otp_generated_at"
 	if colExists["start_otp_generated_at"] {
-		startOtpGeneratedAtExpr = "DATE_FORMAT(vr.start_otp_generated_at, '%%d-%%m-%%Y %%h:%%i %%p') as start_otp_generated_at"
+		startOtpGeneratedAtExpr = "DATE_FORMAT(vr.start_otp_generated_at, '%d-%m-%Y %h:%i %p') as start_otp_generated_at"
 	}
 	endOtpGeneratedAtExpr := "NULL as end_otp_generated_at"
 	if colExists["end_otp_generated_at"] {
-		endOtpGeneratedAtExpr = "DATE_FORMAT(vr.end_otp_generated_at, '%%d-%%m-%%Y %%h:%%i %%p') as end_otp_generated_at"
+		endOtpGeneratedAtExpr = "DATE_FORMAT(vr.end_otp_generated_at, '%d-%m-%Y %h:%i %p') as end_otp_generated_at"
 	}
 	tripStartedAtExpr := "NULL as trip_started_at"
 	if colExists["trip_started_at"] {
-		tripStartedAtExpr = "DATE_FORMAT(vr.trip_started_at, '%%d-%%m-%%Y %%h:%%i %%p') as trip_started_at"
+		tripStartedAtExpr = "DATE_FORMAT(vr.trip_started_at, '%d-%m-%Y %h:%i %p') as trip_started_at"
 	}
 	tripEndedAtExpr := "NULL as trip_ended_at"
 	if colExists["trip_ended_at"] {
-		tripEndedAtExpr = "DATE_FORMAT(vr.trip_ended_at, '%%d-%%m-%%Y %%h:%%i %%p') as trip_ended_at"
+		tripEndedAtExpr = "DATE_FORMAT(vr.trip_ended_at, '%d-%m-%Y %h:%i %p') as trip_ended_at"
 	}
 
 	requesterJoin := "LEFT JOIN users ru ON 1=0 LEFT JOIN faculty rf ON 1=0"
@@ -529,11 +529,11 @@ func GetVehicleRequestDetails(c *gin.Context) {
 	}
 	approvedAtExpr := "NULL as approved_at"
 	if colExists["approved_at"] {
-		approvedAtExpr = "DATE_FORMAT(vr.approved_at, '%%d-%%m-%%Y %%h:%%i %%p') as approved_at"
+		approvedAtExpr = "DATE_FORMAT(vr.approved_at, '%d-%m-%Y %h:%i %p') as approved_at"
 	}
 	assignedAtExpr := "NULL as assigned_at"
 	if colExists["assigned_at"] {
-		assignedAtExpr = "DATE_FORMAT(vr.assigned_at, '%%d-%%m-%%Y %%h:%%i %%p') as assigned_at"
+		assignedAtExpr = "DATE_FORMAT(vr.assigned_at, '%d-%m-%Y %h:%i %p') as assigned_at"
 	}
 	startOtpExpr := "'' as start_otp"
 	if colExists["start_otp"] {
@@ -545,19 +545,19 @@ func GetVehicleRequestDetails(c *gin.Context) {
 	}
 	startOtpGeneratedAtExpr := "NULL as start_otp_generated_at"
 	if colExists["start_otp_generated_at"] {
-		startOtpGeneratedAtExpr = "DATE_FORMAT(vr.start_otp_generated_at, '%%d-%%m-%%Y %%h:%%i %%p') as start_otp_generated_at"
+		startOtpGeneratedAtExpr = "DATE_FORMAT(vr.start_otp_generated_at, '%d-%m-%Y %h:%i %p') as start_otp_generated_at"
 	}
 	endOtpGeneratedAtExpr := "NULL as end_otp_generated_at"
 	if colExists["end_otp_generated_at"] {
-		endOtpGeneratedAtExpr = "DATE_FORMAT(vr.end_otp_generated_at, '%%d-%%m-%%Y %%h:%%i %%p') as end_otp_generated_at"
+		endOtpGeneratedAtExpr = "DATE_FORMAT(vr.end_otp_generated_at, '%d-%m-%Y %h:%i %p') as end_otp_generated_at"
 	}
 	tripStartedAtExpr := "NULL as trip_started_at"
 	if colExists["trip_started_at"] {
-		tripStartedAtExpr = "DATE_FORMAT(vr.trip_started_at, '%%d-%%m-%%Y %%h:%%i %%p') as trip_started_at"
+		tripStartedAtExpr = "DATE_FORMAT(vr.trip_started_at, '%d-%m-%Y %h:%i %p') as trip_started_at"
 	}
 	tripEndedAtExpr := "NULL as trip_ended_at"
 	if colExists["trip_ended_at"] {
-		tripEndedAtExpr = "DATE_FORMAT(vr.trip_ended_at, '%%d-%%m-%%Y %%h:%%i %%p') as trip_ended_at"
+		tripEndedAtExpr = "DATE_FORMAT(vr.trip_ended_at, '%d-%m-%Y %h:%i %p') as trip_ended_at"
 	}
 
 	requesterJoin := "LEFT JOIN users ru ON 1=0 LEFT JOIN faculty rf ON 1=0"
@@ -899,6 +899,8 @@ func RejectVehicleRequest(c *gin.Context) {
 
 // POST /api/admin/vehicle-request/cancel
 func CancelVehicleRequestByAdmin(c *gin.Context) {
+	adminID := getUserIDFromRequest(c)
+
 	var req struct {
 		RequestID    int    `json:"request_id"`
 		AdminRemarks string `json:"admin_remarks"`
@@ -939,14 +941,23 @@ func CancelVehicleRequestByAdmin(c *gin.Context) {
 		return
 	}
 
+	cancelCols := vehicleRequestColumns("approved_by")
+	setParts := []string{"status = 'cancelled'", "admin_remarks = ?"}
+	args := []interface{}{req.AdminRemarks}
+
+	if cancelCols["approved_by"] && adminID != nil {
+		setParts = append(setParts, "approved_by = ?")
+		args = append(args, *adminID)
+	}
+
 	// If request was assigned, clear the driver and vehicle assignment
 	if status == "assigned" {
-		_, err = config.DB.Exec(`UPDATE vehiclerequests SET status = 'cancelled', admin_remarks = ?, driver_id = NULL, vehicle_id = NULL WHERE id = ?`,
-			req.AdminRemarks, req.RequestID)
-	} else {
-		_, err = config.DB.Exec(`UPDATE vehiclerequests SET status = 'cancelled', admin_remarks = ? WHERE id = ?`,
-			req.AdminRemarks, req.RequestID)
+		setParts = append(setParts, "driver_id = NULL", "vehicle_id = NULL")
 	}
+
+	updateQuery := fmt.Sprintf("UPDATE vehiclerequests SET %s WHERE id = ?", strings.Join(setParts, ", "))
+	args = append(args, req.RequestID)
+	_, err = config.DB.Exec(updateQuery, args...)
 	if err != nil {
 		log.Printf("Error cancelling request: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to cancel request"})
@@ -1104,6 +1115,114 @@ func AssignVehicleToRequest(c *gin.Context) {
 	CreateAdminNotification("vehicle_assigned", "Vehicle Assigned", fmt.Sprintf("Vehicle assigned to request #%d by %s. Start OTP sent to requester.", req.RequestID, facultyName))
 
 	c.JSON(http.StatusOK, gin.H{"message": "Vehicle and driver assigned successfully", "start_otp": startOTP})
+}
+
+// POST /api/admin/vehicle-request/start-trip
+// Admin override: start trip without OTP verification.
+func StartVehicleRequestTripByAdmin(c *gin.Context) {
+	var req struct {
+		RequestID int `json:"request_id"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	var status string
+	err := config.DB.QueryRow(`SELECT status FROM vehiclerequests WHERE id = ?`, req.RequestID).Scan(&status)
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Request not found"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+
+	if status != "assigned" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Trip can only be started from assigned status"})
+		return
+	}
+
+	tripCols := vehicleRequestColumns("trip_started_at", "end_otp", "end_otp_generated_at")
+	setParts := []string{"status = 'trip_started'"}
+	args := make([]interface{}, 0, 2)
+
+	if tripCols["trip_started_at"] {
+		setParts = append(setParts, "trip_started_at = NOW()")
+	}
+	if tripCols["end_otp"] {
+		endOTP := generateOTP()
+		setParts = append(setParts, "end_otp = ?")
+		args = append(args, endOTP)
+		if tripCols["end_otp_generated_at"] {
+			setParts = append(setParts, "end_otp_generated_at = NOW()")
+		}
+	}
+
+	updateQuery := fmt.Sprintf("UPDATE vehiclerequests SET %s WHERE id = ?", strings.Join(setParts, ", "))
+	args = append(args, req.RequestID)
+	_, err = config.DB.Exec(updateQuery, args...)
+	if err != nil {
+		log.Printf("Error starting trip by admin: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start trip"})
+		return
+	}
+
+	facultyName := getVehicleRequestRequesterName(req.RequestID)
+	CreateAdminNotification("trip_started", "Trip Started", fmt.Sprintf("Vehicle request #%d trip started by admin override for %s.", req.RequestID, facultyName))
+
+	c.JSON(http.StatusOK, gin.H{"message": "Trip started successfully (admin override)"})
+}
+
+// POST /api/admin/vehicle-request/end-trip
+// Admin override: end trip and mark completed without OTP verification.
+func EndVehicleRequestTripByAdmin(c *gin.Context) {
+	var req struct {
+		RequestID int `json:"request_id"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	var status string
+	err := config.DB.QueryRow(`SELECT status FROM vehiclerequests WHERE id = ?`, req.RequestID).Scan(&status)
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Request not found"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+
+	if status != "trip_started" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Trip can only be ended from trip_started status"})
+		return
+	}
+
+	tripCols := vehicleRequestColumns("trip_started_at", "trip_ended_at")
+	setParts := []string{"status = 'completed'"}
+	if tripCols["trip_started_at"] {
+		setParts = append(setParts, "trip_started_at = COALESCE(trip_started_at, NOW())")
+	}
+	if tripCols["trip_ended_at"] {
+		setParts = append(setParts, "trip_ended_at = NOW()")
+	}
+
+	updateQuery := fmt.Sprintf("UPDATE vehiclerequests SET %s WHERE id = ?", strings.Join(setParts, ", "))
+	_, err = config.DB.Exec(updateQuery, req.RequestID)
+	if err != nil {
+		log.Printf("Error ending trip by admin: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to end trip"})
+		return
+	}
+
+	facultyName := getVehicleRequestRequesterName(req.RequestID)
+	CreateAdminNotification("trip_completed", "Trip Completed", fmt.Sprintf("Vehicle request #%d trip ended by admin override for %s.", req.RequestID, facultyName))
+
+	c.JSON(http.StatusOK, gin.H{"message": "Trip ended successfully (admin override)"})
 }
 
 // POST /api/admin/vehicle-request/complete

@@ -17,6 +17,7 @@ import (
 func vehicleRequestColumns(columnNames ...string) map[string]bool {
 	known := map[string]bool{
 		"requester_id":       true,
+		"approved_by":        true,
 		"faculty_id":         true,
 		"BookingType":        true,
 		"TripType":           true,
@@ -373,6 +374,7 @@ func GetMyVehicleRequests(c *gin.Context) {
 
 	colExists := vehicleRequestColumns(
 		"requester_id",
+		"approved_by",
 		"BookingType", "TripType", "TripMode", "CountPerson",
 		"Purpose", "PurposeOfVisit", "RequestUnder", "Vertical", "OralApproval",
 		"TaskID", "OutcomeExpected", "OutcomeAuditable",
@@ -469,11 +471,20 @@ func GetMyVehicleRequests(c *gin.Context) {
 	ownerArg := interface{}(facultyID)
 	requesterUserJoin := "LEFT JOIN users ru ON 1=0"
 	requesterFacultyJoin := "LEFT JOIN faculty rf ON 1=0"
+	approvalUserJoin := "LEFT JOIN users ua ON 1=0"
 	if colExists["requester_id"] {
 		ownerFilter = "vr.requester_id = ?"
 		ownerArg = userID
 		requesterUserJoin = "LEFT JOIN users ru ON vr.requester_id = ru.id"
 		requesterFacultyJoin = "LEFT JOIN faculty rf ON rf.user_id = ru.id"
+	}
+	if colExists["approved_by"] {
+		approvalUserJoin = "LEFT JOIN users ua ON vr.approved_by = ua.id"
+	}
+
+	approvedByNameExpr := "'' as approved_by_name"
+	if colExists["approved_by"] {
+		approvedByNameExpr = "COALESCE(ua.full_name, '') as approved_by_name"
 	}
 
 	facultyIDExpr := "0 as faculty_id"
@@ -521,6 +532,7 @@ func GetMyVehicleRequests(c *gin.Context) {
 			COALESCE(uf.full_name, ru.full_name, '') as faculty_name,
 			COALESCE(uf.phone, ru.phone, '') as faculty_phone,
 			COALESCE(f.department, rf.department, '') as faculty_department,
+			%s,
 			DATE_FORMAT(COALESCE(vr.created_at, NOW()), '%%d-%%m-%%Y %%h:%%i %%p') as created_at
 		FROM vehiclerequests vr
 		LEFT JOIN vehicle_request_trips vrt ON vrt.request_id = vr.id AND vrt.trip_order = 1
@@ -530,6 +542,7 @@ func GetMyVehicleRequests(c *gin.Context) {
 		LEFT JOIN vehicles v ON vr.vehicle_id = v.id
 		LEFT JOIN drivers d ON vr.driver_id = d.id
 		LEFT JOIN users ud ON d.user_id = ud.id
+		%s
 		%s
 		%s
 		LEFT JOIN faculty f ON 1=0
@@ -546,7 +559,9 @@ func GetMyVehicleRequests(c *gin.Context) {
 		contactNameExpr, contactPhoneExpr,
 		taskIDExpr, outcomeExpectedExpr, outcomeAuditableExpr,
 		travellerNameExpr, mobileNumberExpr, addressExpr,
+		approvedByNameExpr,
 		requesterUserJoin, requesterFacultyJoin,
+		approvalUserJoin,
 		ownerFilter,
 	)
 	if colExists["faculty_id"] {
@@ -577,6 +592,7 @@ func GetMyVehicleRequests(c *gin.Context) {
 			&r.DriverName, &r.DriverPhone,
 			&r.RequesterName, &r.RequesterEmail, &r.RequesterPhone, &r.RequesterRole,
 			&r.FacultyName, &r.FacultyPhone, &r.FacultyDepartment,
+			&r.ApprovedByName,
 			&r.CreatedAt,
 		)
 		if err != nil {

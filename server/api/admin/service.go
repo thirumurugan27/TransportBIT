@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"transport-server/config"
@@ -343,6 +344,11 @@ func RejectServiceRequest(c *gin.Context) {
 		RejectionReason string `json:"rejection_reason"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Rejection reason is required"})
+		return
+	}
+	body.RejectionReason = strings.TrimSpace(body.RejectionReason)
+	if body.RejectionReason == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Rejection reason is required"})
 		return
 	}

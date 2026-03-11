@@ -250,49 +250,37 @@ func GetDriverKmLogAssignedVehicles(c *gin.Context) {
 
 	// 4) Vehicle requests assigned to driver
 	// Include active request assignments always; include completed requests for the selected date.
-	vrColumns, colErr := config.HasColumns("vehiclerequests", "driver_id", "vehicle_id", "status", "created_at", "assigned_at")
-	if colErr != nil {
-		log.Printf("GetDriverKmLogAssignedVehicles vehiclerequests column check error: %v", colErr)
-	} else if vrColumns["driver_id"] && vrColumns["vehicle_id"] && vrColumns["status"] {
-		scheduleExpr := "COALESCE(vrt.from_datetime"
-		if vrColumns["assigned_at"] {
-			scheduleExpr += ", vr.assigned_at"
-		}
-		if vrColumns["created_at"] {
-			scheduleExpr += ", vr.created_at"
-		}
-		scheduleExpr += ")"
+	scheduleExpr := "COALESCE(vrt.from_datetime, vr.assigned_at, vr.created_at)"
 
-		query := `
-			SELECT DISTINCT v.id,
-			       COALESCE(NULLIF(v.vehicle_name, ''), v.vehicle_number, '') as vehicle_name,
-			       COALESCE(v.vehicle_number, '') as vehicle_number,
-			       COALESCE(vt.type, v.fuel_type, 'Vehicle') as vehicle_type,
-			       COALESCE(v.fuel_type, '') as fuel_type
-			FROM vehiclerequests vr
-			JOIN vehicles v ON v.id = vr.vehicle_id
-			LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
-			LEFT JOIN vehicle_request_trips vrt ON vrt.request_id = vr.id
-			WHERE vr.driver_id = ?
-			  AND vr.vehicle_id IS NOT NULL
-			  AND (
-			       vr.status IN ('assigned', 'trip_started')
-			       OR (vr.status = 'completed' AND DATE(` + scheduleExpr + `) = ?)
-			  )
-		`
+	query := `
+		SELECT DISTINCT v.id,
+		       COALESCE(NULLIF(v.vehicle_name, ''), v.vehicle_number, '') as vehicle_name,
+		       COALESCE(v.vehicle_number, '') as vehicle_number,
+		       COALESCE(vt.type, v.fuel_type, 'Vehicle') as vehicle_type,
+		       COALESCE(v.fuel_type, '') as fuel_type
+		FROM vehiclerequests vr
+		JOIN vehicles v ON v.id = vr.vehicle_id
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
+		LEFT JOIN vehicle_request_trips vrt ON vrt.request_id = vr.id
+		WHERE vr.driver_id = ?
+		  AND vr.vehicle_id IS NOT NULL
+		  AND (
+		       vr.status IN ('assigned', 'trip_started')
+		       OR (vr.status = 'completed' AND DATE(` + scheduleExpr + `) = ?)
+		  )
+	`
 
-		requestRows, reqErr := config.DB.Query(query, driverIDInt, date)
-		if reqErr != nil {
-			log.Printf("GetDriverKmLogAssignedVehicles vehicle request query error: %v", reqErr)
-		} else {
-			defer requestRows.Close()
-			for requestRows.Next() {
-				var v KmLogAssignedVehicle
-				if scanErr := requestRows.Scan(&v.ID, &v.VehicleName, &v.VehicleNumber, &v.VehicleType, &v.FuelType); scanErr == nil {
-					v.Source = "vehicle_request"
-					v.SourceLabel = "Vehicle Request"
-					upsertKmAssignedVehicle(vehicleMap, v)
-				}
+	requestRows, reqErr := config.DB.Query(query, driverIDInt, date)
+	if reqErr != nil {
+		log.Printf("GetDriverKmLogAssignedVehicles vehicle request query error: %v", reqErr)
+	} else {
+		defer requestRows.Close()
+		for requestRows.Next() {
+			var v KmLogAssignedVehicle
+			if scanErr := requestRows.Scan(&v.ID, &v.VehicleName, &v.VehicleNumber, &v.VehicleType, &v.FuelType); scanErr == nil {
+				v.Source = "vehicle_request"
+				v.SourceLabel = "Vehicle Request"
+				upsertKmAssignedVehicle(vehicleMap, v)
 			}
 		}
 	}

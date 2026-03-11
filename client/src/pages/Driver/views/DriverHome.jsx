@@ -854,10 +854,10 @@ export default function DriverHome() {
       {/* ── EV Assignment Details Modal ── */}
       {selectedEVAssignment && (
         <div className="fixed inset-0 bg-black/55 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 animate-fadeIn">
-          <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden animate-scaleIn">
+          <div className="bg-white rounded-t-2xl sm:rounded-md shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden animate-scaleIn">
             <div className="bg-linear-to-r from-green to-emerald-600 text-white p-5 sm:p-6 flex items-start justify-between gap-4">
               <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                <div className="p-3 bg-white/15 rounded-xl shadow-sm">
+                <div className="p-3 bg-white/15 rounded-md shadow-sm">
                   <Zap size={24} />
                 </div>
                 <div className="min-w-0">
@@ -877,7 +877,7 @@ export default function DriverHome() {
               </div>
               <button
                 onClick={() => setSelectedEVAssignment(null)}
-                className="p-2 hover:bg-white/20 rounded-xl transition-colors shrink-0"
+                className="p-2 hover:bg-white/20 rounded-md transition-colors shrink-0"
               >
                 <X size={24} />
               </button>
@@ -885,7 +885,7 @@ export default function DriverHome() {
 
             <div className="p-5 sm:p-6 space-y-6 max-h-[68vh] overflow-y-auto bg-white">
               <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
-                <div className="p-4 bg-green/10 rounded-xl border border-green/10">
+                <div className="p-4 bg-green/10 rounded-md border border-green/10">
                   <p className="text-xs font-semibold text-secondarytext mb-1">
                     Date Range
                   </p>
@@ -893,7 +893,7 @@ export default function DriverHome() {
                     {getDateRangeLabel(selectedEVAssignment)}
                   </p>
                 </div>
-                <div className="p-4 bg-green/10 rounded-xl border border-green/10">
+                <div className="p-4 bg-green/10 rounded-md border border-green/10">
                   <p className="text-xs font-semibold text-secondarytext mb-1">
                     Shift Coverage
                   </p>
@@ -905,7 +905,7 @@ export default function DriverHome() {
                     shift blocks
                   </p>
                 </div>
-                <div className="p-4 bg-green/10 rounded-xl border border-green/10">
+                <div className="p-4 bg-green/10 rounded-md border border-green/10">
                   <p className="text-xs font-semibold text-secondarytext mb-1">
                     Vehicle Group
                   </p>
@@ -916,7 +916,7 @@ export default function DriverHome() {
                     {selectedEVAssignment.group_vehicles?.length || 0} vehicles
                   </p>
                 </div>
-                <div className="p-4 bg-green/10 rounded-xl border border-green/10">
+                <div className="p-4 bg-green/10 rounded-md border border-green/10">
                   <p className="text-xs font-semibold text-secondarytext mb-1">
                     Driver Group
                   </p>
@@ -929,7 +929,7 @@ export default function DriverHome() {
                 </div>
               </div>
 
-              <div className="bg-primarybg rounded-2xl border border-gray-100 p-4 sm:p-5">
+              <div className="bg-primarybg rounded-md border border-gray-100 p-4 sm:p-5">
                 <div className="flex items-center justify-between gap-3 mb-4">
                   <h4 className="font-bold text-primarytext flex items-center gap-2">
                     <Clock size={18} className="text-green" />
@@ -945,7 +945,7 @@ export default function DriverHome() {
                     (shift, index) => (
                       <div
                         key={shift.shift_id || `${shift.shift_name}-${index}`}
-                        className="p-4 bg-white rounded-xl border border-green/10 shadow-sm"
+                        className="p-4 bg-white rounded-md border border-green/10 shadow-sm"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div>
@@ -967,7 +967,7 @@ export default function DriverHome() {
                 </div>
               </div>
 
-              <div className="bg-primarybg rounded-2xl border border-gray-100 p-4 sm:p-5">
+              <div className="bg-primarybg rounded-md border border-gray-100 p-4 sm:p-5">
                 <div className="flex items-center justify-between gap-3 mb-4">
                   <h4 className="font-bold text-primarytext flex items-center gap-2">
                     <Car size={18} className="text-green" />
@@ -983,7 +983,7 @@ export default function DriverHome() {
                     return (
                       <div
                         key={vehicle.id}
-                        className="p-4 bg-white rounded-xl border border-green/10 shadow-sm"
+                        className="p-4 bg-white rounded-md border border-green/10 shadow-sm"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
@@ -1018,7 +1018,7 @@ export default function DriverHome() {
                 </div>
               </div>
 
-              <div className="bg-primarybg rounded-2xl border border-gray-100 p-4 sm:p-5">
+              <div className="bg-primarybg rounded-md border border-gray-100 p-4 sm:p-5">
                 <div className="flex items-center justify-between gap-3 mb-4">
                   <h4 className="font-bold text-primarytext flex items-center gap-2">
                     <Users size={18} className="text-green" />
@@ -1032,9 +1032,9 @@ export default function DriverHome() {
                   {selectedEVAssignment.group_drivers?.map((driver) => (
                     <div
                       key={driver.id}
-                      className="p-4 bg-white rounded-xl border border-green/10 shadow-sm flex items-center gap-3"
+                      className="p-4 bg-white rounded-md border border-green/10 shadow-sm flex items-center gap-3"
                     >
-                      <div className="w-11 h-11 bg-green/10 rounded-xl flex items-center justify-center text-green font-bold shrink-0">
+                      <div className="w-11 h-11 bg-green/10 rounded-md flex items-center justify-center text-green font-bold shrink-0">
                         {driver.name?.charAt(0).toUpperCase()}
                       </div>
                       <div className="min-w-0">
@@ -1057,7 +1057,7 @@ export default function DriverHome() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between p-4 bg-green/10 rounded-xl border border-green/10">
+              <div className="flex items-center justify-between p-4 bg-green/10 rounded-md border border-green/10">
                 <div>
                   <p className="text-sm font-semibold text-primarytext">
                     Assignment Status
@@ -1076,7 +1076,7 @@ export default function DriverHome() {
             <div className="p-4 border-t border-gray-100 bg-gray-50">
               <button
                 onClick={() => setSelectedEVAssignment(null)}
-                className="w-full sm:w-auto sm:min-w-36 px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold rounded-xl transition-colors ml-auto block"
+                className="w-full sm:w-auto sm:min-w-36 px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold rounded-md transition-colors ml-auto block"
               >
                 Close
               </button>

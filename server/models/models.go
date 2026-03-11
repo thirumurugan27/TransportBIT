@@ -727,6 +727,7 @@ type VehicleRequest struct {
 	Status       string  `json:"status"`
 	AdminRemarks string  `json:"admin_remarks"`
 	ApprovedBy   *int    `json:"approved_by"`
+	ApprovedByName string `json:"approved_by_name"`
 	ApprovedAt   *string `json:"approved_at"`
 	AssignedAt   *string `json:"assigned_at"`
 	CreatedAt    string  `json:"created_at"`

@@ -18,7 +18,6 @@ import {
   Phone,
 } from "lucide-react";
 import {useToast} from "../../../context/ToastContext";
-import Swal from "sweetalert2";
 import {showConfirm} from "../../../utils/swal";
 import Loading from "../../../components/ui/Loading";
 import CustomSearch from "../../../components/ui/CustomSearch";
@@ -114,6 +113,11 @@ export default function VehicleRequests() {
   const [approveWithAssign, setApproveWithAssign] = useState(false);
   const [approveForm, setApproveForm] = useState({vehicle_id: 0, driver_id: 0});
 
+  // Cancel modal state
+  const [cancelModal, setCancelModal] = useState(null); // {request}
+  const [cancelRemarks, setCancelRemarks] = useState("");
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
+
   // Conflict modal state
   const [conflictModal, setConflictModal] = useState(null);
   const [conflictPendingAction, setConflictPendingAction] = useState(null); // { type: 'approve'|'assign', payload }
@@ -177,6 +181,14 @@ export default function VehicleRequests() {
 
   const handleAction = async () => {
     if (!actionModal) return;
+
+    // If rejecting, validate rejection reason is provided
+    if (actionModal.type === "reject") {
+      if (!actionRemarks.trim()) {
+        showToast("Rejection reason is mandatory", "warning");
+        return;
+      }
+    }
 
     // If approving with assignment, validate vehicle and driver selection
     if (actionModal.type === "approve" && approveWithAssign) {
@@ -321,15 +333,22 @@ export default function VehicleRequests() {
     }
   };
 
-  const handleComplete = async (requestId) => {
+  const refreshRequestData = async (requestId) => {
+    await fetchRequests();
+    if (selectedRequest?.id === requestId) {
+      await fetchRequestDetail(requestId);
+    }
+  };
+
+  const handleStartTripOverride = async (requestId) => {
     const confirmed = await showConfirm(
-      "Mark Completed?",
-      "This will mark the trip as completed.",
+      "Start Trip (Admin Override)?",
+      "This will mark the request as trip started and store trip started time.",
     );
     if (!confirmed) return;
     try {
       const res = await fetch(
-        `${API_BASE}/api/admin/vehicle-request/complete`,
+        `${API_BASE}/api/admin/vehicle-request/start-trip`,
         {
           method: "POST",
           credentials: "include",
@@ -338,9 +357,8 @@ export default function VehicleRequests() {
         },
       );
       if (res.ok) {
-        showToast("Marked as completed", "success");
-        setSelectedRequest(null);
-        fetchRequests();
+        showToast("Trip started successfully", "success");
+        await refreshRequestData(requestId);
       } else {
         const data = await res.json();
         showToast(data.error || "Failed", "error");
@@ -350,34 +368,65 @@ export default function VehicleRequests() {
     }
   };
 
-  const handleCancel = async (requestId) => {
-    const {isConfirmed, value: reason} = await Swal.fire({
-      title: "Cancel Request?",
-      text: "This will cancel the vehicle request and notify the driver & faculty. This action cannot be undone.",
-      icon: "warning",
-      input: "textarea",
-      inputLabel: "Reason for cancellation",
-      inputPlaceholder: "Enter reason...",
-      inputAttributes: {"aria-label": "Reason for cancellation"},
-      showCancelButton: true,
-      confirmButtonColor: "#7D53F6",
-      cancelButtonColor: "#FF5555",
-      confirmButtonText: "Yes, Cancel",
-      cancelButtonText: "No",
-    });
-    if (!isConfirmed) return;
+  const handleEndTripOverride = async (requestId) => {
+    const confirmed = await showConfirm(
+      "End Trip (Admin Override)?",
+      "This will mark the request as completed and store trip ended time.",
+    );
+    if (!confirmed) return;
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/admin/vehicle-request/end-trip`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {"Content-Type": "application/json", ...getAuthHeaders()},
+          body: JSON.stringify({request_id: requestId}),
+        },
+      );
+      if (res.ok) {
+        showToast("Trip ended successfully", "success");
+        await refreshRequestData(requestId);
+      } else {
+        const data = await res.json();
+        showToast(data.error || "Failed", "error");
+      }
+    } catch (e) {
+      showToast("Network error", "error");
+    }
+  };
+
+  const handleCancel = (requestId) => {
+    const request = requests.find((r) => r.id === requestId);
+    if (request) {
+      setCancelModal({request});
+      setCancelRemarks("");
+    }
+  };
+
+  const handleCancelSubmit = async () => {
+    if (!cancelModal) return;
+
+    if (!cancelRemarks.trim()) {
+      showToast("Cancellation reason is mandatory", "warning");
+      return;
+    }
+
+    setCancelSubmitting(true);
     try {
       const res = await fetch(`${API_BASE}/api/admin/vehicle-request/cancel`, {
         method: "POST",
         credentials: "include",
         headers: {"Content-Type": "application/json", ...getAuthHeaders()},
         body: JSON.stringify({
-          request_id: requestId,
-          admin_remarks: reason || "Cancelled by admin",
+          request_id: cancelModal.request.id,
+          admin_remarks: cancelRemarks,
         }),
       });
       if (res.ok) {
         showToast("Request cancelled and notifications sent", "success");
+        setCancelModal(null);
+        setCancelRemarks("");
         setSelectedRequest(null);
         fetchRequests();
       } else {
@@ -386,6 +435,8 @@ export default function VehicleRequests() {
       }
     } catch (e) {
       showToast("Network error", "error");
+    } finally {
+      setCancelSubmitting(false);
     }
   };
 
@@ -399,6 +450,23 @@ export default function VehicleRequests() {
     const ampm = h >= 12 ? "PM" : "AM";
     h = h % 12 || 12;
     return `${h}:${m} ${ampm}`;
+  };
+
+  const getDateAndTime = (dateTimeStr) => {
+    if (!dateTimeStr || typeof dateTimeStr !== "string") {
+      return {date: "-", time: "-"};
+    }
+
+    const normalized = dateTimeStr.trim().replace(/\s+/g, " ");
+    if (!normalized) {
+      return {date: "-", time: "-"};
+    }
+
+    const parts = normalized.split(" ");
+    const date = parts[0] || "-";
+    const time = parts.slice(1).join(" ") || "-";
+
+    return {date, time};
   };
 
   // Force assign after conflict warning
@@ -768,16 +836,7 @@ export default function VehicleRequests() {
                       >
                         {STATUS_CONFIG[selectedRequest.status]?.label}
                       </span>
-                      <p className="text-sm text-secondarytext font-medium">
-                        {selectedRequest.faculty_name} ·{" "}
-                        {selectedRequest.faculty_department}
-                      </p>
                     </div>
-                    {selectedRequest.purpose && (
-                      <p className="text-xs text-secondarytext mt-1.5 italic line-clamp-1">
-                        "{selectedRequest.purpose}"
-                      </p>
-                    )}
                   </div>
                 </div>
                 <button
@@ -1119,8 +1178,11 @@ export default function VehicleRequests() {
 
                 {/* Assignment & OTP Info Section */}
                 {(selectedRequest.vehicle_name ||
+                  selectedRequest.trip_started_at ||
+                  selectedRequest.trip_ended_at ||
                   selectedRequest.status === "assigned" ||
-                  selectedRequest.status === "trip_started") && (
+                  selectedRequest.status === "trip_started" ||
+                  selectedRequest.status === "completed") && (
                   <div className="bg-primarybg rounded-md p-4 border border-dashed border-primary">
                     <h4 className="text-xs font-bold text-primary uppercase tracking-widest mb-3 flex items-center gap-2">
                       <Truck size={14} /> Assignment & Status Tracking
@@ -1174,6 +1236,76 @@ export default function VehicleRequests() {
                       </div>
                     </div>
 
+                    {/* Trip Timeline */}
+                    {(selectedRequest.trip_started_at ||
+                      selectedRequest.trip_ended_at) && (
+                      <div className="mt-4 bg-secondarybg rounded-md border border-primarybg overflow-hidden">
+                        <div className="px-4 py-3 border-b border-primarybg bg-primary/5 flex items-center gap-2">
+                          <Calendar size={14} className="text-primary" />
+                          <p className="text-xs font-bold text-primarytext uppercase tracking-wider">
+                            Trip Timeline
+                          </p>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="bg-primarybg/40">
+                                <th className="px-4 py-2.5 text-left text-[11px] font-bold text-secondarytext uppercase tracking-wider">
+                                  Event
+                                </th>
+                                <th className="px-4 py-2.5 text-left text-[11px] font-bold text-secondarytext uppercase tracking-wider">
+                                  Date
+                                </th>
+                                <th className="px-4 py-2.5 text-left text-[11px] font-bold text-secondarytext uppercase tracking-wider">
+                                  Time
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr className="border-t border-primarybg/70">
+                                <td className="px-4 py-3 font-semibold text-primarytext">
+                                  Trip Started At
+                                </td>
+                                <td className="px-4 py-3 text-secondarytext font-medium">
+                                  {
+                                    getDateAndTime(
+                                      selectedRequest.trip_started_at,
+                                    ).date
+                                  }
+                                </td>
+                                <td className="px-4 py-3 text-secondarytext font-medium">
+                                  {
+                                    getDateAndTime(
+                                      selectedRequest.trip_started_at,
+                                    ).time
+                                  }
+                                </td>
+                              </tr>
+                              <tr className="border-t border-primarybg/70">
+                                <td className="px-4 py-3 font-semibold text-primarytext">
+                                  Trip Ended At
+                                </td>
+                                <td className="px-4 py-3 text-secondarytext font-medium">
+                                  {
+                                    getDateAndTime(
+                                      selectedRequest.trip_ended_at,
+                                    ).date
+                                  }
+                                </td>
+                                <td className="px-4 py-3 text-secondarytext font-medium">
+                                  {
+                                    getDateAndTime(
+                                      selectedRequest.trip_ended_at,
+                                    ).time
+                                  }
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
                     {/* OTP Status Info Bars */}
                     <div className="mt-4 space-y-2">
                       {selectedRequest.status === "assigned" && (
@@ -1185,6 +1317,11 @@ export default function VehicleRequests() {
                       {selectedRequest.status === "trip_started" && (
                         <div className="px-3 py-2 bg-green/10 border border-green/20 rounded text-[11px] text-green font-bold flex items-center gap-2">
                           <Play size={14} /> TRIP IS CURRENTLY IN PROGRESS
+                        </div>
+                      )}
+                      {selectedRequest.status === "completed" && (
+                        <div className="px-3 py-2 bg-primary/10 border border-primary/20 rounded text-[11px] text-primary font-bold flex items-center gap-2">
+                          <CheckCircle size={14} /> TRIP COMPLETED
                         </div>
                       )}
                     </div>
@@ -1229,16 +1366,25 @@ export default function VehicleRequests() {
                       Assign Vehicle & Driver
                     </button>
                   )}
-                  {(selectedRequest.status === "assigned" ||
-                    selectedRequest.status === "trip_started") && (
+                  {selectedRequest.status === "assigned" && (
                     <button
-                      onClick={() => handleComplete(selectedRequest.id)}
+                      onClick={() =>
+                        handleStartTripOverride(selectedRequest.id)
+                      }
                       className="px-6 py-2.5 bg-primary text-white rounded-md font-bold text-sm shadow-lg shadow-primary/20 hover:opacity-90 transition-all active:scale-[0.98]"
                     >
-                      Mark Completed (Admin Override)
+                      Start Trip (Admin Override)
                     </button>
                   )}
-                  {(selectedRequest.status === "pending" ||
+                  {selectedRequest.status === "trip_started" && (
+                    <button
+                      onClick={() => handleEndTripOverride(selectedRequest.id)}
+                      className="px-6 py-2.5 bg-primary text-white rounded-md font-bold text-sm shadow-lg shadow-primary/20 hover:opacity-90 transition-all active:scale-[0.98]"
+                    >
+                      End Trip (Admin Override)
+                    </button>
+                  )}
+                  {(selectedRequest.status === "trip_started" ||
                     selectedRequest.status === "approved" ||
                     selectedRequest.status === "assigned") && (
                     <button
@@ -1394,7 +1540,15 @@ export default function VehicleRequests() {
               <div>
                 <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-2">
                   Admin Remarks{" "}
-                  <span className="text-secondarytext/60">(Optional)</span>
+                  <span
+                    className={
+                      actionModal.type === "reject"
+                        ? "text-red"
+                        : "text-secondarytext/60"
+                    }
+                  >
+                    {actionModal.type === "reject" ? "*" : "(Optional)"}
+                  </span>
                 </label>
                 <textarea
                   value={actionRemarks}
@@ -1777,6 +1931,113 @@ export default function VehicleRequests() {
                 className="px-4 py-2 text-secondarytext hover:bg-gray-100 rounded-md transition-colors"
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========== CANCEL REQUEST MODAL ========== */}
+      {cancelModal && (
+        <div className="fixed inset-0 bg-slate-900/60  flex items-center justify-center z-60 p-4 animate-fadeIn">
+          <div className="bg-secondarybg rounded-md shadow-2xl w-full max-w-md overflow-hidden flex flex-col animate-scaleIn">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-primarybg bg-gradient-to-r from-red/5 to-transparent">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-md flex items-center justify-center bg-red/10 text-red">
+                  <AlertTriangle size={20} />
+                </div>
+                <h3 className="text-lg font-bold text-primarytext">
+                  Cancel Request
+                </h3>
+              </div>
+              <button
+                onClick={() => {
+                  setCancelModal(null);
+                  setCancelRemarks("");
+                }}
+                className="p-2 rounded-md hover:bg-primarybg text-secondarytext hover:text-primarytext transition-all"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-5">
+              {/* Request Summary */}
+              <div className="bg-primarybg/50 rounded-md p-4 border border-primarybg">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-md bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                    <User size={18} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-primarytext">
+                      {cancelModal.request.faculty_name}
+                    </p>
+                    <p className="text-xs text-secondarytext">
+                      {cancelModal.request.faculty_department}
+                    </p>
+                    <p className="text-xs text-secondarytext mt-2 italic line-clamp-2">
+                      "{cancelModal.request.purpose}"
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Warning Message */}
+              <div className="bg-red/5 border border-red/20 rounded-md p-3 flex gap-3">
+                <AlertTriangle
+                  className="text-red flex-shrink-0 mt-0.5"
+                  size={16}
+                />
+                <div className="text-xs text-secondarytext">
+                  <p className="font-semibold text-primarytext">Note:</p>
+                  <p className="mt-1">
+                    This action will cancel the vehicle request and notify the
+                    driver & faculty. This action cannot be undone.
+                  </p>
+                </div>
+              </div>
+
+              {/* Cancel Reason */}
+              <div>
+                <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-2">
+                  Reason for Cancellation <span className="text-red">*</span>
+                </label>
+                <textarea
+                  value={cancelRemarks}
+                  onChange={(e) => setCancelRemarks(e.target.value)}
+                  rows={3}
+                  placeholder="Explain why this request is being cancelled..."
+                  className="w-full px-4 py-3 bg-primarybg/30 border border-primarybg rounded-md text-sm text-primarytext placeholder:text-secondarytext/60 focus:ring-2 focus:ring-red/10 focus:border-red outline-none resize-none transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-primarybg bg-primarybg/30">
+              <button
+                onClick={() => {
+                  setCancelModal(null);
+                  setCancelRemarks("");
+                }}
+                className="px-5 py-2.5 bg-secondarybg border border-primarybg text-secondarytext rounded-md hover:bg-primarybg font-semibold text-sm transition-all"
+              >
+                Keep Request
+              </button>
+              <button
+                onClick={handleCancelSubmit}
+                disabled={cancelSubmitting}
+                className="px-6 py-2.5 bg-red text-white rounded-md text-sm font-bold shadow-lg shadow-red/20 hover:bg-red/90 transition-all active:scale-[0.98] disabled:opacity-50 flex items-center gap-2"
+              >
+                {cancelSubmitting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    Processing...
+                  </>
+                ) : (
+                  "Yes, Cancel Request"
+                )}
               </button>
             </div>
           </div>

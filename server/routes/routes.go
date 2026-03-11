@@ -269,6 +269,8 @@ func registerAdminRoutes(adm *gin.RouterGroup) {
 	adm.POST("/vehicle-request/reject", admin.RejectVehicleRequest)
 	adm.POST("/vehicle-request/cancel", admin.CancelVehicleRequestByAdmin)
 	adm.POST("/vehicle-request/assign", admin.AssignVehicleToRequest)
+	adm.POST("/vehicle-request/start-trip", admin.StartVehicleRequestTripByAdmin)
+	adm.POST("/vehicle-request/end-trip", admin.EndVehicleRequestTripByAdmin)
 	adm.POST("/vehicle-request/complete", admin.CompleteVehicleRequest)
 	adm.GET("/vehicle-requests/pending-count", admin.GetPendingVehicleRequestCount)
 

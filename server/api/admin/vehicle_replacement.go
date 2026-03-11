@@ -35,31 +35,32 @@ type VehicleReplacementRequest struct {
 
 // VehicleReplacementResponse - full response with joined details
 type VehicleReplacementResponse struct {
-	ID                    int     `json:"id"`
-	VehicleID             int     `json:"vehicle_id"`
-	VehicleNumber         string  `json:"vehicle_number"`
-	VehicleType           string  `json:"vehicle_type"`
-	VehicleName           string  `json:"vehicle_name"`
-	ReplacementVehicleID  *int    `json:"replacement_vehicle_id"`
-	ReplacementVehicleNum *string `json:"replacement_vehicle_number"`
-	DriverID              *int    `json:"driver_id"`
-	DriverName            *string `json:"driver_name"`
-	Reason                string  `json:"reason"`
-	ServiceRecordID       *int    `json:"service_record_id"`
-	ServiceTitle          *string `json:"service_title"`
-	StartDate             string  `json:"start_date"`
-	EndDate               string  `json:"end_date"`
-	Status                string  `json:"status"`
-	Notes                 *string `json:"notes"`
-	RequestedByRole       string  `json:"requested_by_role"`
-	RequestedByID         int     `json:"requested_by_id"`
-	ApprovedByID          *int    `json:"approved_by_id"`
-	DriverNotified        bool    `json:"driver_notified"`
-	CreatedAt             string  `json:"created_at"`
-	DaysRemaining         int     `json:"days_remaining"`
-	ReplacementType       string  `json:"replacement_type"`
-	ReplacementDriverID   *int    `json:"replacement_driver_id"`
-	ReplacementDriverName *string `json:"replacement_driver_name"`
+	ID                     int     `json:"id"`
+	VehicleID              int     `json:"vehicle_id"`
+	VehicleNumber          string  `json:"vehicle_number"`
+	VehicleType            string  `json:"vehicle_type"`
+	VehicleName            string  `json:"vehicle_name"`
+	ReplacementVehicleID   *int    `json:"replacement_vehicle_id"`
+	ReplacementVehicleNum  *string `json:"replacement_vehicle_number"`
+	ReplacementVehicleName *string `json:"replacement_vehicle_name"`
+	DriverID               *int    `json:"driver_id"`
+	DriverName             *string `json:"driver_name"`
+	Reason                 string  `json:"reason"`
+	ServiceRecordID        *int    `json:"service_record_id"`
+	ServiceTitle           *string `json:"service_title"`
+	StartDate              string  `json:"start_date"`
+	EndDate                string  `json:"end_date"`
+	Status                 string  `json:"status"`
+	Notes                  *string `json:"notes"`
+	RequestedByRole        string  `json:"requested_by_role"`
+	RequestedByID          int     `json:"requested_by_id"`
+	ApprovedByID           *int    `json:"approved_by_id"`
+	DriverNotified         bool    `json:"driver_notified"`
+	CreatedAt              string  `json:"created_at"`
+	DaysRemaining          int     `json:"days_remaining"`
+	ReplacementType        string  `json:"replacement_type"`
+	ReplacementDriverID    *int    `json:"replacement_driver_id"`
+	ReplacementDriverName  *string `json:"replacement_driver_name"`
 }
 
 // GET /api/admin/vehicle-replacements - Get all vehicle replacement requests
@@ -69,7 +70,7 @@ func GetVehicleReplacements(c *gin.Context) {
 	query := `
 		SELECT 
 			r.id, r.vehicle_id, v.vehicle_number, COALESCE(vt.type, '') as vehicle_type, COALESCE(v.vehicle_name, v.vehicle_number),
-			r.replacement_vehicle_id, rv.vehicle_number,
+			r.replacement_vehicle_id, rv.vehicle_number, COALESCE(rv.vehicle_name, rv.vehicle_number),
 			r.driver_id, u.full_name,
 			r.reason, r.service_record_id, sr.title,
 			DATE_FORMAT(r.start_date, '%d-%m-%Y'),
@@ -109,7 +110,7 @@ func GetVehicleReplacements(c *gin.Context) {
 		var r VehicleReplacementResponse
 		err := rows.Scan(
 			&r.ID, &r.VehicleID, &r.VehicleNumber, &r.VehicleType, &r.VehicleName,
-			&r.ReplacementVehicleID, &r.ReplacementVehicleNum,
+			&r.ReplacementVehicleID, &r.ReplacementVehicleNum, &r.ReplacementVehicleName,
 			&r.DriverID, &r.DriverName,
 			&r.Reason, &r.ServiceRecordID, &r.ServiceTitle,
 			&r.StartDate, &r.EndDate,

@@ -68,7 +68,9 @@ export default function FacultyHome() {
   const [requests, setRequests] = useState([]);
   const [dismissedRejections, setDismissedRejections] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem("faculty_dismissed_rejections") || "[]");
+      return JSON.parse(
+        localStorage.getItem("faculty_dismissed_rejections") || "[]",
+      );
     } catch {
       return [];
     }
@@ -136,12 +138,13 @@ export default function FacultyHome() {
     (r) => !["completed", "cancelled", "rejected"].includes(r.status),
   );
 
-  // Get unread rejected requests
-  const unreadRejections = useMemo(
+  // Get unread rejected/cancelled requests
+  const unreadRequestAlerts = useMemo(
     () =>
       requests.filter(
         (r) =>
-          r.status === "rejected" && !dismissedRejections.includes(r.id),
+          ["rejected", "cancelled"].includes(r.status) &&
+          !dismissedRejections.includes(r.id),
       ),
     [requests, dismissedRejections],
   );
@@ -157,7 +160,7 @@ export default function FacultyHome() {
 
   const dismissAllRejections = () => {
     const allIds = requests
-      .filter((r) => r.status === "rejected")
+      .filter((r) => ["rejected", "cancelled"].includes(r.status))
       .map((r) => r.id);
     setDismissedRejections(allIds);
     localStorage.setItem(
@@ -235,18 +238,18 @@ export default function FacultyHome() {
         ))}
       </div>
 
-      {/* Rejected Request Notifications */}
-      {!loading && unreadRejections.length > 0 && (
+      {/* Rejected/Cancelled Request Notifications */}
+      {!loading && unreadRequestAlerts.length > 0 && (
         <div className="bg-white rounded-md shadow-sm border border-red/20">
           <div className="flex justify-between items-center p-4 border-b border-red/10">
             <h2 className="text-lg font-bold text-red flex items-center gap-2">
               <span className="w-1 h-5 bg-red rounded-full"></span>
-              Rejected Requests
+              Request Alerts
               <span className="text-xs font-bold bg-red/10 text-red px-2 py-0.5 rounded-full">
-                {unreadRejections.length}
+                {unreadRequestAlerts.length}
               </span>
             </h2>
-            {unreadRejections.length > 1 && (
+            {unreadRequestAlerts.length > 1 && (
               <button
                 onClick={dismissAllRejections}
                 className="text-xs font-semibold text-secondarytext hover:text-primarytext transition-colors"
@@ -256,42 +259,71 @@ export default function FacultyHome() {
             )}
           </div>
           <div className="p-4 space-y-3">
-            {unreadRejections.map((request) => (
-              <div
-                key={request.id}
-                className="flex items-start justify-between p-4 bg-red/5 rounded-md border border-red/10"
-              >
-                <div className="flex items-start gap-3 flex-1 min-w-0">
-                  <div className="w-10 h-10 rounded-md flex items-center justify-center bg-red/10 shrink-0 mt-0.5">
-                    <XCircle className="w-5 h-5 text-red" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-primarytext">
-                      {request.onward_from_place} → {request.onward_to_place}
-                    </p>
-                    <div className="flex items-center gap-2 text-xs text-secondarytext mt-1">
-                      <Calendar size={12} />
-                      <span>
-                        {request.onward_from_datetime?.split(" ")[0] || "N/A"}
-                      </span>
-                    </div>
-                    {request.admin_remarks && (
-                      <p className="text-xs text-red mt-1.5">
-                        <span className="font-semibold">Reason:</span>{" "}
-                        {request.admin_remarks}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <button
-                  onClick={() => dismissRejection(request.id)}
-                  className="flex items-center gap-1 text-xs font-semibold text-secondarytext hover:text-primarytext bg-white px-3 py-1.5 rounded-md border border-gray-200 hover:border-gray-300 transition-colors shrink-0 ml-3"
+            {unreadRequestAlerts.map((request) => {
+              const isCancelled = request.status === "cancelled";
+              const actionByName = request.approved_by_name || "Unknown";
+              return (
+                <div
+                  key={request.id}
+                  className={`flex items-start justify-between p-4 rounded-md border ${
+                    isCancelled
+                      ? "bg-amber-50/50 border-amber-200"
+                      : "bg-red/5 border-red/10"
+                  }`}
                 >
-                  <Eye className="w-3.5 h-3.5" />
-                  Mark as read
-                </button>
-              </div>
-            ))}
+                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                    <div
+                      className={`w-10 h-10 rounded-md flex items-center justify-center shrink-0 mt-0.5 ${
+                        isCancelled ? "bg-amber-100" : "bg-red/10"
+                      }`}
+                    >
+                      <XCircle
+                        className={`w-5 h-5 ${
+                          isCancelled ? "text-amber-700" : "text-red"
+                        }`}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-primarytext">
+                        {request.onward_from_place} → {request.onward_to_place}
+                      </p>
+                      <p
+                        className={`text-xs font-semibold mt-1 ${
+                          isCancelled ? "text-amber-700" : "text-red"
+                        }`}
+                      >
+                        {isCancelled
+                          ? `Cancelled - ${actionByName}`
+                          : `Rejected - ${actionByName}`}
+                      </p>
+                      <div className="flex items-center gap-2 text-xs text-secondarytext mt-1">
+                        <Calendar size={12} />
+                        <span>
+                          {request.onward_from_datetime?.split(" ")[0] || "N/A"}
+                        </span>
+                      </div>
+                      {request.admin_remarks && (
+                        <p
+                          className={`text-xs mt-1.5 ${
+                            isCancelled ? "text-amber-700" : "text-red"
+                          }`}
+                        >
+                          <span className="font-semibold">Reason:</span>{" "}
+                          {request.admin_remarks}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => dismissRejection(request.id)}
+                    className="flex items-center gap-1 text-xs font-semibold text-secondarytext hover:text-primarytext bg-white px-3 py-1.5 rounded-md border border-gray-200 hover:border-gray-300 transition-colors shrink-0 ml-3"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    Mark as read
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

@@ -313,6 +313,7 @@ export default function ServiceRecords() {
     admin_remarks: "",
   });
   const [rejectReason, setRejectReason] = useState("");
+  const [rejectReasonError, setRejectReasonError] = useState("");
   const [completeForm, setCompleteForm] = useState({
     labor_cost: 0,
     admin_remarks: "",
@@ -455,14 +456,23 @@ export default function ServiceRecords() {
   };
 
   const handleReject = async () => {
+    const trimmedRejectReason = rejectReason.trim();
+    if (!trimmedRejectReason) {
+      setRejectReasonError("Rejection reason is required");
+      showToast("Rejection reason is required", "warning");
+      return;
+    }
+
+    setRejectReasonError("");
     try {
       const res = await apiPost(
         `/api/admin/services/${showRejectModal.id}/reject`,
-        {rejection_reason: rejectReason},
+        {rejection_reason: trimmedRejectReason},
       );
       const data = await res.json();
       if (res.ok) {
         showToast(data.message, "success");
+        setRejectReason("");
         setShowRejectModal(null);
         fetchAll();
       } else showToast(data.error, "error");
@@ -1155,6 +1165,7 @@ export default function ServiceRecords() {
                     color={C.red}
                     onClick={() => {
                       setRejectReason("");
+                      setRejectReasonError("");
                       setShowRejectModal(showDetailModal);
                       setShowDetailModal(null);
                     }}
@@ -1425,10 +1436,18 @@ export default function ServiceRecords() {
 
       {/* ════════════════ Reject Modal ════════════════ */}
       {showRejectModal && (
-        <Modal onClose={() => setShowRejectModal(null)}>
+        <Modal
+          onClose={() => {
+            setRejectReasonError("");
+            setShowRejectModal(null);
+          }}
+        >
           <ModalHeader
             title="Reject Service Request"
-            onClose={() => setShowRejectModal(null)}
+            onClose={() => {
+              setRejectReasonError("");
+              setShowRejectModal(null);
+            }}
           />
           <div className="p-6 space-y-4">
             <div
@@ -1445,20 +1464,35 @@ export default function ServiceRecords() {
               </p>
             </div>
             <div>
-              <Label>Reason for Rejection</Label>
+              <Label>
+                Reason for Rejection <span style={{color: C.red}}>*</span>
+              </Label>
               <textarea
                 value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-                className={inputCls + " resize-none"}
+                onChange={(e) => {
+                  setRejectReason(e.target.value);
+                  if (e.target.value.trim()) setRejectReasonError("");
+                }}
+                className={`${inputCls} resize-none ${rejectReasonError ? "border-red-300 focus:border-red-400" : ""}`}
                 rows={3}
                 placeholder="Provide a reason for rejection"
                 required
               />
+              {rejectReasonError && (
+                <p className="mt-1 text-xs font-medium text-red-600">
+                  {rejectReasonError}
+                </p>
+              )}
             </div>
             <button
               onClick={handleReject}
+              disabled={!rejectReason.trim()}
               className="w-full py-2.5 rounded-md text-white font-bold text-sm hover:opacity-90 transition-opacity"
-              style={{background: C.red}}
+              style={{
+                background: C.red,
+                opacity: rejectReason.trim() ? 1 : 0.65,
+                cursor: rejectReason.trim() ? "pointer" : "not-allowed",
+              }}
             >
               Reject Request
             </button>
