@@ -34,12 +34,7 @@ export default function AdminDrivers() {
   const {showToast} = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const [drivers, setDrivers] = useState([]);
-  const [vehicleTypeOptions, setVehicleTypeOptions] = useState([
-    {value: "CAR", label: "Car"},
-    {value: "BUS", label: "Bus"},
-    {value: "BATTERY_VEHICLE", label: "Battery Vehicle"},
-    {value: "OTHER", label: "Others"},
-  ]);
+  const [vehicleTypeOptions, setVehicleTypeOptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState("table");
@@ -113,7 +108,7 @@ export default function AdminDrivers() {
       label: "Absent",
       value: drivers.filter((d) => d.status === "absent").length,
       icon: AlertTriangle,
-      color: "bg-customred/10 text-customred",
+      color: "bg-red/10 text-red",
     },
     {
       label: "On Leave",
@@ -281,18 +276,18 @@ export default function AdminDrivers() {
     <div className="space-y-6 animate-fadeIn">
       {/* License Expiry Alert */}
       {(expiredLicenses.length > 0 || expiringLicenses.length > 0) && (
-        <div className="bg-customred/5 border-l-4 border-customred rounded-md p-5 shadow-sm">
+        <div className="bg-red/5 border-l-4 border-red rounded-md p-5 shadow-sm">
           <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-customred/10 rounded-md flex items-center justify-center text-customred shrink-0">
+            <div className="w-12 h-12 bg-red/10 rounded-md flex items-center justify-center text-red shrink-0">
               <AlertTriangle className="w-6 h-6" />
             </div>
             <div className="flex-1">
-              <h4 className="font-bold text-customred text-base mb-1">
+              <h4 className="font-bold text-red text-base mb-1">
                 License Expiry Alert
               </h4>
               <p className="text-sm text-secondarytext">
                 {expiredLicenses.length > 0 && (
-                  <span className="text-customred font-semibold">
+                  <span className="text-red font-semibold">
                     {expiredLicenses.length} expired
                   </span>
                 )}
@@ -472,7 +467,7 @@ export default function AdminDrivers() {
                       driver.status === "present"
                         ? "bg-freen/10 text-freen"
                         : driver.status === "absent"
-                          ? "bg-customred/10 text-customred"
+                          ? "bg-red/10 text-red"
                           : driver.status === "on_leave"
                             ? "bg-pending/10 text-pending"
                             : "bg-primarybg text-secondarytext"
@@ -590,7 +585,7 @@ export default function AdminDrivers() {
                               driver.status === "present"
                                 ? "bg-freen/10 text-freen"
                                 : driver.status === "absent"
-                                  ? "bg-customred/10 text-customred"
+                                  ? "bg-red/10 text-red"
                                   : driver.status === "on_leave"
                                     ? "bg-pending/10 text-pending"
                                     : "bg-primarybg text-secondarytext"
@@ -711,7 +706,7 @@ export default function AdminDrivers() {
                         Expiry Date
                       </span>
                       <span
-                        className={`text-sm font-semibold ${isLicenseExpired(selectedDriver.license_expiry) ? "text-customred" : "text-primarytext"}`}
+                        className={`text-sm font-semibold ${isLicenseExpired(selectedDriver.license_expiry) ? "text-red" : "text-primarytext"}`}
                       >
                         {selectedDriver.license_expiry}
                         {isLicenseExpired(selectedDriver.license_expiry) &&
@@ -783,7 +778,7 @@ export default function AdminDrivers() {
                           selectedDriver.status === "present"
                             ? "bg-freen/20 text-freen"
                             : selectedDriver.status === "absent"
-                              ? "bg-customred/20 text-customred"
+                              ? "bg-red/20 text-red"
                               : selectedDriver.status === "on_leave"
                                 ? "bg-pending/20 text-pending"
                                 : "bg-primarybg text-secondarytext"
@@ -809,7 +804,7 @@ export default function AdminDrivers() {
               </button>
               <button
                 onClick={handleDeleteFromDetails}
-                className="px-5 py-2.5 bg-customred/10 text-customred rounded-md hover:bg-customred/20 transition-colors font-semibold text-sm flex items-center gap-2"
+                className="px-5 py-2.5 bg-red/10 text-red rounded-md hover:bg-red/20 transition-colors font-semibold text-sm flex items-center gap-2"
               >
                 <Trash2 size={16} />
                 Delete
@@ -957,6 +952,7 @@ export default function AdminDrivers() {
                           Type *
                         </label>
                         <CustomDropdown
+                          isWhite
                           value={driverForm.license_type}
                           onChange={(val) =>
                             setDriverForm({
@@ -1025,6 +1021,7 @@ export default function AdminDrivers() {
                           Vehicle Type *
                         </label>
                         <CustomDropdown
+                          isWhite
                           value={driverForm.allowed_vehicle_type}
                           onChange={(val) =>
                             setDriverForm({

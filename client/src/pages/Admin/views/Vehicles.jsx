@@ -114,10 +114,6 @@ export default function Vehicles() {
   const [vehicles, setVehicles] = useState([]);
   const [vehicleTypeOptions, setVehicleTypeOptions] = useState([
     {value: "ALL", label: "All Vehicles", icon: Bus},
-    {value: "BUS", label: "College Bus", icon: Bus},
-    {value: "CAR", label: "Car", icon: Car},
-    {value: "BATTERY_VEHICLE", label: "Battery Vehicle", icon: Zap},
-    {value: "OTHER", label: "Others", icon: Truck},
   ]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -1272,7 +1268,8 @@ export default function Vehicles() {
                         <td className="px-6 py-5">
                           <span
                             className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md `}
-                          >{v.vehicle_type}
+                          >
+                            {v.vehicle_type}
                           </span>
                         </td>
                         <td className="px-6 py-5">
@@ -2004,33 +2001,21 @@ export default function Vehicles() {
                     <div className="space-y-3">
                       {/* Vehicle Category */}
                       <div>
-                        <label className="block text-sm font-semibold text-primarytext mb-2">
+                        <label className="block text-sm font-semibold text-primarytext mb-1">
                           Category *
                         </label>
-                        <div className="grid grid-cols-2 gap-2">
-                          {vehicleTypeOptions
-                            .filter((type) => type.value !== "ALL")
-                            .map((type) => (
-                              <button
-                                key={type.value}
-                                type="button"
-                                onClick={() =>
-                                  setVehicleForm({
-                                    ...vehicleForm,
-                                    vehicle_type: type.value,
-                                  })
-                                }
-                                className={`flex items-center justify-center gap-2 py-2 px-3 rounded-md text-sm font-medium border transition-all ${
-                                  vehicleForm.vehicle_type === type.value
-                                    ? "bg-primary/10 border-primary text-primary ring-1 ring-primary"
-                                    : "bg-secondarybg border-primarybg text-secondarytext hover:bg-secondarybg/80 hover:border-primary/20"
-                                }`}
-                              >
-                                <type.icon size={15} />
-                                {type.label}
-                              </button>
-                            ))}
-                        </div>
+                        <CustomDropdown
+                          value={vehicleForm.vehicle_type}
+                          onChange={(val) =>
+                            setVehicleForm({...vehicleForm, vehicle_type: val})
+                          }
+                          isWhite
+                          options={vehicleTypeOptions.filter(
+                            (type) => type.value !== "ALL",
+                          )}
+                          placeholder="Select vehicle category..."
+                          width="w-full"
+                        />
                       </div>
                       <div>
                         <label className="block text-sm font-semibold text-primarytext mb-1">
@@ -2249,23 +2234,6 @@ export default function Vehicles() {
                           className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium"
                         />
                       </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-primarytext mb-1">
-                          Insurance Remarks
-                        </label>
-                        <textarea
-                          placeholder="e.g., Policy number, provider name..."
-                          value={vehicleForm.insurance_remarks}
-                          onChange={(e) =>
-                            setVehicleForm({
-                              ...vehicleForm,
-                              insurance_remarks: e.target.value,
-                            })
-                          }
-                          rows={2}
-                          className="w-full px-4 py-2 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext text-sm resize-none"
-                        />
-                      </div>
                       <div className="border-t border-primarybg pt-3">
                         <div className="grid grid-cols-2 gap-3">
                           <div>
@@ -2301,23 +2269,6 @@ export default function Vehicles() {
                             />
                           </div>
                         </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-primarytext mb-1">
-                          FC Remarks
-                        </label>
-                        <textarea
-                          placeholder="e.g., Certificate number, agency..."
-                          value={vehicleForm.fc_remarks}
-                          onChange={(e) =>
-                            setVehicleForm({
-                              ...vehicleForm,
-                              fc_remarks: e.target.value,
-                            })
-                          }
-                          rows={2}
-                          className="w-full px-4 py-2 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext text-sm resize-none"
-                        />
                       </div>
                     </div>
                   </div>
@@ -2365,39 +2316,21 @@ export default function Vehicles() {
                           />
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-sm font-semibold text-primarytext mb-1">
-                            Permit Number
-                          </label>
-                          <input
-                            placeholder="e.g., TN/36/..."
-                            value={vehicleForm.permit_number}
-                            onChange={(e) =>
-                              setVehicleForm({
-                                ...vehicleForm,
-                                permit_number: e.target.value,
-                              })
-                            }
-                            className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium font-mono"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-semibold text-primarytext mb-1">
-                            Additional Permit
-                          </label>
-                          <input
-                            placeholder="e.g., All India Permit"
-                            value={vehicleForm.additional_permit}
-                            onChange={(e) =>
-                              setVehicleForm({
-                                ...vehicleForm,
-                                additional_permit: e.target.value,
-                              })
-                            }
-                            className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium"
-                          />
-                        </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-primarytext mb-1">
+                          Permit Number
+                        </label>
+                        <input
+                          placeholder="e.g., TN/36/..."
+                          value={vehicleForm.permit_number}
+                          onChange={(e) =>
+                            setVehicleForm({
+                              ...vehicleForm,
+                              permit_number: e.target.value,
+                            })
+                          }
+                          className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium font-mono"
+                        />
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
@@ -2433,106 +2366,93 @@ export default function Vehicles() {
                           />
                         </div>
                       </div>
-                      <div>
+                      <div className="border-t border-primarybg pt-3">
                         <label className="block text-sm font-semibold text-primarytext mb-1">
-                          Permit Remarks
+                          Road Tax Amount
                         </label>
-                        <textarea
-                          placeholder="e.g., Permit type, issuing authority..."
-                          value={vehicleForm.permit_remarks}
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="e.g., 5000.00"
+                          value={vehicleForm.road_tax_amount}
                           onChange={(e) =>
                             setVehicleForm({
                               ...vehicleForm,
-                              permit_remarks: e.target.value,
+                              road_tax_amount: e.target.value,
                             })
                           }
-                          rows={2}
-                          className="w-full px-4 py-2 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext text-sm resize-none"
+                          className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium"
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-3 border-t border-primarybg pt-3">
-                        <div>
-                          <label className="block text-sm font-semibold text-primarytext mb-1">
-                            Road Tax Amount
-                          </label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            placeholder="e.g., 5000.00"
-                            value={vehicleForm.road_tax_amount}
-                            onChange={(e) =>
-                              setVehicleForm({
-                                ...vehicleForm,
-                                road_tax_amount: e.target.value,
-                              })
-                            }
-                            className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium"
-                          />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-3 border-t border-primarybg pt-3">
-                        <div>
-                          <label className="block text-sm font-semibold text-primarytext mb-1">
-                            Pollution Expire
-                          </label>
-                          <input
-                            type="date"
-                            value={vehicleForm.pollution_expire}
-                            onChange={(e) =>
-                              setVehicleForm({
-                                ...vehicleForm,
-                                pollution_expire: e.target.value,
-                              })
-                            }
-                            className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-semibold text-primarytext mb-1">
-                            Green Tax Expire
-                          </label>
-                          <input
-                            type="date"
-                            value={vehicleForm.green_tax_expire}
-                            onChange={(e) =>
-                              setVehicleForm({
-                                ...vehicleForm,
-                                green_tax_expire: e.target.value,
-                              })
-                            }
-                            className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-semibold text-primarytext mb-1">
-                            MV Tax Expire
-                          </label>
-                          <input
-                            type="date"
-                            value={vehicleForm.mv_tax_expire}
-                            onChange={(e) =>
-                              setVehicleForm({
-                                ...vehicleForm,
-                                mv_tax_expire: e.target.value,
-                              })
-                            }
-                            className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium"
-                          />
-                        </div>
-                      </div>
-                      <div className="p-3 bg-primary/5 border border-primary/10 rounded-md">
-                        <p className="text-xs text-secondarytext">
-                          <Calendar
-                            size={14}
-                            className="inline mr-1.5 text-primary"
-                          />
-                          All changes to document dates are tracked in the audit
-                          log. You'll get alerts when documents are about to
-                          expire.
-                        </p>
-                      </div>
                     </div>
+                  </div>
+                </div>
+
+                {/* Tax & Compliance */}
+                <div className="bg-primarybg rounded-md p-4">
+                  <div className="flex items-center gap-2 mb-4">
+                    <FileText size={18} className="text-primary" />
+                    <h3 className="text-sm font-bold text-secondarytext uppercase tracking-wider">
+                      Tax & Compliance
+                    </h3>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-primarytext mb-1">
+                        Pollution Certificate Expiry
+                      </label>
+                      <input
+                        type="date"
+                        value={vehicleForm.pollution_expire}
+                        onChange={(e) =>
+                          setVehicleForm({
+                            ...vehicleForm,
+                            pollution_expire: e.target.value,
+                          })
+                        }
+                        className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-primarytext mb-1">
+                        Green Tax Expiry
+                      </label>
+                      <input
+                        type="date"
+                        value={vehicleForm.green_tax_expire}
+                        onChange={(e) =>
+                          setVehicleForm({
+                            ...vehicleForm,
+                            green_tax_expire: e.target.value,
+                          })
+                        }
+                        className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-primarytext mb-1">
+                        MV Tax Expiry
+                      </label>
+                      <input
+                        type="date"
+                        value={vehicleForm.mv_tax_expire}
+                        onChange={(e) =>
+                          setVehicleForm({
+                            ...vehicleForm,
+                            mv_tax_expire: e.target.value,
+                          })
+                        }
+                        className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-4 p-3 bg-primary/5 border border-primary/10 rounded-md">
+                    <p className="text-xs text-secondarytext flex items-center gap-1.5">
+                      <Calendar size={14} className="text-primary shrink-0" />
+                      All changes to document dates are tracked in the audit
+                      log. You'll get alerts when documents are about to expire.
+                    </p>
                   </div>
                 </div>
 

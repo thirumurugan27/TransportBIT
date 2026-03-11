@@ -127,14 +127,29 @@ const getGreeting = () => {
 // Donut Ring (CSS only)
 function DonutRing({
   segments,
-  size = 140,
-  strokeWidth = 18,
+  size = 172,
+  strokeWidth = 22,
   centerLabel = "TOTAL",
 }) {
+  const visibleSegments = segments.filter((seg) => seg.value > 0);
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const total = segments.reduce((s, x) => s + x.value, 0);
   let offset = 0;
+
+  const arcData = visibleSegments.map((seg) => {
+    const segLen = total > 0 ? (seg.value / total) * circumference : 0;
+    const startOffset = offset;
+
+    offset += segLen;
+
+    return {
+      ...seg,
+      segLen,
+      dash: `${segLen} ${circumference - segLen}`,
+      startOffset,
+    };
+  });
 
   return (
     <svg
@@ -151,15 +166,12 @@ function DonutRing({
         stroke="#EEF1F9"
         strokeWidth={strokeWidth}
       />
-      {segments.map((seg, i) => {
-        const segLen = total > 0 ? (seg.value / total) * circumference : 0;
-        const dash = `${segLen} ${circumference - segLen}`;
+      {arcData.map((seg, i) => {
         const style = {
-          strokeDasharray: dash,
-          strokeDashoffset: -offset,
+          strokeDasharray: seg.dash,
+          strokeDashoffset: -seg.startOffset,
           transition: "stroke-dasharray 0.6s ease, stroke-dashoffset 0.6s ease",
         };
-        offset += segLen;
         return (
           <circle
             key={i}
@@ -169,7 +181,7 @@ function DonutRing({
             fill="none"
             stroke={seg.color}
             strokeWidth={strokeWidth}
-            strokeLinecap="round"
+            strokeLinecap="butt"
             transform={`rotate(-90 ${size / 2} ${size / 2})`}
             style={style}
           />
@@ -177,18 +189,18 @@ function DonutRing({
       })}
       <text
         x="50%"
-        y="44%"
+        y="45%"
         textAnchor="middle"
-        className="fill-primarytext text-2xl font-bold"
+        className="fill-primarytext text-[28px] font-extrabold"
         dominantBaseline="middle"
       >
         {total}
       </text>
       <text
         x="50%"
-        y="60%"
+        y="61%"
         textAnchor="middle"
-        className="fill-secondarytext text-[9px] font-semibold tracking-wider"
+        className="fill-secondarytext text-[10px] font-semibold tracking-wider"
         dominantBaseline="middle"
       >
         {centerLabel}
@@ -212,7 +224,7 @@ function StatCard({title, value, sub, icon: Icon, color, onClick, badge}) {
   return (
     <div
       onClick={onClick}
-      className={`bg-secondarybg rounded-md p-4 border border-gray-100/80 hover:border-gray-200 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 ${onClick ? "cursor-pointer group" : ""}`}
+      className={`bg-secondarybg rounded-md p-4 border border-gray-100 ${onClick ? "cursor-pointer" : ""}`}
     >
       <div className="flex items-start justify-between">
         <div
@@ -226,9 +238,7 @@ function StatCard({title, value, sub, icon: Icon, color, onClick, badge}) {
               {badge}
             </span>
           )}
-          {onClick && (
-            <ArrowUpRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-primary transition-colors" />
-          )}
+          {onClick && <ArrowUpRight className="w-3.5 h-3.5 text-gray-300" />}
         </div>
       </div>
       <p className="mt-3 text-xl font-bold text-primarytext leading-none">
@@ -312,16 +322,13 @@ function WeeklyChart({data}) {
           const isEmpty = total === 0;
 
           return (
-            <div
-              key={i}
-              className="flex-1 flex flex-col items-center gap-1 group"
-            >
+            <div key={i} className="flex-1 flex flex-col items-center gap-1">
               <div
                 className="w-full flex flex-col items-center justify-end relative"
                 style={{height: BAR_H}}
               >
-                {/* Tooltip */}
-                <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-gray-800/90 text-white text-[10px] px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 pointer-events-none shadow-lg">
+                {/* Tooltip hidden */}
+                <div className="hidden">
                   P:{d.present} A:{d.absent} L:{d.on_leave || 0}
                 </div>
                 {isEmpty ? (
@@ -418,7 +425,7 @@ function DriverWorkloadSection({
           </h2>
           <button
             onClick={() => navigate("/admin-dashboard/drivers")}
-            className="text-xs font-semibold text-primary hover:text-primarydull transition-colors flex items-center gap-1"
+            className="text-xs font-semibold text-primary flex items-center gap-1"
           >
             View All <ArrowRight className="w-3 h-3" />
           </button>
@@ -513,7 +520,7 @@ function DriverWorkloadSection({
                     onClick={() =>
                       setExpandedId(isExpanded ? null : driver.driver_id)
                     }
-                    className={`w-full flex items-center gap-4 p-3 rounded-md text-left transition-colors hover:bg-primarybg/60 ${isExpanded ? "bg-primarybg/40" : ""}`}
+                    className={`w-full flex items-center gap-4 p-3 rounded-md text-left ${isExpanded ? "bg-primarybg/40" : ""}`}
                   >
                     <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                       <User className="w-4 h-4 text-primary" />
@@ -637,7 +644,7 @@ function DriverWorkloadSection({
             {hasMore && (
               <button
                 onClick={() => setShowAll(!showAll)}
-                className="w-full mt-2 py-2.5 text-xs font-semibold text-primary hover:text-primarydull bg-primary/5 hover:bg-primary/10 rounded-md transition-colors flex items-center justify-center gap-1.5"
+                className="w-full mt-2 py-2.5 text-xs font-semibold text-primary bg-primary/5 rounded-md flex items-center justify-center gap-1.5"
               >
                 {showAll ? (
                   <>
@@ -856,7 +863,19 @@ export default function AdminHome() {
             Transport management overview
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          {stats.absent_drivers > 0 && (
+            <button
+              onClick={() => navigate("/admin-dashboard/attendance-records")}
+              className="flex items-center gap-1.5 bg-red/8 border border-red/20 text-red rounded-full px-3 py-1.5"
+              title={`${stats.absent_drivers} drivers absent today`}
+            >
+              <AlertTriangle className="w-3.5 h-3.5" />
+              <span className="text-xs font-bold">
+                {stats.absent_drivers} absent
+              </span>
+            </button>
+          )}
           {heavyWorkloadDrivers.length > 0 && (
             <div className="flex items-center gap-1.5 bg-red/10 border border-red/20 text-red rounded-full px-3 py-1.5">
               <Zap className="w-3.5 h-3.5" />
@@ -876,7 +895,7 @@ export default function AdminHome() {
           >
             {totalPendingCount > 0 ? (
               <>
-                <div className="w-10 h-10 bg-pending/10 border border-pending/20 rounded-full flex items-center justify-center hover:bg-pending/20 transition-colors">
+                <div className="w-10 h-10 bg-pending/10 border border-pending/20 rounded-full flex items-center justify-center">
                   <Bell className="w-5 h-5 text-pending" />
                 </div>
                 <span className="absolute -top-1 -right-1 min-w-4.5 h-4.5 bg-pending text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 leading-none border-2 border-primarybg">
@@ -884,7 +903,7 @@ export default function AdminHome() {
                 </span>
               </>
             ) : (
-              <div className="w-10 h-10 bg-green/10 border border-green/20 rounded-full flex items-center justify-center hover:bg-green/20 transition-colors">
+              <div className="w-10 h-10 bg-green/10 border border-green/20 rounded-full flex items-center justify-center">
                 <Bell className="w-5 h-5 text-green" />
               </div>
             )}
@@ -892,36 +911,16 @@ export default function AdminHome() {
         </div>
       </div>
       {/* Critical Alerts */}
-      {(stats.absent_drivers > 0 ||
-        stats.expired_documents > 0 ||
+      {(stats.expired_documents > 0 ||
         stats.expired_licenses > 0 ||
         stats.expired_assignments > 0 ||
         stats.expiring_driver_groups + stats.expired_driver_groups > 0 ||
         stats.expiring_vehicle_groups + stats.expired_vehicle_groups > 0) && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {stats.absent_drivers > 0 && (
-            <div
-              onClick={() => navigate("/admin-dashboard/attendance-records")}
-              className="flex items-center gap-3 bg-gradient-to-r from-red/5 to-red/10 border border-red/15 rounded-md px-4 py-3.5 cursor-pointer hover:shadow-md transition-all group"
-            >
-              <div className="w-10 h-10 bg-red/15 rounded-md flex items-center justify-center shrink-0">
-                <AlertTriangle className="w-5 h-5 text-red" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-red">
-                  {stats.absent_drivers} Absent Today
-                </p>
-                <p className="text-xs text-red/60 truncate">
-                  {stats.on_leave_drivers} on approved leave
-                </p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-red/30 group-hover:text-red transition-colors shrink-0" />
-            </div>
-          )}
           {stats.expired_documents > 0 && (
             <div
               onClick={() => navigate("/admin-dashboard/vehicles")}
-              className="flex items-center gap-3 bg-gradient-to-r from-red/5 to-red/10 border border-red/15 rounded-md px-4 py-3.5 cursor-pointer hover:shadow-md transition-all group"
+              className="flex items-center gap-3 bg-gradient-to-r from-red/5 to-red/10 border border-red/15 rounded-md px-4 py-3.5 cursor-pointer"
             >
               <div className="w-10 h-10 bg-red/15 rounded-md flex items-center justify-center shrink-0">
                 <Shield className="w-5 h-5 text-red" />
@@ -934,13 +933,13 @@ export default function AdminHome() {
                   Insurance, FC, or Permit
                 </p>
               </div>
-              <ChevronRight className="w-4 h-4 text-red/30 group-hover:text-red transition-colors shrink-0" />
+              <ChevronRight className="w-4 h-4 text-red/40 shrink-0" />
             </div>
           )}
           {stats.expired_licenses > 0 && (
             <div
               onClick={() => navigate("/admin-dashboard/drivers")}
-              className="flex items-center gap-3 bg-gradient-to-r from-pending/5 to-pending/10 border border-pending/15 rounded-md px-4 py-3.5 cursor-pointer hover:shadow-md transition-all group"
+              className="flex items-center gap-3 bg-gradient-to-r from-pending/5 to-pending/10 border border-pending/15 rounded-md px-4 py-3.5 cursor-pointer"
             >
               <div className="w-10 h-10 bg-pending/15 rounded-md flex items-center justify-center shrink-0">
                 <IdCard className="w-5 h-5 text-pending" />
@@ -955,14 +954,14 @@ export default function AdminHome() {
                   expiring
                 </p>
               </div>
-              <ChevronRight className="w-4 h-4 text-pending/30 group-hover:text-pending transition-colors shrink-0" />
+              <ChevronRight className="w-4 h-4 text-pending/40 shrink-0" />
             </div>
           )}
 
           {stats.expired_assignments > 0 && (
             <div
               onClick={() => navigate("/admin-dashboard/all-assignments")}
-              className="flex items-center gap-3 bg-gradient-to-r from-red/5 to-red/10 border border-red/15 rounded-md px-4 py-3.5 cursor-pointer hover:shadow-md transition-all group"
+              className="flex items-center gap-3 bg-gradient-to-r from-red/5 to-red/10 border border-red/15 rounded-md px-4 py-3.5 cursor-pointer"
             >
               <div className="w-10 h-10 bg-red/15 rounded-md flex items-center justify-center shrink-0">
                 <Calendar className="w-5 h-5 text-red" />
@@ -979,7 +978,7 @@ export default function AdminHome() {
                     : ""}
                 </p>
               </div>
-              <ChevronRight className="w-4 h-4 text-red/30 group-hover:text-red transition-colors shrink-0" />
+              <ChevronRight className="w-4 h-4 text-red/40 shrink-0" />
             </div>
           )}
         </div>
@@ -1067,7 +1066,7 @@ export default function AdminHome() {
                       setDismissedActions([]);
                       localStorage.removeItem(getDismissedKey());
                     }}
-                    className="text-[10px] font-semibold text-secondarytext hover:text-primary flex items-center gap-1 transition-colors"
+                    className="text-[10px] font-semibold text-secondarytext flex items-center gap-1"
                     title="Restore dismissed items"
                   >
                     <RotateCcw className="w-3 h-3" /> Reset
@@ -1125,10 +1124,10 @@ export default function AdminHome() {
                                     isExpanded ? null : action.label,
                                   )
                                 }
-                                className={`flex items-center gap-3 p-3 rounded-md border cursor-pointer transition-all ${
+                                className={`flex items-center gap-3 p-3 rounded-md border cursor-pointer ${
                                   isExpanded
                                     ? `${colors.border} ${colors.bg} shadow-sm`
-                                    : `border-gray-100 hover:${colors.border} hover:${colors.bg}`
+                                    : `border-gray-100`
                                 }`}
                               >
                                 <div
@@ -1156,7 +1155,7 @@ export default function AdminHome() {
                                     {action.count}
                                   </span>
                                   <ChevronRight
-                                    className={`w-4 h-4 text-gray-300 transition-transform ${isExpanded ? "rotate-90" : "group-hover:translate-x-0.5"}`}
+                                    className={`w-4 h-4 text-gray-300 ${isExpanded ? "rotate-90" : ""}`}
                                   />
                                 </div>
                               </div>
@@ -1164,13 +1163,13 @@ export default function AdminHome() {
                                 <div className="flex gap-2 mt-1.5 ml-12 mb-1 animate-in slide-in-from-top-1">
                                   <button
                                     onClick={() => navigate(action.route)}
-                                    className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-primary hover:bg-primarydull rounded-md transition-colors shadow-sm"
+                                    className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-primary rounded-md shadow-sm"
                                   >
                                     <Eye className="w-3.5 h-3.5" /> View Details
                                   </button>
                                   <button
                                     onClick={() => markAsRead(action)}
-                                    className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-secondarytext bg-primarybg hover:bg-gray-200 rounded-md transition-colors"
+                                    className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-secondarytext bg-primarybg rounded-md"
                                   >
                                     <CheckCheck className="w-3.5 h-3.5" />{" "}
                                     Dismiss
@@ -1225,7 +1224,7 @@ export default function AdminHome() {
                 {stats.expired_assignments > 0 && (
                   <div
                     onClick={() => navigate("/admin-dashboard/all-assignments")}
-                    className="flex items-center gap-2 bg-red/5 border border-red/15 rounded-md px-3 py-2 cursor-pointer hover:bg-red/10 transition-colors"
+                    className="flex items-center gap-2 bg-red/5 border border-red/15 rounded-md px-3 py-2 cursor-pointer"
                   >
                     <XCircle className="w-4 h-4 text-red shrink-0" />
                     <div>
@@ -1239,7 +1238,7 @@ export default function AdminHome() {
                 {stats.expiring_assignments > 0 && (
                   <div
                     onClick={() => navigate("/admin-dashboard/all-assignments")}
-                    className="flex items-center gap-2 bg-pending/5 border border-pending/15 rounded-md px-3 py-2 cursor-pointer hover:bg-pending/10 transition-colors"
+                    className="flex items-center gap-2 bg-pending/5 border border-pending/15 rounded-md px-3 py-2 cursor-pointer"
                   >
                     <AlertCircle className="w-4 h-4 text-pending shrink-0" />
                     <div>
@@ -1274,48 +1273,30 @@ export default function AdminHome() {
             <span className="w-1.5 h-5 bg-primary rounded-full" />
             Today's Attendance
           </h2>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-7">
             <DonutRing segments={donutSegments} centerLabel="DRIVERS" />
-            <div className="space-y-3 flex-1">
+            <div className="space-y-3.5 flex-1">
               {donutSegments.map((seg, i) => (
                 <div key={i} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span
-                      className="w-3 h-3 rounded-full"
+                      className="w-3.5 h-3.5 rounded-full"
                       style={{backgroundColor: seg.color}}
                     />
-                    <span className="text-sm text-secondarytext">
+                    <span className="text-sm text-secondarytext leading-none">
                       {seg.label}
                     </span>
                   </div>
-                  <div className="text-right">
-                    <span className="text-sm font-bold text-primarytext">
+                  <div className="text-right min-w-[74px]">
+                    <span className="text-sm font-bold text-primarytext tabular-nums">
                       {seg.value}
                     </span>
-                    <span className="text-xs text-secondarytext ml-1">
+                    <span className="text-xs text-secondarytext ml-1 tabular-nums">
                       ({pct(seg.value, stats.total_drivers)}%)
                     </span>
                   </div>
                 </div>
               ))}
-            </div>
-          </div>
-          <div className="mt-5 pt-4 border-t border-gray-100">
-            <div className="flex justify-between text-xs mb-1.5">
-              <span className="font-semibold text-secondarytext">
-                Driver Availability
-              </span>
-              <span
-                className={`font-bold ${driverAvailability >= 70 ? "text-green" : driverAvailability >= 40 ? "text-pending" : "text-red"}`}
-              >
-                {driverAvailability}%
-              </span>
-            </div>
-            <div className="h-2 bg-primarybg rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all duration-700 ${driverAvailability >= 70 ? "bg-green" : driverAvailability >= 40 ? "bg-pending" : "bg-red"}`}
-                style={{width: `${driverAvailability}%`}}
-              />
             </div>
           </div>
         </div>
@@ -1500,7 +1481,7 @@ export default function AdminHome() {
                   return (
                     <div
                       key={i}
-                      className="flex items-start gap-3 p-2.5 rounded-md hover:bg-primarybg/50 transition-colors"
+                      className="flex items-start gap-3 p-2.5 rounded-md"
                     >
                       <div
                         className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 mt-0.5 ${colors.bg}`}
@@ -1597,10 +1578,10 @@ export default function AdminHome() {
             <button
               key={i}
               onClick={() => navigate(item.route)}
-              className={`flex flex-col items-center gap-2 ${item.bg} rounded-md px-3 py-4 border border-gray-100 hover:shadow-md hover:border-primary/20 hover:-translate-y-0.5 transition-all group`}
+              className={`flex flex-col items-center gap-2 ${item.bg} rounded-md px-3 py-4 border border-gray-100`}
             >
               <item.icon className={`w-5 h-5 ${item.color}`} />
-              <span className="text-xs font-semibold text-primarytext group-hover:text-primary transition-colors">
+              <span className="text-xs font-semibold text-primarytext">
                 {item.label}
               </span>
             </button>

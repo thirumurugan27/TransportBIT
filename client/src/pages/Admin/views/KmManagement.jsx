@@ -71,10 +71,6 @@ export default function KmManagement() {
   const [filterMeta, setFilterMeta] = useState({drivers: [], vehicles: []});
   const [vehicleTypeOptions, setVehicleTypeOptions] = useState([
     {value: "", label: "All Types"},
-    {value: "BUS", label: "Bus"},
-    {value: "CAR", label: "Car"},
-    {value: "BATTERY_VEHICLE", label: "Battery Vehicle"},
-    {value: "OTHER", label: "Others"},
   ]);
   const [metaLoading, setMetaLoading] = useState(true);
 

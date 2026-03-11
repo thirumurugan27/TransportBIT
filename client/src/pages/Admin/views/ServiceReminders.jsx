@@ -20,6 +20,10 @@ import {
 } from "lucide-react";
 import {useToast} from "../../../context/ToastContext";
 import {apiGet, apiPost} from "../../../utils/api";
+import {
+  fetchVehicleTypes,
+  toVehicleTypeLabel,
+} from "../../../utils/vehicleTypes";
 
 const STATUS_CONFIG = {
   overdue: {
@@ -81,6 +85,9 @@ export default function ServiceReminders() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState("ALL");
+  const [vehicleTypeOptions, setVehicleTypeOptions] = useState([
+    {key: "ALL", label: "All"},
+  ]);
 
   // Detail modal
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -91,7 +98,20 @@ export default function ServiceReminders() {
 
   useEffect(() => {
     fetchData();
+    loadVehicleTypeOptions();
   }, []);
+
+  const loadVehicleTypeOptions = async () => {
+    const masterTypes = await fetchVehicleTypes();
+    const mapped = [
+      {key: "ALL", label: "All"},
+      ...masterTypes.map((t) => ({
+        key: t.type,
+        label: t.label || toVehicleTypeLabel(t.type),
+      })),
+    ];
+    setVehicleTypeOptions(mapped);
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -220,13 +240,7 @@ export default function ServiceReminders() {
             />
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {[
-              {key: "ALL", label: "All"},
-              {key: "BUS", label: "Bus"},
-              {key: "CAR", label: "Car"},
-              {key: "BATTERY_VEHICLE", label: "Battery Vehicle"},
-              {key: "OTHER", label: "Other"},
-            ].map((tab) => (
+            {vehicleTypeOptions.map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => setFilterType(tab.key)}

@@ -72,28 +72,6 @@ export default function AdminDashboard() {
         />
 
         <main className="flex-1 overflow-x-hidden bg-primarybg p-3 sm:p-4 lg:p-6">
-          {/* Global Alert Banner */}
-          {absentAlerts.length > 0 && (
-            <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-md shadow-sm flex justify-between items-center">
-              <div className="flex items-center">
-                <span className="text-red-500 text-xl mr-3">⚠️</span>
-                <div>
-                  <p className="font-bold text-red-700">Action Required</p>
-                  <p className="text-sm text-red-600">
-                    {absentAlerts.length} drivers are absent for assigned
-                    duties.
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => navigate("/admin-dashboard/all-assignments")}
-                className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 text-sm font-medium"
-              >
-                Resolve
-              </button>
-            </div>
-          )}
-
           <Routes>
             <Route path="" element={<AdminHome />} />
             <Route path="vehicles" element={<AdminVehicles />} />

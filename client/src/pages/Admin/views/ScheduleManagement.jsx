@@ -71,10 +71,6 @@ export default function ScheduleManagement() {
   const [vehicleFuelFilter, setVehicleFuelFilter] = useState("all");
   const [vehicleTypeOptions, setVehicleTypeOptions] = useState([
     {value: "all", label: "All Types"},
-    {value: "BUS", label: "Bus"},
-    {value: "CAR", label: "Car"},
-    {value: "BATTERY_VEHICLE", label: "Battery Vehicle"},
-    {value: "OTHER", label: "Other"},
   ]);
 
   // Search, filter, sort states for tabs
