@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/go-pdf/fpdf"
 )
@@ -16,13 +17,14 @@ import (
 
 // PDFReport wraps fpdf for consistent, institution-branded report generation.
 type PDFReport struct {
-	Pdf       *fpdf.Fpdf
-	Title     string
-	Subtitle  string
-	PageWidth float64
-	PageH     float64
-	Margin    float64
-	Usable    float64
+	Pdf        *fpdf.Fpdf
+	Title      string
+	Subtitle   string
+	PageWidth  float64
+	PageH      float64
+	Margin     float64
+	Usable     float64
+	LastScaled []float64 // widths from most recent AddTableWithAlign, reused by AddTotalRow
 }
 
 // ── Colour palette ───────────────────────────────────────────────────────────
@@ -34,7 +36,7 @@ const (
 	clrAlt2R, clrAlt2G, clrAlt2B       = 255, 255, 255
 	clrTotR, clrTotG, clrTotB          = 210, 222, 245
 	clrBodyR, clrBodyG, clrBodyB       = 20, 20, 40
-	clrMutedR, clrMutedG, clrMutedB   = 110, 110, 130
+	clrMutedR, clrMutedG, clrMutedB    = 110, 110, 130
 	clrSecR, clrSecG, clrSecB          = 30, 60, 130
 	clrBorderR, clrBorderG, clrBorderB = 185, 200, 225
 )
@@ -174,6 +176,54 @@ func scaleWidths(colWidths []float64, usable float64) []float64 {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+//  Auto-width calculation – measures actual content like Excel auto-fit
+// ─────────────────────────────────────────────────────────────────────────────
+
+// calcAutoWidths measures the text width of every header and body cell,
+// returning the natural (single-line) width each column needs.  A per-column
+// cap prevents any single column from dominating; scaleWidths then fits the
+// result to the usable page width.
+func (pr *PDFReport) calcAutoWidths(headers []string, rows [][]string) []float64 {
+	pdf := pr.Pdf
+	nCols := len(headers)
+	widths := make([]float64, nCols)
+
+	// Measure header text (bold font)
+	pdf.SetFont("Arial", "B", 7)
+	for i, h := range headers {
+		w := pdf.GetStringWidth(h) + 2*cellPadX + 1
+		widths[i] = w
+	}
+
+	// Measure body cell text (regular font)
+	pdf.SetFont("Arial", "", 7)
+	for _, row := range rows {
+		for i, cell := range row {
+			if i >= nCols {
+				break
+			}
+			w := pdf.GetStringWidth(cell) + 2*cellPadX + 1
+			if w > widths[i] {
+				widths[i] = w
+			}
+		}
+	}
+
+	// Enforce min/max constraints
+	maxW := pr.Usable * 0.35
+	for i := range widths {
+		if widths[i] > maxW {
+			widths[i] = maxW
+		}
+		if widths[i] < 8 {
+			widths[i] = 8
+		}
+	}
+
+	return widths
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 //  Core multi-line table renderer
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -208,8 +258,9 @@ func rowHeight(pdf *fpdf.Fpdf, cells []string, scaled []float64) float64 {
 
 // drawCells renders one row of cells at the current Y.
 // Each cell auto-wraps text; background, text, and border are drawn explicitly.
+// colAligns optionally specifies per-column alignment ("L", "C", "R"); nil = auto.
 func (pr *PDFReport) drawCells(cells []string, scaled []float64, rh float64,
-	fillR, fillG, fillB, textR, textG, textB int, fontStyle string, firstColCenter bool) {
+	fillR, fillG, fillB, textR, textG, textB int, fontStyle string, firstColCenter bool, colAligns []string) {
 
 	pdf := pr.Pdf
 	startY := pdf.GetY()
@@ -229,10 +280,12 @@ func (pr *PDFReport) drawCells(cells []string, scaled []float64, rh float64,
 		pdf.SetDrawColor(fillR, fillG, fillB)
 		pdf.Rect(x, startY, w, rh, "F")
 
-		// text with word-wrap (no built-in border from MultiCell)
+		// determine alignment
 		align := "L"
 		if fontStyle == "B" {
 			align = "C"
+		} else if colAligns != nil && i < len(colAligns) && colAligns[i] != "" {
+			align = colAligns[i]
 		} else if i == 0 && firstColCenter {
 			align = "C"
 		}
@@ -259,15 +312,24 @@ func (pr *PDFReport) bottomY() float64 { return pr.PageH - 14 }
 // AddTable renders a full-width table where every row auto-expands its height
 // to fit wrapped text.  The column header is reprinted on each new page.
 func (pr *PDFReport) AddTable(headers []string, rows [][]string, colWidths []float64) {
+	pr.AddTableWithAlign(headers, rows, colWidths, nil)
+}
+
+// AddTableWithAlign renders a table with per-column alignment for body rows.
+// colAligns example: []string{"C","L","L","C","R","R","R","C","L"}
+func (pr *PDFReport) AddTableWithAlign(headers []string, rows [][]string, colWidths []float64, colAligns []string) {
 	pdf := pr.Pdf
-	scaled := scaleWidths(colWidths, pr.Usable)
+	// Always auto-calculate widths from actual content (Excel-style auto-fit)
+	autoWidths := pr.calcAutoWidths(headers, rows)
+	scaled := scaleWidths(autoWidths, pr.Usable)
+	pr.LastScaled = scaled
 
 	drawHeader := func() {
 		pdf.SetFont("Arial", "B", 7)
 		hh := rowHeight(pdf, headers, scaled)
 		pr.drawCells(headers, scaled, hh,
 			clrTblHR, clrTblHG, clrTblHB,
-			255, 255, 255, "B", false)
+			255, 255, 255, "B", false, nil)
 	}
 
 	drawHeader()
@@ -299,19 +361,23 @@ func (pr *PDFReport) AddTable(headers []string, rows [][]string, colWidths []flo
 		}
 		pr.drawCells(row, scaled, rh,
 			fr, fg, fb,
-			clrBodyR, clrBodyG, clrBodyB, "", true)
+			clrBodyR, clrBodyG, clrBodyB, "", true, colAligns)
 	}
 }
 
 // AddTotalRow draws a highlighted totals row aligned to the same column widths.
 func (pr *PDFReport) AddTotalRow(values []string, colWidths []float64) {
 	pdf := pr.Pdf
-	scaled := scaleWidths(colWidths, pr.Usable)
+	// Reuse widths from most recent AddTableWithAlign for consistent alignment
+	scaled := pr.LastScaled
+	if scaled == nil {
+		scaled = scaleWidths(colWidths, pr.Usable)
+	}
 	pdf.SetFont("Arial", "B", 7)
 	rh := rowHeight(pdf, values, scaled)
 	pr.drawCells(values, scaled, rh,
 		clrTotR, clrTotG, clrTotB,
-		clrNavyR, clrNavyG, clrNavyB, "B", false)
+		clrNavyR, clrNavyG, clrNavyB, "B", false, nil)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

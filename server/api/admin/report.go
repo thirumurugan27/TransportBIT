@@ -797,7 +797,6 @@ func GenerateVehicleRequestReport(c *gin.Context) {
 			COALESCE(f.department, '-'),
 			COALESCE(vr.BookingType, '-'),
 			COALESCE(vr.TripType, '-'),
-			COALESCE(vr.TripMode, '-'),
 			COALESCE(vr.Purpose, vr.PurposeOfVisit, '-'),
 			COALESCE(vr.CountPerson, 1),
 			COALESCE(vr.OnwardFromPlace, '-'),
@@ -829,7 +828,7 @@ func GenerateVehicleRequestReport(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheet)
 
 	period := fmt.Sprintf("Period: %s to %s | Generated: %s", startDate, endDate, time.Now().Format("02-01-2006 03:04 PM"))
-	headers := []string{"S.No", "Faculty", "Department", "Booking Type", "Trip Type", "Trip Mode", "Purpose", "Persons", "From", "To", "Date & Time", "Vehicle", "Driver", "Status", "Approved On", "Requested On"}
+	headers := []string{"S.No", "Faculty", "Department", "Booking Type", "Trip Type", "Purpose", "Persons", "From", "To", "Date & Time", "Vehicle", "Driver", "Status", "Approved On", "Requested On"}
 	styleTitleRow(f, sheet, "FACULTY VEHICLE REQUEST REPORT", period, len(headers))
 
 	for i, h := range headers {
@@ -841,9 +840,9 @@ func GenerateVehicleRequestReport(c *gin.Context) {
 	row := 5
 	sno := 1
 	for rows.Next() {
-		var faculty, dept, bookingType, tripType, tripMode, purpose, from, to, dateTime, vehicle, driver, status, approvedOn, requestedOn string
+		var faculty, dept, bookingType, tripType, purpose, from, to, dateTime, vehicle, driver, status, approvedOn, requestedOn string
 		var persons int
-		if err := rows.Scan(&faculty, &dept, &bookingType, &tripType, &tripMode, &purpose, &persons, &from, &to, &dateTime, &vehicle, &driver, &status, &approvedOn, &requestedOn); err != nil {
+		if err := rows.Scan(&faculty, &dept, &bookingType, &tripType, &purpose, &persons, &from, &to, &dateTime, &vehicle, &driver, &status, &approvedOn, &requestedOn); err != nil {
 			continue
 		}
 		f.SetCellValue(sheet, fmt.Sprintf("A%d", row), sno)
@@ -851,22 +850,21 @@ func GenerateVehicleRequestReport(c *gin.Context) {
 		f.SetCellValue(sheet, fmt.Sprintf("C%d", row), dept)
 		f.SetCellValue(sheet, fmt.Sprintf("D%d", row), bookingType)
 		f.SetCellValue(sheet, fmt.Sprintf("E%d", row), tripType)
-		f.SetCellValue(sheet, fmt.Sprintf("F%d", row), tripMode)
-		f.SetCellValue(sheet, fmt.Sprintf("G%d", row), purpose)
-		f.SetCellValue(sheet, fmt.Sprintf("H%d", row), persons)
-		f.SetCellValue(sheet, fmt.Sprintf("I%d", row), from)
-		f.SetCellValue(sheet, fmt.Sprintf("J%d", row), to)
-		f.SetCellValue(sheet, fmt.Sprintf("K%d", row), dateTime)
-		f.SetCellValue(sheet, fmt.Sprintf("L%d", row), vehicle)
-		f.SetCellValue(sheet, fmt.Sprintf("M%d", row), driver)
-		f.SetCellValue(sheet, fmt.Sprintf("N%d", row), status)
-		f.SetCellValue(sheet, fmt.Sprintf("O%d", row), approvedOn)
-		f.SetCellValue(sheet, fmt.Sprintf("P%d", row), requestedOn)
+		f.SetCellValue(sheet, fmt.Sprintf("F%d", row), purpose)
+		f.SetCellValue(sheet, fmt.Sprintf("G%d", row), persons)
+		f.SetCellValue(sheet, fmt.Sprintf("H%d", row), from)
+		f.SetCellValue(sheet, fmt.Sprintf("I%d", row), to)
+		f.SetCellValue(sheet, fmt.Sprintf("J%d", row), dateTime)
+		f.SetCellValue(sheet, fmt.Sprintf("K%d", row), vehicle)
+		f.SetCellValue(sheet, fmt.Sprintf("L%d", row), driver)
+		f.SetCellValue(sheet, fmt.Sprintf("M%d", row), status)
+		f.SetCellValue(sheet, fmt.Sprintf("N%d", row), approvedOn)
+		f.SetCellValue(sheet, fmt.Sprintf("O%d", row), requestedOn)
 		row++
 		sno++
 	}
 
-	setColWidths(f, sheet, map[string]float64{"A": 6, "B": 20, "C": 14, "D": 14, "E": 12, "F": 12, "G": 22, "H": 8, "I": 16, "J": 16, "K": 20, "L": 14, "M": 18, "N": 12, "O": 14, "P": 20})
+	setColWidths(f, sheet, map[string]float64{"A": 6, "B": 20, "C": 14, "D": 14, "E": 12, "F": 22, "G": 8, "H": 16, "I": 16, "J": 20, "K": 14, "L": 18, "M": 12, "N": 14, "O": 20})
 
 	filename := fmt.Sprintf("Vehicle_Request_Report_%s_to_%s.xlsx", startDate, endDate)
 	sendExcel(c, f, filename)

@@ -66,8 +66,8 @@ func generateAttendanceReportPDF(c *gin.Context) {
 	defer rows.Close()
 
 	headers := []string{"S.No", "Driver Name", "License No", "Date", "Status", "Check-In", "Check-Out"}
-	// Portrait: 7 cols - widths proportional to content, scaleWidths fills to 190mm
-	widths := []float64{8, 30, 28, 20, 20, 22, 22}
+	widths := []float64{10, 36, 30, 24, 22, 24, 24}
+	aligns := []string{"C", "L", "C", "C", "C", "C", "C"}
 	var data [][]string
 	sno := 1
 	for rows.Next() {
@@ -80,8 +80,8 @@ func generateAttendanceReportPDF(c *gin.Context) {
 	}
 
 	period := fmt.Sprintf("Period: %s to %s | Generated: %s", startDate, endDate, time.Now().Format("02-01-2006 03:04 PM"))
-	pr := utils.NewPDFReport("DRIVER ATTENDANCE REPORT", period, false) // portrait – 7 cols fit cleanly
-	pr.AddTable(headers, data, widths)
+	pr := utils.NewPDFReport("DRIVER ATTENDANCE REPORT", period, false)
+	pr.AddTableWithAlign(headers, data, widths, aligns)
 	pr.Send(c, fmt.Sprintf("Attendance_Report_%s_to_%s.pdf", startDate, endDate))
 }
 
@@ -99,7 +99,7 @@ func generateServiceReportPDF(c *gin.Context) {
 	query := `
 		SELECT 
 			v.vehicle_number, v.vehicle_name,
-			sr.title, sr.severity, sr.status,
+			COALESCE(st.name, '-'), sr.title, sr.severity, sr.status,
 			COALESCE(sr.workshop_name, '-'),
 			sr.labor_cost, sr.parts_cost, sr.total_cost,
 			COALESCE(DATE_FORMAT(sr.scheduled_date, '%d-%m-%Y'), '-'),
@@ -107,6 +107,7 @@ func generateServiceReportPDF(c *gin.Context) {
 			COALESCE(DATE_FORMAT(sr.completed_at, '%d-%m-%Y'), '-')
 		FROM service_records sr
 		JOIN vehicles v ON sr.vehicle_id = v.id
+		LEFT JOIN service_types st ON sr.service_type_id = st.id
 		WHERE sr.created_at BETWEEN ? AND DATE_ADD(?, INTERVAL 1 DAY)
 	`
 	args := []interface{}{startDate, endDate}
@@ -124,20 +125,20 @@ func generateServiceReportPDF(c *gin.Context) {
 	}
 	defer rows.Close()
 
-	headers := []string{"S.No", "Vehicle No", "Vehicle", "Title", "Severity", "Status", "Workshop", "Labor", "Parts", "Total", "Scheduled", "Started", "Completed"}
-	// 13 cols
-	widths := []float64{8, 26, 22, 28, 14, 22, 22, 14, 22, 16, 20, 20, 20}
+	headers := []string{"S.No", "Vehicle No", "Vehicle", "Type", "Title", "Severity", "Status", "Workshop", "Labor", "Parts", "Total", "Scheduled", "Started", "Completed"}
+	widths := []float64{8, 22, 20, 16, 26, 14, 16, 22, 18, 18, 18, 20, 20, 20}
+	aligns := []string{"C", "C", "L", "C", "L", "C", "C", "L", "R", "R", "R", "C", "C", "C"}
 	var data [][]string
 	sno := 1
 	var totalLabor, totalParts, totalCost float64
 	for rows.Next() {
-		var vNum, vName, title, severity, status, workshop, scheduled, started, completed string
+		var vNum, vName, sType, title, severity, status, workshop, scheduled, started, completed string
 		var labor, parts, total float64
-		if err := rows.Scan(&vNum, &vName, &title, &severity, &status, &workshop, &labor, &parts, &total, &scheduled, &started, &completed); err != nil {
+		if err := rows.Scan(&vNum, &vName, &sType, &title, &severity, &status, &workshop, &labor, &parts, &total, &scheduled, &started, &completed); err != nil {
 			continue
 		}
 		data = append(data, []string{
-			fmt.Sprintf("%d", sno), vNum, vName, title, severity, status, workshop,
+			fmt.Sprintf("%d", sno), vNum, vName, sType, title, severity, status, workshop,
 			utils.FmtMoney(labor), utils.FmtMoney(parts), utils.FmtMoney(total),
 			scheduled, started, completed,
 		})
@@ -149,13 +150,13 @@ func generateServiceReportPDF(c *gin.Context) {
 
 	period := fmt.Sprintf("Period: %s to %s | Generated: %s", startDate, endDate, time.Now().Format("02-01-2006 03:04 PM"))
 	pr := utils.NewPDFReport("SERVICE RECORDS REPORT", period, true)
-	pr.AddTable(headers, data, widths)
+	pr.AddTableWithAlign(headers, data, widths, aligns)
 
 	totals := make([]string, len(headers))
-	totals[6] = "TOTAL"
-	totals[7] = utils.FmtMoney(totalLabor)
-	totals[8] = utils.FmtMoney(totalParts)
-	totals[9] = utils.FmtMoney(totalCost)
+	totals[7] = "TOTAL"
+	totals[8] = utils.FmtMoney(totalLabor)
+	totals[9] = utils.FmtMoney(totalParts)
+	totals[10] = utils.FmtMoney(totalCost)
 	pr.AddTotalRow(totals, widths)
 
 	pr.Send(c, fmt.Sprintf("Service_Report_%s_to_%s.pdf", startDate, endDate))
@@ -195,7 +196,8 @@ func generatePurchaseReportPDF(c *gin.Context) {
 	defer rows.Close()
 
 	headers := []string{"S.No", "ID", "Vehicle", "Vendor", "Category", "Part", "Qty", "Unit Price", "Total", "Invoice", "Status", "Warranty", "Purchased", "Ordered", "Received", "Created"}
-	widths := []float64{8, 9, 18, 22, 16, 26, 8, 16, 16, 18, 14, 12, 18, 18, 18, 18}
+	widths := []float64{8, 10, 18, 20, 16, 24, 10, 18, 18, 18, 14, 14, 18, 18, 18, 18}
+	aligns := []string{"C", "C", "C", "L", "C", "L", "C", "R", "R", "C", "C", "C", "C", "C", "C", "C"}
 	var data [][]string
 	sno := 1
 	var grandTotal float64
@@ -217,7 +219,7 @@ func generatePurchaseReportPDF(c *gin.Context) {
 
 	period := fmt.Sprintf("Period: %s to %s | Generated: %s", startDate, endDate, time.Now().Format("02-01-2006 03:04 PM"))
 	pr := utils.NewPDFReport("PURCHASE & PARTS REPORT", period, true)
-	pr.AddTable(headers, data, widths)
+	pr.AddTableWithAlign(headers, data, widths, aligns)
 
 	totals := make([]string, len(headers))
 	totals[7] = "TOTAL"
@@ -260,8 +262,8 @@ func generateLeaveReportPDF(c *gin.Context) {
 	defer rows.Close()
 
 	headers := []string{"S.No", "Driver Name", "Leave Type", "Start Date", "Start Time", "End Date", "End Time", "Reason", "Status", "Approved By", "Remarks", "Applied On"}
-	// Long-text cols (Reason, Remarks) are narrower; wrapping handles overflow
-	widths := []float64{8, 30, 18, 20, 18, 20, 18, 28, 14, 24, 26, 22}
+	widths := []float64{8, 28, 18, 20, 18, 20, 18, 30, 16, 24, 24, 24}
+	aligns := []string{"C", "L", "C", "C", "C", "C", "C", "L", "C", "L", "L", "C"}
 	var data [][]string
 	sno := 1
 	for rows.Next() {
@@ -277,7 +279,7 @@ func generateLeaveReportPDF(c *gin.Context) {
 
 	period := fmt.Sprintf("Period: %s to %s | Generated: %s", startDate, endDate, time.Now().Format("02-01-2006 03:04 PM"))
 	pr := utils.NewPDFReport("DRIVER LEAVE REPORT", period, true)
-	pr.AddTable(headers, data, widths)
+	pr.AddTableWithAlign(headers, data, widths, aligns)
 	pr.Send(c, fmt.Sprintf("Leave_Report_%s_to_%s.pdf", startDate, endDate))
 }
 
@@ -314,7 +316,8 @@ func generateKmFuelReportPDF(c *gin.Context) {
 	defer rows.Close()
 
 	headers := []string{"S.No", "Driver Name", "Vehicle No", "Vehicle", "Date", "Start KM", "End KM", "Total KM", "Fuel(L)", "Mileage", "Status", "Remarks"}
-	widths := []float64{8, 30, 20, 24, 20, 18, 18, 18, 14, 16, 14, 28}
+	widths := []float64{8, 28, 20, 22, 20, 18, 18, 18, 16, 16, 16, 28}
+	aligns := []string{"C", "L", "C", "L", "C", "R", "R", "R", "R", "R", "C", "L"}
 	var data [][]string
 	sno := 1
 	var totalKm, totalFuel float64
@@ -336,7 +339,7 @@ func generateKmFuelReportPDF(c *gin.Context) {
 
 	period := fmt.Sprintf("Period: %s to %s | Generated: %s", startDate, endDate, time.Now().Format("02-01-2006 03:04 PM"))
 	pr := utils.NewPDFReport("KM & FUEL CONSUMPTION REPORT", period, true)
-	pr.AddTable(headers, data, widths)
+	pr.AddTableWithAlign(headers, data, widths, aligns)
 
 	avgMileage := float64(0)
 	if totalFuel > 0 {
@@ -357,7 +360,7 @@ func generateKmFuelReportPDF(c *gin.Context) {
 func generateVehicleFleetReportPDF(c *gin.Context) {
 	rows, err := config.DB.Query(`
 		SELECT 
-			v.vehicle_number, v.vehicle_name, COALESCE(vt.type, '') as vehicle_type, v.fuel_type,
+			v.vehicle_number, v.vehicle_name, COALESCE(vt.type, ''), v.fuel_type,
 			v.seating_capacity, v.status,
 			COALESCE(DATE_FORMAT(v.insurance_expire_date, '%d-%m-%Y'), '-'),
 			COALESCE(DATE_FORMAT(v.fc_expire_date, '%d-%m-%Y'), '-'),
@@ -383,7 +386,8 @@ func generateVehicleFleetReportPDF(c *gin.Context) {
 	defer rows.Close()
 
 	headers := []string{"S.No", "Vehicle No", "Vehicle Name", "Type", "Fuel", "Seats", "Status", "Insurance Exp.", "Ins.Status", "FC Expiry", "FC Status", "Permit Exp.", "Permit Status"}
-	widths := []float64{8, 20, 28, 14, 12, 10, 13, 22, 20, 20, 20, 20, 22}
+	widths := []float64{8, 22, 26, 14, 12, 10, 14, 22, 18, 22, 18, 22, 20}
+	aligns := []string{"C", "C", "L", "C", "C", "C", "C", "C", "C", "C", "C", "C", "C"}
 	var data [][]string
 	sno := 1
 	for rows.Next() {
@@ -401,7 +405,7 @@ func generateVehicleFleetReportPDF(c *gin.Context) {
 
 	period := fmt.Sprintf("Generated: %s", time.Now().Format("02-01-2006 03:04 PM"))
 	pr := utils.NewPDFReport("VEHICLE FLEET & DOCUMENT EXPIRY REPORT", period, true)
-	pr.AddTable(headers, data, widths)
+	pr.AddTableWithAlign(headers, data, widths, aligns)
 	pr.Send(c, fmt.Sprintf("Vehicle_Fleet_Report_%s.pdf", time.Now().Format("2006-01-02")))
 }
 
@@ -442,7 +446,8 @@ func generateStudentFeeReportPDF(c *gin.Context) {
 	defer rows.Close()
 
 	headers := []string{"S.No", "Student Name", "Roll No", "Dept", "Year", "Bus", "Stop", "Total Fee", "Paid", "Balance", "Status"}
-	widths := []float64{8, 36, 20, 16, 10, 24, 24, 20, 20, 20, 16}
+	widths := []float64{8, 34, 20, 16, 10, 22, 22, 22, 22, 22, 16}
+	aligns := []string{"C", "L", "C", "C", "C", "L", "L", "R", "R", "R", "C"}
 	var data [][]string
 	sno := 1
 	var totalFee, totalPaid, totalBalance float64
@@ -464,7 +469,7 @@ func generateStudentFeeReportPDF(c *gin.Context) {
 
 	period := fmt.Sprintf("Academic Year: %s | Generated: %s", academicYear, time.Now().Format("02-01-2006 03:04 PM"))
 	pr := utils.NewPDFReport("STUDENT TRANSPORT FEE COLLECTION REPORT", period, true)
-	pr.AddTable(headers, data, widths)
+	pr.AddTableWithAlign(headers, data, widths, aligns)
 
 	totals := make([]string, len(headers))
 	totals[6] = "TOTAL"
@@ -492,7 +497,6 @@ func generateVehicleRequestReportPDF(c *gin.Context) {
 			COALESCE(f.department, '-'),
 			COALESCE(vr.BookingType, '-'),
 			COALESCE(vr.TripType, '-'),
-			COALESCE(vr.TripMode, '-'),
 			COALESCE(vr.Purpose, vr.PurposeOfVisit, '-'),
 			COALESCE(vr.CountPerson, 1),
 			COALESCE(vr.OnwardFromPlace, '-'),
@@ -519,18 +523,19 @@ func generateVehicleRequestReportPDF(c *gin.Context) {
 	}
 	defer rows.Close()
 
-	headers := []string{"S.No", "Faculty", "Dept", "Booking", "Trip", "Mode", "Purpose", "Prs", "From", "To", "Date & Time", "Vehicle", "Driver", "Status", "Approved", "Requested"}
-	widths := []float64{8, 22, 14, 14, 12, 12, 24, 8, 16, 16, 24, 16, 22, 14, 18, 24}
+	headers := []string{"S.No", "Faculty", "Dept", "Booking", "Trip", "Purpose", "Prs", "From", "To", "Date & Time", "Vehicle", "Driver", "Status", "Approved", "Requested"}
+	widths := []float64{8, 22, 14, 14, 12, 24, 8, 16, 16, 24, 16, 22, 14, 18, 24}
+	aligns := []string{"C", "L", "C", "C", "C", "L", "C", "L", "L", "C", "C", "L", "C", "C", "C"}
 	var data [][]string
 	sno := 1
 	for rows.Next() {
-		var faculty, dept, bookingType, tripType, tripMode, purpose, from, to, dateTime, vehicle, driver, status, approvedOn, requestedOn string
+		var faculty, dept, bookingType, tripType, purpose, from, to, dateTime, vehicle, driver, status, approvedOn, requestedOn string
 		var persons int
-		if err := rows.Scan(&faculty, &dept, &bookingType, &tripType, &tripMode, &purpose, &persons, &from, &to, &dateTime, &vehicle, &driver, &status, &approvedOn, &requestedOn); err != nil {
+		if err := rows.Scan(&faculty, &dept, &bookingType, &tripType, &purpose, &persons, &from, &to, &dateTime, &vehicle, &driver, &status, &approvedOn, &requestedOn); err != nil {
 			continue
 		}
 		data = append(data, []string{
-			fmt.Sprintf("%d", sno), faculty, dept, bookingType, tripType, tripMode, purpose,
+			fmt.Sprintf("%d", sno), faculty, dept, bookingType, tripType, purpose,
 			fmt.Sprintf("%d", persons), from, to, dateTime, vehicle, driver, status, approvedOn, requestedOn,
 		})
 		sno++
@@ -538,7 +543,7 @@ func generateVehicleRequestReportPDF(c *gin.Context) {
 
 	period := fmt.Sprintf("Period: %s to %s | Generated: %s", startDate, endDate, time.Now().Format("02-01-2006 03:04 PM"))
 	pr := utils.NewPDFReport("FACULTY VEHICLE REQUEST REPORT", period, true)
-	pr.AddTable(headers, data, widths)
+	pr.AddTableWithAlign(headers, data, widths, aligns)
 	pr.Send(c, fmt.Sprintf("Vehicle_Request_Report_%s_to_%s.pdf", startDate, endDate))
 }
 
@@ -577,6 +582,7 @@ func generateDriverReportPDF(c *gin.Context) {
 
 	headers := []string{"S.No", "Driver Name", "Phone", "Email", "License No", "Lic. Type", "Lic. Expiry", "Exp(Yrs)", "DOJ", "Allowed", "Status", "Home Veh.", "Home Stop", "Lic. Status"}
 	widths := []float64{8, 28, 20, 34, 22, 16, 20, 12, 18, 16, 14, 18, 18, 20}
+	aligns := []string{"C", "L", "C", "C", "C", "C", "C", "C", "C", "C", "C", "C", "L", "C"}
 	var data [][]string
 	sno := 1
 	for rows.Next() {
@@ -594,7 +600,7 @@ func generateDriverReportPDF(c *gin.Context) {
 
 	period := fmt.Sprintf("Generated: %s", time.Now().Format("02-01-2006 03:04 PM"))
 	pr := utils.NewPDFReport("DRIVER MASTER REPORT", period, true)
-	pr.AddTable(headers, data, widths)
+	pr.AddTableWithAlign(headers, data, widths, aligns)
 	pr.Send(c, fmt.Sprintf("Driver_Report_%s.pdf", time.Now().Format("2006-01-02")))
 }
 
@@ -634,6 +640,7 @@ func generateAssignmentReportPDF(c *gin.Context) {
 
 	headers := []string{"S.No", "Driver Name", "Vehicle No", "Vehicle Name", "Shift", "Start Date", "End Date", "Status", "Temp?", "Description", "Created"}
 	widths := []float64{8, 32, 20, 26, 18, 20, 20, 16, 12, 38, 20}
+	aligns := []string{"C", "L", "C", "L", "C", "C", "C", "C", "C", "L", "C"}
 	var data [][]string
 	sno := 1
 	for rows.Next() {
@@ -649,7 +656,7 @@ func generateAssignmentReportPDF(c *gin.Context) {
 
 	period := fmt.Sprintf("Period: %s to %s | Generated: %s", startDate, endDate, time.Now().Format("02-01-2006 03:04 PM"))
 	pr := utils.NewPDFReport("ASSIGNMENT REPORT", period, true)
-	pr.AddTable(headers, data, widths)
+	pr.AddTableWithAlign(headers, data, widths, aligns)
 	pr.Send(c, fmt.Sprintf("Assignment_Report_%s_to_%s.pdf", startDate, endDate))
 }
 
@@ -682,8 +689,8 @@ func generateVendorReportPDF(c *gin.Context) {
 	defer rows.Close()
 
 	headers := []string{"S.No", "Vendor Name", "Contact", "GST Number", "Total Parts", "Total Spent", "Vehicles Served"}
-	// Portrait: 7 cols
 	widths := []float64{8, 42, 24, 32, 20, 26, 24}
+	aligns := []string{"C", "L", "C", "C", "C", "R", "C"}
 	var data [][]string
 	sno := 1
 	var grandTotal float64
@@ -703,8 +710,8 @@ func generateVendorReportPDF(c *gin.Context) {
 	}
 
 	period := fmt.Sprintf("Period: %s to %s | Generated: %s", startDate, endDate, time.Now().Format("02-01-2006 03:04 PM"))
-	pr := utils.NewPDFReport("VENDOR SPENDING ANALYSIS REPORT", period, false) // portrait is fine for 7 cols
-	pr.AddTable(headers, data, widths)
+	pr := utils.NewPDFReport("VENDOR SPENDING ANALYSIS REPORT", period, false)
+	pr.AddTableWithAlign(headers, data, widths, aligns)
 
 	totals := make([]string, len(headers))
 	totals[4] = "TOTAL"
@@ -754,6 +761,7 @@ func generateStopChangeReportPDF(c *gin.Context) {
 
 	headers := []string{"S.No", "Student", "Roll No", "Dept", "Yr", "From Stop", "To Stop", "Old Fee", "New Fee", "Diff", "Paid", "Balance", "Status", "Reason", "By", "Remarks", "Requested", "Processed"}
 	widths := []float64{7, 18, 14, 12, 7, 16, 16, 14, 14, 12, 14, 14, 12, 20, 16, 20, 22, 20}
+	aligns := []string{"C", "L", "C", "C", "C", "L", "L", "R", "R", "R", "R", "R", "C", "L", "L", "L", "C", "C"}
 	var data [][]string
 	sno := 1
 	var totalDiff, totalOutstanding float64
@@ -779,7 +787,7 @@ func generateStopChangeReportPDF(c *gin.Context) {
 
 	period := fmt.Sprintf("Period: %s to %s | Generated: %s", startDate, endDate, time.Now().Format("02-01-2006 03:04 PM"))
 	pr := utils.NewPDFReport("STOP CHANGE REQUEST REPORT", period, true)
-	pr.AddTable(headers, data, widths)
+	pr.AddTableWithAlign(headers, data, widths, aligns)
 
 	totals := make([]string, len(headers))
 	totals[8] = "TOTAL"
@@ -892,6 +900,7 @@ func generateBusDetailReportPDF(c *gin.Context) {
 		defer stopRows.Close()
 		stopHeaders := []string{"S.No", "Stop Name", "Order", "Fee", "Distance(KM)", "Arrival", "Students"}
 		stopWidths := []float64{10, 70, 16, 22, 24, 22, 22}
+		stopAligns := []string{"C", "L", "C", "R", "R", "C", "C"}
 		var stopData [][]string
 		ssno := 1
 		var totalStudents int
@@ -910,7 +919,7 @@ func generateBusDetailReportPDF(c *gin.Context) {
 			totalStudents += studentCount
 			ssno++
 		}
-		pr.AddTable(stopHeaders, stopData, stopWidths)
+		pr.AddTableWithAlign(stopHeaders, stopData, stopWidths, stopAligns)
 		totals := make([]string, 7)
 		totals[5] = "TOTAL"
 		totals[6] = fmt.Sprintf("%d", totalStudents)
@@ -936,6 +945,7 @@ func generateBusDetailReportPDF(c *gin.Context) {
 		defer stuRows.Close()
 		stuHeaders := []string{"S.No", "Student Name", "Roll No", "Email", "Dept", "Yr", "Stop", "Total Fee", "Paid", "Balance", "Status", "Year"}
 		stuWidths := []float64{8, 28, 18, 38, 14, 8, 20, 18, 18, 18, 14, 16}
+		stuAligns := []string{"C", "L", "C", "C", "C", "C", "L", "R", "R", "R", "C", "C"}
 		var stuData [][]string
 		ssno := 1
 		var sTotalFee, sTotalPaid, sTotalBal float64
@@ -956,7 +966,7 @@ func generateBusDetailReportPDF(c *gin.Context) {
 			sTotalBal += bal
 			ssno++
 		}
-		pr.AddTable(stuHeaders, stuData, stuWidths)
+		pr.AddTableWithAlign(stuHeaders, stuData, stuWidths, stuAligns)
 		totals := make([]string, 12)
 		totals[6] = "TOTAL"
 		totals[7] = utils.FmtMoney(sTotalFee)
@@ -1004,6 +1014,7 @@ func generateDriverGroupReportPDF(c *gin.Context) {
 
 	headers := []string{"S.No", "Group Name", "Description", "Drivers", "Valid From", "Valid To", "Created At"}
 	widths := []float64{10, 35, 50, 15, 24, 24, 32}
+	aligns := []string{"C", "L", "L", "C", "C", "C", "C"}
 	var data [][]string
 	sno := 1
 	for groupRows.Next() {
@@ -1022,12 +1033,13 @@ func generateDriverGroupReportPDF(c *gin.Context) {
 		period = fmt.Sprintf("Period: %s to %s | Generated: %s", startDate, endDate, time.Now().Format("02-01-2006 03:04 PM"))
 	}
 	pr := utils.NewPDFReport("DRIVER GROUP REPORT", period, true)
-	pr.AddTable(headers, data, widths)
+	pr.AddTableWithAlign(headers, data, widths, aligns)
 
 	// Members section
 	pr.AddSection("Driver Group Members")
 	memberHeaders := []string{"S.No", "Group Name", "Driver Name", "License No", "Phone", "Valid From", "Valid To", "Added At"}
 	memberWidths := []float64{10, 30, 35, 28, 22, 24, 24, 32}
+	memberAligns := []string{"C", "L", "L", "C", "C", "C", "C", "C"}
 	var memberData [][]string
 	msno := 1
 	for _, g := range groups {
@@ -1055,7 +1067,7 @@ func generateDriverGroupReportPDF(c *gin.Context) {
 		}
 		mRows.Close()
 	}
-	pr.AddTable(memberHeaders, memberData, memberWidths)
+	pr.AddTableWithAlign(memberHeaders, memberData, memberWidths, memberAligns)
 
 	pr.Send(c, fmt.Sprintf("Driver_Group_Report_%s.pdf", time.Now().Format("02-01-2006")))
 }
@@ -1097,6 +1109,7 @@ func generateVehicleGroupReportPDF(c *gin.Context) {
 
 	headers := []string{"S.No", "Group Name", "Description", "Vehicles", "Valid From", "Valid To", "Created At", "Updated At"}
 	widths := []float64{10, 30, 40, 16, 22, 22, 26, 26}
+	aligns := []string{"C", "L", "L", "C", "C", "C", "C", "C"}
 	var data [][]string
 	sno := 1
 	for groupRows.Next() {
@@ -1115,12 +1128,13 @@ func generateVehicleGroupReportPDF(c *gin.Context) {
 		period = fmt.Sprintf("Period: %s to %s | Generated: %s", startDate, endDate, time.Now().Format("02-01-2006 03:04 PM"))
 	}
 	pr := utils.NewPDFReport("VEHICLE GROUP REPORT", period, true)
-	pr.AddTable(headers, data, widths)
+	pr.AddTableWithAlign(headers, data, widths, aligns)
 
 	// Members section
 	pr.AddSection("Vehicle Group Members")
 	memberHeaders := []string{"S.No", "Group Name", "Vehicle Number", "Vehicle Type", "Status", "Valid From", "Valid To", "Added At"}
 	memberWidths := []float64{10, 30, 30, 22, 18, 24, 24, 32}
+	memberAligns := []string{"C", "L", "C", "C", "C", "C", "C", "C"}
 	var memberData [][]string
 	msno := 1
 	for _, g := range groups {
@@ -1148,7 +1162,7 @@ func generateVehicleGroupReportPDF(c *gin.Context) {
 		}
 		mRows.Close()
 	}
-	pr.AddTable(memberHeaders, memberData, memberWidths)
+	pr.AddTableWithAlign(memberHeaders, memberData, memberWidths, memberAligns)
 
 	pr.Send(c, fmt.Sprintf("Vehicle_Group_Report_%s.pdf", time.Now().Format("02-01-2006")))
 }
@@ -1187,6 +1201,7 @@ func generateShiftReportPDF(c *gin.Context) {
 
 	headers := []string{"S.No", "Shift Name", "Start Time", "End Time", "Description", "Created By", "Active Drivers", "Active Vehicles"}
 	widths := []float64{10, 28, 20, 20, 40, 28, 22, 22}
+	aligns := []string{"C", "L", "C", "C", "L", "L", "C", "C"}
 	var data [][]string
 	sno := 1
 	for rows.Next() {
@@ -1202,12 +1217,13 @@ func generateShiftReportPDF(c *gin.Context) {
 
 	period := fmt.Sprintf("Generated: %s", time.Now().Format("02-01-2006 03:04 PM"))
 	pr := utils.NewPDFReport("SHIFTS & TIMINGS REPORT", period, true)
-	pr.AddTable(headers, data, widths)
+	pr.AddTableWithAlign(headers, data, widths, aligns)
 
 	// Shift assignments section
 	pr.AddSection("Current Shift-wise Assignments")
 	assignHeaders := []string{"S.No", "Shift Name", "Driver Name", "Vehicle Number", "Vehicle Name", "Start Date", "End Date"}
 	assignWidths := []float64{10, 30, 35, 28, 30, 28, 28}
+	assignAligns := []string{"C", "L", "L", "C", "L", "C", "C"}
 	var assignData [][]string
 	asno := 1
 	for _, s := range shifts {
@@ -1235,7 +1251,7 @@ func generateShiftReportPDF(c *gin.Context) {
 		}
 		aRows.Close()
 	}
-	pr.AddTable(assignHeaders, assignData, assignWidths)
+	pr.AddTableWithAlign(assignHeaders, assignData, assignWidths, assignAligns)
 
 	pr.Send(c, fmt.Sprintf("Shifts_Timings_Report_%s.pdf", time.Now().Format("02-01-2006")))
 }
