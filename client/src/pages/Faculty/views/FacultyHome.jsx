@@ -201,35 +201,26 @@ export default function FacultyHome() {
   ];
 
   return (
-    <div className="space-y-6 animate-fadeIn">
-      {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-primary to-primarydull rounded-md p-6 text-white">
-        <h1 className="text-2xl font-bold">
-          Welcome, {user?.full_name || "Faculty"}!
-        </h1>
-        <p className="mt-2 text-white/90">
-          Manage your vehicle requests and track their status
-        </p>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div className="space-y-5 animate-fadeIn">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {statCards.map((card, idx) => (
           <div
             key={idx}
-            className="bg-white rounded-md p-4 shadow-sm border border-gray-100"
+            className="rounded-md border border-[#E4E8F4] bg-white p-4 shadow-sm"
           >
             <div className="flex items-center gap-3">
               <div
-                className={`w-10 h-10 ${card.color} rounded-md flex items-center justify-center text-white`}
+                className={`flex h-11 w-11 items-center justify-center rounded-md ${card.color} text-white shadow-sm`}
               >
                 <card.icon className="w-5 h-5" />
               </div>
-              <div>
-                <p className="text-xs font-semibold text-secondarytext uppercase tracking-wide">
+              <div className="min-w-0">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-secondarytext">
                   {card.title}
                 </p>
-                <p className={`text-2xl font-bold ${card.textColor}`}>
+                <p
+                  className={`mt-1 text-2xl font-bold leading-none ${card.textColor}`}
+                >
                   {loading ? "-" : card.value}
                 </p>
               </div>
@@ -238,42 +229,41 @@ export default function FacultyHome() {
         ))}
       </div>
 
-      {/* Rejected/Cancelled Request Notifications */}
       {!loading && unreadRequestAlerts.length > 0 && (
-        <div className="bg-white rounded-md shadow-sm border border-red/20">
-          <div className="flex justify-between items-center p-4 border-b border-red/10">
-            <h2 className="text-lg font-bold text-red flex items-center gap-2">
-              <span className="w-1 h-5 bg-red rounded-full"></span>
+        <div className="rounded-md border border-[#F4D4D4] bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-[#F8E3E3] px-4 py-4">
+            <h2 className="flex items-center gap-2 text-lg font-bold text-primarytext">
+              <span className="h-5 w-1 rounded-md bg-red"></span>
               Request Alerts
-              <span className="text-xs font-bold bg-red/10 text-red px-2 py-0.5 rounded-full">
+              <span className="rounded-md bg-red/10 px-2 py-0.5 text-xs font-bold text-red">
                 {unreadRequestAlerts.length}
               </span>
             </h2>
             {unreadRequestAlerts.length > 1 && (
               <button
                 onClick={dismissAllRejections}
-                className="text-xs font-semibold text-secondarytext hover:text-primarytext transition-colors"
+                className="rounded-md border border-[#E4E8F4] bg-[#F8F9FD] px-3 py-1.5 text-xs font-semibold text-secondarytext hover:text-primarytext transition-colors"
               >
                 Mark all as read
               </button>
             )}
           </div>
-          <div className="p-4 space-y-3">
+          <div className="space-y-3 p-4">
             {unreadRequestAlerts.map((request) => {
               const isCancelled = request.status === "cancelled";
               const actionByName = request.approved_by_name || "Unknown";
               return (
                 <div
                   key={request.id}
-                  className={`flex items-start justify-between p-4 rounded-md border ${
+                  className={`flex flex-col gap-3 rounded-md border p-4 md:flex-row md:items-start md:justify-between ${
                     isCancelled
-                      ? "bg-amber-50/50 border-amber-200"
-                      : "bg-red/5 border-red/10"
+                      ? "border-amber-200 bg-amber-50/60"
+                      : "border-red bg-red/5"
                   }`}
                 >
                   <div className="flex items-start gap-3 flex-1 min-w-0">
                     <div
-                      className={`w-10 h-10 rounded-md flex items-center justify-center shrink-0 mt-0.5 ${
+                      className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-md ${
                         isCancelled ? "bg-amber-100" : "bg-red/10"
                       }`}
                     >
@@ -288,7 +278,7 @@ export default function FacultyHome() {
                         {request.onward_from_place} → {request.onward_to_place}
                       </p>
                       <p
-                        className={`text-xs font-semibold mt-1 ${
+                        className={`mt-1 text-xs font-semibold ${
                           isCancelled ? "text-amber-700" : "text-red"
                         }`}
                       >
@@ -296,7 +286,7 @@ export default function FacultyHome() {
                           ? `Cancelled - ${actionByName}`
                           : `Rejected - ${actionByName}`}
                       </p>
-                      <div className="flex items-center gap-2 text-xs text-secondarytext mt-1">
+                      <div className="mt-2 flex items-center gap-2 text-xs text-secondarytext">
                         <Calendar size={12} />
                         <span>
                           {request.onward_from_datetime?.split(" ")[0] || "N/A"}
@@ -304,7 +294,7 @@ export default function FacultyHome() {
                       </div>
                       {request.admin_remarks && (
                         <p
-                          className={`text-xs mt-1.5 ${
+                          className={`mt-2 text-xs ${
                             isCancelled ? "text-amber-700" : "text-red"
                           }`}
                         >
@@ -316,7 +306,7 @@ export default function FacultyHome() {
                   </div>
                   <button
                     onClick={() => dismissRejection(request.id)}
-                    className="flex items-center gap-1 text-xs font-semibold text-secondarytext hover:text-primarytext bg-white px-3 py-1.5 rounded-md border border-gray-200 hover:border-gray-300 transition-colors shrink-0 ml-3"
+                    className="ml-0 inline-flex shrink-0 items-center gap-1 self-start rounded-md border border-[#D8DCF0] bg-white px-3 py-2 text-xs font-semibold text-secondarytext hover:border-primary/30 hover:text-primary transition-colors md:ml-3"
                   >
                     <Eye className="w-3.5 h-3.5" />
                     Mark as read
@@ -328,17 +318,15 @@ export default function FacultyHome() {
         </div>
       )}
 
-      {/* 
-      {/* Active Requests Section */}
-      <div className="bg-white rounded-md shadow-sm border border-gray-100">
-        <div className="flex justify-between items-center p-4 border-b border-gray-100">
-          <h2 className="text-lg font-bold text-primarytext flex items-center gap-2">
-            <span className="w-1 h-5 bg-primary rounded-full"></span>
+      <div className="rounded-md border border-[#E4E8F4] bg-white shadow-sm">
+        <div className="flex items-center justify-between border-b border-[#EEF1F9] px-4 py-4">
+          <h2 className="flex items-center gap-2 text-lg font-bold text-primarytext">
+            <span className="h-5 w-1 rounded-md bg-primary"></span>
             Active Requests
           </h2>
           <button
             onClick={() => navigate("/faculty-dashboard/vehicle-booking")}
-            className="text-primary font-medium text-sm hover:underline flex items-center gap-1"
+            className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:text-primarydull transition-colors"
           >
             View All <ChevronRight className="w-4 h-4" />
           </button>
@@ -355,23 +343,23 @@ export default function FacultyHome() {
                 return (
                   <div
                     key={request.id}
-                    className="flex items-center justify-between p-4 bg-gray-50 rounded-md hover:bg-gray-100 transition-colors cursor-pointer"
+                    className="flex flex-col gap-3 rounded-md border border-[#E4E8F4] bg-[#FBFCFE] p-4 transition-colors hover:border-primary/20 hover:bg-white md:flex-row md:items-center md:justify-between cursor-pointer"
                     onClick={() =>
                       navigate("/faculty-dashboard/vehicle-booking")
                     }
                   >
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-4 min-w-0">
                       <div
-                        className={`w-10 h-10 rounded-md flex items-center justify-center border ${config.color}`}
+                        className={`flex h-10 w-10 items-center justify-center rounded-md border ${config.color}`}
                       >
                         {React.createElement(config.icon, {size: 18})}
                       </div>
-                      <div>
-                        <p className="font-semibold text-primarytext">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-primarytext truncate">
                           {request.onward_from_place} →{" "}
                           {request.onward_to_place}
                         </p>
-                        <div className="flex items-center gap-2 text-xs text-secondarytext mt-1">
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-secondarytext">
                           <Calendar size={12} />
                           <span>
                             {request.onward_from_datetime?.split(" ")[0] ||
@@ -389,7 +377,7 @@ export default function FacultyHome() {
                       </div>
                     </div>
                     <span
-                      className={`px-3 py-1 rounded-md text-xs font-semibold border ${config.color}`}
+                      className={`self-start rounded-md border px-3 py-1 text-xs font-semibold ${config.color}`}
                     >
                       {config.label}
                     </span>
@@ -398,12 +386,12 @@ export default function FacultyHome() {
               })}
             </div>
           ) : (
-            <div className="text-center py-8">
-              <Truck className="w-12 h-12 text-gray-200 mx-auto mb-3" />
+            <div className="rounded-md border border-dashed border-[#D8DCF0] bg-[#FBFCFE] py-10 text-center">
+              <Truck className="mx-auto mb-3 h-12 w-12 text-gray-300" />
               <p className="text-secondarytext">No active requests</p>
               <button
                 onClick={() => navigate("/faculty-dashboard/new-request")}
-                className="mt-4 px-4 py-2 bg-primary text-white rounded-md font-medium hover:bg-primarydull transition-colors text-sm"
+                className="mt-4 rounded-md bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primarydull"
               >
                 Book a Vehicle
               </button>
