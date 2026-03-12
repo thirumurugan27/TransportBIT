@@ -2,9 +2,12 @@ package models
 
 import "time"
 
-/* =========================
-   AUTH & ADMIN MODELS
-======================== */
+/*
+	=========================
+	  AUTH & ADMIN MODELS
+
+========================
+*/
 type LoginRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
@@ -23,9 +26,12 @@ type AdminProfile struct {
 	ProfileImage string `json:"profile_image"`
 }
 
-/* =========================
-   DRIVER MODELS
-========================= */
+/*
+	=========================
+	  DRIVER MODELS
+
+=========================
+*/
 type CreateDriverRequest struct {
 	Username           string `json:"username"`
 	Password           string `json:"password"`
@@ -63,9 +69,49 @@ type DriverResponse struct {
 	ClusterName        string `json:"cluster_name"`
 }
 
-/* =========================
-   VEHICLE MODELS
-========================= */
+type BulkDriverSheetRequest struct {
+	SheetURL string `json:"sheet_url"`
+}
+
+type BulkDriverPreviewRow struct {
+	RowNumber          int      `json:"row_number"`
+	FullName           string   `json:"full_name"`
+	Phone              string   `json:"phone"`
+	Email              string   `json:"email"`
+	LicenseNumber      string   `json:"license_number"`
+	LicenseType        string   `json:"license_type"`
+	LicenseExpiry      string   `json:"license_expiry"`
+	ExperienceYears    int      `json:"experience_years"`
+	DateOfJoining      string   `json:"date_of_joining"`
+	DateOfRelieving    string   `json:"date_of_relieving"`
+	AllowedVehicleType string   `json:"allowed_vehicle_type"`
+	Errors             []string `json:"errors"`
+	IsValid            bool     `json:"is_valid"`
+}
+
+type BulkDriverSheetPreviewResponse struct {
+	SheetURL        string                 `json:"sheet_url"`
+	CSVURL          string                 `json:"csv_url"`
+	TotalRows       int                    `json:"total_rows"`
+	ReadyRows       int                    `json:"ready_rows"`
+	InvalidRows     int                    `json:"invalid_rows"`
+	RequiredHeaders []string               `json:"required_headers"`
+	Rows            []BulkDriverPreviewRow `json:"rows"`
+}
+
+type BulkDriverImportResponse struct {
+	Message      string                         `json:"message"`
+	CreatedCount int                            `json:"created_count"`
+	FailedCount  int                            `json:"failed_count"`
+	Preview      BulkDriverSheetPreviewResponse `json:"preview"`
+}
+
+/*
+	=========================
+	  VEHICLE MODELS
+
+=========================
+*/
 type Vehicle struct {
 	ID                  int      `json:"id"`
 	VehicleNumber       string   `json:"vehicle_number"`
@@ -87,13 +133,10 @@ type Vehicle struct {
 	MVTaxExpire         *string  `json:"mv_tax_expire"`
 	InsuranceExpireDate *string  `json:"insurance_expire_date"`
 	InsuranceStartDate  *string  `json:"insurance_start_date"`
-	InsuranceRemarks    *string  `json:"insurance_remarks"`
 	FCExpireDate        *string  `json:"fc_expire_date"`
 	FCStartDate         *string  `json:"fc_start_date"`
-	FCRemarks           *string  `json:"fc_remarks"`
 	PermitExpireDate    *string  `json:"permit_expire_date"`
 	PermitStartDate     *string  `json:"permit_start_date"`
-	PermitRemarks       *string  `json:"permit_remarks"`
 }
 
 // VehicleDocument represents a single document row in vehicle_documents table.
@@ -129,13 +172,55 @@ type CreateVehicleRequest struct {
 	// Document fields (optional at creation)
 	InsuranceExpireDate *string `json:"insurance_expire_date"`
 	InsuranceStartDate  *string `json:"insurance_start_date"`
-	InsuranceRemarks    *string `json:"insurance_remarks"`
 	FCExpireDate        *string `json:"fc_expire_date"`
 	FCStartDate         *string `json:"fc_start_date"`
-	FCRemarks           *string `json:"fc_remarks"`
 	PermitExpireDate    *string `json:"permit_expire_date"`
 	PermitStartDate     *string `json:"permit_start_date"`
-	PermitRemarks       *string `json:"permit_remarks"`
+}
+
+type BulkVehiclePreviewRow struct {
+	RowNumber        int      `json:"row_number"`
+	VehicleNumber    string   `json:"vehicle_number"`
+	VehicleType      string   `json:"vehicle_type"`
+	FuelType         string   `json:"fuel_type"`
+	SeatingCapacity  int      `json:"seating_capacity"`
+	VehicleName      string   `json:"vehicle_name"`
+	StartPoint       string   `json:"start_point"`
+	EndPoint         string   `json:"end_point"`
+	ChassisNumber    string   `json:"chassis_number"`
+	EngineNumber     string   `json:"engine_number"`
+	PermitNumber     string   `json:"permit_number"`
+	AdditionalPermit string   `json:"additional_permit"`
+	InsuranceAmount  *float64 `json:"insurance_amount"`
+	RoadTaxAmount    *float64 `json:"road_tax_amount"`
+	PollutionExpire  string   `json:"pollution_expire"`
+	GreenTaxExpire   string   `json:"green_tax_expire"`
+	MVTaxExpire      string   `json:"mv_tax_expire"`
+	InsuranceStart   string   `json:"insurance_start_date"`
+	InsuranceExpire  string   `json:"insurance_expire_date"`
+	FCStart          string   `json:"fc_start_date"`
+	FCExpire         string   `json:"fc_expire_date"`
+	PermitStart      string   `json:"permit_start_date"`
+	PermitExpire     string   `json:"permit_expire_date"`
+	Errors           []string `json:"errors"`
+	IsValid          bool     `json:"is_valid"`
+}
+
+type BulkVehicleSheetPreviewResponse struct {
+	SheetURL        string                  `json:"sheet_url"`
+	CSVURL          string                  `json:"csv_url"`
+	TotalRows       int                     `json:"total_rows"`
+	ReadyRows       int                     `json:"ready_rows"`
+	InvalidRows     int                     `json:"invalid_rows"`
+	RequiredHeaders []string                `json:"required_headers"`
+	Rows            []BulkVehiclePreviewRow `json:"rows"`
+}
+
+type BulkVehicleImportResponse struct {
+	Message      string                          `json:"message"`
+	CreatedCount int                             `json:"created_count"`
+	FailedCount  int                             `json:"failed_count"`
+	Preview      BulkVehicleSheetPreviewResponse `json:"preview"`
 }
 
 // VehicleDocumentAuditLog represents a single field-level change to a vehicle document
@@ -151,9 +236,32 @@ type VehicleDocumentAuditLog struct {
 	ChangedAt     string  `json:"changed_at"`
 }
 
-/* =========================
-   STOP MODELS
-========================= */
+// VehicleType represents a vehicle type master record
+type VehicleType struct {
+	ID       int    `json:"id"`
+	Type     string `json:"type"`
+	Label    string `json:"label"`
+	IsActive bool   `json:"is_active"`
+}
+
+// CreateVehicleTypeRequest - request to create a new vehicle type
+type CreateVehicleTypeRequest struct {
+	Type  string `json:"type" binding:"required"`
+	Label string `json:"label" binding:"required"`
+}
+
+// UpdateVehicleTypeRequest - request to update a vehicle type
+type UpdateVehicleTypeRequest struct {
+	Type  string `json:"type"`
+	Label string `json:"label"`
+}
+
+/*
+	=========================
+	  STOP MODELS
+
+=========================
+*/
 type Stop struct {
 	ID       int    `json:"id"`
 	StopName string `json:"stop_name"`
@@ -164,9 +272,12 @@ type CreateStopRequest struct {
 	Location string `json:"location"`
 }
 
-/* =========================
-   SHIFT MODELS
-======================== */
+/*
+	=========================
+	  SHIFT MODELS
+
+========================
+*/
 type Shift struct {
 	ID          int    `json:"id"`
 	Name        string `json:"name"`
@@ -189,9 +300,12 @@ type CreateShiftWithSlotsRequest struct {
 	EndTime     string `json:"end_time"`
 }
 
-/* =========================
-   ASSIGNMENT MODELS
-========================= */
+/*
+	=========================
+	  ASSIGNMENT MODELS
+
+=========================
+*/
 type Assignment struct {
 	ID                     int    `json:"id"`
 	ShiftID                int    `json:"shift_id"`
@@ -316,6 +430,17 @@ type MarkAttendanceRequest struct {
 	Date        string  `json:"date"`
 	Status      string  `json:"status"`
 	CheckinTime *string `json:"checkin_time"`
+}
+
+type BulkMarkAttendanceItem struct {
+	UserID      int     `json:"user_id"`
+	Status      string  `json:"status"`
+	CheckinTime *string `json:"checkin_time"`
+}
+
+type BulkMarkAttendanceRequest struct {
+	Date    string                   `json:"date"`
+	Updates []BulkMarkAttendanceItem `json:"updates"`
 }
 
 // Buse Fleet
@@ -724,13 +849,13 @@ type VehicleRequest struct {
 	DriverID  *int `json:"driver_id"`
 
 	// Status and Approval
-	Status       string  `json:"status"`
-	AdminRemarks string  `json:"admin_remarks"`
-	ApprovedBy   *int    `json:"approved_by"`
-	ApprovedByName string `json:"approved_by_name"`
-	ApprovedAt   *string `json:"approved_at"`
-	AssignedAt   *string `json:"assigned_at"`
-	CreatedAt    string  `json:"created_at"`
+	Status         string  `json:"status"`
+	AdminRemarks   string  `json:"admin_remarks"`
+	ApprovedBy     *int    `json:"approved_by"`
+	ApprovedByName string  `json:"approved_by_name"`
+	ApprovedAt     *string `json:"approved_at"`
+	AssignedAt     *string `json:"assigned_at"`
+	CreatedAt      string  `json:"created_at"`
 
 	// OTP fields for trip verification
 	StartOTP            string  `json:"start_otp,omitempty"`

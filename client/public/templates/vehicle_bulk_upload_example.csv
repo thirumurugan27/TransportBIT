@@ -1,0 +1,3 @@
+vehicle_number,vehicle_type,fuel_type,seating_capacity,vehicle_name,start_point,end_point,chassis_number,engine_number,permit_number,additional_permit,insurance_amount,road_tax_amount,pollution_expire,green_tax_expire,mv_tax_expire,insurance_start_date,insurance_expire_date,fc_start_date,fc_expire_date,permit_start_date,permit_expire_date
+TN36AB1234,BUS,DIESEL,52,College Bus A,Main Gate,Town Bus Stand,CHASSIS001,ENG001,PERMIT001,Regional Permit,120000,30000,2026-12-31,2027-03-31,2027-06-30,2026-01-01,2026-12-31,2026-01-01,2027-01-01,2026-01-01,2026-12-31
+TN36CD5678,CAR,PETROL,5,Staff Car 1,,,,,,,,,,,,,,,,,

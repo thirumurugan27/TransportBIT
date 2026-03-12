@@ -12,6 +12,10 @@ import {
   Search,
   Clock,
   CalendarDays,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 import {useToast} from "../../../context/ToastContext";
 
@@ -28,7 +32,20 @@ const formatCheckinTime = (isoString) => {
     const ampm = hours >= 12 ? "PM" : "AM";
     const h12 = hours % 12 || 12;
     const day = d.getDate().toString().padStart(2, "0");
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
     const month = months[d.getMonth()];
     const year = d.getFullYear();
     return `${h12}:${minutes} ${ampm}, ${day} ${month} ${year}`;
@@ -41,7 +58,8 @@ export default function AttendanceRecords() {
   const {showToast} = useToast();
   const [attendanceHistory, setAttendanceHistory] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [markingId, setMarkingId] = useState(null);
+  const [pendingAttendance, setPendingAttendance] = useState({});
+  const [submittingBulk, setSubmittingBulk] = useState(false);
 
   // Default to today
   const today = new Date().toISOString().split("T")[0];
@@ -73,6 +91,7 @@ export default function AttendanceRecords() {
       if (res.ok) {
         const data = await res.json();
         setAttendanceHistory(data || []);
+        setPendingAttendance({});
       }
     } catch (error) {
       console.error("Error fetching attendance history:", error);
@@ -82,25 +101,60 @@ export default function AttendanceRecords() {
   };
 
   const isSingleDay = startDate === endDate;
+  const pendingCount = Object.keys(pendingAttendance).length;
 
-  const handleMarkAttendance = async (userId, status) => {
-    setMarkingId(userId);
+  const getEffectiveStatus = (record) => {
+    return pendingAttendance[record.user_id] || record.status;
+  };
+
+  const handleStatusCheckboxChange = (record, status, checked) => {
+    if (record.status === "on_leave") return;
+
+    setPendingAttendance((prev) => {
+      const next = {...prev};
+      if (!checked || status === record.status) {
+        delete next[record.user_id];
+        return next;
+      }
+
+      next[record.user_id] = status;
+      return next;
+    });
+  };
+
+  const handleSubmitBulkAttendance = async () => {
+    if (pendingCount === 0) {
+      showToast("No attendance changes selected.", "warning");
+      return;
+    }
+
+    const updates = Object.entries(pendingAttendance).map(
+      ([userId, status]) => {
+        const payload = {
+          user_id: Number(userId),
+          status,
+        };
+
+        if (status === "present") {
+          payload.checkin_time = new Date()
+            .toISOString()
+            .slice(0, 19)
+            .replace("T", " ");
+        }
+
+        return payload;
+      },
+    );
+
+    setSubmittingBulk(true);
     try {
-      const now = new Date();
-      const checkinTime =
-        status === "present"
-          ? now.toISOString().slice(0, 19).replace("T", " ")
-          : "";
-
-      const res = await apiPost("/api/admin/attendance/mark", {
-        user_id: userId,
+      const res = await apiPost("/api/admin/attendance/mark-bulk", {
         date: startDate,
-        status: status,
-        checkin_time: checkinTime,
+        updates,
       });
 
       if (res.ok) {
-        showToast(`Attendance marked as ${status}`, "success");
+        showToast(`Saved ${updates.length} attendance updates.`, "success");
         fetchAttendanceHistory();
       } else {
         const errData = await res.text();
@@ -109,7 +163,7 @@ export default function AttendanceRecords() {
     } catch (err) {
       showToast("Error: " + err.message, "error");
     } finally {
-      setMarkingId(null);
+      setSubmittingBulk(false);
     }
   };
 
@@ -147,333 +201,446 @@ export default function AttendanceRecords() {
     document.body.removeChild(link);
   };
 
+  // Derived stats
+  const totalCount = attendanceHistory?.length || 0;
+  const presentCount =
+    attendanceHistory?.filter((r) => r.status === "present").length || 0;
+  const absentCount =
+    attendanceHistory?.filter((r) => r.status === "absent").length || 0;
+  const onLeaveCount =
+    attendanceHistory?.filter((r) => r.status === "on_leave").length || 0;
+  const notMarkedCount =
+    attendanceHistory?.filter((r) => r.status === "not_marked").length || 0;
+  const attendanceRate =
+    totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 0;
+
+  const statusBadge = (status) => {
+    const map = {
+      present: {
+        label: "Present",
+        icon: <CheckCircle2 size={12} />,
+        cls: "bg-emerald-50 text-emerald-700 border border-emerald-200",
+      },
+      absent: {
+        label: "Absent",
+        icon: <XCircle size={12} />,
+        cls: "bg-rose-50 text-rose-700 border border-rose-200",
+      },
+      on_leave: {
+        label: "On Leave",
+        icon: <AlertCircle size={12} />,
+        cls: "bg-amber-50 text-amber-700 border border-amber-200",
+      },
+      not_marked: {
+        label: "Not Marked",
+        icon: <Clock size={12} />,
+        cls: "bg-gray-100 text-gray-500 border border-gray-200",
+      },
+    };
+    const cfg = map[status] || map["not_marked"];
+    return (
+      <span
+        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wide ${cfg.cls}`}
+      >
+        {cfg.icon}
+        {cfg.label}
+      </span>
+    );
+  };
+
   return (
-    <div className="space-y-6 animate-fadeIn">
-      {/* Header with filters */}
-      <div className="bg-white rounded-md shadow-sm border border-gray-100 p-6">
-        <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-6">
-          <div>
-            <h3 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-              Attendance Management
-            </h3>
-            <p className="text-sm text-gray-500 mt-1">
-              Mark attendance and view driver attendance records
-            </p>
+    <div className="space-y-5 animate-fadeIn">
+      {/* ── Page Header ───────────────────────────────────────────── */}
+      <div className="bg-white rounded-md border border-gray-100 shadow-sm overflow-hidden">
+        {/* Row 1 — Title + Export CSV */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-primary/10 rounded-md shrink-0">
+              <CalendarDays size={20} className="text-primary" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-gray-800 leading-tight">
+                Attendance Management
+              </h2>
+              <p className="text-xs text-secondarytext mt-0.5">
+                Mark and review driver attendance records
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={downloadCSV}
+            className="inline-flex items-center gap-2 h-10.5 px-5 bg-primary hover:bg-primary/90 text-white rounded-md text-sm font-semibold shadow-sm transition-colors shrink-0"
+          >
+            <Download size={15} />
+            Export CSV
+          </button>
+        </div>
+
+        {/* Row 2 — Filters strip */}
+        <div className="flex items-center gap-2.5 px-6 py-3 bg-gray-50/50">
+          {/* Label */}
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-secondarytext uppercase tracking-wider shrink-0 mr-1">
+            <Filter size={12} />
+            Filters
+          </span>
+
+          <div className="w-px h-5 bg-gray-200 shrink-0" />
+
+          {/* Today */}
+          <button
+            onClick={setToday}
+            className={[
+              "inline-flex items-center gap-1.5 h-10.5 px-3.5 rounded-md text-sm font-semibold transition-all shrink-0",
+              startDate === today && endDate === today
+                ? "bg-primary text-white shadow-sm"
+                : "bg-white border border-gray-200 text-gray-600 hover:border-primary/40 hover:text-primary",
+            ].join(" ")}
+          >
+            <CalendarDays size={14} />
+            Today
+          </button>
+
+          {/* From */}
+          <div className="inline-flex items-center h-10.5 bg-white border border-gray-200 rounded-md px-3 gap-2 hover:border-gray-300 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10 transition-all shrink-0">
+            <span className="text-[10px] font-bold text-secondarytext uppercase tracking-widest select-none shrink-0">
+              From
+            </span>
+            <div className="w-px h-4 bg-gray-200 shrink-0" />
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="bg-transparent border-none outline-none text-sm text-gray-700 w-30"
+            />
           </div>
 
-          <div className="flex flex-wrap items-end gap-3 p-4 bg-gray-50 rounded-md border border-gray-100">
-            <div className="flex items-center gap-2 text-sm text-gray-500 font-medium mb-1 w-full lg:w-auto lg:mb-0 lg:mr-2">
-              <Filter size={16} /> Filters:
-            </div>
-
-            <button
-              onClick={setToday}
-              className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 h-[38px] ${
-                startDate === today && endDate === today
-                  ? "bg-primary text-white"
-                  : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-100"
-              }`}
-            >
-              <CalendarDays size={14} />
-              Today
-            </button>
-
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-bold text-gray-500 uppercase">
-                From
-              </label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white text-sm"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-bold text-gray-500 uppercase">
-                To
-              </label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white text-sm"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-bold text-gray-500 uppercase">
-                Status
-              </label>
-              <CustomDropdown
-                value={statusFilter}
-                onChange={setStatusFilter}
-                options={[
-                  {value: "all", label: "All Status"},
-                  {value: "present", label: "Present"},
-                  {value: "absent", label: "Absent"},
-                  {value: "on_leave", label: "On Leave"},
-                  {value: "not_marked", label: "Not Marked"},
-                ]}
-                width="w-36"
-              />
-            </div>
-
-            <button
-              onClick={downloadCSV}
-              className="ml-auto xl:ml-2 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-md transition-colors flex items-center gap-2 text-sm font-medium shadow-sm h-[38px]"
-              title="Download filtered attendance report"
-            >
-              <Download size={16} />
-              Export CSV
-            </button>
+          {/* To */}
+          <div className="inline-flex items-center h-10.5 bg-white border border-gray-200 rounded-md px-3 gap-2 hover:border-gray-300 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10 transition-all shrink-0">
+            <span className="text-[10px] font-bold text-secondarytext uppercase tracking-widest select-none shrink-0">
+              To
+            </span>
+            <div className="w-px h-4 bg-gray-200 shrink-0" />
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="bg-transparent border-none outline-none text-sm text-gray-700 w-30"
+            />
           </div>
+
+          {/* Status */}
+          <CustomDropdown
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={[
+              {value: "all", label: "All Status"},
+              {value: "present", label: "Present"},
+              {value: "absent", label: "Absent"},
+              {value: "on_leave", label: "On Leave"},
+              {value: "not_marked", label: "Not Marked"},
+            ]}
+            width="w-36"
+            isWhite
+          />
+
+          {/* Refresh */}
+          <button
+            onClick={fetchAttendanceHistory}
+            className="inline-flex items-center gap-1.5 h-10.5 px-3.5 bg-white border border-gray-200 rounded-md text-sm font-medium text-gray-600 hover:border-gray-300 hover:text-primary transition-colors shrink-0"
+          >
+            <RefreshCw size={14} />
+            Refresh
+          </button>
         </div>
       </div>
-
-      {/* Info banner when viewing single day */}
-      {isSingleDay && (
-        <div className="bg-blue-50 border border-blue-100 rounded-md p-4 flex items-center gap-3">
-          <Calendar className="w-5 h-5 text-blue-600 flex-shrink-0" />
-          <p className="text-sm text-blue-700">
-            Showing all drivers for <strong>{startDate}</strong> — use the
-            action buttons to mark attendance.
-          </p>
-        </div>
-      )}
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-md p-5 shadow-sm border border-gray-100 flex items-center justify-between group">
+      {/* ── Stats Row ─────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+        {/* Total */}
+        <div className="bg-white rounded-md border border-gray-100 shadow-sm p-4 flex items-center gap-3">
+          <div className="p-2.5 bg-blue-50 rounded-md shrink-0">
+            <FileText size={18} className="text-blue-600" />
+          </div>
           <div>
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
+            <p className="text-[10px] font-bold text-secondarytext uppercase tracking-widest">
               Total
             </p>
-            <p className="text-2xl font-bold text-gray-800">
-              {attendanceHistory?.length || 0}
-            </p>
-          </div>
-          <div className="p-3 bg-blue-50 text-blue-600 rounded-md group-hover:bg-blue-100 transition-colors">
-            <FileText size={20} />
+            <p className="text-xl font-bold text-gray-800">{totalCount}</p>
           </div>
         </div>
 
-        <div className="bg-white rounded-md p-5 shadow-sm border border-gray-100 flex items-center justify-between group">
+        {/* Present */}
+        <div className="bg-white rounded-md border border-gray-100 shadow-sm p-4 flex items-center gap-3">
+          <div className="p-2.5 bg-emerald-50 rounded-md shrink-0">
+            <UserCheck size={18} className="text-emerald-600" />
+          </div>
           <div>
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
+            <p className="text-[10px] font-bold text-secondarytext uppercase tracking-widest">
               Present
             </p>
-            <p className="text-2xl font-bold text-emerald-600">
-              {attendanceHistory?.filter((r) => r.status === "present")
-                .length || 0}
-            </p>
-          </div>
-          <div className="p-3 bg-emerald-50 text-emerald-600 rounded-md group-hover:bg-emerald-100 transition-colors">
-            <UserCheck size={20} />
+            <p className="text-xl font-bold text-emerald-600">{presentCount}</p>
           </div>
         </div>
 
-        <div className="bg-white rounded-md p-5 shadow-sm border border-gray-100 flex items-center justify-between group">
+        {/* Absent */}
+        <div className="bg-white rounded-md border border-gray-100 shadow-sm p-4 flex items-center gap-3">
+          <div className="p-2.5 bg-rose-50 rounded-md shrink-0">
+            <UserX size={18} className="text-rose-600" />
+          </div>
           <div>
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
+            <p className="text-[10px] font-bold text-secondarytext uppercase tracking-widest">
               Absent
             </p>
-            <p className="text-2xl font-bold text-rose-600">
-              {attendanceHistory?.filter((r) => r.status === "absent").length ||
-                0}
-            </p>
-          </div>
-          <div className="p-3 bg-rose-50 text-rose-600 rounded-md group-hover:bg-rose-100 transition-colors">
-            <UserX size={20} />
+            <p className="text-xl font-bold text-rose-600">{absentCount}</p>
           </div>
         </div>
 
-        <div className="bg-white rounded-md p-5 shadow-sm border border-gray-100 flex items-center justify-between group">
-          <div>
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
-              Not Marked
-            </p>
-            <p className="text-2xl font-bold text-gray-500">
-              {attendanceHistory?.filter(
-                (r) => r.status === "not_marked" || r.status === "on_leave",
-              ).length || 0}
-            </p>
+        {/* On Leave */}
+        <div className="bg-white rounded-md border border-gray-100 shadow-sm p-4 flex items-center gap-3">
+          <div className="p-2.5 bg-amber-50 rounded-md shrink-0">
+            <AlertCircle size={18} className="text-amber-600" />
           </div>
-          <div className="p-3 bg-gray-100 text-gray-500 rounded-md group-hover:bg-gray-200 transition-colors">
-            <Clock size={20} />
+          <div>
+            <p className="text-[10px] font-bold text-secondarytext uppercase tracking-widest">
+              On Leave
+            </p>
+            <p className="text-xl font-bold text-amber-600">{onLeaveCount}</p>
+          </div>
+        </div>
+
+        {/* Attendance Rate */}
+        <div className="bg-white rounded-md border border-gray-100 shadow-sm p-4 flex items-center gap-3">
+          <div className="p-2.5 bg-primary/10 rounded-md shrink-0">
+            <Clock size={18} className="text-primary" />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold text-secondarytext uppercase tracking-widest">
+              Rate
+            </p>
+            <p className="text-xl font-bold text-primary">{attendanceRate}%</p>
           </div>
         </div>
       </div>
-
-      {/* Attendance Table */}
-      <div className="bg-white rounded-md shadow-sm border border-gray-100 overflow-hidden">
+      {/* ── Single-day banner + submit bar ────────────────────────── */}
+      {isSingleDay && (
+        <div className="bg-primary/5 border border-primary/15 rounded-md px-5 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <Calendar className="w-4 h-4 text-primary shrink-0" />
+            <p className="text-sm text-gray-700">
+              Showing all drivers for{" "}
+              <span className="font-bold text-primary">{startDate}</span> —
+              select attendance status and submit once.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {pendingCount > 0 && (
+              <span className="text-xs font-semibold text-primary bg-primary/10 px-2.5 py-1 rounded-md">
+                {pendingCount} pending
+              </span>
+            )}
+            <button
+              onClick={() => setPendingAttendance({})}
+              disabled={pendingCount === 0 || submittingBulk}
+              className="px-3 py-1.5 text-sm font-medium rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              Clear
+            </button>
+            <button
+              onClick={handleSubmitBulkAttendance}
+              disabled={pendingCount === 0 || submittingBulk}
+              className="px-4 py-1.5 text-sm font-bold rounded-md bg-primary text-white hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-2 shadow-sm transition-colors"
+            >
+              {submittingBulk ? (
+                <>
+                  <Loader2 size={13} className="animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                <>Submit Updates ({pendingCount})</>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+      {/* ── Attendance Table ───────────────────────────────────────── */}
+      <div className="bg-white rounded-md border border-gray-100 shadow-sm overflow-hidden">
+        {/* Table header bar */}
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 bg-gray-50/60">
+          <p className="text-sm font-semibold text-gray-700">
+            {isSingleDay
+              ? `Attendance for ${startDate}`
+              : `Records: ${startDate} to ${endDate}`}
+          </p>
+          {!loading && (
+            <span className="text-xs text-secondarytext font-medium bg-white border border-gray-200 px-2.5 py-1 rounded-md">
+              {totalCount} {totalCount === 1 ? "record" : "records"}
+            </span>
+          )}
+        </div>
         {loading ? (
-          <Loading fullScreen={false} text="Loading attendance records..." />
+          <div className="py-16">
+            <Loading fullScreen={false} text="Loading attendance records…" />
+          </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-100">
-                <tr>
-                  <th className="px-5 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[14%]">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  <th className="px-5 py-3.5 text-left text-[11px] font-bold text-secondarytext uppercase tracking-wider">
                     Date
                   </th>
-                  <th className="px-5 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[18%]">
+                  <th className="px-5 py-3.5 text-left text-[11px] font-bold text-secondarytext uppercase tracking-wider">
                     Driver
                   </th>
-                  <th className="px-5 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider w-[12%]">
+                  <th className="px-5 py-3.5 text-left text-[11px] font-bold text-secondarytext uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-5 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[22%]">
+                  <th className="px-5 py-3.5 text-left text-[11px] font-bold text-secondarytext uppercase tracking-wider">
                     Check-in
                   </th>
-                  <th className="px-5 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-[16%]">
+                  <th className="px-5 py-3.5 text-left text-[11px] font-bold text-secondarytext uppercase tracking-wider">
                     Marked By
                   </th>
                   {isSingleDay && (
-                    <th className="px-5 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider w-[18%]">
-                      Actions
+                    <th className="px-5 py-3.5 text-right text-[11px] font-bold text-secondarytext uppercase tracking-wider">
+                      Mark Attendance
                     </th>
                   )}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-gray-50">
                 {attendanceHistory && attendanceHistory.length > 0 ? (
-                  attendanceHistory.map((record, idx) => (
-                    <tr
-                      key={`${record.id ?? "record"}-${record.date ?? "nodate"}-${idx}`}
-                      className="hover:bg-gray-50/50 transition-colors"
-                    >
-                      <td className="px-5 py-4 font-medium text-gray-900">
-                        <div className="flex items-center gap-2">
-                          <Calendar size={14} className="text-gray-400" />
-                          {record.date}
-                        </div>
-                      </td>
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-md bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
-                            {record.full_name?.charAt(0) || "?"}
-                          </div>
-                          <span className="font-medium text-gray-800 text-sm">
-                            {record.full_name}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-5 py-4 text-center">
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wide border ${
-                            record.status === "present"
-                              ? "bg-emerald-50 text-emerald-700 border-emerald-100"
-                              : record.status === "absent"
-                                ? "bg-red-50 text-red-700 border-red-100"
-                                : record.status === "on_leave"
-                                  ? "bg-orange-50 text-orange-700 border-orange-100"
-                                  : "bg-gray-50 text-gray-500 border-gray-200"
-                          }`}
-                        >
-                          {record.status === "present" ? (
-                            <UserCheck size={12} />
-                          ) : (
-                            <UserX size={12} />
-                          )}
-                          {record.status === "present"
-                            ? "Present"
-                            : record.status === "absent"
-                              ? "Absent"
-                              : record.status === "on_leave"
-                                ? "On Leave"
-                                : "Not Marked"}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4 text-sm text-gray-600">
-                        {record.checkin_time ? (
-                          <div className="flex items-center gap-1.5">
-                            <Clock size={13} className="text-gray-400 shrink-0" />
-                            <span>{formatCheckinTime(record.checkin_time)}</span>
-                          </div>
-                        ) : (
-                          <span className="text-gray-300">—</span>
-                        )}
-                      </td>
-                      <td className="px-5 py-4 text-sm text-gray-500">
-                        {record.marked_by_name || record.marked_by || (
-                          <span className="text-gray-300">—</span>
-                        )}
-                      </td>
-                      {isSingleDay && (
-                        <td className="px-5 py-4 text-right">
-                          <div className="flex justify-end gap-2">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleMarkAttendance(record.user_id, "present");
-                              }}
-                              disabled={
-                                record.status === "present" ||
-                                record.status === "on_leave" ||
-                                markingId === record.user_id
-                              }
-                              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                                record.status === "present" ||
-                                record.status === "on_leave"
-                                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                  : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm"
-                              }`}
-                            >
-                              {markingId === record.user_id ? (
-                                <Loader2
-                                  size={14}
-                                  className="animate-spin inline"
-                                />
-                              ) : (
-                                "Present"
-                              )}
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleMarkAttendance(record.user_id, "absent");
-                              }}
-                              disabled={
-                                record.status === "absent" ||
-                                record.status === "on_leave" ||
-                                markingId === record.user_id
-                              }
-                              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                                record.status === "absent" ||
-                                record.status === "on_leave"
-                                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                  : "bg-rose-600 text-white hover:bg-rose-700 shadow-sm"
-                              }`}
-                            >
-                              {markingId === record.user_id ? (
-                                <Loader2
-                                  size={14}
-                                  className="animate-spin inline"
-                                />
-                              ) : (
-                                "Absent"
-                              )}
-                            </button>
+                  attendanceHistory.map((record, idx) => {
+                    const effectiveStatus = getEffectiveStatus(record);
+                    const hasPendingChange =
+                      pendingAttendance[record.user_id] !== undefined;
+                    const isOnLeave = record.status === "on_leave";
+                    return (
+                      <tr
+                        key={`${record.id ?? "r"}-${record.date ?? "nd"}-${idx}`}
+                        className={`transition-colors hover:bg-primarybg/40 ${hasPendingChange ? "bg-primary/5" : ""}`}
+                      >
+                        {/* Date */}
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center gap-2 text-gray-700 font-medium">
+                            <Calendar
+                              size={13}
+                              className="text-gray-400 shrink-0"
+                            />
+                            {record.date}
                           </div>
                         </td>
-                      )}
-                    </tr>
-                  ))
+                        {/* Driver */}
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-md bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
+                              {record.full_name?.charAt(0)?.toUpperCase() ||
+                                "?"}
+                            </div>
+                            <span className="font-semibold text-gray-800">
+                              {record.full_name}
+                            </span>
+                          </div>
+                        </td>
+                        {/* Status */}
+                        <td className="px-5 py-3.5">
+                          <div className="flex flex-col gap-1 items-start">
+                            {statusBadge(effectiveStatus)}
+                            {hasPendingChange && (
+                              <span className="text-[10px] text-primary font-bold uppercase tracking-wide">
+                                • unsaved
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        {/* Check-in */}
+                        <td className="px-5 py-3.5 text-gray-600">
+                          {record.checkin_time ? (
+                            <div className="flex items-center gap-1.5">
+                              <Clock
+                                size={12}
+                                className="text-gray-400 shrink-0"
+                              />
+                              <span>
+                                {formatCheckinTime(record.checkin_time)}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-gray-300">—</span>
+                          )}
+                        </td>
+                        {/* Marked by */}
+                        <td className="px-5 py-3.5 text-gray-500">
+                          {record.marked_by_name || record.marked_by || (
+                            <span className="text-gray-300">—</span>
+                          )}
+                        </td>
+                        {/* Mark attendance toggle buttons */}
+                        {isSingleDay && (
+                          <td className="px-5 py-3.5 text-right">
+                            {isOnLeave ? (
+                              <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-md font-semibold">
+                                On Leave
+                              </span>
+                            ) : (
+                              <div className="inline-flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-md p-1">
+                                <button
+                                  disabled={submittingBulk}
+                                  onClick={() =>
+                                    handleStatusCheckboxChange(
+                                      record,
+                                      "present",
+                                      effectiveStatus !== "present",
+                                    )
+                                  }
+                                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
+                                    effectiveStatus === "present"
+                                      ? "bg-emerald-600 text-white shadow-sm"
+                                      : "text-gray-500 hover:bg-emerald-50 hover:text-emerald-700"
+                                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                >
+                                  <CheckCircle2 size={13} />
+                                  Present
+                                </button>
+                                <button
+                                  disabled={submittingBulk}
+                                  onClick={() =>
+                                    handleStatusCheckboxChange(
+                                      record,
+                                      "absent",
+                                      effectiveStatus !== "absent",
+                                    )
+                                  }
+                                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
+                                    effectiveStatus === "absent"
+                                      ? "bg-rose-600 text-white shadow-sm"
+                                      : "text-gray-500 hover:bg-rose-50 hover:text-rose-700"
+                                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                >
+                                  <XCircle size={13} />
+                                  Absent
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })
                 ) : (
                   <tr>
                     <td
-                      colSpan={isSingleDay ? "6" : "5"}
-                      className="px-6 py-16 text-center text-gray-400"
+                      colSpan={isSingleDay ? 6 : 5}
+                      className="px-6 py-20 text-center"
                     >
-                      <div className="flex flex-col items-center gap-2">
-                        <Search size={48} className="opacity-20" />
-                        <p className="font-medium">
+                      <div className="flex flex-col items-center gap-3 text-gray-400">
+                        <div className="p-4 bg-gray-100 rounded-full">
+                          <Search size={28} className="opacity-40" />
+                        </div>
+                        <p className="font-semibold text-gray-500">
                           No attendance records found
                         </p>
-                        <p className="text-xs">
-                          Try adjusting your date range or status filter
+                        <p className="text-xs text-gray-400">
+                          Try adjusting the date range or status filter
                         </p>
                       </div>
                     </td>

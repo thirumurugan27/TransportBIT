@@ -131,8 +131,16 @@ export default function AdminFuelIndents() {
   };
 
   const filteredVehicles = vehicles.filter((v) => {
-    if (form.vehicle_type && v.vehicle_type?.toUpperCase() !== form.vehicle_type.toUpperCase()) return false;
-    if (form.fuel_type && v.fuel_type?.toUpperCase() !== form.fuel_type.toUpperCase()) return false;
+    if (
+      form.vehicle_type &&
+      v.vehicle_type?.toUpperCase() !== form.vehicle_type.toUpperCase()
+    )
+      return false;
+    if (
+      form.fuel_type &&
+      v.fuel_type?.toUpperCase() !== form.fuel_type.toUpperCase()
+    )
+      return false;
     return true;
   });
 
@@ -156,10 +164,13 @@ export default function AdminFuelIndents() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.vehicle_id) return showToast("Please select a vehicle", "warning");
+    if (!form.vehicle_id)
+      return showToast("Please select a vehicle", "warning");
     if (!form.driver_id) return showToast("Please select a driver", "warning");
-    if (!form.fuel_indent_number.trim()) return showToast("Fuel indent number is required", "warning");
-    if (!form.filled_date) return showToast("Filled date is required", "warning");
+    if (!form.fuel_indent_number.trim())
+      return showToast("Fuel indent number is required", "warning");
+    if (!form.filled_date)
+      return showToast("Filled date is required", "warning");
     if (!form.filled_liters || parseFloat(form.filled_liters) <= 0)
       return showToast("Filled liters must be greater than 0", "warning");
 
@@ -173,7 +184,9 @@ export default function AdminFuelIndents() {
         fuel_indent_number: form.fuel_indent_number.trim(),
         filled_date: form.filled_date,
         filled_time: form.filled_time,
-        odometer_reading: form.odometer_reading ? parseInt(form.odometer_reading) : 0,
+        odometer_reading: form.odometer_reading
+          ? parseInt(form.odometer_reading)
+          : 0,
         filled_liters: parseFloat(form.filled_liters),
       };
 
@@ -196,9 +209,15 @@ export default function AdminFuelIndents() {
   const closeModal = () => {
     setShowModal(false);
     setForm({
-      vehicle_type: "", fuel_type: "", vehicle_id: "", driver_id: "",
-      fuel_indent_number: "", filled_date: getToday(), filled_time: "",
-      odometer_reading: "", filled_liters: "",
+      vehicle_type: "",
+      fuel_type: "",
+      vehicle_id: "",
+      driver_id: "",
+      fuel_indent_number: "",
+      filled_date: getToday(),
+      filled_time: "",
+      odometer_reading: "",
+      filled_liters: "",
     });
   };
 
@@ -214,7 +233,10 @@ export default function AdminFuelIndents() {
     pending: indents.filter((i) => i.status === "pending").length,
     completed: indents.filter((i) => i.status === "completed").length,
     rejected: indents.filter((i) => i.status === "rejected").length,
-    totalLiters: indents.reduce((sum, i) => sum + (parseFloat(i.fuel_filled) || 0), 0),
+    totalLiters: indents.reduce(
+      (sum, i) => sum + (parseFloat(i.fuel_filled) || 0),
+      0,
+    ),
   };
 
   return (
@@ -243,20 +265,42 @@ export default function AdminFuelIndents() {
           {/* Stats Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             {[
-              {label: "Total", value: stats.total, icon: Fuel, color: "primary", filterKey: "all"},
-              {label: "Pending", value: stats.pending, icon: Clock, color: "orange", filterKey: "pending"},
-              {label: "Approved", value: stats.completed, icon: CheckCircle2, color: "green", filterKey: "completed"},
-              {label: "Rejected", value: stats.rejected, icon: XCircle, color: "red", filterKey: "rejected"},
-              {label: "Total Liters", value: `${stats.totalLiters.toFixed(1)} L`, icon: Droplets, color: "blue", filterKey: null},
+              {
+                label: "Total",
+                value: stats.total,
+                icon: Fuel,
+                color: "primary",
+              },
+              {
+                label: "Pending",
+                value: stats.pending,
+                icon: Clock,
+                color: "orange",
+              },
+              {
+                label: "Approved",
+                value: stats.completed,
+                icon: CheckCircle2,
+                color: "green",
+              },
+              {
+                label: "Rejected",
+                value: stats.rejected,
+                icon: XCircle,
+                color: "red",
+              },
+              {
+                label: "Total Liters",
+                value: `${stats.totalLiters.toFixed(1)} L`,
+                icon: Droplets,
+                color: "blue",
+              },
             ].map((s, i) => (
               <div
                 key={i}
-                onClick={() => s.filterKey && setFilter(s.filterKey)}
-                className={`bg-secondarybg rounded-md border p-4 relative overflow-hidden group ${
-                  s.filterKey ? "cursor-pointer hover:shadow-md transition-shadow" : ""
-                } ${filter === s.filterKey ? `border-${s.color}-500 ring-1 ring-${s.color}-200` : "border-gray-100"}`}
+                className="bg-secondarybg rounded-md border border-gray-100 p-4 relative overflow-hidden"
               >
-                <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
+                <div className="absolute top-0 right-0 p-3 opacity-5">
                   <s.icon size={48} />
                 </div>
                 <div className="flex items-center gap-3 relative z-10">
@@ -264,8 +308,12 @@ export default function AdminFuelIndents() {
                     <s.icon size={18} className={`text-${s.color}-600`} />
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-secondarytext uppercase tracking-wider">{s.label}</p>
-                    <p className="text-lg font-bold text-primarytext">{s.value}</p>
+                    <p className="text-xs font-bold text-secondarytext uppercase tracking-wider">
+                      {s.label}
+                    </p>
+                    <p className="text-lg font-bold text-primarytext">
+                      {s.value}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -310,7 +358,10 @@ export default function AdminFuelIndents() {
             <div className="md:hidden divide-y divide-gray-100">
               {filteredIndents.length > 0 ? (
                 filteredIndents.map((indent) => (
-                  <div key={indent.id} className={`p-4 space-y-2.5 ${indent.status === "pending" ? "bg-pending/5" : ""}`}>
+                  <div
+                    key={indent.id}
+                    className={`p-4 space-y-2.5 ${indent.status === "pending" ? "bg-pending/5" : ""}`}
+                  >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Hash size={13} className="text-secondarytext" />
@@ -331,11 +382,24 @@ export default function AdminFuelIndents() {
                     </div>
                     <div className="flex items-center gap-2 text-sm">
                       <User size={13} className="text-secondarytext" />
-                      <span className="text-primarytext">{indent.driver_name}</span>
+                      <span className="text-primarytext">
+                        {indent.driver_name}
+                      </span>
                     </div>
                     <div className="flex items-center gap-4 text-xs text-secondarytext">
-                      <span>Date: <span className="text-primarytext">{indent.filled_date || indent.requested_at?.split("T")[0]}</span></span>
-                      <span>Odometer: <span className="font-mono text-primarytext">{indent.odometer_reading}</span></span>
+                      <span>
+                        Date:{" "}
+                        <span className="text-primarytext">
+                          {indent.filled_date ||
+                            indent.requested_at?.split("T")[0]}
+                        </span>
+                      </span>
+                      <span>
+                        Odometer:{" "}
+                        <span className="font-mono text-primarytext">
+                          {indent.odometer_reading}
+                        </span>
+                      </span>
                     </div>
                     {indent.status === "pending" && (
                       <div className="flex items-center gap-2 pt-1">
@@ -367,21 +431,42 @@ export default function AdminFuelIndents() {
               <table className="w-full">
                 <thead>
                   <tr className="bg-primarybg border-b border-gray-100">
-                    <th className="px-4 py-3 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">Indent #</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">Vehicle</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">Driver</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">Type / Fuel</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">Date / Time</th>
-                    <th className="px-4 py-3 text-right text-xs font-bold text-secondarytext uppercase tracking-wider">Odometer</th>
-                    <th className="px-4 py-3 text-right text-xs font-bold text-secondarytext uppercase tracking-wider">Liters</th>
-                    <th className="px-4 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">Status</th>
-                    <th className="px-4 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">Actions</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
+                      Indent #
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
+                      Vehicle
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
+                      Driver
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
+                      Type / Fuel
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
+                      Date / Time
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-bold text-secondarytext uppercase tracking-wider">
+                      Odometer
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-bold text-secondarytext uppercase tracking-wider">
+                      Liters
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-bold text-secondarytext uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {filteredIndents.length > 0 ? (
                     filteredIndents.map((indent) => (
-                      <tr key={indent.id} className={`hover:bg-primarybg transition-colors ${indent.status === "pending" ? "bg-pending/5" : ""}`}>
+                      <tr
+                        key={indent.id}
+                        className={`hover:bg-primarybg transition-colors ${indent.status === "pending" ? "bg-pending/5" : ""}`}
+                      >
                         <td className="px-4 py-3 whitespace-nowrap font-bold text-primarytext text-sm">
                           {indent.fuel_indent_number || `#${indent.id}`}
                         </td>
@@ -392,11 +477,17 @@ export default function AdminFuelIndents() {
                           {indent.driver_name}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-secondarytext">
-                          {indent.vehicle_type}{indent.fuel_type ? ` / ${indent.fuel_type}` : ""}
+                          {indent.vehicle_type}
+                          {indent.fuel_type ? ` / ${indent.fuel_type}` : ""}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-primarytext">
-                          {indent.filled_date || indent.requested_at?.split("T")[0]}
-                          {indent.filled_time && <span className="text-secondarytext ml-1">{indent.filled_time}</span>}
+                          {indent.filled_date ||
+                            indent.requested_at?.split("T")[0]}
+                          {indent.filled_time && (
+                            <span className="text-secondarytext ml-1">
+                              {indent.filled_time}
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-right font-mono text-secondarytext text-sm">
                           {indent.odometer_reading}
@@ -430,14 +521,19 @@ export default function AdminFuelIndents() {
                               </button>
                             </div>
                           ) : (
-                            <span className="text-xs text-secondarytext">—</span>
+                            <span className="text-xs text-secondarytext">
+                              —
+                            </span>
                           )}
                         </td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="9" className="px-6 py-12 text-center text-secondarytext">
+                      <td
+                        colSpan="9"
+                        className="px-6 py-12 text-center text-secondarytext"
+                      >
                         <EmptyState />
                       </td>
                     </tr>
@@ -464,21 +560,37 @@ export default function AdminFuelIndents() {
                 <div className="p-2.5 bg-primary/10 rounded-md">
                   <Fuel size={20} className="text-primary" />
                 </div>
-                <h2 className="text-lg font-bold text-primarytext">Create Fuel Indent</h2>
+                <h2 className="text-lg font-bold text-primarytext">
+                  Create Fuel Indent
+                </h2>
               </div>
-              <button onClick={closeModal} className="p-2 hover:bg-primarybg rounded-md transition-colors">
+              <button
+                onClick={closeModal}
+                className="p-2 hover:bg-primarybg rounded-md transition-colors"
+              >
                 <X size={20} className="text-secondarytext" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-5">
+            <form
+              onSubmit={handleSubmit}
+              className="flex-1 overflow-y-auto p-6 space-y-5"
+            >
               {/* Vehicle Type */}
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-primarytext">Vehicle Type <span className="text-red-500">*</span></label>
+                <label className="text-sm font-medium text-primarytext">
+                  Vehicle Type <span className="text-red-500">*</span>
+                </label>
                 <SearchableSelect
                   options={vehicleTypeOptions}
                   value={form.vehicle_type}
-                  onChange={(val) => setForm((prev) => ({...prev, vehicle_type: val, vehicle_id: ""}))}
+                  onChange={(val) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      vehicle_type: val,
+                      vehicle_id: "",
+                    }))
+                  }
                   placeholder="Select vehicle type"
                   emptyMessage="No vehicle types found"
                 />
@@ -486,11 +598,19 @@ export default function AdminFuelIndents() {
 
               {/* Fuel Type */}
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-primarytext">Fuel Type <span className="text-red-500">*</span></label>
+                <label className="text-sm font-medium text-primarytext">
+                  Fuel Type <span className="text-red-500">*</span>
+                </label>
                 <SearchableSelect
                   options={fuelTypeOptions}
                   value={form.fuel_type}
-                  onChange={(val) => setForm((prev) => ({...prev, fuel_type: val, vehicle_id: ""}))}
+                  onChange={(val) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      fuel_type: val,
+                      vehicle_id: "",
+                    }))
+                  }
                   placeholder="Select fuel type"
                   emptyMessage="No fuel types"
                 />
@@ -498,23 +618,35 @@ export default function AdminFuelIndents() {
 
               {/* Vehicle Name */}
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-primarytext">Vehicle Name <span className="text-red-500">*</span></label>
+                <label className="text-sm font-medium text-primarytext">
+                  Vehicle Name <span className="text-red-500">*</span>
+                </label>
                 <SearchableSelect
                   options={vehicleOptions}
                   value={form.vehicle_id}
-                  onChange={(val) => setForm((prev) => ({...prev, vehicle_id: val}))}
+                  onChange={(val) =>
+                    setForm((prev) => ({...prev, vehicle_id: val}))
+                  }
                   placeholder="Search and select vehicle"
-                  emptyMessage={form.vehicle_type || form.fuel_type ? "No vehicles match filters" : "No vehicles available"}
+                  emptyMessage={
+                    form.vehicle_type || form.fuel_type
+                      ? "No vehicles match filters"
+                      : "No vehicles available"
+                  }
                 />
               </div>
 
               {/* Driver Name */}
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-primarytext">Driver Name <span className="text-red-500">*</span></label>
+                <label className="text-sm font-medium text-primarytext">
+                  Driver Name <span className="text-red-500">*</span>
+                </label>
                 <SearchableSelect
                   options={driverOptions}
                   value={form.driver_id}
-                  onChange={(val) => setForm((prev) => ({...prev, driver_id: val}))}
+                  onChange={(val) =>
+                    setForm((prev) => ({...prev, driver_id: val}))
+                  }
                   placeholder="Search and select driver"
                   emptyMessage="No drivers found"
                 />
@@ -522,11 +654,18 @@ export default function AdminFuelIndents() {
 
               {/* Fuel Indent Number */}
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-primarytext">Fuel Indent Number <span className="text-red-500">*</span></label>
+                <label className="text-sm font-medium text-primarytext">
+                  Fuel Indent Number <span className="text-red-500">*</span>
+                </label>
                 <input
                   type="text"
                   value={form.fuel_indent_number}
-                  onChange={(e) => setForm((prev) => ({...prev, fuel_indent_number: e.target.value}))}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      fuel_indent_number: e.target.value,
+                    }))
+                  }
                   className="w-full h-[42px] px-3 border border-gray-200 rounded-md bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
                   placeholder="Enter fuel indent number"
                   required
@@ -536,22 +675,36 @@ export default function AdminFuelIndents() {
               {/* Date & Time */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-primarytext">Fuel Filled Date <span className="text-red-500">*</span></label>
+                  <label className="text-sm font-medium text-primarytext">
+                    Fuel Filled Date <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="date"
                     value={form.filled_date}
-                    onChange={(e) => setForm((prev) => ({...prev, filled_date: e.target.value}))}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        filled_date: e.target.value,
+                      }))
+                    }
                     max={getToday()}
                     className="w-full h-[42px] px-3 border border-gray-200 rounded-md bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
                     required
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-primarytext">Filled Time</label>
+                  <label className="text-sm font-medium text-primarytext">
+                    Filled Time
+                  </label>
                   <input
                     type="time"
                     value={form.filled_time}
-                    onChange={(e) => setForm((prev) => ({...prev, filled_time: e.target.value}))}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        filled_time: e.target.value,
+                      }))
+                    }
                     className="w-full h-[42px] px-3 border border-gray-200 rounded-md bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
                   />
                 </div>
@@ -560,11 +713,18 @@ export default function AdminFuelIndents() {
               {/* Odometer & Liters */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-primarytext">Odometer Reading <span className="text-red-500">*</span></label>
+                  <label className="text-sm font-medium text-primarytext">
+                    Odometer Reading <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="number"
                     value={form.odometer_reading}
-                    onChange={(e) => setForm((prev) => ({...prev, odometer_reading: e.target.value}))}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        odometer_reading: e.target.value,
+                      }))
+                    }
                     className="w-full h-[42px] px-3 border border-gray-200 rounded-md bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
                     placeholder="Enter odometer reading"
                     required
@@ -572,11 +732,18 @@ export default function AdminFuelIndents() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-primarytext">Filled Liters <span className="text-red-500">*</span></label>
+                  <label className="text-sm font-medium text-primarytext">
+                    Filled Liters <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="number"
                     value={form.filled_liters}
-                    onChange={(e) => setForm((prev) => ({...prev, filled_liters: e.target.value}))}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        filled_liters: e.target.value,
+                      }))
+                    }
                     className="w-full h-[42px] px-3 border border-gray-200 rounded-md bg-primarybg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
                     placeholder="Enter liters filled"
                     required

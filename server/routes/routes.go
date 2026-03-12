@@ -80,6 +80,10 @@ func registerAdminRoutes(adm *gin.RouterGroup) {
 	// Driver Management
 	adm.GET("/drivers", admin.GetDrivers)
 	adm.POST("/drivers/create", admin.CreateDriver)
+	adm.POST("/drivers/bulk-preview", admin.PreviewBulkDrivers)
+	adm.POST("/drivers/bulk-import", admin.ImportBulkDrivers)
+	adm.POST("/drivers/bulk-preview-file", admin.PreviewBulkDriversFile)
+	adm.POST("/drivers/bulk-import-file", admin.ImportBulkDriversFile)
 	adm.PUT("/drivers/update", admin.UpdateDriver)
 	adm.DELETE("/drivers/delete", admin.DeleteDriver)
 	adm.GET("/drivers/available-for-cluster", admin.GetAvailableDriversForCluster)
@@ -91,6 +95,13 @@ func registerAdminRoutes(adm *gin.RouterGroup) {
 	// Vehicle Management
 	adm.GET("/vehicles", admin.GetAllVehicles)
 	adm.GET("/vehicle-types", admin.GetVehicleTypes)
+	adm.POST("/vehicle-types/create", admin.CreateVehicleType)
+	adm.PUT("/vehicle-types/:id", admin.UpdateVehicleType)
+	adm.DELETE("/vehicle-types/:id", admin.DeleteVehicleType)
+	adm.POST("/vehicles/bulk-preview", admin.PreviewBulkVehicles)
+	adm.POST("/vehicles/bulk-import", admin.ImportBulkVehicles)
+	adm.POST("/vehicles/bulk-preview-file", admin.PreviewBulkVehiclesFile)
+	adm.POST("/vehicles/bulk-import-file", admin.ImportBulkVehiclesFile)
 	adm.POST("/vehicles/create", admin.CreateVehicle)
 	adm.POST("/vehicles/update", admin.UpdateVehicle)
 	adm.DELETE("/vehicles/delete", admin.DeleteVehicle)
@@ -136,6 +147,7 @@ func registerAdminRoutes(adm *gin.RouterGroup) {
 	// Attendance
 	adm.GET("/attendance", admin.GetAttendance)
 	adm.POST("/attendance/mark", admin.MarkAttendance)
+	adm.POST("/attendance/mark-bulk", admin.MarkAttendanceBulk)
 
 	// Leave Management
 	adm.GET("/leave/pending", admin.GetPendingLeaveRequests)

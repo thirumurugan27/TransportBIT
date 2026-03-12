@@ -29,9 +29,20 @@ import {
   History,
   MessageSquare,
   User,
+  Upload,
+  Link2,
+  CheckCircle2,
+  FileSpreadsheet,
+  HardDriveUpload,
 } from "lucide-react";
 
-import {apiGet, apiPost, apiDelete} from "../../../utils/api";
+import {
+  apiGet,
+  apiPost,
+  apiPut,
+  apiDelete,
+  apiUpload,
+} from "../../../utils/api";
 import CustomDropdown from "../../../components/ui/CustomDropdown";
 import {
   fetchVehicleTypes,
@@ -110,6 +121,33 @@ const buildVehiclePayload = (source, id = null) => {
   return payload;
 };
 
+const bulkTemplateHeaders = [
+  "vehicle_number",
+  "vehicle_type",
+  "fuel_type",
+  "seating_capacity",
+  "vehicle_name",
+  "start_point",
+  "end_point",
+  "chassis_number",
+  "engine_number",
+  "permit_number",
+  "additional_permit",
+  "insurance_amount",
+  "road_tax_amount",
+  "pollution_expire",
+  "green_tax_expire",
+  "mv_tax_expire",
+  "insurance_start_date",
+  "insurance_expire_date",
+  "fc_start_date",
+  "fc_expire_date",
+  "permit_start_date",
+  "permit_expire_date",
+];
+
+const bulkTemplateFilePath = "/templates/vehicle_bulk_upload_example.csv";
+
 export default function Vehicles() {
   const [vehicles, setVehicles] = useState([]);
   const [vehicleTypeOptions, setVehicleTypeOptions] = useState([
@@ -117,6 +155,14 @@ export default function Vehicles() {
   ]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showBulkUploadModal, setShowBulkUploadModal] = useState(false);
+  const [bulkSheetUrl, setBulkSheetUrl] = useState("");
+  const [bulkSourceType, setBulkSourceType] = useState("google");
+  const [bulkFile, setBulkFile] = useState(null);
+  const [bulkFileSnapshot, setBulkFileSnapshot] = useState(null);
+  const [bulkPreview, setBulkPreview] = useState(null);
+  const [bulkPreviewLoading, setBulkPreviewLoading] = useState(false);
+  const [bulkImportLoading, setBulkImportLoading] = useState(false);
 
   // Filter State
   const [filterType, setFilterType] = useState("ALL");
@@ -159,6 +205,16 @@ export default function Vehicles() {
   const [historyFilter, setHistoryFilter] = useState("all");
   const [historyLoading, setHistoryLoading] = useState(false);
 
+  // Vehicle Type Management Modal State
+  const [showVehicleTypeModal, setShowVehicleTypeModal] = useState(false);
+  const [vehicleTypeForm, setVehicleTypeForm] = useState({
+    type: "",
+    label: "",
+  });
+  const [isEditingVehicleType, setIsEditingVehicleType] = useState(false);
+  const [editingVehicleTypeId, setEditingVehicleTypeId] = useState(null);
+  const [isLoadingVehicleType, setIsLoadingVehicleType] = useState(false);
+
   // Form State
   const initialFormState = {
     vehicle_type: "BUS",
@@ -179,13 +235,10 @@ export default function Vehicles() {
     mv_tax_expire: "",
     insurance_expire_date: "",
     insurance_start_date: "",
-    insurance_remarks: "",
     fc_expire_date: "",
     fc_start_date: "",
-    fc_remarks: "",
     permit_expire_date: "",
     permit_start_date: "",
-    permit_remarks: "",
     status: "available",
   };
   const [vehicleForm, setVehicleForm] = useState(initialFormState);
@@ -210,6 +263,7 @@ export default function Vehicles() {
     const mapped = [
       {value: "ALL", label: "All Vehicles", icon: Bus},
       ...masterTypes.map((t) => ({
+        id: t.id,
         value: t.type,
         label: t.label || toVehicleTypeLabel(t.type),
         icon: vehicleTypeIcon(t.type),
@@ -309,13 +363,10 @@ export default function Vehicles() {
       mv_tax_expire: formatDateForInput(vehicle.mv_tax_expire),
       insurance_expire_date: formatDateForInput(vehicle.insurance_expire_date),
       insurance_start_date: formatDateForInput(vehicle.insurance_start_date),
-      insurance_remarks: vehicle.insurance_remarks || "",
       fc_expire_date: formatDateForInput(vehicle.fc_expire_date),
       fc_start_date: formatDateForInput(vehicle.fc_start_date),
-      fc_remarks: vehicle.fc_remarks || "",
       permit_expire_date: formatDateForInput(vehicle.permit_expire_date),
       permit_start_date: formatDateForInput(vehicle.permit_start_date),
-      permit_remarks: vehicle.permit_remarks || "",
     });
     setEditingId(vehicle.id);
     setIsEditing(true);
@@ -411,6 +462,332 @@ export default function Vehicles() {
     }
   };
 
+  const resetBulkUploadState = () => {
+    setBulkSourceType("google");
+    setBulkSheetUrl("");
+    setBulkFile(null);
+    setBulkFileSnapshot(null);
+    setBulkPreview(null);
+    setBulkPreviewLoading(false);
+    setBulkImportLoading(false);
+  };
+
+  const closeBulkUploadModal = () => {
+    setShowBulkUploadModal(false);
+    resetBulkUploadState();
+  };
+
+  // Vehicle Type Management Handlers
+  const handleVehicleTypeSubmit = async () => {
+    if (!vehicleTypeForm.type.trim() || !vehicleTypeForm.label.trim()) {
+      showError("Error", "Please fill all fields");
+      return;
+    }
+
+    setIsLoadingVehicleType(true);
+    try {
+      let res;
+      if (isEditingVehicleType) {
+        res = await apiPut(
+          `/api/admin/vehicle-types/${editingVehicleTypeId}`,
+          vehicleTypeForm,
+        );
+      } else {
+        res = await apiPost("/api/admin/vehicle-types/create", vehicleTypeForm);
+      }
+
+      if (res.ok) {
+        showSuccess(
+          "Success",
+          isEditingVehicleType
+            ? "Vehicle type updated successfully!"
+            : "Vehicle type created successfully!",
+        );
+        await fetchTypeOptions();
+        setVehicleTypeForm({type: "", label: ""});
+        setIsEditingVehicleType(false);
+        setEditingVehicleTypeId(null);
+        setShowVehicleTypeModal(false);
+      } else {
+        const error = await res.text();
+        showError("Error", error || "Failed to save vehicle type");
+      }
+    } catch (err) {
+      console.error(err);
+      showError("Error", "An error occurred");
+    } finally {
+      setIsLoadingVehicleType(false);
+    }
+  };
+
+  const handleDeleteVehicleType = async (typeId) => {
+    showConfirm(
+      "Delete Vehicle Type",
+      "Are you sure? This action cannot be undone.",
+      async () => {
+        try {
+          const res = await apiDelete(`/api/admin/vehicle-types/${typeId}`);
+          if (res.ok) {
+            showSuccess("Success", "Vehicle type deleted successfully");
+            await fetchTypeOptions();
+          } else {
+            const error = await res.text();
+            showError("Error", error || "Failed to delete vehicle type");
+          }
+        } catch (err) {
+          console.error(err);
+          showError("Error", "An error occurred");
+        }
+      },
+    );
+  };
+
+  const openEditVehicleType = (type) => {
+    setVehicleTypeForm({
+      type: type.type,
+      label: type.label,
+    });
+    setIsEditingVehicleType(true);
+    setEditingVehicleTypeId(type.id);
+    setShowVehicleTypeModal(true);
+  };
+
+  const closeVehicleTypeModal = () => {
+    setShowVehicleTypeModal(false);
+    setVehicleTypeForm({type: "", label: ""});
+    setIsEditingVehicleType(false);
+    setEditingVehicleTypeId(null);
+  };
+
+  const handleCopyTemplateHeaders = async () => {
+    try {
+      if (!navigator?.clipboard) {
+        showError("Error", "Clipboard is not available in this browser");
+        return;
+      }
+      await navigator.clipboard.writeText(bulkTemplateHeaders.join(","));
+      showSuccess("Success", "Template headers copied");
+    } catch (error) {
+      console.error(error);
+      showError("Error", "Failed to copy template headers");
+    }
+  };
+
+  const handleBulkFileChange = async (event) => {
+    const selectedFile = event.target.files?.[0] || null;
+    if (!selectedFile) {
+      setBulkFile(null);
+      setBulkFileSnapshot(null);
+      setBulkPreview(null);
+      return;
+    }
+
+    // Snapshot file content in memory so browser-side file change watchers
+    // do not break uploads with ERR_UPLOAD_FILE_CHANGED.
+    try {
+      const fileBuffer = await selectedFile.arrayBuffer();
+      const fileSnapshot = new File([fileBuffer], selectedFile.name, {
+        type: selectedFile.type,
+        lastModified: selectedFile.lastModified,
+      });
+      setBulkFile(selectedFile);
+      setBulkFileSnapshot(fileSnapshot);
+    } catch (error) {
+      console.error(error);
+      setBulkFile(null);
+      setBulkFileSnapshot(null);
+      showError("Error", "Unable to read selected file. Please choose again.");
+    }
+
+    setBulkPreview(null);
+  };
+
+  const handleBulkPreviewGoogle = async () => {
+    const sheetUrl = bulkSheetUrl.trim();
+    if (!sheetUrl) {
+      showError("Error", "Paste a Google Sheet URL to continue");
+      return;
+    }
+
+    setBulkPreviewLoading(true);
+    try {
+      const res = await apiPost("/api/admin/vehicles/bulk-preview", {
+        sheet_url: sheetUrl,
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setBulkPreview(data.preview || null);
+        showError("Error", data.error || "Unable to validate the sheet");
+        return;
+      }
+
+      setBulkPreview(data);
+      if (data.invalid_rows > 0) {
+        showError(
+          "Validation",
+          `${data.invalid_rows} row(s) need attention before import`,
+        );
+      } else {
+        showSuccess(
+          "Validation",
+          `${data.ready_rows} row(s) are ready to import`,
+        );
+      }
+    } catch (error) {
+      console.error(error);
+      setBulkPreview(null);
+      showError("Error", "Unable to validate Google Sheet");
+    } finally {
+      setBulkPreviewLoading(false);
+    }
+  };
+
+  const handleBulkPreviewFile = async () => {
+    if (!bulkFile) {
+      showError("Error", "Choose an Excel or CSV file to continue");
+      return;
+    }
+
+    const uploadFile = bulkFileSnapshot || bulkFile;
+    const formData = new FormData();
+    formData.append("file", uploadFile);
+
+    setBulkPreviewLoading(true);
+    try {
+      const res = await apiUpload(
+        "/api/admin/vehicles/bulk-preview-file",
+        formData,
+      );
+      const data = await res.json();
+
+      if (!res.ok) {
+        setBulkPreview(data.preview || null);
+        showError("Error", data.error || "Unable to validate file");
+        return;
+      }
+
+      setBulkPreview(data);
+      if (data.invalid_rows > 0) {
+        showError(
+          "Validation",
+          `${data.invalid_rows} row(s) need attention before import`,
+        );
+      } else {
+        showSuccess(
+          "Validation",
+          `${data.ready_rows} row(s) are ready to import`,
+        );
+      }
+    } catch (error) {
+      console.error(error);
+      setBulkPreview(null);
+      if (error instanceof TypeError) {
+        showError(
+          "Error",
+          "Selected file changed during upload. Please reselect the file and try again.",
+        );
+      } else {
+        showError("Error", "Unable to validate file");
+      }
+    } finally {
+      setBulkPreviewLoading(false);
+    }
+  };
+
+  const handleBulkPreview = async () => {
+    if (bulkSourceType === "file") {
+      await handleBulkPreviewFile();
+      return;
+    }
+    await handleBulkPreviewGoogle();
+  };
+
+  const handleBulkImportGoogle = async () => {
+    const sheetUrl = bulkSheetUrl.trim();
+    if (!sheetUrl) {
+      showError("Error", "Paste a Google Sheet URL to continue");
+      return;
+    }
+
+    setBulkImportLoading(true);
+    try {
+      const res = await apiPost("/api/admin/vehicles/bulk-import", {
+        sheet_url: sheetUrl,
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (data.preview) {
+          setBulkPreview(data.preview);
+        }
+        showError("Error", data.error || "Bulk import failed");
+        return;
+      }
+
+      showSuccess("Success", data.message || "Vehicles imported successfully");
+      fetchVehicles();
+      closeBulkUploadModal();
+    } catch (error) {
+      console.error(error);
+      showError("Error", "Google Sheet import failed");
+    } finally {
+      setBulkImportLoading(false);
+    }
+  };
+
+  const handleBulkImportFile = async () => {
+    if (!bulkFile) {
+      showError("Error", "Choose an Excel or CSV file to continue");
+      return;
+    }
+
+    const uploadFile = bulkFileSnapshot || bulkFile;
+    const formData = new FormData();
+    formData.append("file", uploadFile);
+
+    setBulkImportLoading(true);
+    try {
+      const res = await apiUpload(
+        "/api/admin/vehicles/bulk-import-file",
+        formData,
+      );
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (data.preview) {
+          setBulkPreview(data.preview);
+        }
+        showError("Error", data.error || "File import failed");
+        return;
+      }
+
+      showSuccess("Success", data.message || "Vehicles imported successfully");
+      fetchVehicles();
+      closeBulkUploadModal();
+    } catch (error) {
+      console.error(error);
+      if (error instanceof TypeError) {
+        showError(
+          "Error",
+          "Selected file changed during upload. Please reselect the file and try again.",
+        );
+      } else {
+        showError("Error", "File import failed");
+      }
+    } finally {
+      setBulkImportLoading(false);
+    }
+  };
+
+  const handleBulkImport = async () => {
+    if (bulkSourceType === "file") {
+      await handleBulkImportFile();
+      return;
+    }
+    await handleBulkImportGoogle();
+  };
+
   // Helper to format date for API (convert dd-mm-yyyy to yyyy-mm-dd)
   const formatDateForAPI = (dateStr) => {
     if (!dateStr) return null;
@@ -445,13 +822,10 @@ export default function Vehicles() {
       status: vehicle.status,
       insurance_expire_date: formatDateForAPI(vehicle.insurance_expire_date),
       insurance_start_date: formatDateForAPI(vehicle.insurance_start_date),
-      insurance_remarks: vehicle.insurance_remarks || "",
       fc_expire_date: formatDateForAPI(vehicle.fc_expire_date),
       fc_start_date: formatDateForAPI(vehicle.fc_start_date),
-      fc_remarks: vehicle.fc_remarks || "",
       permit_expire_date: formatDateForAPI(vehicle.permit_expire_date),
       permit_start_date: formatDateForAPI(vehicle.permit_start_date),
-      permit_remarks: vehicle.permit_remarks || "",
       [editingExpiry.field]: expiryFormValue || null,
     });
 
@@ -692,17 +1066,33 @@ export default function Vehicles() {
             )}
           </button>
         </div>
-        <button
-          onClick={() => {
-            setIsEditing(false);
-            setVehicleForm(initialFormState);
-            setShowCreateModal(true);
-          }}
-          className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-md hover:bg-primarydull transition-all font-semibold shadow-sm hover:shadow-md"
-        >
-          <Plus size={18} />
-          Add New Vehicle
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowBulkUploadModal(true)}
+            className="flex items-center gap-2 px-5 py-3 border border-primary/25 text-primary rounded-md hover:bg-primary/10 transition-all font-semibold"
+          >
+            <HardDriveUpload size={18} />
+            Bulk Upload
+          </button>
+          <button
+            onClick={() => setShowVehicleTypeModal(true)}
+            className="flex items-center gap-2 px-5 py-3 border border-primary/25 text-primary rounded-md hover:bg-primary/10 transition-all font-semibold"
+          >
+            <Truck size={18} />
+            Manage Types
+          </button>
+          <button
+            onClick={() => {
+              setIsEditing(false);
+              setVehicleForm(initialFormState);
+              setShowCreateModal(true);
+            }}
+            className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-md hover:bg-primarydull transition-all font-semibold shadow-sm hover:shadow-md"
+          >
+            <Plus size={18} />
+            Add New Vehicle
+          </button>
+        </div>
       </div>
 
       {/* Stats Section */}
@@ -1726,11 +2116,6 @@ export default function Vehicles() {
                               </span>
                             ) : null;
                           })()}
-                          {selectedVehicle.insurance_remarks && (
-                            <p className="text-[10px] text-secondarytext mt-1.5 italic">
-                              {selectedVehicle.insurance_remarks}
-                            </p>
-                          )}
                         </div>
                       )}
                       {selectedVehicle.fc_expire_date && (
@@ -1763,11 +2148,6 @@ export default function Vehicles() {
                               </span>
                             ) : null;
                           })()}
-                          {selectedVehicle.fc_remarks && (
-                            <p className="text-[10px] text-secondarytext mt-1.5 italic">
-                              {selectedVehicle.fc_remarks}
-                            </p>
-                          )}
                         </div>
                       )}
                       {selectedVehicle.permit_expire_date && (
@@ -1801,11 +2181,6 @@ export default function Vehicles() {
                               </span>
                             ) : null;
                           })()}
-                          {selectedVehicle.permit_remarks && (
-                            <p className="text-[10px] text-secondarytext mt-1.5 italic">
-                              {selectedVehicle.permit_remarks}
-                            </p>
-                          )}
                         </div>
                       )}
                     </div>
@@ -1929,6 +2304,472 @@ export default function Vehicles() {
                 >
                   <Edit2 size={16} />
                   Edit Vehicle
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Upload Modal */}
+      {showBulkUploadModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-6 animate-fadeIn"
+          onClick={closeBulkUploadModal}
+        >
+          <div
+            className="bg-secondarybg rounded-md shadow-2xl w-full max-w-6xl max-h-[95vh] overflow-hidden animate-scaleIn flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="shrink-0 flex items-center justify-between gap-4 px-6 py-4 border-b border-primarybg/60">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-md bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  <HardDriveUpload size={18} strokeWidth={2} />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-primarytext leading-tight">
+                    Bulk Upload Vehicles
+                  </h2>
+                  <p className="text-xs text-secondarytext mt-0.5">
+                    Import fleet entries from Google Sheets or a local Excel /
+                    CSV file
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={closeBulkUploadModal}
+                className="w-8 h-8 flex items-center justify-center rounded-md text-secondarytext hover:text-primarytext hover:bg-primarybg transition-colors shrink-0"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <div className="p-6 space-y-5">
+                <div className="flex items-center gap-2 p-1 bg-primarybg rounded-md w-fit">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBulkSourceType("google");
+                      setBulkPreview(null);
+                    }}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-all ${
+                      bulkSourceType === "google"
+                        ? "bg-primary text-white shadow-sm"
+                        : "text-secondarytext hover:text-primarytext"
+                    }`}
+                  >
+                    <Link2 size={14} />
+                    Google Sheet
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBulkSourceType("file");
+                      setBulkPreview(null);
+                    }}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-all ${
+                      bulkSourceType === "file"
+                        ? "bg-primary text-white shadow-sm"
+                        : "text-secondarytext hover:text-primarytext"
+                    }`}
+                  >
+                    <FileSpreadsheet size={14} />
+                    Local File
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-[1fr,320px] gap-5">
+                  <div className="space-y-4">
+                    <div className="border border-primarybg rounded-md p-5 bg-primarybg/30">
+                      <p className="text-xs font-semibold text-secondarytext uppercase tracking-wider mb-3">
+                        {bulkSourceType === "google"
+                          ? "Sheet URL"
+                          : "Upload File"}
+                      </p>
+                      {bulkSourceType === "google" ? (
+                        <div className="space-y-3">
+                          <div className="flex gap-2">
+                            <div className="relative flex-1">
+                              <Link2
+                                size={15}
+                                className="absolute left-3 top-1/2 -translate-y-1/2 text-secondarytext pointer-events-none"
+                              />
+                              <input
+                                type="url"
+                                value={bulkSheetUrl}
+                                onChange={(e) =>
+                                  setBulkSheetUrl(e.target.value)
+                                }
+                                placeholder="https://docs.google.com/spreadsheets/d/..."
+                                className="w-full pl-9 pr-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary bg-secondarybg text-sm text-primarytext placeholder:text-secondarytext/60 transition-colors"
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={handleBulkPreview}
+                              disabled={
+                                bulkPreviewLoading ||
+                                bulkImportLoading ||
+                                !bulkSheetUrl.trim()
+                              }
+                              className="px-4 py-2.5 bg-primary text-secondarybg rounded-md hover:bg-primarydull transition-colors font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                            >
+                              {bulkPreviewLoading
+                                ? "Validating..."
+                                : "Validate"}
+                            </button>
+                          </div>
+                          <p className="text-xs text-secondarytext">
+                            Ensure the sheet is publicly accessible or CSV
+                            export requires no sign-in.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <label className="flex flex-col items-center gap-3 p-5 border-2 border-dashed border-primarybg rounded-md cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-all group">
+                            <div className="w-10 h-10 rounded-md bg-primary/10 text-primary flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                              <Upload size={18} />
+                            </div>
+                            <div className="text-center">
+                              <p className="text-sm font-semibold text-primarytext">
+                                {bulkFile
+                                  ? bulkFile.name
+                                  : "Drop your file here or click to browse"}
+                              </p>
+                              <p className="text-xs text-secondarytext mt-0.5">
+                                Supports .xlsx, .xlsm, .csv
+                              </p>
+                            </div>
+                            <input
+                              type="file"
+                              accept=".xlsx,.xlsm,.xltx,.xltm,.csv"
+                              onChange={handleBulkFileChange}
+                              className="sr-only"
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={handleBulkPreview}
+                            disabled={
+                              bulkPreviewLoading ||
+                              bulkImportLoading ||
+                              !bulkFile
+                            }
+                            className="w-full py-2.5 bg-primary text-secondarybg rounded-md hover:bg-primarydull transition-colors font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {bulkPreviewLoading
+                              ? "Validating..."
+                              : "Validate File"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="border border-primarybg rounded-md p-5 bg-primarybg/30">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <FileSpreadsheet size={15} className="text-primary" />
+                          <p className="text-xs font-semibold text-secondarytext uppercase tracking-wider">
+                            Required Headers
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={bulkTemplateFilePath}
+                            download
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-primary border border-primary/20 rounded-md hover:bg-primary/10 transition-colors"
+                          >
+                            <FileText size={12} />
+                            Download CSV
+                          </a>
+                          <button
+                            type="button"
+                            onClick={handleCopyTemplateHeaders}
+                            className="px-3 py-1.5 text-xs font-semibold text-primary border border-primary/20 rounded-md hover:bg-primary/10 transition-colors"
+                          >
+                            Copy Headers
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {bulkTemplateHeaders.map((header) => (
+                          <span
+                            key={header}
+                            className="px-2.5 py-1 rounded-md bg-secondarybg border border-primarybg text-xs font-medium text-primarytext"
+                          >
+                            {header}
+                          </span>
+                        ))}
+                      </div>
+                      <p className="text-xs text-secondarytext mt-3">
+                        Vehicle number must be unique. Use vehicle type values
+                        from master list like BUS, CAR, BATTERY_VEHICLE.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="border border-primarybg rounded-md bg-secondarybg p-5 flex flex-col gap-4">
+                    <div className="flex items-center gap-2">
+                      <FileSpreadsheet
+                        size={15}
+                        className="text-primary shrink-0"
+                      />
+                      <p className="text-xs font-bold text-secondarytext uppercase tracking-widest">
+                        Import Summary
+                      </p>
+                    </div>
+
+                    {bulkPreview ? (
+                      <>
+                        <div className="grid grid-cols-3 divide-x divide-primarybg border border-primarybg rounded-md overflow-hidden">
+                          <div className="flex flex-col items-center justify-center py-4 px-2 bg-primarybg/30">
+                            <p className="text-2xl font-black text-primarytext leading-none tabular-nums">
+                              {bulkPreview.total_rows}
+                            </p>
+                            <p className="text-[11px] font-semibold text-secondarytext mt-1.5 uppercase tracking-wide">
+                              Total
+                            </p>
+                          </div>
+                          <div className="flex flex-col items-center justify-center py-4 px-2 bg-green/5">
+                            <p className="text-2xl font-black text-green leading-none tabular-nums">
+                              {bulkPreview.ready_rows}
+                            </p>
+                            <p className="text-[11px] font-semibold text-green/60 mt-1.5 uppercase tracking-wide">
+                              Ready
+                            </p>
+                          </div>
+                          <div className="flex flex-col items-center justify-center py-4 px-2 bg-red/5">
+                            <p className="text-2xl font-black text-red leading-none tabular-nums">
+                              {bulkPreview.invalid_rows}
+                            </p>
+                            <p className="text-[11px] font-semibold text-red/60 mt-1.5 uppercase tracking-wide">
+                              Invalid
+                            </p>
+                          </div>
+                        </div>
+
+                        <div
+                          className={`flex items-center gap-3 pl-5 pr-4 py-3 rounded-md relative overflow-hidden ${
+                            bulkPreview.invalid_rows > 0
+                              ? "bg-red/5"
+                              : "bg-green/5"
+                          }`}
+                        >
+                          <div
+                            className={`absolute left-0 top-0 bottom-0 w-1 ${
+                              bulkPreview.invalid_rows > 0
+                                ? "bg-red"
+                                : "bg-green"
+                            }`}
+                          />
+                          <div
+                            className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${
+                              bulkPreview.invalid_rows > 0
+                                ? "bg-red/15 text-red"
+                                : "bg-green/15 text-green"
+                            }`}
+                          >
+                            {bulkPreview.invalid_rows > 0 ? (
+                              <AlertCircle size={14} />
+                            ) : (
+                              <CheckCircle2 size={14} />
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-primarytext leading-tight">
+                              {bulkPreview.invalid_rows > 0
+                                ? "Fix issues before import"
+                                : "Ready to import"}
+                            </p>
+                            <p className="text-xs text-secondarytext mt-0.5">
+                              {bulkPreview.invalid_rows > 0
+                                ? "Fix highlighted rows, then validate again."
+                                : "All rows passed validation."}
+                            </p>
+                          </div>
+                        </div>
+
+                        {bulkPreview.csv_url && (
+                          <div className="px-4 py-3 rounded-md border border-primarybg bg-primarybg/30">
+                            <p className="text-[11px] font-bold text-secondarytext uppercase tracking-widest mb-1.5">
+                              Source
+                            </p>
+                            <p className="text-xs text-primarytext break-all leading-relaxed">
+                              {bulkPreview.csv_url}
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="flex-1 flex flex-col items-center justify-center text-center py-10 rounded-md border border-dashed border-primarybg/80 bg-primarybg/20 min-h-48">
+                        <div className="w-11 h-11 rounded-md bg-primary/10 flex items-center justify-center mb-3">
+                          <Upload size={20} className="text-primary/50" />
+                        </div>
+                        <p className="text-sm font-bold text-primarytext mb-1">
+                          No data yet
+                        </p>
+                        <p className="text-xs text-secondarytext max-w-44 leading-relaxed">
+                          Validate your file or sheet to see a summary here.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {bulkPreview && (
+                  <div className="space-y-3">
+                    <div>
+                      <h3 className="text-sm font-bold text-primarytext">
+                        Row Preview
+                      </h3>
+                      <p className="text-xs text-secondarytext mt-0.5">
+                        Review each row. Only fully valid sheets can be
+                        imported.
+                      </p>
+                    </div>
+
+                    <div className="border border-primarybg rounded-md overflow-hidden">
+                      <div className="overflow-x-auto max-h-72 overflow-y-auto">
+                        <table className="w-full text-sm">
+                          <thead className="sticky top-0 z-10">
+                            <tr className="bg-primarybg border-b border-primarybg/80">
+                              <th className="px-4 py-3 text-left text-xs font-bold text-secondarytext uppercase tracking-wider w-16">
+                                #
+                              </th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
+                                Vehicle
+                              </th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
+                                Type / Fuel
+                              </th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
+                                Capacity
+                              </th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-secondarytext uppercase tracking-wider w-24">
+                                Status
+                              </th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
+                                Issues
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-primarybg/40 bg-secondarybg">
+                            {bulkPreview.rows.map((row) => (
+                              <tr
+                                key={row.row_number}
+                                className={`align-top transition-colors ${
+                                  !row.is_valid
+                                    ? "bg-red/5"
+                                    : "hover:bg-primarybg/30"
+                                }`}
+                              >
+                                <td className="px-4 py-3 text-xs font-bold text-secondarytext">
+                                  {row.row_number}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <p className="font-semibold text-primarytext text-sm leading-tight">
+                                    {row.vehicle_number || "-"}
+                                  </p>
+                                  <p className="text-xs text-secondarytext mt-0.5">
+                                    {row.vehicle_name || "No vehicle name"}
+                                  </p>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <p className="text-sm text-primarytext">
+                                    {getVehicleTypeLabel(row.vehicle_type)}
+                                  </p>
+                                  <p className="text-xs text-secondarytext mt-0.5">
+                                    {row.fuel_type || "-"}
+                                  </p>
+                                </td>
+                                <td className="px-4 py-3 text-sm text-primarytext">
+                                  {row.seating_capacity ?? "-"}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <span
+                                    className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-semibold ${
+                                      row.is_valid
+                                        ? "bg-green/10 text-green"
+                                        : "bg-red/10 text-red"
+                                    }`}
+                                  >
+                                    {row.is_valid ? "Ready" : "Fix"}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3">
+                                  {row.errors?.length ? (
+                                    <ul className="space-y-0.5">
+                                      {row.errors.map((error) => (
+                                        <li
+                                          key={`${row.row_number}-${error}`}
+                                          className="text-xs text-red flex items-start gap-1"
+                                        >
+                                          <span className="mt-0.5 shrink-0">
+                                            *
+                                          </span>
+                                          {error}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  ) : (
+                                    <span className="text-xs text-green font-medium">
+                                      No issues
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="shrink-0 flex items-center justify-between gap-3 px-6 py-4 border-t border-primarybg/60 bg-secondarybg">
+              <button
+                type="button"
+                onClick={closeBulkUploadModal}
+                className="px-4 py-2.5 text-sm font-semibold text-secondarytext hover:text-primarytext hover:bg-primarybg rounded-md transition-colors"
+              >
+                Cancel
+              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleBulkPreview}
+                  disabled={
+                    bulkPreviewLoading ||
+                    bulkImportLoading ||
+                    (bulkSourceType === "google"
+                      ? !bulkSheetUrl.trim()
+                      : !bulkFile)
+                  }
+                  className="px-4 py-2.5 border border-primary/25 text-primary rounded-md hover:bg-primary/10 transition-colors font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {bulkPreviewLoading
+                    ? "Validating..."
+                    : bulkSourceType === "google"
+                      ? "Validate Sheet"
+                      : "Validate File"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBulkImport}
+                  disabled={
+                    bulkImportLoading ||
+                    bulkPreviewLoading ||
+                    !bulkPreview ||
+                    bulkPreview.invalid_rows > 0 ||
+                    bulkPreview.ready_rows === 0
+                  }
+                  className="flex items-center gap-2 px-4 py-2.5 bg-primary text-secondarybg rounded-md hover:bg-primarydull transition-colors font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Upload size={14} />
+                  {bulkImportLoading ? "Importing..." : "Import Vehicles"}
                 </button>
               </div>
             </div>
@@ -2552,7 +3393,6 @@ export default function Vehicles() {
                     color: "skyblue",
                     startDate: docDetailVehicle.insurance_start_date,
                     expiryDate: docDetailVehicle.insurance_expire_date,
-                    remarks: docDetailVehicle.insurance_remarks,
                     days: getDaysUntil(docDetailVehicle.insurance_expire_date),
                   },
                   {
@@ -2562,7 +3402,6 @@ export default function Vehicles() {
                     color: "green",
                     startDate: docDetailVehicle.fc_start_date,
                     expiryDate: docDetailVehicle.fc_expire_date,
-                    remarks: docDetailVehicle.fc_remarks,
                     days: getDaysUntil(docDetailVehicle.fc_expire_date),
                   },
                   {
@@ -2572,7 +3411,6 @@ export default function Vehicles() {
                     color: "primary",
                     startDate: docDetailVehicle.permit_start_date,
                     expiryDate: docDetailVehicle.permit_expire_date,
-                    remarks: docDetailVehicle.permit_remarks,
                     days: getDaysUntil(docDetailVehicle.permit_expire_date),
                   },
                 ].map((doc) => {
@@ -2623,19 +3461,6 @@ export default function Vehicles() {
                           </p>
                         </div>
                       </div>
-                      {doc.remarks && (
-                        <div className="mt-2 pt-2 border-t border-primary/5">
-                          <div className="flex items-start gap-1.5">
-                            <MessageSquare
-                              size={11}
-                              className="text-secondarytext mt-0.5 shrink-0"
-                            />
-                            <p className="text-xs text-secondarytext italic">
-                              {doc.remarks}
-                            </p>
-                          </div>
-                        </div>
-                      )}
                     </div>
                   );
                 })}
@@ -2880,6 +3705,160 @@ export default function Vehicles() {
                   Close
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Vehicle Type Management Modal */}
+      {showVehicleTypeModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-secondarybg rounded-md shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-scaleIn">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-primarybg flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-primary/10 rounded-md">
+                  <Truck size={20} className="text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-primarytext">
+                    {isEditingVehicleType
+                      ? "Edit Vehicle Type"
+                      : "Create Vehicle Type"}
+                  </h2>
+                  <p className="text-xs text-secondarytext mt-0.5">
+                    {isEditingVehicleType
+                      ? "Update the vehicle type details"
+                      : "Add a new vehicle type to the system"}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={closeVehicleTypeModal}
+                className="p-2 hover:bg-primarybg rounded-md transition-colors"
+              >
+                <X size={20} className="text-secondarytext" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {/* Type Code */}
+              <div>
+                <label className="block text-sm font-semibold text-primarytext mb-2">
+                  Type Code <span className="text-red">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g., BUS, CAR, BATTERY_VEHICLE"
+                  value={vehicleTypeForm.type}
+                  onChange={(e) =>
+                    setVehicleTypeForm({
+                      ...vehicleTypeForm,
+                      type: e.target.value.toUpperCase(),
+                    })
+                  }
+                  disabled={isEditingVehicleType}
+                  className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium disabled:opacity-50"
+                />
+                <p className="text-xs text-secondarytext mt-1">
+                  System identifier (uppercase)
+                </p>
+              </div>
+
+              {/* Label aka Display Name */}
+              <div>
+                <label className="block text-sm font-semibold text-primarytext mb-2">
+                  Display Label <span className="text-red">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g., College Bus, Staff Car"
+                  value={vehicleTypeForm.label}
+                  onChange={(e) =>
+                    setVehicleTypeForm({
+                      ...vehicleTypeForm,
+                      label: e.target.value,
+                    })
+                  }
+                  className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium"
+                />
+                <p className="text-xs text-secondarytext mt-1">
+                  User-friendly name shown in forms and dropdowns
+                </p>
+              </div>
+
+              {/* Existing Types List */}
+              {!isEditingVehicleType && vehicleTypeOptions.length > 1 && (
+                <div className="bg-primarybg rounded-md p-4 mt-6">
+                  <h3 className="text-sm font-bold text-primary mb-3 flex items-center gap-2">
+                    <Truck size={14} /> Existing Types
+                  </h3>
+                  <div className="space-y-2">
+                    {vehicleTypeOptions
+                      .filter((t) => t.value !== "ALL")
+                      .map((type) => (
+                        <div
+                          key={type.value}
+                          className="flex items-center justify-between bg-secondarybg rounded-md p-3 group hover:bg-primarybg transition-colors"
+                        >
+                          <div>
+                            <p className="text-sm font-semibold text-primarytext">
+                              {type.label}
+                            </p>
+                            <p className="text-xs text-secondarytext font-mono">
+                              {type.value}
+                            </p>
+                          </div>
+                          <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={() =>
+                                openEditVehicleType({
+                                  id: type.id,
+                                  type: type.value,
+                                  label: type.label,
+                                })
+                              }
+                              className="p-2 hover:bg-primary/10 text-primary rounded-md transition-colors"
+                              title="Edit"
+                            >
+                              <Edit2 size={14} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteVehicleType(type.id)}
+                              className="p-2 hover:bg-red/10 text-red rounded-md transition-colors"
+                              title="Delete"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-primarybg flex justify-between items-center gap-3">
+              <button
+                onClick={closeVehicleTypeModal}
+                className="px-5 py-2.5 text-primarytext hover:bg-primarybg rounded-md font-semibold transition-colors text-sm"
+              >
+                {isEditingVehicleType ? "Back" : "Close"}
+              </button>
+              <button
+                onClick={handleVehicleTypeSubmit}
+                disabled={
+                  isLoadingVehicleType ||
+                  !vehicleTypeForm.type.trim() ||
+                  !vehicleTypeForm.label.trim()
+                }
+                className="px-5 py-2.5 bg-primary text-white rounded-md font-semibold hover:bg-primarydull transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isLoadingVehicleType && <Loading />}
+                {isEditingVehicleType ? "Update Type" : "Create Type"}
+              </button>
             </div>
           </div>
         </div>

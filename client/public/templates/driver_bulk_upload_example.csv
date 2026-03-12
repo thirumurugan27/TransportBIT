@@ -1,0 +1,3 @@
+full_name,phone,email,license_number,license_type,license_expiry,experience_years,date_of_joining,date_of_relieving,allowed_vehicle_type
+Sample Driver One,99000012341,sample.driver.one@template.local,TEMPLATE-DRV-2026-9001,LMV,2028-12-31,5,2024-06-15,,CAR
+Sample Driver Two,99000012342,sample.driver.two@template.local,TEMPLATE-DRV-2026-9002,HMV,2029-05-10,8,2021-02-01,,BUS

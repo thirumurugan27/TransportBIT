@@ -818,6 +818,8 @@ func ApproveVehicleRequest(c *gin.Context) {
 		CreateAdminNotification("vehicle_assigned", "Vehicle Assigned", fmt.Sprintf("Vehicle assigned to request #%d by %s. Start OTP sent to requester.", req.RequestID, facultyName))
 
 		c.JSON(http.StatusOK, gin.H{"message": "Request approved and vehicle assigned successfully", "start_otp": startOTP})
+		// Keep vehicle status in sync — vehicle is now engaged on a trip.
+		go SyncVehicleStatus(req.VehicleID)
 		return
 	}
 
@@ -1005,6 +1007,10 @@ func CancelVehicleRequestByAdmin(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Request cancelled"})
+	// If a vehicle was assigned, re-evaluate its status now that the request is cancelled.
+	if vehicleID.Valid && vehicleID.Int64 > 0 && status == "assigned" {
+		go SyncVehicleStatus(int(vehicleID.Int64))
+	}
 }
 
 // POST /api/admin/vehicle-request/assign

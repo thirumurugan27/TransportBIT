@@ -415,6 +415,8 @@ func CreateAssignment(c *gin.Context) {
 		msg = fmt.Sprintf("%d assignments created successfully (one per shift)", len(shiftIDs))
 	}
 	c.JSON(http.StatusOK, gin.H{"message": msg})
+	// Keep vehicle status in sync — run in background to avoid latency.
+	go SyncVehicleStatus(req.VehicleID)
 }
 
 // Helper to parse date string, returns zero time on error
@@ -442,6 +444,9 @@ func UpdateAssignment(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Assignment updated successfully"})
+	if a.VehicleID > 0 {
+		go SyncVehicleStatus(a.VehicleID)
+	}
 }
 
 // DELETE /api/admin/assignments/delete?id=X
@@ -452,6 +457,10 @@ func DeleteAssignment(c *gin.Context) {
 		return
 	}
 
+	// Capture the vehicle ID before deleting so we can re-sync its status.
+	var vehicleID int
+	_ = config.DB.QueryRow(`SELECT vehicle_id FROM assignments WHERE id = ?`, id).Scan(&vehicleID)
+
 	_, err := config.DB.Exec("DELETE FROM assignments WHERE id=?", id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -459,6 +468,9 @@ func DeleteAssignment(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Assignment deleted successfully"})
+	if vehicleID > 0 {
+		go SyncVehicleStatus(vehicleID)
+	}
 }
 
 /*
@@ -1077,9 +1089,9 @@ func CheckDriverConflictAPI(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"conflict":       hasConflict,
-		"conflict_date":  conflictDate,
-		"conflicts":      conflicts,
+		"conflict":      hasConflict,
+		"conflict_date": conflictDate,
+		"conflicts":     conflicts,
 	})
 }
 

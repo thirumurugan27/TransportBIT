@@ -533,12 +533,13 @@ func VerifyEndOTP(c *gin.Context) {
 
 	var status, storedOTP string
 	var facultyName string
+	var tripVehicleID sql.NullInt64
 	err = config.DB.QueryRow(`
-		SELECT vr.status, COALESCE(vr.end_otp, ''), COALESCE(ru.full_name, 'Requester')
+		SELECT vr.status, COALESCE(vr.end_otp, ''), COALESCE(ru.full_name, 'Requester'), vr.vehicle_id
 		FROM vehiclerequests vr
 		LEFT JOIN users ru ON vr.requester_id = ru.id
 		WHERE vr.id = ? AND vr.driver_id = ?
-	`, req.RequestID, driverID).Scan(&status, &storedOTP, &facultyName)
+	`, req.RequestID, driverID).Scan(&status, &storedOTP, &facultyName, &tripVehicleID)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Request not found or not assigned to you"})
 		return
@@ -580,6 +581,10 @@ func VerifyEndOTP(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Trip completed successfully!",
 	})
+	// Trip is done — release the vehicle back to available if no other work is pending.
+	if tripVehicleID.Valid && tripVehicleID.Int64 > 0 {
+		go admin.SyncVehicleStatus(int(tripVehicleID.Int64))
+	}
 }
 
 // Helper function to split date and time from "DD-MM-YYYY hh:ii AM/PM"

@@ -2,6 +2,7 @@ package admin
 
 import (
 	"net/http"
+	"time"
 
 	"transport-server/config"
 	"transport-server/models"
@@ -179,30 +180,111 @@ func MarkAttendance(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return
 	}
+	if req.UserID == 0 || req.Date == "" || req.Status == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "user_id, date and status are required"})
+		return
+	}
 
 	// Get the admin who is marking the attendance
 	markedBy := getUserIDFromRequest(c)
 
-	// Upsert attendance
+	if err := upsertAttendanceRecord(req.UserID, req.Date, req.Status, req.CheckinTime, markedBy); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Attendance marked"})
+}
+
+// POST /api/admin/attendance/mark-bulk
+func MarkAttendanceBulk(c *gin.Context) {
+	var req models.BulkMarkAttendanceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	if req.Date == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "date is required"})
+		return
+	}
+	if len(req.Updates) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "updates cannot be empty"})
+		return
+	}
+
+	markedBy := getUserIDFromRequest(c)
+
+	tx, err := config.DB.Begin()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	for _, item := range req.Updates {
+		if item.UserID == 0 || item.Status == "" {
+			tx.Rollback()
+			c.JSON(http.StatusBadRequest, gin.H{"error": "each update must include user_id and status"})
+			return
+		}
+
+		status := item.Status
+		if status != "present" && status != "absent" && status != "on_leave" && status != "not_marked" {
+			tx.Rollback()
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid status in updates"})
+			return
+		}
+
+		var checkinTime interface{}
+		if item.CheckinTime != nil && *item.CheckinTime != "" {
+			checkinTime = *item.CheckinTime
+		} else if status == "present" {
+			now := time.Now().Format("2006-01-02 15:04:05")
+			checkinTime = now
+		}
+
+		_, err = tx.Exec(`
+			INSERT INTO attendance (user_id, date, status, checkin_time, marked_by)
+			VALUES (?, ?, ?, ?, ?)
+			ON DUPLICATE KEY UPDATE status=VALUES(status), checkin_time=VALUES(checkin_time), marked_by=VALUES(marked_by)
+		`, item.UserID, req.Date, status, checkinTime, markedBy)
+		if err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		_, err = tx.Exec("UPDATE users SET status=? WHERE id=?", status, item.UserID)
+		if err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Attendance updates saved", "updated_count": len(req.Updates)})
+}
+
+func upsertAttendanceRecord(userID int, date, status string, checkinTimePtr *string, markedBy *int) error {
 	var checkinTime interface{}
-	if req.CheckinTime != nil && *req.CheckinTime != "" {
-		checkinTime = *req.CheckinTime
+	if checkinTimePtr != nil && *checkinTimePtr != "" {
+		checkinTime = *checkinTimePtr
 	}
 
 	_, err := config.DB.Exec(`
 		INSERT INTO attendance (user_id, date, status, checkin_time, marked_by)
 		VALUES (?, ?, ?, ?, ?)
 		ON DUPLICATE KEY UPDATE status=VALUES(status), checkin_time=VALUES(checkin_time), marked_by=VALUES(marked_by)
-	`, req.UserID, req.Date, req.Status, checkinTime, markedBy)
-
+	`, userID, date, status, checkinTime, markedBy)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+		return err
 	}
 
-	// Also update users.status for quick lookup
-	userStatus := req.Status
-	config.DB.Exec("UPDATE users SET status=? WHERE id=?", userStatus, req.UserID)
-
-	c.JSON(http.StatusOK, gin.H{"message": "Attendance marked"})
+	_, err = config.DB.Exec("UPDATE users SET status=? WHERE id=?", status, userID)
+	return err
 }

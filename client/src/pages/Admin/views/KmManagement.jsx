@@ -1720,7 +1720,7 @@ export default function KmManagement() {
                   className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
                     trackerFilter === "entered"
                       ? "bg-green text-white"
-                      : "bg-green/10 text-freen hover:bg-freen/20"
+                      : "bg-green/10 text-green hover:bg-green/20"
                   }`}
                 >
                   <Check className="w-3.5 h-3.5 inline mr-1" />
@@ -1800,7 +1800,7 @@ export default function KmManagement() {
                         key={a.assignment_id}
                         className={`transition-colors ${
                           a.km_entered
-                            ? "hover:bg-freen/5"
+                            ? "hover:bg-green/5"
                             : "bg-red/5 hover:bg-red/10"
                         }`}
                       >
@@ -1830,7 +1830,7 @@ export default function KmManagement() {
                         </td>
                         <td className="px-4 py-3 text-center">
                           {a.km_entered ? (
-                            <span className="inline-flex items-center gap-1 text-xs font-bold text-freen bg-freen/10 px-2.5 py-1 rounded-full">
+                            <span className="inline-flex items-center gap-1 text-xs font-bold text-green bg-green/10 px-2.5 py-1 rounded-full">
                               <Check className="w-3 h-3" /> Entered
                             </span>
                           ) : (
@@ -1853,7 +1853,7 @@ export default function KmManagement() {
                             <span
                               className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                                 a.km_status === "approved"
-                                  ? "bg-freen/10 text-freen"
+                                  ? "bg-green/10 text-green"
                                   : "bg-pending/10 text-pending"
                               }`}
                             >

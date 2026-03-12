@@ -739,7 +739,7 @@ export default function AdminBusFleet() {
           </div>
 
           {/* Search and Filter */}
-          <div className="bg-white rounded-md border border-gray-100 shadow-sm p-5 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+          <div className="bg-secondarybg rounded-md border border-primarybg p-4 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
             <CustomSearch
               value={searchTerm}
               onChange={setSearchTerm}

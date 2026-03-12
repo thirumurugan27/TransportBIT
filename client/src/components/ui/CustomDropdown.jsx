@@ -63,7 +63,6 @@ export default function CustomDropdown({
           className={`text-secondarytext transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
         />
       </button>
-
       {isOpen && (
         <div
           className={`absolute z-50 mt-1 w-full ${dropdownBgClass} border border-gray-200 rounded-md shadow-lg py-1 animate-in fade-in slide-in-from-top-1 duration-150`}
