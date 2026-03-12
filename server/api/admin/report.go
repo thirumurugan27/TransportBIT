@@ -7,18 +7,14 @@ import (
 	"net/http"
 	"strings"
 	"time"
-
 	"transport-server/config"
-
 	"github.com/gin-gonic/gin"
 	"github.com/xuri/excelize/v2"
 )
-
 /* =========================
    REPORT GENERATION HANDLERS
    Exports Excel (.xlsx) files
 ========================= */
-
 // styleHeader applies a consistent header style to a cell range
 func styleHeader(f *excelize.File, sheet string, cols int, row int) {
 	style, _ := f.NewStyle(&excelize.Style{
@@ -37,7 +33,6 @@ func styleHeader(f *excelize.File, sheet string, cols int, row int) {
 		f.SetCellStyle(sheet, cell, cell, style)
 	}
 }
-
 // styleTitleRow adds title and subtitle to the sheet
 func styleTitleRow(f *excelize.File, sheet, title, period string, cols int) {
 	titleStyle, _ := f.NewStyle(&excelize.Style{
@@ -48,24 +43,20 @@ func styleTitleRow(f *excelize.File, sheet, title, period string, cols int) {
 		Font:      &excelize.Font{Size: 10, Color: "666666", Italic: true},
 		Alignment: &excelize.Alignment{Horizontal: "center"},
 	})
-
 	endCol, _ := excelize.CoordinatesToCellName(cols, 1)
 	f.MergeCell(sheet, "A1", endCol)
 	f.SetCellValue(sheet, "A1", title)
 	f.SetCellStyle(sheet, "A1", endCol, titleStyle)
-
 	endCol2, _ := excelize.CoordinatesToCellName(cols, 2)
 	f.MergeCell(sheet, "A2", endCol2)
 	f.SetCellValue(sheet, "A2", period)
 	f.SetCellStyle(sheet, "A2", endCol2, subStyle)
 }
-
 func setColWidths(f *excelize.File, sheet string, widths map[string]float64) {
 	for col, w := range widths {
 		f.SetColWidth(sheet, col, col, w)
 	}
 }
-
 // sendExcel writes the workbook to the HTTP response
 func sendExcel(c *gin.Context, f *excelize.File, filename string) {
 	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
@@ -75,11 +66,9 @@ func sendExcel(c *gin.Context, f *excelize.File, filename string) {
 		log.Printf("Error writing excel: %v", err)
 	}
 }
-
 // ===================================
 // 1. ATTENDANCE REPORT
 // ===================================
-
 // GET /api/admin/reports/attendance?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD
 func GenerateAttendanceReport(c *gin.Context) {
 	if c.Query("format") == "pdf" {
@@ -92,7 +81,6 @@ func GenerateAttendanceReport(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "start_date and end_date are required"})
 		return
 	}
-
 	rows, err := config.DB.Query(`
 		WITH RECURSIVE date_range AS (
 			SELECT ? AS d
@@ -128,11 +116,9 @@ func GenerateAttendanceReport(c *gin.Context) {
 		return
 	}
 	defer rows.Close()
-
 	f := excelize.NewFile()
 	sheet := "Attendance Report"
 	f.SetSheetName("Sheet1", sheet)
-
 	period := fmt.Sprintf("Period: %s to %s | Generated: %s", startDate, endDate, time.Now().Format("02-01-2006 03:04 PM"))
 	headers := []string{"S.No", "Driver Name", "License No", "Date", "Status", "Check-In", "Check-Out"}
 	styleTitleRow(f, sheet, "DRIVER ATTENDANCE REPORT", period, len(headers))
@@ -142,7 +128,6 @@ func GenerateAttendanceReport(c *gin.Context) {
 		f.SetCellValue(sheet, cell, h)
 	}
 	styleHeader(f, sheet, len(headers), 4)
-
 	row := 5
 	sno := 1
 	for rows.Next() {
@@ -160,17 +145,13 @@ func GenerateAttendanceReport(c *gin.Context) {
 		row++
 		sno++
 	}
-
 	setColWidths(f, sheet, map[string]float64{"A": 6, "B": 22, "C": 18, "D": 14, "E": 12, "F": 14, "G": 14})
-
 	filename := fmt.Sprintf("Attendance_Report_%s_to_%s.xlsx", startDate, endDate)
 	sendExcel(c, f, filename)
 }
-
 // ===================================
 // 2. SERVICE RECORDS REPORT
 // ===================================
-
 // GET /api/admin/reports/service?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD&status=...
 func GenerateServiceReport(c *gin.Context) {
 	if c.Query("format") == "pdf" {
@@ -180,12 +161,10 @@ func GenerateServiceReport(c *gin.Context) {
 	startDate := c.Query("start_date")
 	endDate := c.Query("end_date")
 	statusFilter := c.Query("status")
-
 	if startDate == "" || endDate == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "start_date and end_date are required"})
 		return
 	}
-
 	query := `
 		SELECT 
 			v.vehicle_number, v.vehicle_name,
@@ -202,13 +181,11 @@ func GenerateServiceReport(c *gin.Context) {
 		WHERE sr.created_at BETWEEN ? AND DATE_ADD(?, INTERVAL 1 DAY)
 	`
 	args := []interface{}{startDate, endDate}
-
 	if statusFilter != "" && statusFilter != "all" {
 		query += " AND sr.status = ?"
 		args = append(args, statusFilter)
 	}
 	query += " ORDER BY sr.created_at DESC"
-
 	rows, err := config.DB.Query(query, args...)
 	if err != nil {
 		log.Printf("Service report error: %v", err)
@@ -216,21 +193,17 @@ func GenerateServiceReport(c *gin.Context) {
 		return
 	}
 	defer rows.Close()
-
 	f := excelize.NewFile()
 	sheet := "Service Records"
 	f.SetSheetName("Sheet1", sheet)
-
 	period := fmt.Sprintf("Period: %s to %s | Generated: %s", startDate, endDate, time.Now().Format("02-01-2006 03:04 PM"))
 	headers := []string{"S.No", "Vehicle No", "Vehicle Name", "Title", "Severity", "Status", "Workshop", "Labor Cost", "Parts Cost", "Total Cost", "Scheduled", "Started", "Completed", "Created"}
 	styleTitleRow(f, sheet, "SERVICE RECORDS REPORT", period, len(headers))
-
 	for i, h := range headers {
 		cell, _ := excelize.CoordinatesToCellName(i+1, 4)
 		f.SetCellValue(sheet, cell, h)
 	}
 	styleHeader(f, sheet, len(headers), 4)
-
 	row := 5
 	sno := 1
 	var totalLabor, totalParts, totalCost float64
@@ -260,7 +233,6 @@ func GenerateServiceReport(c *gin.Context) {
 		row++
 		sno++
 	}
-
 	// Total row
 	totalStyle, _ := f.NewStyle(&excelize.Style{Font: &excelize.Font{Bold: true, Size: 11}, Alignment: &excelize.Alignment{Horizontal: "right"}})
 	f.SetCellValue(sheet, fmt.Sprintf("G%d", row), "TOTAL")
@@ -270,9 +242,7 @@ func GenerateServiceReport(c *gin.Context) {
 	for _, col := range []string{"G", "H", "I", "J"} {
 		f.SetCellStyle(sheet, fmt.Sprintf("%s%d", col, row), fmt.Sprintf("%s%d", col, row), totalStyle)
 	}
-
 	setColWidths(f, sheet, map[string]float64{"A": 6, "B": 14, "C": 16, "D": 20, "E": 10, "F": 12, "G": 16, "H": 12, "I": 12, "J": 12, "K": 12, "L": 12, "M": 12, "N": 12})
-
 	filename := fmt.Sprintf("Service_Report_%s_to_%s.xlsx", startDate, endDate)
 	sendExcel(c, f, filename)
 }
