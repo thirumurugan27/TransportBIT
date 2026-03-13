@@ -322,17 +322,25 @@ function WeeklyChart({data}) {
           const isEmpty = total === 0;
 
           return (
-            <div key={i} className="flex-1 flex flex-col items-center gap-1">
+            <div
+              key={i}
+              className="group flex-1 flex flex-col items-center gap-1"
+            >
               <div
-                className="w-full flex flex-col items-center justify-end relative"
+                className="w-full flex flex-col items-center justify-end relative cursor-pointer"
                 style={{height: BAR_H}}
+                tabIndex={0}
+                aria-label={`${d.day}: ${d.present} present, ${d.absent} absent, ${d.on_leave || 0} leave`}
               >
-                {/* Tooltip hidden */}
-                <div className="hidden">
-                  P:{d.present} A:{d.absent} L:{d.on_leave || 0}
+                <div className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-[calc(100%+10px)] bg-primarytext text-white text-[10px] leading-tight rounded-md px-2.5 py-2 shadow-md whitespace-nowrap opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 group-hover:-translate-y-[calc(100%+14px)] group-focus-within:-translate-y-[calc(100%+14px)] transition-all duration-200 pointer-events-none z-20">
+                  <p className="font-bold mb-1">{d.day}</p>
+                  <p>Present: {d.present}</p>
+                  <p>Absent: {d.absent}</p>
+                  <p>Leave: {d.on_leave || 0}</p>
+                  <span className="absolute left-1/2 -bottom-1.5 -translate-x-1/2 w-2.5 h-2.5 rotate-45 bg-primarytext" />
                 </div>
                 {isEmpty ? (
-                  <div className="w-7 h-[3px] rounded-bl-xl bg-gray-200/60" />
+                  <div className="w-7 h-[3px] rounded-bl-xl bg-gray-200/60 transition-all duration-200 group-hover:bg-gray-300/80 group-focus-within:bg-gray-300/80" />
                 ) : (
                   <div
                     className="w-7 flex flex-col justify-end overflow-hidden"
@@ -340,19 +348,19 @@ function WeeklyChart({data}) {
                   >
                     {(d.on_leave || 0) > 0 && (
                       <div
-                        className="w-full bg-pending transition-all duration-500"
+                        className="w-full bg-pending transition-all duration-500 group-hover:brightness-95 group-focus-within:brightness-95"
                         style={{height: leavePx}}
                       />
                     )}
                     {d.absent > 0 && (
                       <div
-                        className="w-full bg-red transition-all duration-500"
+                        className="w-full bg-red transition-all duration-500 group-hover:brightness-95 group-focus-within:brightness-95"
                         style={{height: absentPx}}
                       />
                     )}
                     {d.present > 0 && (
                       <div
-                        className="w-full bg-primary transition-all duration-500"
+                        className="w-full bg-primary transition-all duration-500 group-hover:brightness-95 group-focus-within:brightness-95"
                         style={{height: presentPx}}
                       />
                     )}

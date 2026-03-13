@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import {useAuth} from "../../../context/AuthContext";
 import {apiGet, apiPost} from "../../../utils/api";
+import {calculateDuration as getLeaveDuration} from "../../../utils/dateFormat";
 
 export default function DriverApplyLeave() {
   const [leaves, setLeaves] = useState([]);
@@ -75,6 +76,30 @@ export default function DriverApplyLeave() {
     setError(null);
 
     try {
+      const startDateTime = new Date(
+        `${formData.start_date}T${formData.start_time || "00:00"}`,
+      );
+      const endDateTime = new Date(
+        `${formData.end_date}T${formData.end_time || "00:00"}`,
+      );
+
+      if (
+        Number.isNaN(startDateTime.getTime()) ||
+        Number.isNaN(endDateTime.getTime())
+      ) {
+        setError("Please enter valid start and end date/time.");
+        setSubmitting(false);
+        return;
+      }
+
+      if (endDateTime < startDateTime) {
+        setError(
+          "End date/time must be greater than or equal to start date/time.",
+        );
+        setSubmitting(false);
+        return;
+      }
+
       const payload = {
         driver_id: parseInt(driverId),
         start_date: formData.start_date,
@@ -109,12 +134,12 @@ export default function DriverApplyLeave() {
     }
   };
 
-  const calculateDuration = (start, end) => {
-    const s = new Date(start);
-    const e = new Date(end);
-    const diffTime = Math.abs(e - s);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-    return `${diffDays} days`;
+  const getDurationDisplay = (startDate, endDate) => {
+    const duration = getLeaveDuration(startDate, endDate);
+    if (!duration || String(duration).toLowerCase().includes("nan")) {
+      return "-";
+    }
+    return duration;
   };
 
   const formatDateTime = (date, time) => {
@@ -259,7 +284,7 @@ export default function DriverApplyLeave() {
                           {formatDateTime(leave.end_date, leave.end_time)}
                         </td>
                         <td className="px-5 py-3.5 text-sm text-gray-800 font-medium">
-                          {calculateDuration(leave.start_date, leave.end_date)}
+                          {getDurationDisplay(leave.start_date, leave.end_date)}
                         </td>
                         <td className="px-5 py-3.5 text-sm text-gray-500 max-w-[180px] truncate">
                           {leave.reason}
@@ -315,7 +340,7 @@ export default function DriverApplyLeave() {
                     {/* Duration + Reason */}
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-medium text-gray-600">
-                        {calculateDuration(leave.start_date, leave.end_date)}
+                        {getDurationDisplay(leave.start_date, leave.end_date)}
                       </span>
                       {leave.reason && (
                         <span className="text-xs text-gray-400 truncate max-w-[55%] text-right">
@@ -539,7 +564,7 @@ export default function DriverApplyLeave() {
                   <div>
                     <p className="text-xs text-gray-400 mb-0.5">Duration</p>
                     <p className="font-medium text-gray-800">
-                      {calculateDuration(
+                      {getDurationDisplay(
                         selectedLeave.start_date,
                         selectedLeave.end_date,
                       )}

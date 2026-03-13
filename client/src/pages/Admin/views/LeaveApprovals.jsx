@@ -278,6 +278,14 @@ export default function LeaveApprovals() {
 
   const getStatus = (leave) => (leave?.status || "").toLowerCase().trim();
 
+  const getDurationDisplay = (startDate, endDate) => {
+    const duration = calculateDuration(startDate, endDate);
+    if (!duration || String(duration).toLowerCase().includes("nan")) {
+      return "-";
+    }
+    return duration;
+  };
+
   const filteredLeaves = leaveRequests.filter((leave) => {
     const matchesSearch =
       leave.driver_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -459,7 +467,7 @@ export default function LeaveApprovals() {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-sm font-semibold text-gray-800">
-                        {calculateDuration(leave.start_date, leave.end_date)}
+                        {getDurationDisplay(leave.start_date, leave.end_date)}
                       </td>
                       <td className="px-6 py-4">
                         <span
@@ -578,7 +586,7 @@ export default function LeaveApprovals() {
                       Duration
                     </p>
                     <p className="text-sm font-semibold text-gray-800">
-                      {calculateDuration(
+                      {getDurationDisplay(
                         selectedLeave.start_date,
                         selectedLeave.end_date,
                       )}

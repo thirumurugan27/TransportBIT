@@ -246,11 +246,9 @@ func GenerateServiceReport(c *gin.Context) {
 	filename := fmt.Sprintf("Service_Report_%s_to_%s.xlsx", startDate, endDate)
 	sendExcel(c, f, filename)
 }
-
 // ===================================
 // 3. PURCHASE / BILLS REPORT
 // ===================================
-
 // GET /api/admin/reports/purchase?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD
 func GeneratePurchaseReport(c *gin.Context) {
 	if c.Query("format") == "pdf" {

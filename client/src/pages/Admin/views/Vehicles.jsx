@@ -332,14 +332,62 @@ export default function Vehicles() {
     return dateStr;
   };
 
-  // Normalize backend status to frontend dropdown values
+  // Normalize backend status for display
   const normalizeStatus = (status) => {
     if (!status) return "available";
     const s = status.toLowerCase().trim();
-    if (s === "active" || s === "available") return "available";
+    if (s === "active") return "active"; // system-managed: assigned/on-trip
+    if (s === "available") return "available";
     if (s === "in_service" || s === "maintenance") return "in_service";
     if (s === "not_available" || s === "inactive") return "not_available";
-    return "NA";
+    return "available";
+  };
+
+  // For the edit form: "active" is system-managed, so fall back to "available"
+  const normalizeFormStatus = (status) => {
+    const n = normalizeStatus(status);
+    return n === "active" ? "available" : n;
+  };
+
+  // Centralized status badge renderer
+  const getStatusBadge = (status, opts = {}) => {
+    const s = normalizeStatus(status);
+    const sz = opts.iconSize ?? 13;
+    const extraCls = opts.extraCls ?? "";
+    const cfg = {
+      active: {
+        label: "On Duty",
+        cls: "bg-skyblue/10 text-skyblue",
+        icon: <Truck size={sz} />,
+      },
+      available: {
+        label: "Available",
+        cls: "bg-green/10 text-green",
+        icon: <CheckCircle size={sz} />,
+      },
+      in_service: {
+        label: "In Service",
+        cls: "bg-pending/10 text-pending",
+        icon: <Wrench size={sz} />,
+      },
+      not_available: {
+        label: "Not Available",
+        cls: "bg-red/10 text-red",
+        icon: <XCircle size={sz} />,
+      },
+    }[s] ?? {
+      label: "Unknown",
+      cls: "bg-primarybg text-secondarytext",
+      icon: <AlertCircle size={sz} />,
+    };
+    return (
+      <span
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-md ${extraCls} ${cfg.cls}`}
+      >
+        {cfg.icon}
+        {cfg.label}
+      </span>
+    );
   };
 
   const handleEdit = (vehicle) => {
@@ -348,7 +396,7 @@ export default function Vehicles() {
       vehicle_number: vehicle.vehicle_number || "NA",
       seating_capacity: vehicle.seating_capacity ?? 0,
       fuel_type: vehicle.fuel_type || "NA",
-      status: normalizeStatus(vehicle.status),
+      status: normalizeFormStatus(vehicle.status),
       vehicle_name: vehicle.vehicle_name || "",
       start_point: vehicle.start_point || "",
       end_point: vehicle.end_point || "",
@@ -1707,30 +1755,10 @@ export default function Vehicles() {
                         )}
                         <td className="px-6 py-5 text-center">
                           <div className="flex flex-col items-center gap-1.5">
-                            <span
-                              className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-md min-w-24 ${
-                                normalizeStatus(v.status) === "available"
-                                  ? "bg-green/10 text-green"
-                                  : normalizeStatus(v.status) ===
-                                      "not_available"
-                                    ? "bg-red/10 text-red"
-                                    : "bg-pending/10 text-pending"
-                              }`}
-                            >
-                              {normalizeStatus(v.status) === "available" ? (
-                                <CheckCircle size={14} />
-                              ) : normalizeStatus(v.status) ===
-                                "not_available" ? (
-                                <AlertCircle size={14} />
-                              ) : (
-                                <AlertCircle size={14} />
-                              )}
-                              {normalizeStatus(v.status) === "available"
-                                ? "Available"
-                                : normalizeStatus(v.status) === "not_available"
-                                  ? "Not Available"
-                                  : "In Service"}
-                            </span>
+                            {getStatusBadge(v.status, {
+                              iconSize: 14,
+                              extraCls: "min-w-28 justify-center",
+                            })}
                             {v.replacement_vehicle_number && (
                               <span className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded-md bg-skyblue/10 text-skyblue">
                                 <RefreshCw size={10} />
@@ -1816,28 +1844,7 @@ export default function Vehicles() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span
-                    className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 ${
-                      normalizeStatus(selectedVehicle.status) === "available"
-                        ? "bg-green/10 text-green"
-                        : normalizeStatus(selectedVehicle.status) ===
-                            "not_available"
-                          ? "bg-red/10 text-red"
-                          : "bg-pending/10 text-pending"
-                    }`}
-                  >
-                    {normalizeStatus(selectedVehicle.status) === "available" ? (
-                      <CheckCircle size={12} />
-                    ) : (
-                      <AlertCircle size={12} />
-                    )}
-                    {normalizeStatus(selectedVehicle.status) === "available"
-                      ? "Available"
-                      : normalizeStatus(selectedVehicle.status) ===
-                          "not_available"
-                        ? "Not Available"
-                        : "In Service"}
-                  </span>
+                  {getStatusBadge(selectedVehicle.status, {iconSize: 12})}
                   <button
                     onClick={() => setShowDetailModal(false)}
                     className="text-secondarytext hover:text-primarytext rounded-md p-2 hover:bg-primarybg transition-colors"
