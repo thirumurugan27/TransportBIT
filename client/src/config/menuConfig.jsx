@@ -173,8 +173,6 @@ export const adminMenuConfig = {
 
 // Driver Menu Configuration
 export const driverMenuConfig = {
-  portalName: "Transport BIT",
-  portalSubtitle: "Driver Portal",
   basePath: "/driver-dashboard",
   items: [
     {
@@ -230,8 +228,6 @@ export const driverMenuConfig = {
 
 // Student Menu Configuration
 export const studentMenuConfig = {
-  portalName: "Transport BIT",
-  portalSubtitle: "Student Portal",
   basePath: "/student-dashboard",
   items: [
     {
@@ -269,8 +265,6 @@ export const studentMenuConfig = {
 
 // Faculty Menu Configuration
 export const facultyMenuConfig = {
-  portalName: "Transport BIT",
-  portalSubtitle: "Faculty Portal",
   basePath: "/faculty-dashboard",
   items: [
     {

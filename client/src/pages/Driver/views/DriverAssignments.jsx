@@ -20,6 +20,7 @@ import {
   FileText,
   Key,
   Truck,
+  TrendingUp,
 } from "lucide-react";
 
 export default function DriverAssignments() {
@@ -88,11 +89,17 @@ export default function DriverAssignments() {
     return `${shifts[0].shift_name || "EV Duty"} +${shifts.length - 1} more`;
   };
 
+  const getShiftTimeWindow = (shift = {}, assignment = {}) => {
+    const start = shift.start_time || assignment?.start_time || "-";
+    const end = shift.end_time || assignment?.end_time || "-";
+    return `${start} - ${end}`;
+  };
+
   const getShiftTimeLabel = (assignment) => {
     const shifts = getAssignmentShifts(assignment);
     if (shifts.length <= 1) {
       const firstShift = shifts[0] || {};
-      return `${firstShift.start_time || assignment?.start_time || "-"} - ${firstShift.end_time || assignment?.end_time || "-"}`;
+      return getShiftTimeWindow(firstShift, assignment);
     }
     return `${shifts.length} shifts assigned`;
   };
@@ -278,6 +285,10 @@ export default function DriverAssignments() {
       count: counts.temporary,
     },
   ];
+
+  const selectedEVShifts = selectedEVAssignment
+    ? getAssignmentShifts(selectedEVAssignment)
+    : [];
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -814,197 +825,207 @@ export default function DriverAssignments() {
 
       {/* EV Assignment Details Modal */}
       {selectedEVAssignment && (
-        <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 animate-fadeIn">
-          <div className="bg-white rounded-t-2xl sm:rounded-md shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden animate-scaleIn border border-gray-200">
-            <div className="p-5 sm:p-6 flex items-start justify-between gap-4 border-b border-gray-200">
-              <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                <div className="p-3 bg-gray-100 rounded-md">
-                  <Zap size={22} className="text-gray-700" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-lg sm:text-xl font-bold text-gray-900 truncate">
-                    EV Assignment Details
-                  </h3>
-                  <p className="text-gray-600 text-sm mt-1 truncate">
-                    {selectedEVAssignment.vehicle_group_name || "EV Group"}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setSelectedEVAssignment(null)}
-                className="p-2 hover:bg-gray-100 rounded-md transition-colors shrink-0 text-gray-600"
-              >
-                <X size={22} />
-              </button>
-            </div>
-
-            <div className="p-5 sm:p-6 space-y-5 max-h-[68vh] overflow-y-auto bg-white">
-              <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
-                <div className="p-4 rounded-md border border-gray-200 bg-white">
-                  <p className="text-xs font-semibold text-secondarytext mb-1">
-                    Date Range
-                  </p>
-                  <p className="font-bold text-primarytext text-sm leading-6">
-                    {getDateRangeLabel(selectedEVAssignment)}
-                  </p>
-                </div>
-                <div className="p-4 rounded-md border border-gray-200 bg-white">
-                  <p className="text-xs font-semibold text-secondarytext mb-1">
-                    Shift
-                  </p>
-                  <p className="font-bold text-primarytext text-sm leading-6">
-                    {getAssignmentShifts(selectedEVAssignment)[0]?.shift_name ||
-                      "EV Duty"}
-                  </p>
-                  <p className="text-[11px] text-secondarytext mt-1 font-medium">
-                    {getAssignmentShifts(selectedEVAssignment)[0]?.start_time ||
-                      "-"}{" "}
-                    -{" "}
-                    {getAssignmentShifts(selectedEVAssignment)[0]?.end_time ||
-                      "-"}
-                  </p>
-                </div>
-                <div className="p-4 rounded-md border border-gray-200 bg-white">
-                  <p className="text-xs font-semibold text-secondarytext mb-1">
-                    Vehicle Group
-                  </p>
-                  <p className="font-bold text-primarytext text-sm leading-6">
-                    {selectedEVAssignment.vehicle_group_name || "EV Group"}
-                  </p>
-                  <p className="text-[11px] text-secondarytext mt-1 font-medium">
-                    {selectedEVAssignment.group_vehicles?.length || 0} vehicles
-                  </p>
-                </div>
-                <div className="p-4 rounded-md border border-gray-200 bg-white">
-                  <p className="text-xs font-semibold text-secondarytext mb-1">
-                    Driver Group
-                  </p>
-                  <p className="font-bold text-primarytext text-sm leading-6">
-                    {selectedEVAssignment.driver_group_name || "Driver Group"}
-                  </p>
-                  <p className="text-[11px] text-secondarytext mt-1 font-medium">
-                    {selectedEVAssignment.group_drivers?.length || 0} drivers
-                  </p>
-                </div>
-              </div>
-
-              <div className="rounded-md border border-gray-200 p-4 sm:p-5 bg-white">
-                <div className="flex items-center justify-between gap-3 mb-4">
-                  <h4 className="font-bold text-primarytext flex items-center gap-2">
-                    <Clock size={18} className="text-secondarytext" />
-                    Shift Details
-                  </h4>
-                  <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-gray-100 text-secondarytext">
-                    1 shift
-                  </span>
-                </div>
-                <div className="p-4 bg-white rounded-md border border-gray-200">
-                  <p className="font-bold text-primarytext text-sm">
-                    {getAssignmentShifts(selectedEVAssignment)[0]?.shift_name ||
-                      "EV Duty"}
-                  </p>
-                  <p className="text-xs text-secondarytext mt-1 font-mono">
-                    {getAssignmentShifts(selectedEVAssignment)[0]?.start_time ||
-                      "-"}{" "}
-                    -{" "}
-                    {getAssignmentShifts(selectedEVAssignment)[0]?.end_time ||
-                      "-"}
-                  </p>
-                </div>
-              </div>
-
-              <div className="rounded-md border border-gray-200 p-4 sm:p-5 bg-white">
-                <div className="flex items-center justify-between gap-3 mb-4">
-                  <h4 className="font-bold text-primarytext flex items-center gap-2">
-                    <Car size={18} className="text-secondarytext" />
-                    Assigned Vehicles
-                  </h4>
-                  <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-gray-100 text-secondarytext">
-                    {selectedEVAssignment.group_vehicles?.length || 0}
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {selectedEVAssignment.group_vehicles?.map((vehicle) => (
-                    <div
-                      key={vehicle.id}
-                      className="p-4 bg-white rounded-md border border-gray-200"
-                    >
-                      <p className="font-bold text-primarytext truncate">
-                        {vehicle.vehicle_name || vehicle.vehicle_number}
-                      </p>
-                      <p className="text-xs text-secondarytext mt-1 truncate">
-                        {vehicle.vehicle_number}
-                      </p>
+        <div
+          className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto animate-fadeIn"
+          onClick={() => setSelectedEVAssignment(null)}
+        >
+          <div
+            className="bg-white rounded-md shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto animate-scaleIn"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Clean Header */}
+            <div className="p-4 sm:p-6 border-b border-gray-200 bg-white rounded-t-xl">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+                <div className="flex items-start gap-3 sm:gap-4">
+                  <div className="w-14 h-14 rounded-md bg-green-600 flex items-center justify-center shadow-md">
+                    <Zap size={24} className="text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900 mb-1">
+                      {selectedEVAssignment.vehicle_group_name ||
+                        "EV Group Assignment"}
+                    </h2>
+                    <div className="flex flex-wrap gap-2 text-sm text-gray-600">
+                      <span className="font-medium text-primary">
+                        {selectedEVAssignment.driver_group_name ||
+                          "Driver Group"}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="text-gray-400">•</span>
+                        <span>
+                          {selectedEVAssignment.shift_name ||
+                            "Default Schedule"}
+                        </span>
+                      </span>
                     </div>
-                  ))}
-                  {(!selectedEVAssignment.group_vehicles ||
-                    selectedEVAssignment.group_vehicles.length === 0) && (
-                    <p className="sm:col-span-2 text-gray-500 text-sm text-center py-6">
-                      No vehicles are linked to this EV group yet.
-                    </p>
-                  )}
+                  </div>
                 </div>
-              </div>
-
-              <div className="rounded-md border border-gray-200 p-4 sm:p-5 bg-white">
-                <div className="flex items-center justify-between gap-3 mb-4">
-                  <h4 className="font-bold text-primarytext flex items-center gap-2">
-                    <Users size={18} className="text-secondarytext" />
-                    Assigned Drivers
-                  </h4>
-                  <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-gray-100 text-secondarytext">
-                    {selectedEVAssignment.group_drivers?.length || 0}
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {selectedEVAssignment.group_drivers?.map((driver) => (
-                    <div
-                      key={driver.id}
-                      className="p-4 bg-white rounded-md border border-gray-200 flex items-center gap-3"
-                    >
-                      <div className="w-11 h-11 bg-gray-100 rounded-md flex items-center justify-center text-gray-700 font-bold shrink-0">
-                        {driver.name?.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-semibold text-gray-800 text-sm truncate">
-                          {driver.name}
-                        </p>
-                        <p className="text-xs text-secondarytext mt-1">
-                          {selectedEVAssignment.driver_group_name ||
-                            "Driver group member"}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                  {(!selectedEVAssignment.group_drivers ||
-                    selectedEVAssignment.group_drivers.length === 0) && (
-                    <p className="sm:col-span-2 text-gray-500 text-sm text-center py-6">
-                      No drivers are linked to this EV group yet.
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between p-4 bg-white rounded-md border border-gray-200">
-                <div>
-                  <p className="text-sm font-semibold text-primarytext">
-                    Assignment Status
-                  </p>
-                  <p className="text-xs text-secondarytext mt-1">
-                    EV group assignment is ready for duty.
-                  </p>
-                </div>
-                <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-bold bg-gray-100 text-primarytext border border-gray-200">
-                  <div className="w-2 h-2 rounded-full bg-primary" />
-                  {getStatusConfig(selectedEVAssignment.status).label}
-                </span>
+                <button
+                  onClick={() => setSelectedEVAssignment(null)}
+                  className="text-gray-400 cursor-pointer"
+                >
+                  <X size={24} />
+                </button>
               </div>
             </div>
 
-            <div className="p-4 border-t border-gray-200 bg-white">
+            {/* Details Grid */}
+            <div className="p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Shift Details */}
+              <div className="bg-primarybg rounded-md p-4">
+                <h4 className="text-xs text-secondarytext uppercase tracking-wider mb-3 font-bold flex items-center gap-2">
+                  <Clock size={14} /> Shift Details
+                </h4>
+                {(selectedEVShifts.length > 0
+                  ? selectedEVShifts
+                  : [
+                      {
+                        shift_name:
+                          selectedEVAssignment.shift_name || "EV Duty",
+                        start_time: selectedEVAssignment.start_time,
+                        end_time: selectedEVAssignment.end_time,
+                      },
+                    ]
+                ).map((shift, idx) => (
+                  <div
+                    key={idx}
+                    className="bg-white rounded-md p-3 border border-primary/10 flex items-center justify-between gap-3 mb-2 last:mb-0"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                        <Clock size={13} className="text-primary" />
+                      </div>
+                      <span className="text-sm font-semibold text-primarytext">
+                        {shift.shift_name || "Default"}
+                      </span>
+                    </div>
+                    <span className="text-xs font-medium text-secondarytext bg-gray-100 px-2.5 py-1 rounded-md whitespace-nowrap">
+                      {getShiftTimeWindow(shift, selectedEVAssignment)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Assignment Period */}
+              <div className="bg-primarybg rounded-md p-4">
+                <h4 className="text-xs text-secondarytext uppercase tracking-wider mb-3 font-bold flex items-center gap-2">
+                  <Calendar size={14} /> Assignment Period
+                </h4>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-secondarytext">Start Date</span>
+                    <span className="font-medium text-primarytext">
+                      {selectedEVAssignment.start_date}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-secondarytext">End Date</span>
+                    <span className="font-medium text-primarytext">
+                      {selectedEVAssignment.end_date}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-secondarytext">Status</span>
+                    <span
+                      className={`font-medium px-2 py-0.5 rounded-md text-xs ${
+                        getStatusConfig(selectedEVAssignment.status).bg
+                      } ${
+                        getStatusConfig(selectedEVAssignment.status).color
+                      } border ${
+                        getStatusConfig(selectedEVAssignment.status).border
+                      }`}
+                    >
+                      {getStatusConfig(selectedEVAssignment.status).label}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Assigned Vehicles Section */}
+            {selectedEVAssignment.group_vehicles &&
+              selectedEVAssignment.group_vehicles.length > 0 && (
+                <div className="px-4 sm:px-6 pb-4">
+                  <div className="bg-primarybg rounded-md p-4">
+                    <h4 className="text-xs text-secondarytext uppercase tracking-wider mb-3 font-bold flex items-center gap-2">
+                      <Zap size={14} /> Assigned Vehicles (
+                      {selectedEVAssignment.group_vehicles.length})
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                      {selectedEVAssignment.group_vehicles.map((v) => {
+                        const vDisplay = getVehicleDisplay(v);
+                        return (
+                          <div
+                            key={v.id}
+                            className="bg-green-50 p-3 rounded-md flex items-center gap-2.5"
+                          >
+                            <div className="w-10 h-10 bg-green-600 rounded-md flex items-center justify-center text-white shrink-0">
+                              <Zap size={16} />
+                            </div>
+                            <div className="overflow-hidden">
+                              <p className="text-sm font-bold text-primarytext truncate">
+                                {vDisplay.title}
+                              </p>
+                              <p className="text-xs text-secondarytext truncate">
+                                {vDisplay.subtitle || "EV Vehicle"}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+            {/* Cluster Drivers Section */}
+            <div className="px-4 sm:px-6 pb-4">
+              <div className="bg-primarybg rounded-md p-4">
+                <h4 className="text-xs text-secondarytext uppercase tracking-wider mb-3 font-bold flex items-center gap-2">
+                  <Users size={14} /> Cluster Drivers (
+                  {selectedEVAssignment.group_drivers?.length || 0})
+                </h4>
+                {selectedEVAssignment.group_drivers &&
+                selectedEVAssignment.group_drivers.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {selectedEVAssignment.group_drivers.map((driver) => (
+                      <div
+                        key={driver.id}
+                        className="flex items-center justify-between p-3 bg-white rounded-md"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-md bg-primary text-white flex items-center justify-center text-base font-bold">
+                            {driver.name?.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-primarytext">
+                              {driver.name}
+                            </p>
+                            <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 px-2 py-0.5 rounded-md font-medium">
+                              <CheckCircle2 size={10} />
+                              Active
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-secondarytext">
+                    <Users size={40} className="mx-auto mb-2 opacity-30" />
+                    <p className="text-sm">No drivers in this cluster</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="p-4 sm:p-6 border-t border-gray-100 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
               <button
-                onClick={() => setSelectedEVAssignment(null)}
-                className="w-full sm:w-auto sm:min-w-36 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold rounded-md transition-colors ml-auto block"
+                onClick={() => {
+                  setSelectedEVAssignment(null);
+                }}
+                className="w-full sm:w-auto px-4 py-2 text-secondarytext rounded-md cursor-pointer hover:bg-gray-100 transition-colors"
               >
                 Close
               </button>
