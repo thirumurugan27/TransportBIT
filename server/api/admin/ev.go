@@ -1,4 +1,4 @@
-﻿package admin
+package admin
 
 import (
 	"database/sql"
@@ -20,14 +20,6 @@ import (
 	=========================
 */
 
-// ShiftInfo holds shift details for multi-shift EV assignments
-type ShiftInfo struct {
-	ShiftID   int    `json:"shift_id"`
-	ShiftName string `json:"shift_name"`
-	StartTime string `json:"start_time"`
-	EndTime   string `json:"end_time"`
-}
-
 // EVAssignment - EV vehicle to cluster assignment
 type EVAssignment struct {
 	ID               int                 `json:"id"`
@@ -39,6 +31,7 @@ type EVAssignment struct {
 	StartDate        string              `json:"start_date"`
 	EndDate          string              `json:"end_date"`
 	Status           string              `json:"status"`
+	DriverStatus     string              `json:"driver_status"`
 	ShiftID          *int                `json:"shift_id"`
 	ShiftName        string              `json:"shift_name"`
 	ShiftStartTime   string              `json:"shift_start_time"`
@@ -46,7 +39,6 @@ type EVAssignment struct {
 	CreatedAt        string              `json:"created_at"`
 	Drivers          []ClusterDriverInfo `json:"drivers"`
 	Vehicles         []GroupVehicle      `json:"vehicles"`
-	Shifts           []ShiftInfo         `json:"shifts"`
 }
 
 type ClusterDriverInfo struct {
@@ -311,31 +303,26 @@ func GetEVAssignments(c *gin.Context) {
 			driverRows.Close()
 		}
 
-		// Fetch shift details from junction table (multi-shift support)
-		sRows, _ := config.DB.Query(`
-			SELECT s.id, COALESCE(s.name, 'Unknown') as shift_name,
-			       TIME_FORMAT(s.start_time, '%h:%i %p') as start_time,
-			       TIME_FORMAT(s.end_time, '%h:%i %p') as end_time
-			FROM ev_assignment_shifts eas
-			JOIN shifts s ON s.id = eas.shift_id
-			WHERE eas.ev_assignment_id = ?
-		`, a.ID)
-		if sRows != nil {
-			for sRows.Next() {
-				var si ShiftInfo
-				sRows.Scan(&si.ShiftID, &si.ShiftName, &si.StartTime, &si.EndTime)
-				a.Shifts = append(a.Shifts, si)
+		a.DriverStatus = "not_marked"
+		hasPresent, hasAbsent, hasActive := false, false, false
+		for _, di := range a.Drivers {
+			if di.Status == "present" {
+				hasPresent = true
+			} else if di.Status == "absent" {
+				hasAbsent = true
+			} else if di.Status == "active" {
+				hasActive = true
 			}
-			sRows.Close()
 		}
-		// Fallback: if no junction records, use legacy shift_id column
-		if len(a.Shifts) == 0 && a.ShiftID != nil {
-			a.Shifts = []ShiftInfo{{
-				ShiftID:   *a.ShiftID,
-				ShiftName: a.ShiftName,
-				StartTime: a.ShiftStartTime,
-				EndTime:   a.ShiftEndTime,
-			}}
+
+		parsedStart, _ := time.Parse("02-01-2006", a.StartDate)
+		todayMorning := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+		if parsedStart.After(todayMorning) {
+			a.DriverStatus = "scheduled"
+		} else if hasPresent {
+			a.DriverStatus = "present"
+		} else if hasAbsent && !hasActive {
+			a.DriverStatus = "absent"
 		}
 
 		assignments = append(assignments, a)
@@ -356,8 +343,8 @@ func CreateEVAssignment(c *gin.Context) {
 	var req struct {
 		VehicleGroupID int    `json:"vehicle_group_id"`
 		ClusterID      int    `json:"cluster_id"`
-		ShiftID        int    `json:"shift_id"`   // Legacy single shift (backward compat)
-		ShiftIDs       []int  `json:"shift_ids"`  // Multi-shift support
+		ShiftID        int    `json:"shift_id"`  // Legacy single shift (backward compat)
+		ShiftIDs       []int  `json:"shift_ids"` // Multi-shift support
 		StartDate      string `json:"start_date"`
 		EndDate        string `json:"end_date"`
 		ForceAssign    bool   `json:"force_assign"`
@@ -643,16 +630,6 @@ func CreateEVAssignment(c *gin.Context) {
 
 	lastID, _ := res.LastInsertId()
 
-	// Insert all shifts into junction table for multi-shift support
-	for _, sid := range shiftIDs {
-		if _, insErr := config.DB.Exec(
-			"INSERT INTO ev_assignment_shifts (ev_assignment_id, shift_id) VALUES (?, ?)",
-			lastID, sid,
-		); insErr != nil {
-			log.Printf("EV assignment shift insert warning (assignment %d, shift %d): %v", lastID, sid, insErr)
-		}
-	}
-
 	msg := "EV assignment created successfully"
 	if req.ForceAssign {
 		msg += " (forced)"
@@ -770,7 +747,6 @@ func GetEVAssignmentDetails(c *gin.Context) {
 		ShiftName        string         `json:"shift_name"`
 		ShiftStartTime   string         `json:"shift_start_time"`
 		ShiftEndTime     string         `json:"shift_end_time"`
-		Shifts           []ShiftInfo    `json:"shifts"`
 		CreatedAt        string         `json:"created_at"`
 		DaysTotal        int            `json:"days_total"`
 		DaysRemaining    int            `json:"days_remaining"`
@@ -996,32 +972,6 @@ func GetEVAssignmentDetails(c *gin.Context) {
 				response.KMLogs = append(response.KMLogs, l)
 			}
 		}
-	}
-
-	// Fetch all shifts from junction table for multi-shift display
-	shiftRows, _ := config.DB.Query(`
-		SELECT s.id, COALESCE(s.name, 'Unknown') as shift_name,
-		       TIME_FORMAT(s.start_time, '%h:%i %p') as start_time,
-		       TIME_FORMAT(s.end_time, '%h:%i %p') as end_time
-		FROM ev_assignment_shifts eas
-		JOIN shifts s ON s.id = eas.shift_id
-		WHERE eas.ev_assignment_id = ?
-	`, id)
-	if shiftRows != nil {
-		for shiftRows.Next() {
-			var si ShiftInfo
-			shiftRows.Scan(&si.ShiftID, &si.ShiftName, &si.StartTime, &si.EndTime)
-			response.Shifts = append(response.Shifts, si)
-		}
-		shiftRows.Close()
-	}
-	// Fallback: use legacy shift from ev_assignments.shift_id if no junction records
-	if len(response.Shifts) == 0 && response.ShiftName != "" && response.ShiftName != "Default" {
-		response.Shifts = []ShiftInfo{{
-			ShiftName: response.ShiftName,
-			StartTime: response.ShiftStartTime,
-			EndTime:   response.ShiftEndTime,
-		}}
 	}
 
 	c.JSON(http.StatusOK, response)

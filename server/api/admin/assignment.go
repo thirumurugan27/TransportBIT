@@ -449,21 +449,103 @@ func UpdateAssignment(c *gin.Context) {
 	}
 }
 
-// DELETE /api/admin/assignments/delete?id=X
-func DeleteAssignment(c *gin.Context) {
-	id := c.Query("id")
-	if id == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "ID required"})
+func cancelAssignment(c *gin.Context) {
+	idStr := c.Query("id")
+	if idStr == "" {
+		var req struct {
+			ID int `json:"id"`
+		}
+		if err := c.ShouldBindJSON(&req); err == nil && req.ID > 0 {
+			idStr = strconv.Itoa(req.ID)
+		}
+	}
+
+	if idStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
 		return
 	}
 
-	// Capture the vehicle ID before deleting so we can re-sync its status.
-	var vehicleID int
-	_ = config.DB.QueryRow(`SELECT vehicle_id FROM assignments WHERE id = ?`, id).Scan(&vehicleID)
+	id, err := strconv.Atoi(idStr)
+	if err != nil || id <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
 
-	_, err := config.DB.Exec("DELETE FROM assignments WHERE id=?", id)
+	var vehicleID int
+	var currentStatus string
+	err = config.DB.QueryRow(`
+		SELECT vehicle_id, COALESCE(status, '')
+		FROM assignments
+		WHERE id = ?
+	`, id).Scan(&vehicleID, &currentStatus)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Assignment not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load assignment"})
+		return
+	}
+
+	status := strings.ToLower(strings.TrimSpace(currentStatus))
+	if status == "cancelled" {
+		c.JSON(http.StatusOK, gin.H{"message": "Assignment already cancelled"})
+		return
+	}
+	if status == "completed" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Completed assignments cannot be cancelled"})
+		return
+	}
+
+	_, err = config.DB.Exec(`
+		UPDATE assignments
+		SET status = 'cancelled', updated_at = NOW()
+		WHERE id = ?
+	`, id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to cancel assignment"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Assignment cancelled successfully"})
+	if vehicleID > 0 {
+		go SyncVehicleStatus(vehicleID)
+	}
+}
+
+// POST /api/admin/assignments/cancel
+func CancelAssignment(c *gin.Context) {
+	cancelAssignment(c)
+}
+
+// DELETE /api/admin/assignments/delete?id=X
+func DeleteAssignment(c *gin.Context) {
+	idStr := c.Query("id")
+	if idStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
+		return
+	}
+
+	id, err := strconv.Atoi(idStr)
+	if err != nil || id <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	var vehicleID int
+	err = config.DB.QueryRow(`SELECT vehicle_id FROM assignments WHERE id = ?`, id).Scan(&vehicleID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Assignment not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load assignment"})
+		return
+	}
+
+	_, err = config.DB.Exec(`DELETE FROM assignments WHERE id = ?`, id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete assignment"})
 		return
 	}
 
@@ -1338,6 +1420,10 @@ func GetAssignmentDetails(c *gin.Context) {
 		       DATE_FORMAT(a.start_date, '%d-%m-%Y') as start_date,
 		       DATE_FORMAT(a.end_date, '%d-%m-%Y') as end_date,
 		       a.status,
+		       CASE
+		           WHEN a.status = 'cancelled' THEN COALESCE(DATE_FORMAT(a.updated_at, '%d-%m-%Y %h:%i %p'), '')
+		           ELSE ''
+		       END as cancelled_at,
 		       a.is_temporary_replacement,
 		       a.original_driver_id,
 		       a.created_by,
@@ -1363,7 +1449,7 @@ func GetAssignmentDetails(c *gin.Context) {
 		WHERE a.id = ?
 	`, assignmentID).Scan(
 		&a.ID, &a.ShiftID, &a.VehicleID, &a.DriverID,
-		&a.AssignedDate, &a.StartDate, &a.EndDate, &a.Status,
+		&a.AssignedDate, &a.StartDate, &a.EndDate, &a.Status, &a.CancelledDate,
 		&isTemporary, &originalDriverID,
 		&createdBy,
 		&a.ShiftName, &a.StartTime, &a.EndTime,

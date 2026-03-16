@@ -32,8 +32,6 @@ import {
 
 // Admin Menu Configuration
 export const adminMenuConfig = {
-  portalName: "Transport-BIT",
-  portalSubtitle: "Management System",
   basePath: "/admin-dashboard",
   items: [
     {

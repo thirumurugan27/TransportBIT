@@ -110,6 +110,10 @@ func registerAdminRoutes(adm *gin.RouterGroup) {
 	adm.GET("/vehicles/:id/document-history", admin.GetVehicleDocumentHistory)
 	adm.GET("/vehicles/unassigned-ev", admin.GetUnassignedEVVehicles)
 	adm.GET("/vehicles/available-for-group", admin.GetAvailableVehiclesForGroup)
+	adm.GET("/default-vehicle-drivers", admin.GetDefaultVehicleDrivers)
+	adm.POST("/default-vehicle-drivers/create", admin.CreateDefaultVehicleDriver)
+	adm.PUT("/default-vehicle-drivers/update", admin.UpdateDefaultVehicleDriver)
+	adm.DELETE("/default-vehicle-drivers/delete", admin.DeleteDefaultVehicleDriver)
 
 	// Stop Management
 	adm.GET("/stops", admin.GetAllStops)
@@ -126,6 +130,7 @@ func registerAdminRoutes(adm *gin.RouterGroup) {
 	adm.GET("/assignments", admin.GetAllAssignments)
 	adm.GET("/assignments/:id", admin.GetAssignmentDetails)
 	adm.POST("/assignments/create", admin.CreateAssignment)
+	adm.POST("/assignments/cancel", admin.CancelAssignment)
 	adm.POST("/assignments/update", admin.UpdateAssignment)
 	adm.DELETE("/assignments/delete", admin.DeleteAssignment)
 	adm.POST("/assignments/reassign-for-leave", admin.ReassignForLeave)

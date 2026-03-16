@@ -656,7 +656,7 @@ export default function AdminDrivers() {
                 <div
                   key={driver.id}
                   onClick={() => handleRowClick(driver)}
-                  className="bg-secondarybg rounded-md border border-primarybg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer overflow-hidden group"
+                  className="bg-secondarybg border-2 border-gray-300 rounded-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer overflow-hidden group"
                 >
                   {/* Card Top – colored band + status */}
                   <div className="relative h-20 bg-primary/10 flex items-end px-5 pb-0">

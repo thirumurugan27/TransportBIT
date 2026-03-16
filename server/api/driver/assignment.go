@@ -5,7 +5,6 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"transport-server/config"
 
@@ -14,22 +13,24 @@ import (
 
 // DriverAssignment - assignment details for driver view
 type DriverAssignment struct {
-	ID                     int    `json:"id"`
-	VehicleID              int    `json:"vehicle_id"`
-	VehicleName            string `json:"vehicle_name"`
-	VehicleNumber          string `json:"vehicle_number"`
-	VehicleType            string `json:"vehicle_type"`
-	ShiftName              string `json:"shift_name"`
-	StartTime              string `json:"start_time"`
-	EndTime                string `json:"end_time"`
-	AssignedDate           string `json:"assigned_date"`
-	StartDate              string `json:"start_date"`
-	EndDate                string `json:"end_date"`
-	Status                 string `json:"status"`
-	IsTemporaryReplacement bool   `json:"is_temporary_replacement"`
-	OriginalDriverID       *int   `json:"original_driver_id"`
-	OriginalDriverName     string `json:"original_driver_name"`
-	Description            string `json:"description,omitempty"`
+	ID                       int    `json:"id"`
+	VehicleID                int    `json:"vehicle_id"`
+	VehicleName              string `json:"vehicle_name"`
+	VehicleNumber            string `json:"vehicle_number"`
+	ReplacementVehicleName   string `json:"replacement_vehicle_name"`
+	ReplacementVehicleNumber string `json:"replacement_vehicle_number"`
+	VehicleType              string `json:"vehicle_type"`
+	ShiftName                string `json:"shift_name"`
+	StartTime                string `json:"start_time"`
+	EndTime                  string `json:"end_time"`
+	AssignedDate             string `json:"assigned_date"`
+	StartDate                string `json:"start_date"`
+	EndDate                  string `json:"end_date"`
+	Status                   string `json:"status"`
+	IsTemporaryReplacement   bool   `json:"is_temporary_replacement"`
+	OriginalDriverID         *int   `json:"original_driver_id"`
+	OriginalDriverName       string `json:"original_driver_name"`
+	Description              string `json:"description,omitempty"`
 	// Group information for EV assignments
 	DriverGroupID    *int   `json:"driver_group_id"`
 	DriverGroupName  string `json:"driver_group_name"`
@@ -64,64 +65,6 @@ type GroupDriver struct {
 	Name string `json:"name"`
 }
 
-func getEVAssignmentShifts(assignmentID int) []ShiftInfo {
-	var shifts []ShiftInfo
-
-	rows, err := config.DB.Query(`
-		SELECT s.id,
-		       COALESCE(s.name, 'EV Duty') as shift_name,
-		       COALESCE(TIME_FORMAT(s.start_time, '%h:%i %p'), '') as start_time,
-		       COALESCE(TIME_FORMAT(s.end_time, '%h:%i %p'), '') as end_time
-		FROM ev_assignment_shifts eas
-		JOIN shifts s ON s.id = eas.shift_id
-		WHERE eas.ev_assignment_id = ?
-		ORDER BY s.start_time ASC, s.name ASC
-	`, assignmentID)
-	if err != nil {
-		log.Printf("Error getting EV assignment shifts: %v", err)
-		return shifts
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var shift ShiftInfo
-		if err := rows.Scan(&shift.ShiftID, &shift.ShiftName, &shift.StartTime, &shift.EndTime); err == nil {
-			shifts = append(shifts, shift)
-		}
-	}
-
-	return shifts
-}
-
-func buildShiftSummary(shifts []ShiftInfo, fallback string) string {
-	if len(shifts) == 0 {
-		if strings.TrimSpace(fallback) != "" {
-			return fallback
-		}
-		return "EV Duty"
-	}
-
-	names := make([]string, 0, len(shifts))
-	seen := make(map[string]struct{}, len(shifts))
-	for _, shift := range shifts {
-		name := strings.TrimSpace(shift.ShiftName)
-		if name == "" {
-			name = "EV Duty"
-		}
-		if _, exists := seen[name]; exists {
-			continue
-		}
-		seen[name] = struct{}{}
-		names = append(names, name)
-	}
-
-	if len(names) == 0 {
-		return "EV Duty"
-	}
-
-	return strings.Join(names, ", ")
-}
-
 func hydrateEVAssignmentDetails(assignment *DriverAssignment, date string) {
 	if assignment.VehicleGroupID != nil {
 		assignment.GroupVehicles = getGroupVehicles(*assignment.VehicleGroupID, date)
@@ -130,22 +73,17 @@ func hydrateEVAssignmentDetails(assignment *DriverAssignment, date string) {
 		assignment.GroupDrivers = getGroupDrivers(*assignment.DriverGroupID, date)
 	}
 
-	assignment.Shifts = getEVAssignmentShifts(assignment.ID)
-	if len(assignment.Shifts) == 0 && (assignment.ShiftName != "" || assignment.StartTime != "" || assignment.EndTime != "") {
+	// Build Shifts from the single shift_id column
+	if assignment.ShiftName != "" || assignment.StartTime != "" || assignment.EndTime != "" {
 		assignment.Shifts = []ShiftInfo{{
 			ShiftName: assignment.ShiftName,
 			StartTime: assignment.StartTime,
 			EndTime:   assignment.EndTime,
 		}}
 	}
-
-	assignment.ShiftName = buildShiftSummary(assignment.Shifts, assignment.ShiftName)
 	if len(assignment.Shifts) == 1 {
 		assignment.StartTime = assignment.Shifts[0].StartTime
 		assignment.EndTime = assignment.Shifts[0].EndTime
-	} else if len(assignment.Shifts) > 1 {
-		assignment.StartTime = assignment.Shifts[0].StartTime
-		assignment.EndTime = assignment.Shifts[len(assignment.Shifts)-1].EndTime
 	}
 
 	if assignment.VehicleName == "" {
@@ -180,7 +118,15 @@ func GetDriverTodayAssignment(c *gin.Context) {
 			TIME_FORMAT(s.start_time, '%h:%i %p') as start_time,
 			TIME_FORMAT(s.end_time, '%h:%i %p') as end_time,
 			DATE_FORMAT(a.assigned_date, '%d-%m-%Y') as assigned_date,
-			a.status
+			a.status,
+			COALESCE((SELECT rv.vehicle_number FROM vehicle_replacements vr
+			          JOIN vehicles rv ON vr.replacement_vehicle_id = rv.id
+			          WHERE vr.vehicle_id = a.vehicle_id AND vr.status IN ('approved', 'active')
+			          ORDER BY vr.created_at DESC LIMIT 1), '') as replacement_vehicle_number,
+			COALESCE((SELECT COALESCE(rv.vehicle_name, rv.vehicle_number) FROM vehicle_replacements vr
+			          JOIN vehicles rv ON vr.replacement_vehicle_id = rv.id
+			          WHERE vr.vehicle_id = a.vehicle_id AND vr.status IN ('approved', 'active')
+			          ORDER BY vr.created_at DESC LIMIT 1), '') as replacement_vehicle_name
 		FROM assignments a
 		JOIN vehicles v ON a.vehicle_id = v.id
 		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
@@ -192,6 +138,7 @@ func GetDriverTodayAssignment(c *gin.Context) {
 		&assignment.ID, &assignment.VehicleID, &assignment.VehicleName, &assignment.VehicleNumber, &assignment.VehicleType,
 		&assignment.ShiftName, &assignment.StartTime, &assignment.EndTime,
 		&assignment.AssignedDate, &assignment.Status,
+		&assignment.ReplacementVehicleNumber, &assignment.ReplacementVehicleName,
 	)
 
 	if err == sql.ErrNoRows {
@@ -203,7 +150,15 @@ func GetDriverTodayAssignment(c *gin.Context) {
 				COALESCE(TIME_FORMAT(s.start_time, '%h:%i %p'), '08:00 AM') as start_time,
 				COALESCE(TIME_FORMAT(s.end_time, '%h:%i %p'), '05:00 PM') as end_time,
 				DATE_FORMAT(?, '%d-%m-%Y') as assigned_date,
-				ta.status
+				ta.status,
+				COALESCE((SELECT rv.vehicle_number FROM vehicle_replacements vr
+				          JOIN vehicles rv ON vr.replacement_vehicle_id = rv.id
+				          WHERE vr.vehicle_id = ta.vehicle_id AND vr.status IN ('approved', 'active')
+				          ORDER BY vr.created_at DESC LIMIT 1), '') as replacement_vehicle_number,
+				COALESCE((SELECT COALESCE(rv.vehicle_name, rv.vehicle_number) FROM vehicle_replacements vr
+				          JOIN vehicles rv ON vr.replacement_vehicle_id = rv.id
+				          WHERE vr.vehicle_id = ta.vehicle_id AND vr.status IN ('approved', 'active')
+				          ORDER BY vr.created_at DESC LIMIT 1), '') as replacement_vehicle_name
 			FROM temporary_assignments ta
 			JOIN vehicles v ON ta.vehicle_id = v.id
 			LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
@@ -217,6 +172,7 @@ func GetDriverTodayAssignment(c *gin.Context) {
 			&assignment.ID, &assignment.VehicleID, &assignment.VehicleName, &assignment.VehicleNumber, &assignment.VehicleType,
 			&assignment.ShiftName, &assignment.StartTime, &assignment.EndTime,
 			&assignment.AssignedDate, &assignment.Status,
+			&assignment.ReplacementVehicleNumber, &assignment.ReplacementVehicleName,
 		)
 		if err == nil {
 			assignment.IsTemporaryReplacement = true
@@ -267,7 +223,15 @@ func GetDriverTodayAssignments(c *gin.Context) {
 			a.status,
 			a.is_temporary_replacement,
 			a.original_driver_id,
-			COALESCE(u_orig.full_name, '') as original_driver_name
+			COALESCE(u_orig.full_name, '') as original_driver_name,
+			COALESCE((SELECT rv.vehicle_number FROM vehicle_replacements vr
+			          JOIN vehicles rv ON vr.replacement_vehicle_id = rv.id
+			          WHERE vr.vehicle_id = a.vehicle_id AND vr.status IN ('approved', 'active')
+			          ORDER BY vr.created_at DESC LIMIT 1), '') as replacement_vehicle_number,
+			COALESCE((SELECT COALESCE(rv.vehicle_name, rv.vehicle_number) FROM vehicle_replacements vr
+			          JOIN vehicles rv ON vr.replacement_vehicle_id = rv.id
+			          WHERE vr.vehicle_id = a.vehicle_id AND vr.status IN ('approved', 'active')
+			          ORDER BY vr.created_at DESC LIMIT 1), '') as replacement_vehicle_name
 		FROM assignments a
 		JOIN vehicles v ON a.vehicle_id = v.id
 		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
@@ -293,7 +257,8 @@ func GetDriverTodayAssignments(c *gin.Context) {
 		err := rows.Scan(&a.ID, &a.VehicleID, &a.VehicleName, &a.VehicleNumber, &a.VehicleType,
 			&a.ShiftName, &a.StartTime, &a.EndTime,
 			&a.AssignedDate, &a.StartDate, &a.EndDate, &a.Status,
-			&a.IsTemporaryReplacement, &originalDriverID, &a.OriginalDriverName)
+			&a.IsTemporaryReplacement, &originalDriverID, &a.OriginalDriverName,
+			&a.ReplacementVehicleNumber, &a.ReplacementVehicleName)
 
 		if err == nil {
 			if originalDriverID.Valid {
@@ -381,7 +346,15 @@ func GetDriverTodayAssignments(c *gin.Context) {
 			DATE_FORMAT(ta.end_date, '%d-%m-%Y') as end_date,
 			ta.status,
 			ta.original_driver_id,
-			COALESCE(u_orig.full_name, '') as original_driver_name
+			COALESCE(u_orig.full_name, '') as original_driver_name,
+			COALESCE((SELECT rv.vehicle_number FROM vehicle_replacements vr
+			          JOIN vehicles rv ON vr.replacement_vehicle_id = rv.id
+			          WHERE vr.vehicle_id = ta.vehicle_id AND vr.status IN ('approved', 'active')
+			          ORDER BY vr.created_at DESC LIMIT 1), '') as replacement_vehicle_number,
+			COALESCE((SELECT COALESCE(rv.vehicle_name, rv.vehicle_number) FROM vehicle_replacements vr
+			          JOIN vehicles rv ON vr.replacement_vehicle_id = rv.id
+			          WHERE vr.vehicle_id = ta.vehicle_id AND vr.status IN ('approved', 'active')
+			          ORDER BY vr.created_at DESC LIMIT 1), '') as replacement_vehicle_name
 		FROM temporary_assignments ta
 		JOIN vehicles v ON ta.vehicle_id = v.id
 		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
@@ -406,7 +379,8 @@ func GetDriverTodayAssignments(c *gin.Context) {
 			err := tempRows.Scan(&a.ID, &a.VehicleID, &a.VehicleName, &a.VehicleNumber, &a.VehicleType,
 				&a.ShiftName, &a.StartTime, &a.EndTime,
 				&a.AssignedDate, &a.StartDate, &a.EndDate, &a.Status,
-				&originalDriverID, &a.OriginalDriverName)
+				&originalDriverID, &a.OriginalDriverName,
+				&a.ReplacementVehicleNumber, &a.ReplacementVehicleName)
 
 			if err == nil {
 				a.Status = "Temporary"
@@ -473,7 +447,15 @@ func GetDriverAssignments(c *gin.Context) {
 			a.is_temporary_replacement,
 			a.original_driver_id,
 			COALESCE(u_orig.full_name, '') as original_driver_name,
-			COALESCE(a.description, '') as description
+			COALESCE(a.description, '') as description,
+			COALESCE((SELECT rv.vehicle_number FROM vehicle_replacements vr
+			          JOIN vehicles rv ON vr.replacement_vehicle_id = rv.id
+			          WHERE vr.vehicle_id = a.vehicle_id AND vr.status IN ('approved', 'active')
+			          ORDER BY vr.created_at DESC LIMIT 1), '') as replacement_vehicle_number,
+			COALESCE((SELECT COALESCE(rv.vehicle_name, rv.vehicle_number) FROM vehicle_replacements vr
+			          JOIN vehicles rv ON vr.replacement_vehicle_id = rv.id
+			          WHERE vr.vehicle_id = a.vehicle_id AND vr.status IN ('approved', 'active')
+			          ORDER BY vr.created_at DESC LIMIT 1), '') as replacement_vehicle_name
 		FROM assignments a
 		JOIN vehicles v ON a.vehicle_id = v.id
 		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
@@ -500,7 +482,8 @@ func GetDriverAssignments(c *gin.Context) {
 			&a.ShiftName, &a.StartTime, &a.EndTime,
 			&a.AssignedDate, &a.StartDate, &a.EndDate, &a.Status,
 			&a.IsTemporaryReplacement, &originalDriverID, &a.OriginalDriverName,
-			&a.Description)
+			&a.Description,
+			&a.ReplacementVehicleNumber, &a.ReplacementVehicleName)
 		if err == nil {
 			if originalDriverID.Valid {
 				id := int(originalDriverID.Int64)
@@ -613,7 +596,15 @@ func GetDriverAssignments(c *gin.Context) {
 			DATE_FORMAT(ta.end_date, '%d-%m-%Y') as end_date,
 			ta.status,
 			ta.original_driver_id,
-			COALESCE(u_orig.full_name, '') as original_driver_name
+			COALESCE(u_orig.full_name, '') as original_driver_name,
+			COALESCE((SELECT rv.vehicle_number FROM vehicle_replacements vr
+			          JOIN vehicles rv ON vr.replacement_vehicle_id = rv.id
+			          WHERE vr.vehicle_id = ta.vehicle_id AND vr.status IN ('approved', 'active')
+			          ORDER BY vr.created_at DESC LIMIT 1), '') as replacement_vehicle_number,
+			COALESCE((SELECT COALESCE(rv.vehicle_name, rv.vehicle_number) FROM vehicle_replacements vr
+			          JOIN vehicles rv ON vr.replacement_vehicle_id = rv.id
+			          WHERE vr.vehicle_id = ta.vehicle_id AND vr.status IN ('approved', 'active')
+			          ORDER BY vr.created_at DESC LIMIT 1), '') as replacement_vehicle_name
 		FROM temporary_assignments ta
 		JOIN vehicles v ON ta.vehicle_id = v.id
 		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
@@ -636,7 +627,8 @@ func GetDriverAssignments(c *gin.Context) {
 				&a.ID, &a.VehicleID, &a.VehicleName, &a.VehicleNumber, &a.VehicleType,
 				&a.ShiftName, &a.StartTime, &a.EndTime,
 				&a.StartDate, &a.EndDate, &a.Status,
-				&originalDriverID, &a.OriginalDriverName)
+				&originalDriverID, &a.OriginalDriverName,
+				&a.ReplacementVehicleNumber, &a.ReplacementVehicleName)
 			if err == nil {
 				a.IsTemporaryReplacement = true
 				if originalDriverID.Valid {

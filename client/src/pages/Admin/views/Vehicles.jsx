@@ -44,6 +44,7 @@ import {
   apiUpload,
 } from "../../../utils/api";
 import CustomDropdown from "../../../components/ui/CustomDropdown";
+import SearchableSelect from "../../../components/ui/SearchableSelect";
 import {
   fetchVehicleTypes,
   toVehicleTypeLabel,
@@ -148,6 +149,18 @@ const bulkTemplateHeaders = [
 
 const bulkTemplateFilePath = "/templates/vehicle_bulk_upload_example.csv";
 
+const getCreatorIdFromToken = () => {
+  const token = localStorage.getItem("token");
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    const id = payload?.user_id;
+    return typeof id === "number" ? id : null;
+  } catch {
+    return null;
+  }
+};
+
 export default function Vehicles() {
   const [vehicles, setVehicles] = useState([]);
   const [vehicleTypeOptions, setVehicleTypeOptions] = useState([
@@ -170,7 +183,20 @@ export default function Vehicles() {
   const [searchParams] = useSearchParams();
   const [viewMode, setViewMode] = useState(() => {
     const v = searchParams.get("view");
-    return v === "expiry" ? "expiry" : "fleet";
+    return v === "expiry" || v === "mappings" ? v : "fleet";
+  });
+
+  // Default driver mapping state (reference-only)
+  const [defaultMappings, setDefaultMappings] = useState([]);
+  const [mappingDrivers, setMappingDrivers] = useState([]);
+  const [mappingLoading, setMappingLoading] = useState(false);
+  const [showMappingModal, setShowMappingModal] = useState(false);
+  const [isEditingMapping, setIsEditingMapping] = useState(false);
+  const [mappingForm, setMappingForm] = useState({
+    id: 0,
+    vehicle_id: "",
+    driver_id: "",
+    notes: "",
   });
 
   // Edit State
@@ -275,7 +301,42 @@ export default function Vehicles() {
   useEffect(() => {
     fetchVehicles();
     fetchTypeOptions();
+    fetchDefaultMappings();
+    fetchMappingDrivers();
   }, []);
+
+  const fetchDefaultMappings = async () => {
+    setMappingLoading(true);
+    try {
+      const res = await apiGet("/api/admin/default-vehicle-drivers");
+      if (!res.ok) {
+        setDefaultMappings([]);
+        return;
+      }
+      const data = await res.json();
+      setDefaultMappings(data || []);
+    } catch (err) {
+      console.error("Error fetching default vehicle drivers:", err);
+      setDefaultMappings([]);
+    } finally {
+      setMappingLoading(false);
+    }
+  };
+
+  const fetchMappingDrivers = async () => {
+    try {
+      const res = await apiGet("/api/admin/drivers");
+      if (!res.ok) {
+        setMappingDrivers([]);
+        return;
+      }
+      const data = await res.json();
+      setMappingDrivers(data || []);
+    } catch (err) {
+      console.error("Error fetching mapping drivers:", err);
+      setMappingDrivers([]);
+    }
+  };
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -294,6 +355,19 @@ export default function Vehicles() {
       v.vehicle_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (v.vehicle_name &&
         v.vehicle_name.toLowerCase().includes(searchQuery.toLowerCase()));
+    return matchesType && matchesSearch;
+  });
+
+  const filteredDefaultMappings = defaultMappings.filter((m) => {
+    const matchesType = filterType === "ALL" || m.vehicle_type === filterType;
+    const q = searchQuery.toLowerCase().trim();
+    const matchesSearch =
+      !q ||
+      (m.vehicle_name || "").toLowerCase().includes(q) ||
+      (m.vehicle_number || "").toLowerCase().includes(q) ||
+      (m.vehicle_type || "").toLowerCase().includes(q) ||
+      (m.driver_name || "").toLowerCase().includes(q) ||
+      (m.driver_phone || "").toLowerCase().includes(q);
     return matchesType && matchesSearch;
   });
 
@@ -321,6 +395,32 @@ export default function Vehicles() {
     const found = vehicleTypeOptions.find((opt) => opt.value === type);
     return found?.label || toVehicleTypeLabel(type) || type;
   };
+
+  const mappedVehicleIds = new Set(
+    defaultMappings
+      .filter((m) => (!isEditingMapping ? true : m.id !== mappingForm.id))
+      .map((m) => Number(m.vehicle_id)),
+  );
+
+  const mappingVehicleOptions = vehicles
+    .filter(
+      (v) =>
+        !mappedVehicleIds.has(v.id) ||
+        String(v.id) === String(mappingForm.vehicle_id),
+    )
+    .map((v) => ({
+      value: String(v.id),
+      label: v.vehicle_name || v.vehicle_number,
+      subtitle: `${v.vehicle_number} • ${getVehicleTypeLabel(v.vehicle_type)}`,
+    }));
+
+  const mappingDriverOptions = mappingDrivers.map((d) => ({
+    value: String(d.id),
+    label: d.full_name || "Driver",
+    subtitle: [d.phone, d.license_type ? `License: ${d.license_type}` : null]
+      .filter(Boolean)
+      .join(" • "),
+  }));
 
   // Convert dd-mm-yyyy from backend to yyyy-mm-dd for HTML date inputs
   const formatDateForInput = (dateStr) => {
@@ -438,6 +538,109 @@ export default function Vehicles() {
     } catch (err) {
       console.error(err);
       showError("Error", "Error deleting vehicle");
+    }
+  };
+
+  const openCreateMappingModal = () => {
+    setIsEditingMapping(false);
+    setMappingForm({
+      id: 0,
+      vehicle_id: "",
+      driver_id: "",
+      notes: "",
+    });
+    setShowMappingModal(true);
+  };
+
+  const openEditMappingModal = (mapping) => {
+    setIsEditingMapping(true);
+    setMappingForm({
+      id: mapping.id,
+      vehicle_id: String(mapping.vehicle_id),
+      driver_id: String(mapping.driver_id),
+      notes: mapping.notes || "",
+    });
+    setShowMappingModal(true);
+  };
+
+  const closeMappingModal = () => {
+    setShowMappingModal(false);
+    setIsEditingMapping(false);
+    setMappingForm({
+      id: 0,
+      vehicle_id: "",
+      driver_id: "",
+      notes: "",
+    });
+  };
+
+  const handleSubmitMapping = async () => {
+    const vehicleId = Number.parseInt(mappingForm.vehicle_id, 10);
+    const driverId = Number.parseInt(mappingForm.driver_id, 10);
+    if (!vehicleId || !driverId) {
+      showError("Error", "Please select both vehicle and driver");
+      return;
+    }
+
+    const payload = {
+      vehicle_id: vehicleId,
+      driver_id: driverId,
+      notes: mappingForm.notes?.trim() || null,
+      created_by: getCreatorIdFromToken() || undefined,
+    };
+
+    try {
+      const res = isEditingMapping
+        ? await apiPut("/api/admin/default-vehicle-drivers/update", {
+            id: mappingForm.id,
+            ...payload,
+          })
+        : await apiPost("/api/admin/default-vehicle-drivers/create", payload);
+
+      if (res.ok) {
+        showSuccess(
+          "Success",
+          isEditingMapping
+            ? "Default mapping updated successfully"
+            : "Default mapping created successfully",
+        );
+        closeMappingModal();
+        fetchDefaultMappings();
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        showError(
+          "Error",
+          errorData.error ||
+            `Failed to ${isEditingMapping ? "update" : "create"} mapping`,
+        );
+      }
+    } catch (err) {
+      console.error("Error saving default mapping:", err);
+      showError("Error", "Error saving default mapping");
+    }
+  };
+
+  const handleDeleteMapping = async (id) => {
+    const isConfirmed = await showConfirm(
+      "Are you sure?",
+      "Do you really want to delete this default driver mapping?",
+    );
+    if (!isConfirmed) return;
+
+    try {
+      const res = await apiDelete(
+        `/api/admin/default-vehicle-drivers/delete?id=${id}`,
+      );
+      if (res.ok) {
+        showSuccess("Success", "Default driver mapping deleted successfully");
+        fetchDefaultMappings();
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        showError("Error", errorData.error || "Failed to delete mapping");
+      }
+    } catch (err) {
+      console.error("Error deleting mapping:", err);
+      showError("Error", "Error deleting mapping");
     }
   };
 
@@ -1075,11 +1278,11 @@ export default function Vehicles() {
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* View Mode Toggle */}
-      <div className="flex justify-between items-center">
-        <div className="flex bg-secondarybg rounded-md border border-primary/10 p-1.5 gap-1">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 bg-secondarybg rounded-md border border-primary/10 p-1.5 gap-1 w-full xl:max-w-4xl">
           <button
             onClick={() => setViewMode("fleet")}
-            className={`px-5 py-2.5 rounded-md text-sm font-semibold transition-all flex items-center gap-2 ${
+            className={`w-full px-4 sm:px-5 py-3 rounded-md text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-2 text-center ${
               viewMode === "fleet"
                 ? "bg-primary text-white shadow-sm"
                 : "text-secondarytext hover:bg-primary/5 hover:text-primary"
@@ -1089,13 +1292,13 @@ export default function Vehicles() {
           </button>
           <button
             onClick={() => setViewMode("expiry")}
-            className={`px-5 py-2.5 rounded-md text-sm font-semibold transition-all flex items-center gap-2 ${
+            className={`w-full px-4 sm:px-5 py-3 rounded-md text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-2 text-center ${
               viewMode === "expiry"
                 ? "bg-primary text-white shadow-sm"
                 : "text-secondarytext hover:bg-primary/5 hover:text-primary"
             }`}
           >
-            <Shield size={16} /> Insurance/FC/Permit Status
+            <Shield size={16} /> Documents Details
             {expiryStats.insurance.expired +
               expiryStats.fc.expired +
               expiryStats.permit.expired +
@@ -1113,125 +1316,152 @@ export default function Vehicles() {
               </span>
             )}
           </button>
+          <button
+            onClick={() => setViewMode("mappings")}
+            className={`w-full px-4 sm:px-5 py-3 rounded-md text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-2 text-center ${
+              viewMode === "mappings"
+                ? "bg-primary text-white shadow-sm"
+                : "text-secondarytext hover:bg-primary/5 hover:text-primary"
+            }`}
+          >
+            <User size={16} />
+            Driver Mapping
+          </button>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowBulkUploadModal(true)}
-            className="flex items-center gap-2 px-5 py-3 border border-primary/25 text-primary rounded-md hover:bg-primary/10 transition-all font-semibold"
-          >
-            <HardDriveUpload size={18} />
-            Bulk Upload
-          </button>
-          <button
-            onClick={() => setShowVehicleTypeModal(true)}
-            className="flex items-center gap-2 px-5 py-3 border border-primary/25 text-primary rounded-md hover:bg-primary/10 transition-all font-semibold"
-          >
-            <Truck size={18} />
-            Manage Types
-          </button>
-          <button
-            onClick={() => {
-              setIsEditing(false);
-              setVehicleForm(initialFormState);
-              setShowCreateModal(true);
-            }}
-            className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-md hover:bg-primarydull transition-all font-semibold shadow-sm hover:shadow-md"
-          >
-            <Plus size={18} />
-            Add New Vehicle
-          </button>
+        <div className="flex w-full flex-col sm:flex-row sm:justify-end items-stretch sm:items-center gap-3">
+          {viewMode === "mappings" ? (
+            <button
+              onClick={openCreateMappingModal}
+              className="w-full sm:w-auto justify-center flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-md hover:bg-primarydull transition-all font-semibold shadow-sm hover:shadow-md"
+            >
+              <Plus size={18} />
+              Add Default Mapping
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => setShowBulkUploadModal(true)}
+                className="w-full sm:w-auto justify-center flex items-center gap-2 px-5 py-3 border border-primary/25 text-primary rounded-md hover:bg-primary/10 transition-all font-semibold"
+              >
+                <HardDriveUpload size={18} />
+                Bulk Upload
+              </button>
+              {/* <button
+                onClick={() => setShowVehicleTypeModal(true)}
+                className="w-full sm:w-auto justify-center flex items-center gap-2 px-5 py-3 border border-primary/25 text-primary rounded-md hover:bg-primary/10 transition-all font-semibold"
+              >
+                <Truck size={18} />
+                Manage Types
+              </button> */}
+              <button
+                onClick={() => {
+                  setIsEditing(false);
+                  setVehicleForm(initialFormState);
+                  setShowCreateModal(true);
+                }}
+                className="w-full sm:w-auto justify-center flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-md hover:bg-primarydull transition-all font-semibold shadow-sm hover:shadow-md"
+              >
+                <Plus size={18} />
+                Add New Vehicle
+              </button>
+            </>
+          )}
         </div>
       </div>
 
       {/* Stats Section */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div className="bg-secondarybg rounded-md p-5 shadow-sm border border-primary/10 hover:shadow-md hover:border-primary/20 transition-all">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold text-secondarytext uppercase tracking-wide mb-1">
-                Total Vehicles
-              </p>
-              <p className="text-3xl font-bold text-primarytext">
-                {vehicles?.length || 0}
-              </p>
-            </div>
-            <div className="p-3 bg-primary/10 rounded-md">
-              <Bus size={24} className="text-primary" />
+      {viewMode === "fleet" && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+          <div className="bg-secondarybg rounded-md p-5 shadow-sm border border-primary/10 hover:shadow-md hover:border-primary/20 transition-all">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold text-secondarytext uppercase tracking-wide mb-1">
+                  Total Vehicles
+                </p>
+                <p className="text-3xl font-bold text-primarytext">
+                  {vehicles?.length || 0}
+                </p>
+              </div>
+              <div className="p-3 bg-primary/10 rounded-md">
+                <Bus size={24} className="text-primary" />
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="bg-secondarybg rounded-md p-5 shadow-sm border border-primary/10 hover:shadow-md hover:border-primary/20 transition-all">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold text-secondarytext uppercase tracking-wide mb-1">
-                Buses
-              </p>
-              <p className="text-3xl font-bold text-primarytext">
-                {vehicles?.filter((v) => v.vehicle_type === "BUS").length || 0}
-              </p>
-            </div>
-            <div className="p-3 bg-primary/10 rounded-md">
-              <Bus size={24} className="text-primary" />
+          <div className="bg-secondarybg rounded-md p-5 shadow-sm border border-primary/10 hover:shadow-md hover:border-primary/20 transition-all">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold text-secondarytext uppercase tracking-wide mb-1">
+                  Buses
+                </p>
+                <p className="text-3xl font-bold text-primarytext">
+                  {vehicles?.filter((v) => v.vehicle_type === "BUS").length ||
+                    0}
+                </p>
+              </div>
+              <div className="p-3 bg-primary/10 rounded-md">
+                <Bus size={24} className="text-primary" />
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="bg-secondarybg rounded-md p-5 shadow-sm border border-green/10 hover:shadow-md hover:border-green/20 transition-all">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold text-secondarytext uppercase tracking-wide mb-1">
-                Cars
-              </p>
-              <p className="text-3xl font-bold text-primarytext">
-                {vehicles?.filter((v) => v.vehicle_type === "CAR").length || 0}
-              </p>
-            </div>
-            <div className="p-3 bg-green/10 rounded-md">
-              <Car size={24} className="text-green" />
+          <div className="bg-secondarybg rounded-md p-5 shadow-sm border border-green/10 hover:shadow-md hover:border-green/20 transition-all">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold text-secondarytext uppercase tracking-wide mb-1">
+                  Cars
+                </p>
+                <p className="text-3xl font-bold text-primarytext">
+                  {vehicles?.filter((v) => v.vehicle_type === "CAR").length ||
+                    0}
+                </p>
+              </div>
+              <div className="p-3 bg-green/10 rounded-md">
+                <Car size={24} className="text-green" />
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="bg-secondarybg rounded-md p-5 shadow-sm border border-pending/10 hover:shadow-md hover:border-pending/20 transition-all">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold text-secondarytext uppercase tracking-wide mb-1">
-                Battery Vehicles
-              </p>
-              <p className="text-3xl font-bold text-primarytext">
-                {vehicles?.filter((v) => v.vehicle_type === "BATTERY_VEHICLE")
-                  .length || 0}
-              </p>
-            </div>
-            <div className="p-3 bg-pending/10 rounded-md">
-              <Zap size={24} className="text-pending" />
+          <div className="bg-secondarybg rounded-md p-5 shadow-sm border border-pending/10 hover:shadow-md hover:border-pending/20 transition-all">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold text-secondarytext uppercase tracking-wide mb-1">
+                  Battery Vehicles
+                </p>
+                <p className="text-3xl font-bold text-primarytext">
+                  {vehicles?.filter((v) => v.vehicle_type === "BATTERY_VEHICLE")
+                    .length || 0}
+                </p>
+              </div>
+              <div className="p-3 bg-pending/10 rounded-md">
+                <Zap size={24} className="text-pending" />
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="bg-secondarybg rounded-md p-5 shadow-sm border border-secondarytext/10 hover:shadow-md hover:border-secondarytext/20 transition-all">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold text-secondarytext uppercase tracking-wide mb-1">
-                Others
-              </p>
-              <p className="text-3xl font-bold text-primarytext">
-                {vehicles?.filter((v) => v.vehicle_type === "OTHER").length ||
-                  0}
-              </p>
-            </div>
-            <div className="p-3 bg-secondarytext/10 rounded-md">
-              <Truck size={24} className="text-secondarytext" />
+          <div className="bg-secondarybg rounded-md p-5 shadow-sm border border-secondarytext/10 hover:shadow-md hover:border-secondarytext/20 transition-all">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold text-secondarytext uppercase tracking-wide mb-1">
+                  Others
+                </p>
+                <p className="text-3xl font-bold text-primarytext">
+                  {vehicles?.filter((v) => v.vehicle_type === "OTHER").length ||
+                    0}
+                </p>
+              </div>
+              <div className="p-3 bg-secondarytext/10 rounded-md">
+                <Truck size={24} className="text-secondarytext" />
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Action Header - REMOVED */}
 
       {/* Filters */}
-      <div className="flex flex-col md:flex-row gap-4">
+      <div className="flex flex-col lg:flex-row gap-4">
         <div className="relative flex-1">
           <Search
             className="absolute left-4 top-1/2 -translate-y-1/2 text-secondarytext"
@@ -1239,16 +1469,20 @@ export default function Vehicles() {
           />
           <input
             type="text"
-            placeholder="Search by vehicle number or bus name..."
+            placeholder={
+              viewMode === "mappings"
+                ? "Search by vehicle, type, driver, or phone..."
+                : "Search by vehicle number or bus name..."
+            }
             className="w-full pl-12 pr-4 py-3 bg-secondarybg border border-primary/10 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-primarytext placeholder:text-secondarytext/60 text-sm"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <div className="relative" ref={dropdownRef}>
+        <div className="relative w-full lg:w-auto" ref={dropdownRef}>
           <button
             onClick={() => setShowTypeDropdown(!showTypeDropdown)}
-            className="flex items-center gap-3 px-4 py-3 bg-secondarybg border border-primary/10 rounded-md hover:border-primary/30 transition-all min-w-52 text-sm"
+            className="w-full md:min-w-52 flex items-center gap-3 px-4 py-3 bg-secondarybg border border-primary/10 rounded-md hover:border-primary/30 transition-all text-sm"
           >
             {(() => {
               const opt = vehicleTypeOptions.find(
@@ -1317,7 +1551,7 @@ export default function Vehicles() {
       {viewMode === "expiry" && (
         <>
           {/* Expiry Stats Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
             {[
               {
                 key: "insurance",
@@ -1439,7 +1673,7 @@ export default function Vehicles() {
               </span>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full min-w-245">
                 <thead className="bg-primarybg/50 border-b border-primary/5">
                   <tr>
                     <th className="px-3 py-3 text-left text-xs font-bold text-secondarytext uppercase tracking-wider w-10">
@@ -1627,6 +1861,132 @@ export default function Vehicles() {
         </>
       )}
 
+      {/* Default Driver Mapping View */}
+      {viewMode === "mappings" && (
+        <div className="bg-secondarybg rounded-md shadow-sm border border-primary/10 overflow-hidden">
+          {mappingLoading ? (
+            <Loading
+              fullScreen={false}
+              text="Loading default driver mappings..."
+            />
+          ) : (
+            <>
+              <div className="px-6 py-4 border-b border-primary/5 bg-linear-to-r from-primarybg/70 to-secondarybg flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-md bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                    <User size={18} />
+                  </div>
+                  <h3 className="text-base font-bold text-primarytext">
+                    Default Driver Mapping
+                  </h3>
+                </div>
+                <div className="flex items-center gap-2 self-start lg:self-auto">
+                  <span className="text-xs text-secondarytext bg-primarybg px-3 py-1.5 rounded-md font-medium">
+                    {filteredDefaultMappings.length} mappings
+                  </span>
+                  <span className="text-xs text-secondarytext bg-secondarybg border border-primary/10 px-3 py-1.5 rounded-md font-medium">
+                    {Math.max(vehicles.length - defaultMappings.length, 0)}{" "}
+                    vehicles open
+                  </span>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-220">
+                  <thead className="bg-primarybg/50 border-b border-primary/5">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
+                        Vehicle Name
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
+                        Vehicle Number
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
+                        Vehicle Type
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
+                        Driver Name
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
+                        Driver Phone
+                      </th>
+                      <th className="px-6 py-4 text-right text-xs font-bold text-secondarytext uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-primary/5">
+                    {filteredDefaultMappings.length > 0 ? (
+                      filteredDefaultMappings.map((m) => (
+                        <tr
+                          key={m.id}
+                          className="hover:bg-primary/5 transition-colors group"
+                        >
+                          <td className="px-6 py-4 text-sm font-semibold text-primarytext">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-md bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                                <User size={16} />
+                              </div>
+                              <div>
+                                <p className="font-semibold text-primarytext group-hover:text-primary transition-colors">
+                                  {m.vehicle_name || m.vehicle_number}
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-secondarytext font-mono">
+                            {m.vehicle_number}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-primarytext">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-primary/10 text-primary font-medium">
+                              {m.vehicle_type || "-"}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-sm font-medium text-primarytext">
+                            {m.driver_name || "-"}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-secondarytext">
+                            {m.driver_phone || "-"}
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => openEditMappingModal(m)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-xs font-semibold"
+                              >
+                                <Edit2 size={13} /> Edit
+                              </button>
+                              <button
+                                onClick={() => handleDeleteMapping(m.id)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-red/10 text-red hover:bg-red/20 transition-colors text-xs font-semibold"
+                              >
+                                <Trash2 size={13} /> Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="6" className="px-6 py-12 text-center">
+                          <div className="flex flex-col items-center gap-3 text-secondarytext">
+                            <div className="w-14 h-14 rounded-full bg-primarybg flex items-center justify-center">
+                              <User size={28} className="opacity-50" />
+                            </div>
+                            <p className="font-medium text-primarytext">
+                              No default mappings found
+                            </p>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Vehicles Table - Fleet View */}
       {viewMode === "fleet" && (
         <div className="bg-secondarybg rounded-md shadow-sm border border-primary/10 overflow-hidden">
@@ -1634,7 +1994,7 @@ export default function Vehicles() {
             <Loading fullScreen={false} text="Loading fleet data..." />
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full min-w-215">
                 <thead>
                   <tr className="bg-primarybg/50">
                     <th className="px-6 py-4 text-left text-xs font-bold text-secondarytext uppercase tracking-wider">
@@ -1798,6 +2158,115 @@ export default function Vehicles() {
         </div>
       )}
 
+      {/* Default Driver Mapping Modal */}
+      {showMappingModal && (
+        <div
+          className="fixed inset-0 bg-black/60 overflow-y-auto z-50 animate-overlayFadeIn"
+          onClick={closeMappingModal}
+        >
+          <div className="flex items-start justify-center min-h-full p-4">
+            <div
+              className="bg-secondarybg rounded-md shadow-2xl w-full max-w-2xl my-8 animate-modalSlideIn"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-5 sm:px-6 py-4 border-b border-primary/10 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-md bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                    <User size={18} />
+                  </div>
+                  <h3 className="text-lg font-bold text-primarytext">
+                    {isEditingMapping
+                      ? "Edit Default Driver Mapping"
+                      : "Create Default Driver Mapping"}
+                  </h3>
+                </div>
+                <button
+                  onClick={closeMappingModal}
+                  className="text-secondarytext hover:text-primarytext"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-5 sm:p-6 space-y-5">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-2">
+                      Vehicle
+                    </label>
+                    <SearchableSelect
+                      value={mappingForm.vehicle_id}
+                      onChange={(value) =>
+                        setMappingForm((prev) => ({
+                          ...prev,
+                          vehicle_id: String(value || ""),
+                        }))
+                      }
+                      placeholder="Search vehicle by name or number"
+                      options={mappingVehicleOptions}
+                      emptyMessage="No available vehicles found"
+                      isWhite={true}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-2">
+                      Driver
+                    </label>
+                    <SearchableSelect
+                      value={mappingForm.driver_id}
+                      onChange={(value) =>
+                        setMappingForm((prev) => ({
+                          ...prev,
+                          driver_id: String(value || ""),
+                        }))
+                      }
+                      placeholder="Search driver by name or phone"
+                      options={mappingDriverOptions}
+                      emptyMessage="No drivers found"
+                      isWhite={true}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-2">
+                    Notes (Optional)
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={mappingForm.notes}
+                    onChange={(e) =>
+                      setMappingForm((prev) => ({
+                        ...prev,
+                        notes: e.target.value,
+                      }))
+                    }
+                    placeholder="Add notes"
+                    className="w-full border border-primary/10 rounded-md px-3 py-2.5 bg-secondarybg text-primarytext focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
+                  />
+                </div>
+              </div>
+
+              <div className="px-5 sm:px-6 py-4 border-t border-primary/10 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+                <button
+                  onClick={closeMappingModal}
+                  className="px-4 py-2 rounded-md text-secondarytext hover:bg-primarybg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSubmitMapping}
+                  className="px-4 py-2 rounded-md bg-primary text-white hover:bg-primarydull transition-colors font-medium"
+                >
+                  {isEditingMapping ? "Update Mapping" : "Create Mapping"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Vehicle Detail Modal */}
       {showDetailModal && selectedVehicle && (
         <div
@@ -1810,8 +2279,8 @@ export default function Vehicles() {
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
-              <div className="px-6 py-5 border-b border-primary/10 flex items-center justify-between">
-                <div className="flex items-center gap-4">
+              <div className="px-4 sm:px-6 py-5 border-b border-primary/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex items-center gap-4 min-w-0">
                   <div
                     className={`p-3 rounded-md ${
                       selectedVehicle.vehicle_type === "BUS"
@@ -1843,7 +2312,7 @@ export default function Vehicles() {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
                   {getStatusBadge(selectedVehicle.status, {iconSize: 12})}
                   <button
                     onClick={() => setShowDetailModal(false)}
@@ -1855,9 +2324,9 @@ export default function Vehicles() {
               </div>
 
               {/* Content */}
-              <div className="p-6 space-y-4">
+              <div className="p-4 sm:p-6 space-y-4">
                 {/* Main Info Grid — always 2 columns */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {/* Vehicle Information */}
                   <div className="bg-primarybg rounded-md p-4">
                     <div className="flex items-center gap-2 mb-3">
@@ -2013,7 +2482,7 @@ export default function Vehicles() {
 
                 {/* Route Strip — Bus only, compact single row */}
                 {selectedVehicle.vehicle_type === "BUS" && (
-                  <div className="bg-primarybg rounded-md px-4 py-3 flex items-center justify-between">
+                  <div className="bg-primarybg rounded-md px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div className="flex items-center gap-2">
                       <Calendar size={14} className="text-primary" />
                       <span className="text-xs font-bold text-secondarytext uppercase tracking-wider">
@@ -2038,7 +2507,7 @@ export default function Vehicles() {
 
                 {/* Replacement info strip — only when vehicle is replaced */}
                 {selectedVehicle.replacement_vehicle_number && (
-                  <div className="bg-skyblue/5 border border-skyblue/20 rounded-md px-4 py-3 flex items-center justify-between">
+                  <div className="bg-skyblue/5 border border-skyblue/20 rounded-md px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div className="flex items-center gap-2">
                       <RefreshCw size={14} className="text-skyblue" />
                       <span className="text-xs font-bold text-secondarytext uppercase tracking-wider">
@@ -2285,10 +2754,10 @@ export default function Vehicles() {
               </div>
 
               {/* Footer with Actions */}
-              <div className="px-6 py-4 border-t border-primary/10 flex justify-end items-center gap-3">
+              <div className="px-4 sm:px-6 py-4 border-t border-primary/10 flex flex-col-reverse sm:flex-row sm:justify-end items-stretch sm:items-center gap-3">
                 <button
                   onClick={() => setShowDetailModal(false)}
-                  className="px-5 py-2.5 text-secondarytext hover:text-primarytext hover:bg-primarybg rounded-md font-semibold transition-colors text-sm"
+                  className="w-full sm:w-auto px-5 py-2.5 text-secondarytext hover:text-primarytext hover:bg-primarybg rounded-md font-semibold transition-colors text-sm"
                 >
                   Close
                 </button>
@@ -2297,7 +2766,7 @@ export default function Vehicles() {
                     setShowDetailModal(false);
                     handleDelete(selectedVehicle.id);
                   }}
-                  className="px-5 py-2.5 border border-red text-red hover:bg-red/10 rounded-md font-semibold transition-colors text-sm flex items-center gap-2"
+                  className="w-full sm:w-auto px-5 py-2.5 border border-red text-red hover:bg-red/10 rounded-md font-semibold transition-colors text-sm flex items-center justify-center gap-2"
                 >
                   <Trash2 size={16} />
                   Delete
@@ -2307,7 +2776,7 @@ export default function Vehicles() {
                     setShowDetailModal(false);
                     handleEdit(selectedVehicle);
                   }}
-                  className="px-5 py-2.5 bg-primary text-white rounded-md font-semibold hover:bg-primarydull transition-colors text-sm flex items-center gap-2"
+                  className="w-full sm:w-auto px-5 py-2.5 bg-primary text-white rounded-md font-semibold hover:bg-primarydull transition-colors text-sm flex items-center justify-center gap-2"
                 >
                   <Edit2 size={16} />
                   Edit Vehicle
@@ -2801,9 +3270,9 @@ export default function Vehicles() {
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
-              <div className="p-6 border-b border-primarybg/50">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
+              <div className="p-4 sm:p-6 border-b border-primarybg/50">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="flex items-center gap-4 min-w-0">
                     <div className="p-3 rounded-md bg-primary">
                       {isEditing ? (
                         <Edit2 className="text-secondarybg" size={24} />
@@ -2836,7 +3305,7 @@ export default function Vehicles() {
                 </div>
               </div>
 
-              <div className="p-6 space-y-4">
+              <div className="p-4 sm:p-6 space-y-4">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {/* Vehicle Information */}
                   <div className="bg-primarybg rounded-md p-4">
@@ -2942,7 +3411,7 @@ export default function Vehicles() {
                           width="w-full"
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <label className="block text-sm font-semibold text-primarytext mb-1">
                             Fuel Type *
@@ -3029,7 +3498,7 @@ export default function Vehicles() {
                       </h3>
                     </div>
                     <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <label className="block text-sm font-semibold text-primarytext mb-1">
                             Insurance Start Date
@@ -3083,7 +3552,7 @@ export default function Vehicles() {
                         />
                       </div>
                       <div className="border-t border-primarybg pt-3">
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
                             <label className="block text-sm font-semibold text-primarytext mb-1">
                               FC Start Date
@@ -3130,7 +3599,7 @@ export default function Vehicles() {
                       </h3>
                     </div>
                     <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <label className="block text-sm font-semibold text-primarytext mb-1">
                             Chassis Number
@@ -3180,7 +3649,7 @@ export default function Vehicles() {
                           className="w-full px-4 py-2.5 border border-primarybg rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondarybg text-primarytext font-medium font-mono"
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <label className="block text-sm font-semibold text-primarytext mb-1">
                             Permit Start Date
@@ -3305,7 +3774,7 @@ export default function Vehicles() {
                 </div>
 
                 {/* Footer */}
-                <div className="flex justify-end gap-3 pt-4 border-t border-primarybg">
+                <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-4 border-t border-primarybg">
                   <button
                     type="button"
                     onClick={() => {
@@ -3314,14 +3783,14 @@ export default function Vehicles() {
                       setIsEditing(false);
                       setEditingId(null);
                     }}
-                    className="px-5 py-2.5 bg-red-50 text-red hover:bg-red-100 border border-red-200 rounded-md transition-colors font-semibold text-sm"
+                    className="w-full sm:w-auto px-5 py-2.5 bg-red-50 text-red hover:bg-red-100 border border-red-200 rounded-md transition-colors font-semibold text-sm"
                   >
                     Cancel
                   </button>
                   <button
                     type="button"
                     onClick={handleSubmit}
-                    className="px-5 py-2.5 bg-primary text-white rounded-md hover:bg-green-700 transition-colors font-semibold text-sm flex items-center gap-2"
+                    className="w-full sm:w-auto px-5 py-2.5 bg-primary text-white rounded-md hover:bg-green-700 transition-colors font-semibold text-sm flex items-center justify-center gap-2"
                   >
                     {isEditing ? <Edit2 size={16} /> : <Plus size={16} />}
                     {isEditing ? "Update Vehicle" : "Create Vehicle"}
@@ -3450,7 +3919,7 @@ export default function Vehicles() {
                           </span>
                         )}
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <p className="text-[10px] text-secondarytext uppercase tracking-wide font-semibold mb-0.5">
                             Start Date

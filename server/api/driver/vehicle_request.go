@@ -1,5 +1,4 @@
 package driver
-
 import (
 	"database/sql"
 	"fmt"
@@ -7,14 +6,11 @@ import (
 	"math/rand"
 	"net/http"
 	"time"
-
 	"transport-server/api/admin"
 	"transport-server/config"
 	"transport-server/models"
-
 	"github.com/gin-gonic/gin"
 )
-
 func vehicleRequestColumns(columnNames ...string) map[string]bool {
 	known := map[string]bool{
 		"requester_id":       true,
@@ -37,11 +33,9 @@ func vehicleRequestColumns(columnNames ...string) map[string]bool {
 	}
 	return out
 }
-
 // GET /api/driver/vehicle-requests - Get vehicle requests assigned to driver
 func GetDriverVehicleRequests(c *gin.Context) {
 	userID := c.GetInt("user_id")
-
 	// Get driver ID
 	var driverID int
 	err := config.DB.QueryRow(`SELECT id FROM drivers WHERE user_id = ?`, userID).Scan(&driverID)
@@ -49,7 +43,6 @@ func GetDriverVehicleRequests(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Driver profile not found"})
 		return
 	}
-
 	colExists := vehicleRequestColumns(
 		"requester_id",
 		"faculty_id",
@@ -94,10 +87,8 @@ func GetDriverVehicleRequests(c *gin.Context) {
 	if colExists["MobileNumber"] {
 		mobileNumberExpr = "COALESCE(vr.MobileNumber, '') as MobileNumber"
 	}
-
 	onwardFromExpr := "COALESCE(DATE_FORMAT(vrt.from_datetime, '%d-%m-%Y %h:%i %p'), '') as OnwardFromDateTime"
 	onwardToExpr := "COALESCE(DATE_FORMAT(vrt.to_datetime, '%d-%m-%Y %h:%i %p'), '') as OnwardTodateTime"
-
 	// Fetch assigned vehicle requests
 	facultyIDExpr := "0 as faculty_id"
 	if colExists["faculty_id"] {
@@ -180,7 +171,6 @@ func GetDriverVehicleRequests(c *gin.Context) {
 		if tripEndedAt != "" {
 			r.TripEndedAt = &tripEndedAt
 		}
-
 		// Load trips from vehicle_request_trips table
 		r.Trips = []models.Trip{}
 		tripRows, tripErr := config.DB.Query(`
@@ -202,7 +192,6 @@ func GetDriverVehicleRequests(c *gin.Context) {
 			}
 			tripRows.Close()
 		}
-
 		// Fallback: construct from onward/return fields
 		if len(r.Trips) == 0 {
 			onwardDate, onwardTime := splitDateTime(r.OnwardFromDateTime)
@@ -215,7 +204,6 @@ func GetDriverVehicleRequests(c *gin.Context) {
 				ArrivalDate:       onwardArrivalDate,
 				ArrivalTime:       onwardArrivalTime,
 			})
-
 			if r.ReturnFromPlace != "" || r.ReturnToPlace != "" {
 				returnDate, returnTime := splitDateTime(r.ReturnFromDateTime)
 				returnArrivalDate, returnArrivalTime := splitDateTime(r.ReturnToDateTime)
@@ -229,24 +217,19 @@ func GetDriverVehicleRequests(c *gin.Context) {
 				})
 			}
 		}
-
 		requests = append(requests, r)
 	}
-
 	c.JSON(http.StatusOK, requests)
 }
-
 // GET /api/driver/vehicle-requests/upcoming - Get upcoming vehicle requests
 func GetDriverUpcomingVehicleRequests(c *gin.Context) {
 	userID := c.GetInt("user_id")
-
 	var driverID int
 	err := config.DB.QueryRow(`SELECT id FROM drivers WHERE user_id = ?`, userID).Scan(&driverID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Driver profile not found"})
 		return
 	}
-
 	colExists := vehicleRequestColumns(
 		"requester_id",
 		"faculty_id",

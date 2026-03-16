@@ -318,7 +318,7 @@ export default function FacultyHome() {
         </div>
       )}
 
-      <div className="rounded-md border border-[#E4E8F4] bg-white shadow-sm">
+      <div className="rounded-md border min-h-[500px] border-[#E4E8F4] bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-[#EEF1F9] px-4 py-4">
           <h2 className="flex items-center gap-2 text-lg font-bold text-primarytext">
             <span className="h-5 w-1 rounded-md bg-primary"></span>

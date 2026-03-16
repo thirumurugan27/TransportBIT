@@ -305,7 +305,7 @@ func GetDashboardStats(c *gin.Context) {
 		SELECT COUNT(*) FROM assignments
 		WHERE status IN ('assigned','active')
 		AND end_date >= CURDATE()
-		AND end_date <= DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+		AND end_date <= DATE_ADD(CURDATE(), INTERVAL 2 DAY)
 	`).Scan(&s.ExpiringAssignments)
 
 	// ── Group Expiry Alerts ──
@@ -317,7 +317,7 @@ func GetDashboardStats(c *gin.Context) {
 	config.DB.QueryRow(`
 		SELECT COUNT(*) FROM driver_clusters
 		WHERE valid_to IS NOT NULL AND valid_to >= CURDATE()
-		AND valid_to <= DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+		AND valid_to <= DATE_ADD(CURDATE(), INTERVAL 2 DAY)
 	`).Scan(&s.ExpiringDriverGroups)
 
 	config.DB.QueryRow(`
@@ -328,7 +328,7 @@ func GetDashboardStats(c *gin.Context) {
 	config.DB.QueryRow(`
 		SELECT COUNT(*) FROM vehicle_groups
 		WHERE valid_to IS NOT NULL AND valid_to >= CURDATE()
-		AND valid_to <= DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+		AND valid_to <= DATE_ADD(CURDATE(), INTERVAL 2 DAY)
 	`).Scan(&s.ExpiringVehicleGroups)
 
 	// ── Build Pending Actions list ──

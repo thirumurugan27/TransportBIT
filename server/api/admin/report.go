@@ -8,9 +8,11 @@ import (
 	"strings"
 	"time"
 	"transport-server/config"
+
 	"github.com/gin-gonic/gin"
 	"github.com/xuri/excelize/v2"
 )
+
 /* =========================
    REPORT GENERATION HANDLERS
    Exports Excel (.xlsx) files
@@ -264,7 +266,6 @@ func GeneratePurchaseReport(c *gin.Context) {
 
 	rows, err := config.DB.Query(`
 		SELECT 
-			pp.id,
 			COALESCE(v.vehicle_number, '-') as vehicle_number,
 			COALESCE(vn.name, '-') as vendor_name,
 			pp.category,
@@ -273,7 +274,6 @@ func GeneratePurchaseReport(c *gin.Context) {
 			COALESCE(pp.invoice_number, '-'),
 			pp.status,
 			COALESCE(pp.warranty_months, 0),
-			COALESCE(DATE_FORMAT(pp.purchased_date, '%d-%m-%Y'), '-'),
 			COALESCE(DATE_FORMAT(pp.ordered_date, '%d-%m-%Y'), '-'),
 			COALESCE(DATE_FORMAT(pp.received_date, '%d-%m-%Y'), '-'),
 			DATE_FORMAT(pp.created_at, '%d-%m-%Y')
@@ -295,7 +295,7 @@ func GeneratePurchaseReport(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheet)
 
 	period := fmt.Sprintf("Period: %s to %s | Generated: %s", startDate, endDate, time.Now().Format("02-01-2006 03:04 PM"))
-	headers := []string{"S.No", "Part ID", "Vehicle No", "Vendor", "Category", "Part Name", "Qty", "Unit Price", "Total Price", "Invoice No", "Status", "Warranty (Months)", "Purchased", "Ordered", "Received", "Created"}
+	headers := []string{"S.No", "Vehicle No", "Vendor", "Category", "Part Name", "Qty", "Unit Price", "Total Price", "Invoice No", "Status", "Warranty (Months)", "Ordered", "Received", "Created"}
 	styleTitleRow(f, sheet, "PURCHASE & PARTS REPORT", period, len(headers))
 
 	for i, h := range headers {
@@ -308,41 +308,39 @@ func GeneratePurchaseReport(c *gin.Context) {
 	sno := 1
 	var grandTotal float64
 	for rows.Next() {
-		var id, warrantyMonths int
-		var vehicleNum, vendor, category, partName, invoiceNo, status, purchased, ordered, received, created string
+		var warrantyMonths int
+		var vehicleNum, vendor, category, partName, invoiceNo, status, ordered, received, created string
 		var qty int
 		var unitPrice, totalPrice float64
-		if err := rows.Scan(&id, &vehicleNum, &vendor, &category, &partName, &qty, &unitPrice, &totalPrice, &invoiceNo, &status, &warrantyMonths, &purchased, &ordered, &received, &created); err != nil {
+		if err := rows.Scan(&vehicleNum, &vendor, &category, &partName, &qty, &unitPrice, &totalPrice, &invoiceNo, &status, &warrantyMonths, &ordered, &received, &created); err != nil {
 			log.Printf("Purchase report scan error: %v", err)
 			continue
 		}
 		f.SetCellValue(sheet, fmt.Sprintf("A%d", row), sno)
-		f.SetCellValue(sheet, fmt.Sprintf("B%d", row), id)
-		f.SetCellValue(sheet, fmt.Sprintf("C%d", row), vehicleNum)
-		f.SetCellValue(sheet, fmt.Sprintf("D%d", row), vendor)
-		f.SetCellValue(sheet, fmt.Sprintf("E%d", row), category)
-		f.SetCellValue(sheet, fmt.Sprintf("F%d", row), partName)
-		f.SetCellValue(sheet, fmt.Sprintf("G%d", row), qty)
-		f.SetCellValue(sheet, fmt.Sprintf("H%d", row), unitPrice)
-		f.SetCellValue(sheet, fmt.Sprintf("I%d", row), totalPrice)
-		f.SetCellValue(sheet, fmt.Sprintf("J%d", row), invoiceNo)
-		f.SetCellValue(sheet, fmt.Sprintf("K%d", row), status)
-		f.SetCellValue(sheet, fmt.Sprintf("L%d", row), warrantyMonths)
-		f.SetCellValue(sheet, fmt.Sprintf("M%d", row), purchased)
-		f.SetCellValue(sheet, fmt.Sprintf("N%d", row), ordered)
-		f.SetCellValue(sheet, fmt.Sprintf("O%d", row), received)
-		f.SetCellValue(sheet, fmt.Sprintf("P%d", row), created)
+		f.SetCellValue(sheet, fmt.Sprintf("B%d", row), vehicleNum)
+		f.SetCellValue(sheet, fmt.Sprintf("C%d", row), vendor)
+		f.SetCellValue(sheet, fmt.Sprintf("D%d", row), category)
+		f.SetCellValue(sheet, fmt.Sprintf("E%d", row), partName)
+		f.SetCellValue(sheet, fmt.Sprintf("F%d", row), qty)
+		f.SetCellValue(sheet, fmt.Sprintf("G%d", row), unitPrice)
+		f.SetCellValue(sheet, fmt.Sprintf("H%d", row), totalPrice)
+		f.SetCellValue(sheet, fmt.Sprintf("I%d", row), invoiceNo)
+		f.SetCellValue(sheet, fmt.Sprintf("J%d", row), status)
+		f.SetCellValue(sheet, fmt.Sprintf("K%d", row), warrantyMonths)
+		f.SetCellValue(sheet, fmt.Sprintf("L%d", row), ordered)
+		f.SetCellValue(sheet, fmt.Sprintf("M%d", row), received)
+		f.SetCellValue(sheet, fmt.Sprintf("N%d", row), created)
 		grandTotal += totalPrice
 		row++
 		sno++
 	}
 
 	totalStyle, _ := f.NewStyle(&excelize.Style{Font: &excelize.Font{Bold: true, Size: 11}, Alignment: &excelize.Alignment{Horizontal: "right"}})
-	f.SetCellValue(sheet, fmt.Sprintf("H%d", row), "TOTAL")
-	f.SetCellValue(sheet, fmt.Sprintf("I%d", row), grandTotal)
-	f.SetCellStyle(sheet, fmt.Sprintf("H%d", row), fmt.Sprintf("I%d", row), totalStyle)
+	f.SetCellValue(sheet, fmt.Sprintf("G%d", row), "TOTAL")
+	f.SetCellValue(sheet, fmt.Sprintf("H%d", row), grandTotal)
+	f.SetCellStyle(sheet, fmt.Sprintf("G%d", row), fmt.Sprintf("H%d", row), totalStyle)
 
-	setColWidths(f, sheet, map[string]float64{"A": 6, "B": 8, "C": 14, "D": 18, "E": 14, "F": 20, "G": 6, "H": 12, "I": 12, "J": 14, "K": 12, "L": 12, "M": 12, "N": 12, "O": 12, "P": 12})
+	setColWidths(f, sheet, map[string]float64{"A": 6, "B": 14, "C": 18, "D": 14, "E": 20, "F": 6, "G": 12, "H": 12, "I": 14, "J": 12, "K": 12, "L": 12, "M": 12, "N": 12})
 
 	filename := fmt.Sprintf("Purchase_Report_%s_to_%s.xlsx", startDate, endDate)
 	sendExcel(c, f, filename)

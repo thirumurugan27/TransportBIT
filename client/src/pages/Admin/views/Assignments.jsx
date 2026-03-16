@@ -15,7 +15,6 @@ import {
   X,
   AlertTriangle,
   CheckCircle,
-  Eye,
   Users,
   TrendingUp,
   Search,
@@ -94,6 +93,29 @@ const detectInterShiftConflicts = (selectedShifts) => {
   return conflictPairs;
 };
 
+const getAssignmentStatusClasses = (status) => {
+  const normalizedStatus = (status || "").toLowerCase();
+
+  if (normalizedStatus === "active" || normalizedStatus === "assigned") {
+    return "bg-green text-white";
+  }
+
+  if (normalizedStatus === "cancelled") {
+    return "bg-red text-white";
+  }
+
+  if (normalizedStatus === "completed") {
+    return "bg-green text-white";
+  }
+
+  return "bg-gray-600 text-white";
+};
+
+const canCancelRegularAssignment = (status) => {
+  const normalizedStatus = (status || "").toLowerCase();
+  return normalizedStatus !== "cancelled" && normalizedStatus !== "completed";
+};
+
 // Multi-Shift Select Component with checkboxes
 function MultiShiftSelect({shifts, selectedIds, onChange, formatTimeAMPM}) {
   const [isOpen, setIsOpen] = useState(false);
@@ -137,7 +159,7 @@ function MultiShiftSelect({shifts, selectedIds, onChange, formatTimeAMPM}) {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between border border-gray-200 rounded-md p-2.5 bg-primarybg hover:border-primary/40 transition-colors text-left"
+        className="w-full flex items-center justify-between border border-gray-200 rounded-md p-2.5 bg-primarybg text-left cursor-pointer"
       >
         <span
           className={`text-sm ${selectedIds.length > 0 ? "text-primarytext" : "text-secondarytext"}`}
@@ -183,7 +205,7 @@ function MultiShiftSelect({shifts, selectedIds, onChange, formatTimeAMPM}) {
                   onChange(shifts.map((s) => s.id));
                 }
               }}
-              className="text-xs text-primary hover:text-primary/80 font-medium"
+              className="text-xs text-primary font-medium cursor-pointer"
             >
               {selectedIds.length === shifts.length
                 ? "Clear All"
@@ -228,7 +250,7 @@ function MultiShiftSelect({shifts, selectedIds, onChange, formatTimeAMPM}) {
                     key={s.id}
                     type="button"
                     onClick={() => toggleShift(s.id)}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 hover:bg-primary/5 transition-colors text-left ${
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 text-left cursor-pointer ${
                       isSelected ? "bg-primary/10" : ""
                     } ${wouldConflict ? "bg-red/5" : ""}`}
                   >
@@ -287,6 +309,7 @@ export default function Assignments() {
   const [availableDrivers, setAvailableDrivers] = useState([]);
   const [clusters, setClusters] = useState([]);
   const [vehicleGroups, setVehicleGroups] = useState([]);
+  const [defaultMappings, setDefaultMappings] = useState([]);
 
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -349,6 +372,24 @@ export default function Assignments() {
     end_date: "",
     reason: "",
   });
+
+  const defaultDriverByVehicleId = defaultMappings.reduce((acc, mapping) => {
+    if (mapping?.vehicle_id && mapping?.driver_name) {
+      acc[String(mapping.vehicle_id)] = mapping.driver_name;
+    }
+    return acc;
+  }, {});
+
+  const defaultVehicleByDriverId = defaultMappings.reduce((acc, mapping) => {
+    if (mapping?.driver_id) {
+      const vehicleLabel =
+        mapping?.vehicle_name || mapping?.vehicle_number || null;
+      if (vehicleLabel) {
+        acc[String(mapping.driver_id)] = vehicleLabel;
+      }
+    }
+    return acc;
+  }, {});
 
   const fetchAssignmentDetails = async (assignmentId, isTemp = false) => {
     setLoadingDetails(true);
@@ -466,19 +507,24 @@ export default function Assignments() {
         evParams.set("end_date", filterEndDate);
       }
 
-      const [bus, car, ev, other, s, v, d, c, vg] = await Promise.all([
-        apiGet(buildAssignmentUrl("BUS")).then((r) => r.json()),
-        apiGet(buildAssignmentUrl("CAR")).then((r) => r.json()),
-        apiGet(`/api/admin/ev-assignments?${evParams.toString()}`).then((r) =>
-          r.json(),
-        ),
-        apiGet(buildAssignmentUrl("OTHER")).then((r) => r.json()),
-        apiGet("/api/admin/shifts").then((r) => r.json()),
-        apiGet("/api/admin/vehicles").then((r) => r.json()),
-        apiGet("/api/admin/drivers").then((r) => r.json()),
-        apiGet("/api/admin/clusters").then((r) => r.json()),
-        apiGet("/api/admin/vehicle-groups").then((r) => r.json()),
-      ]);
+      const [bus, car, ev, other, s, v, d, c, vg, mappings] = await Promise.all(
+        [
+          apiGet(buildAssignmentUrl("BUS")).then((r) => r.json()),
+          apiGet(buildAssignmentUrl("CAR")).then((r) => r.json()),
+          apiGet(`/api/admin/ev-assignments?${evParams.toString()}`).then((r) =>
+            r.json(),
+          ),
+          apiGet(buildAssignmentUrl("OTHER")).then((r) => r.json()),
+          apiGet("/api/admin/shifts").then((r) => r.json()),
+          apiGet("/api/admin/vehicles").then((r) => r.json()),
+          apiGet("/api/admin/drivers").then((r) => r.json()),
+          apiGet("/api/admin/clusters").then((r) => r.json()),
+          apiGet("/api/admin/vehicle-groups").then((r) => r.json()),
+          apiGet("/api/admin/default-vehicle-drivers")
+            .then((r) => (r.ok ? r.json() : []))
+            .catch(() => []),
+        ],
+      );
 
       setBusAssignments(bus || []);
       setCarAssignments(car || []);
@@ -489,6 +535,7 @@ export default function Assignments() {
       setDrivers(d || []);
       setClusters(c || []);
       setVehicleGroups(vg || []);
+      setDefaultMappings(mappings || []);
     } catch (err) {
       console.error("Error fetching assignments data:", err);
     } finally {
@@ -645,6 +692,55 @@ export default function Assignments() {
       createModalType === "ev"
         ? "/api/admin/ev-assignments/create"
         : "/api/admin/assignments/create";
+
+    // For EV with multiple shifts, create one assignment per shift
+    if (createModalType === "ev" && assignmentForm.shift_ids.length > 1) {
+      let successCount = 0;
+      let failCount = 0;
+
+      await Promise.all(
+        assignmentForm.shift_ids.map(async (shiftId) => {
+          try {
+            const shiftPayload = {
+              ...assignmentForm,
+              shift_ids: [shiftId],
+              vehicle_category: "EV",
+              force_assign: forceAssign,
+              created_by: getCreatorIdFromToken() || undefined,
+            };
+            const res = await apiPost(
+              "/api/admin/ev-assignments/create",
+              shiftPayload,
+            );
+            if (res.ok) {
+              successCount++;
+            } else {
+              failCount++;
+            }
+          } catch {
+            failCount++;
+          }
+        }),
+      );
+
+      if (successCount > 0) {
+        showToast(
+          `${successCount} EV assignment${successCount > 1 ? "s" : ""} created successfully!`,
+          "success",
+        );
+        setShowCreateModal(false);
+        setConflictModal(null);
+        setConflictPendingForm(null);
+        fetchAllData();
+      }
+      if (failCount > 0) {
+        showToast(
+          `${failCount} assignment${failCount > 1 ? "s" : ""} failed to create`,
+          "error",
+        );
+      }
+      return;
+    }
 
     const payload = {
       ...assignmentForm,
@@ -951,6 +1047,28 @@ export default function Assignments() {
     }
   };
 
+  const handleCancelAssignment = async (id) => {
+    const isConfirmed = await showConfirm(
+      "Cancel assignment?",
+      "This assignment will be marked as cancelled and the driver will no longer be scheduled for this work.",
+    );
+    if (!isConfirmed) return;
+
+    try {
+      const res = await apiPost("/api/admin/assignments/cancel", {id});
+      if (res.ok) {
+        showToast("Assignment cancelled successfully", "success");
+        fetchAllData();
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        showToast(errorData.error || "Failed to cancel assignment", "error");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Failed to cancel assignment", "error");
+    }
+  };
+
   const handleReassign = async () => {
     if (!reassignModal || !reassignDriverId) return;
     try {
@@ -969,6 +1087,15 @@ export default function Assignments() {
     } catch (err) {
       console.error(err);
     }
+  };
+
+  const openAssignmentDetailsFromRow = (assignment) => {
+    if (activeTab === "ev") {
+      fetchEvDetails(assignment.id);
+      return;
+    }
+
+    fetchAssignmentDetails(assignment.id, assignment.is_temporary_replacement);
   };
 
   // Stats configuration
@@ -1004,7 +1131,7 @@ export default function Assignments() {
       {/* Header */}
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {stats.map((stat, index) => (
           <div
             key={index}
@@ -1026,74 +1153,74 @@ export default function Assignments() {
       </div>
 
       {/* Tabs & Actions */}
-      <div className="bg-secondarybg rounded-md border border-gray-100 shadow-sm p-4 flex flex-wrap justify-between gap-4 items-center">
-        <div className="flex items-center bg-primarybg rounded-md p-1 border border-gray-200">
+      <div className="bg-secondarybg rounded-md border border-gray-100 shadow-sm p-4 flex flex-col xl:flex-row xl:justify-between gap-4 items-stretch xl:items-center">
+        <div className="flex flex-wrap items-center bg-primarybg rounded-md p-1 border border-gray-200 gap-1">
           <button
             onClick={() => setActiveTab("bus")}
-            className={`px-4 py-2 rounded-md font-medium transition-all flex items-center gap-2 ${
+            className={`px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium flex items-center justify-center gap-2 cursor-pointer ${
               activeTab === "bus"
                 ? "bg-primary text-white shadow-sm"
-                : "text-secondarytext hover:text-primary"
+                : "text-secondarytext"
             }`}
           >
             <Bus size={16} /> Bus
           </button>
           <button
             onClick={() => setActiveTab("car")}
-            className={`px-4 py-2 rounded-md font-medium transition-all flex items-center gap-2 ${
+            className={`px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium flex items-center justify-center gap-2 cursor-pointer ${
               activeTab === "car"
                 ? "bg-primary text-white shadow-sm"
-                : "text-secondarytext hover:text-primary"
+                : "text-secondarytext"
             }`}
           >
             <Car size={16} /> Car
           </button>
           <button
             onClick={() => setActiveTab("ev")}
-            className={`px-4 py-2 rounded-md font-medium transition-all flex items-center gap-2 ${
+            className={`px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium flex items-center justify-center gap-2 cursor-pointer ${
               activeTab === "ev"
                 ? "bg-primary text-white shadow-sm"
-                : "text-secondarytext hover:text-primary"
+                : "text-secondarytext"
             }`}
           >
             <Zap size={16} /> EV
           </button>
           <button
             onClick={() => setActiveTab("other")}
-            className={`px-4 py-2 rounded-md font-medium transition-all flex items-center gap-2 ${
+            className={`px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium flex items-center justify-center gap-2 cursor-pointer ${
               activeTab === "other"
                 ? "bg-primary text-white shadow-sm"
-                : "text-secondarytext hover:text-primary"
+                : "text-secondarytext"
             }`}
           >
             <Truck size={16} /> Other
           </button>
           <button
             onClick={() => setActiveTab("temporary")}
-            className={`px-4 py-2 rounded-md font-medium transition-all flex items-center gap-2 ${
+            className={`px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium flex items-center justify-center gap-2 cursor-pointer ${
               activeTab === "temporary"
                 ? "bg-primary text-white shadow-sm"
-                : "text-secondarytext hover:text-primary"
+                : "text-secondarytext"
             }`}
           >
             <Clock size={16} /> Temporary
           </button>
           <button
             onClick={() => setActiveTab("replacements")}
-            className={`px-4 py-2 rounded-md font-medium transition-all flex items-center gap-2 ${
+            className={`px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium flex items-center justify-center gap-2 cursor-pointer ${
               activeTab === "replacements"
                 ? "bg-primary text-white shadow-sm"
-                : "text-secondarytext hover:text-primary"
+                : "text-secondarytext"
             }`}
           >
             <RefreshCw size={16} /> Replacements
           </button>
         </div>
-        <div>
+        <div className="w-full xl:w-auto">
           {activeTab === "bus" && (
             <button
               onClick={() => openCreateModal("bus")}
-              className="px-4 py-2.5 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors font-medium shadow-sm flex items-center gap-2"
+              className="w-full sm:w-auto px-4 py-2.5 bg-primary text-white rounded-md font-medium shadow-sm flex items-center justify-center gap-2 cursor-pointer"
             >
               <Plus size={16} /> Assign Driver to Bus
             </button>
@@ -1101,7 +1228,7 @@ export default function Assignments() {
           {activeTab === "car" && (
             <button
               onClick={() => openCreateModal("car")}
-              className="px-4 py-2.5 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors font-medium shadow-sm flex items-center gap-2"
+              className="w-full sm:w-auto px-4 py-2.5 bg-primary text-white rounded-md font-medium shadow-sm flex items-center justify-center gap-2 cursor-pointer"
             >
               <Plus size={16} /> Assign Driver to Car
             </button>
@@ -1109,7 +1236,7 @@ export default function Assignments() {
           {activeTab === "ev" && (
             <button
               onClick={() => openCreateModal("ev")}
-              className="px-4 py-2.5 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors font-medium shadow-sm flex items-center gap-2"
+              className="w-full sm:w-auto px-4 py-2.5 bg-primary text-white rounded-md font-medium shadow-sm flex items-center justify-center gap-2 cursor-pointer"
             >
               <Plus size={16} /> New EV Assignment
             </button>
@@ -1117,7 +1244,7 @@ export default function Assignments() {
           {activeTab === "other" && (
             <button
               onClick={() => openCreateModal("other")}
-              className="px-4 py-2.5 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors font-medium shadow-sm flex items-center gap-2"
+              className="w-full sm:w-auto px-4 py-2.5 bg-primary text-white rounded-md font-medium shadow-sm flex items-center justify-center gap-2 cursor-pointer"
             >
               <Plus size={16} /> Assign Other Vehicle
             </button>
@@ -1128,7 +1255,7 @@ export default function Assignments() {
                 setOpenTempModal(true);
                 setTimeout(() => setOpenTempModal(false), 100);
               }}
-              className="px-4 py-2.5 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors font-medium shadow-sm flex items-center gap-2"
+              className="w-full sm:w-auto px-4 py-2.5 bg-primary text-white rounded-md font-medium shadow-sm flex items-center justify-center gap-2 cursor-pointer"
             >
               <Plus size={16} /> Create Temporary Assignment
             </button>
@@ -1139,7 +1266,7 @@ export default function Assignments() {
                 setReplOpenCreateModal(true);
                 setTimeout(() => setReplOpenCreateModal(false), 100);
               }}
-              className="px-4 py-2.5 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors font-medium shadow-sm flex items-center gap-2"
+              className="w-full sm:w-auto px-4 py-2.5 bg-primary text-white rounded-md font-medium shadow-sm flex items-center justify-center gap-2 cursor-pointer"
             >
               <Plus size={16} /> New Replacement
             </button>
@@ -1216,13 +1343,13 @@ export default function Assignments() {
             {/* Filter Toggle */}
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className={`w-full lg:w-auto h-[42px] px-6 rounded-md font-semibold transition-all flex items-center justify-center gap-2 whitespace-nowrap ${
+              className={`w-full lg:w-auto h-10.5 px-6 rounded-md font-semibold flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer ${
                 showFilters ||
                 filterShift ||
                 filterStatus ||
                 filterRange !== "today"
-                  ? "bg-primary text-white hover:bg-primary/90 shadow-sm"
-                  : "border border-gray-200 bg-primarybg text-primarytext hover:border-primary hover:text-primary"
+                  ? "bg-primary text-white shadow-sm"
+                  : "border border-gray-200 bg-primarybg text-primarytext"
               }`}
             >
               <Filter size={16} /> Filters
@@ -1251,7 +1378,7 @@ export default function Assignments() {
                         type="date"
                         value={filterStartDate}
                         onChange={(e) => setFilterStartDate(e.target.value)}
-                        className="w-full h-[42px] px-3 border border-gray-200 rounded-md bg-primarybg text-primarytext focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm"
+                        className="w-full h-10.5 px-3 border border-gray-200 rounded-md bg-primarybg text-primarytext focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm"
                       />
                     </div>
                     <div>
@@ -1263,7 +1390,7 @@ export default function Assignments() {
                         value={filterEndDate}
                         min={filterStartDate}
                         onChange={(e) => setFilterEndDate(e.target.value)}
-                        className="w-full h-[42px] px-3 border border-gray-200 rounded-md bg-primarybg text-primarytext focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm"
+                        className="w-full h-10.5 px-3 border border-gray-200 rounded-md bg-primarybg text-primarytext focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-sm"
                       />
                     </div>
                   </>
@@ -1320,7 +1447,7 @@ export default function Assignments() {
                       setFilterStartDate(todayDate);
                       setFilterEndDate(todayDate);
                     }}
-                    className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-md transition-colors text-sm font-semibold"
+                    className="px-4 py-2 text-red-600 rounded-md text-sm font-semibold cursor-pointer"
                   >
                     Clear All Filters
                   </button>
@@ -1333,7 +1460,7 @@ export default function Assignments() {
 
       {/* Content */}
       {activeTab === "replacements" ? (
-        <div className="bg-secondarybg rounded-md border border-gray-100 shadow-sm overflow-hidden min-h-[400px]">
+        <div className="bg-secondarybg rounded-md border border-gray-100 shadow-sm overflow-hidden min-h-100">
           <VehicleReplacements
             searchQuery={replSearchQuery}
             statusFilter={replStatusFilter}
@@ -1341,7 +1468,7 @@ export default function Assignments() {
           />
         </div>
       ) : (
-        <div className="bg-secondarybg rounded-md border border-gray-100 shadow-sm overflow-hidden min-h-[400px]">
+        <div className="bg-secondarybg rounded-md border border-gray-100 shadow-sm overflow-hidden min-h-100">
           {activeTab === "temporary" ? (
             <TemporaryAssignments
               openModal={openTempModal}
@@ -1350,241 +1477,183 @@ export default function Assignments() {
           ) : loading ? (
             <Loading fullScreen={false} text="Loading assignments..." />
           ) : (
-            <div className="p-4 grid gap-4">
+            <div className="overflow-x-auto">
               {getCurrentAssignments().length > 0 ? (
-                getCurrentAssignments().map((a) => (
-                  <div
-                    key={a.id}
-                    className="rounded-md border border-gray-100 bg-primarybg p-4 hover:shadow-lg hover:border-primary/30 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer active:scale-[0.99]"
-                    onClick={() => {
-                      if (activeTab === "ev") {
-                        fetchEvDetails(a.id);
-                      } else {
-                        fetchAssignmentDetails(
-                          a.id,
-                          a.is_temporary_replacement,
-                        );
-                      }
-                    }}
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-4">
-                      <div className="flex items-center gap-4">
-                        <div
-                          className={`w-12 h-12 rounded-md flex items-center justify-center text-white ${
-                            activeTab === "bus"
-                              ? "bg-primary"
-                              : activeTab === "car"
-                                ? "bg-green"
-                                : activeTab === "other"
-                                  ? "bg-orange-500"
-                                  : "bg-pending"
-                          }`}
-                        >
-                          {activeTab === "bus" ? (
-                            <Bus size={20} />
-                          ) : activeTab === "car" ? (
-                            <Car size={20} />
-                          ) : activeTab === "other" ? (
-                            <Truck size={20} />
-                          ) : (
-                            <Zap size={20} />
-                          )}
-                        </div>
-                        <div>
-                          <p className="font-semibold text-primarytext">
-                            {activeTab === "ev"
-                              ? a.vehicle_group_name || "EV Assignment"
-                              : a.vehicle_name || a.vehicle_number}
-                          </p>
-                          {a.vehicle_status === "under_maintenance" && (
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded bg-pending/10 text-pending">
-                                <AlertTriangle size={10} />
-                                In Service
-                              </span>
-                              {a.replacement_vehicle_number && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded bg-skyblue/10 text-skyblue">
-                                  <RefreshCw size={10} />
-                                  Replaced: {a.replacement_vehicle_number}
-                                </span>
-                              )}
-                            </div>
-                          )}
-                          <p className="text-xs text-secondarytext">
-                            {activeTab === "ev" ? (
-                              <span className="flex items-center gap-1 flex-wrap">
-                                {a.cluster_name}
-                                {a.shifts && a.shifts.length > 0 ? (
-                                  a.shifts.map((s, i) => (
-                                    <span
-                                      key={s.shift_id || i}
-                                      className="flex items-center gap-0.5"
-                                    >
-                                      <span className="opacity-50">•</span>
-                                      <span>{s.shift_name}</span>
-                                    </span>
-                                  ))
-                                ) : (
-                                  <>
-                                    <span className="opacity-50">•</span>
-                                    <span>Default Schedule</span>
-                                  </>
-                                )}
-                              </span>
-                            ) : (
-                              a.vehicle_number
-                            )}
-                          </p>
-                          <p className="text-sm text-secondarytext">
-                            {a.start_date === a.end_date
-                              ? a.start_date
-                              : `${a.start_date} to ${a.end_date}`}{" "}
-                            {activeTab !== "ev" &&
-                              a.cluster_name &&
-                              `(${a.cluster_name})`}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        {activeTab !== "ev" && a.shift_name && (
-                          <span className="px-3 py-1.5 rounded-md bg-primary/10 text-primary text-sm font-medium">
-                            {a.shift_name}
-                          </span>
-                        )}
-                        <div className="flex flex-wrap gap-1">
-                          {activeTab === "ev" ? (
-                            a.shifts && a.shifts.length > 0 ? (
-                              a.shifts.map((s, idx) => (
-                                <span
-                                  key={s.shift_id || idx}
-                                  className="text-xs px-2 py-1 rounded-md bg-primary/10 text-primary font-medium border border-primary/20"
-                                >
-                                  {s.shift_name}
-                                  {s.start_time && (
-                                    <span className="text-secondarytext ml-1 font-normal">
-                                      {s.start_time}–{s.end_time}
-                                    </span>
-                                  )}
-                                </span>
-                              ))
-                            ) : (
-                              <span className="text-xs text-secondarytext">
-                                Default Schedule
-                              </span>
-                            )
-                          ) : (
-                            <span className="text-xs text-secondarytext">
-                              {formatTimeAMPM(
-                                a.start_time || a.shift_start_time,
-                              )}{" "}
-                              - {formatTimeAMPM(a.end_time || a.shift_end_time)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {activeTab !== "ev" && (
-                        <div className="flex items-center gap-2">
-                          <div className="w-10 h-10 rounded-md bg-gray-200 flex items-center justify-center">
-                            <User size={18} className="text-secondarytext" />
-                          </div>
-                          <div>
-                            <p className="font-medium text-primarytext">
-                              {a.driver_name}
-                            </p>
-                            <div className="flex gap-1">
-                              {a.driver_status === "present" ? (
-                                <span className="text-xs text-green font-medium">
-                                  ● Present
-                                </span>
-                              ) : a.driver_status === "absent" ? (
-                                <span className="text-xs text-red font-medium">
-                                  ● Absent
-                                </span>
-                              ) : (
-                                <span className="text-xs text-secondarytext font-medium">
-                                  ● Not Marked
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {activeTab === "ev" &&
-                        a.drivers &&
-                        a.drivers.length > 0 && (
-                          <div className="flex items-center gap-2">
-                            <div className="flex -space-x-2">
-                              {a.drivers.slice(0, 4).map((driver, idx) => (
-                                <div
-                                  key={driver.driver_id}
-                                  className="w-8 h-8 rounded-md bg-primary text-white flex items-center justify-center text-xs font-medium border-2 border-white"
-                                  title={driver.driver_name}
-                                >
-                                  {driver.driver_name
-                                    .split(" ")
-                                    .map((n) => n[0])
-                                    .join("")
-                                    .substring(0, 2)}
-                                </div>
-                              ))}
-                              {a.drivers.length > 4 && (
-                                <div className="w-8 h-8 rounded-md bg-gray-300 text-gray-600 flex items-center justify-center text-xs font-medium border-2 border-white">
-                                  +{a.drivers.length - 4}
-                                </div>
-                              )}
-                            </div>
-                            <span className="text-xs text-secondarytext">
-                              {a.driver_count || a.drivers.length} drivers
-                            </span>
-                          </div>
-                        )}
-
-                      <div
-                        className="flex gap-2"
-                        onClick={(e) => e.stopPropagation()}
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-primarybg border-b border-gray-200">
+                      <th className="text-left px-4 py-3 text-xs font-bold text-secondarytext uppercase tracking-wider w-10">
+                        S.No
+                      </th>
+                      <th className="text-left px-4 py-3 text-xs font-bold text-secondarytext uppercase tracking-wider">
+                        {activeTab === "ev" ? "Vehicle Group" : "Vehicle"}
+                      </th>
+                      <th className="text-left px-4 py-3 text-xs font-bold text-secondarytext uppercase tracking-wider">
+                        {activeTab === "ev" ? "Driver Group" : "Driver"}
+                      </th>
+                      <th className="text-left px-4 py-3 text-xs font-bold text-secondarytext uppercase tracking-wider">
+                        Shift
+                      </th>
+                      <th className="text-left px-4 py-3 text-xs font-bold text-secondarytext uppercase tracking-wider">
+                        Date Range
+                      </th>
+                      <th className="text-left px-4 py-3 text-xs font-bold text-secondarytext uppercase tracking-wider">
+                        Status
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {getCurrentAssignments().map((a, idx) => (
+                      <tr
+                        key={a.id}
+                        className="cursor-pointer"
+                        onClick={() => openAssignmentDetailsFromRow(a)}
                       >
-                        {activeTab !== "ev" ? (
-                          <>
-                            <button
-                              onClick={() => {
-                                setReassignModal(a);
-                                setReassignDriverId(a.driver_id);
-                                fetchAvailableDrivers();
-                              }}
-                              className="px-3 py-2 bg-primary/10 text-primary rounded-md hover:bg-primary/20 transition-colors text-sm font-medium flex items-center gap-1.5"
-                            >
-                              <RefreshCw size={14} /> Reassign
-                            </button>
-                            <button
-                              onClick={() => handleDelete(a.id, false)}
-                              className="px-3 py-2 bg-red/10 text-red rounded-md hover:bg-red/20 transition-colors text-sm font-medium flex items-center gap-1.5"
-                            >
-                              <Trash2 size={14} /> Delete
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            onClick={() => handleDelete(a.id, true)}
-                            className="px-3 py-2 bg-red/10 text-red rounded-md hover:bg-red/20 transition-colors text-sm font-medium flex items-center gap-1.5"
-                          >
-                            <Trash2 size={14} /> Delete
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))
+                        {/* # */}
+                        <td className="px-4 py-3.5 text-sm text-secondarytext font-medium">
+                          {idx + 1}
+                        </td>
+
+                        {/* Vehicle Info */}
+                        <td className="px-4 py-3.5">
+                          <div>
+                            <p className="text-sm font-semibold text-primarytext leading-tight">
+                              {a.vehicle_name ||
+                                a.vehicle_number ||
+                                a.vehicle_group_name ||
+                                "—"}
+                            </p>
+                            {a.vehicle_name && a.vehicle_number && (
+                              <p className="text-xs text-secondarytext">
+                                {a.vehicle_number}
+                              </p>
+                            )}
+                            {a.vehicle_status === "under_maintenance" && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold rounded bg-pending/10 text-pending mt-0.5">
+                                <AlertTriangle size={9} /> In Service
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Driver / Association */}
+                        <td className="px-4 py-3.5">
+                          <div>
+                            <span className="text-sm font-medium text-primarytext block">
+                              {a.driver_name || a.cluster_name || "—"}
+                            </span>
+                            {a.drivers && a.drivers.length > 0 && (
+                              <span className="text-xs text-secondarytext">
+                                {a.driver_count || a.drivers.length} drivers
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Shift */}
+                        <td className="px-4 py-3.5">
+                          <div>
+                            <p className="text-sm font-medium text-primarytext">
+                              {a.shift_name || "—"}
+                            </p>
+                            {(a.start_time ||
+                              a.shift_start_time ||
+                              a.end_time ||
+                              a.shift_end_time) && (
+                              <p className="text-xs text-secondarytext">
+                                {formatTimeAMPM(
+                                  a.start_time || a.shift_start_time,
+                                )}{" "}
+                                –{" "}
+                                {formatTimeAMPM(a.end_time || a.shift_end_time)}
+                              </p>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Date Range */}
+                        <td className="px-4 py-3.5">
+                          <div className="flex items-center gap-1.5 text-sm text-primarytext">
+                            <Calendar
+                              size={13}
+                              className="text-secondarytext shrink-0"
+                            />
+                            <span>
+                              {a.start_date === a.end_date
+                                ? a.start_date
+                                : `${a.start_date} – ${a.end_date}`}
+                            </span>
+                          </div>
+                          {a.cluster_name && !a.drivers && (
+                            <p className="text-xs text-secondarytext mt-0.5">
+                              {a.cluster_name}
+                            </p>
+                          )}
+                        </td>
+
+                        {/* Status */}
+                        <td className="px-4 py-3.5">
+                          {(a.status || "").toLowerCase() === "cancelled" ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-red/10 text-red text-xs font-semibold">
+                              <span className="w-1.5 h-1.5 rounded-full bg-red" />{" "}
+                              Cancelled
+                            </span>
+                          ) : a.driver_status === "present" ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-green/10 text-green text-xs font-semibold">
+                              <span className="w-1.5 h-1.5 rounded-full bg-green" />{" "}
+                              Present
+                            </span>
+                          ) : a.driver_status === "absent" ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-red/10 text-red text-xs font-semibold">
+                              <span className="w-1.5 h-1.5 rounded-full bg-red" />{" "}
+                              Absent
+                            </span>
+                          ) : a.driver_status === "scheduled" ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-50 text-blue-600 text-xs font-semibold">
+                              <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />{" "}
+                              Scheduled
+                            </span>
+                          ) : a.driver_status === "on_leave" ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-orange-50 text-orange-600 text-xs font-semibold">
+                              <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />{" "}
+                              On Leave
+                            </span>
+                          ) : a.driver_status ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-100 text-secondarytext text-xs font-semibold">
+                              <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />{" "}
+                              Not Marked
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-100 text-secondarytext text-xs font-semibold">
+                              <span className="w-1.5 h-1.5 rounded-full bg-gray-300" />{" "}
+                              N/A
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               ) : (
-                <div className="text-center py-12 text-secondarytext">
-                  <p>
+                <div className="text-center py-16 text-secondarytext">
+                  <div className="mb-3">
+                    {activeTab === "bus" ? (
+                      <Bus size={32} className="mx-auto text-gray-300" />
+                    ) : activeTab === "car" ? (
+                      <Car size={32} className="mx-auto text-gray-300" />
+                    ) : activeTab === "other" ? (
+                      <Truck size={32} className="mx-auto text-gray-300" />
+                    ) : (
+                      <Zap size={32} className="mx-auto text-gray-300" />
+                    )}
+                  </div>
+                  <p className="font-medium text-sm mb-1">
                     {searchQuery ||
                     filterShift ||
                     filterStatus ||
                     filterRange !== "today"
-                      ? `No assignments match your search or filter criteria`
-                      : `No assignments found for ${activeTab}`}
+                      ? "No assignments match your filters"
+                      : `No ${activeTab} assignments found`}
                   </p>
                   {(searchQuery ||
                     filterShift ||
@@ -1599,7 +1668,7 @@ export default function Assignments() {
                         setFilterStartDate(todayDate);
                         setFilterEndDate(todayDate);
                       }}
-                      className="mt-3 px-4 py-2 text-primary hover:bg-primary/10 rounded-md transition-colors text-sm font-medium"
+                      className="mt-2 px-4 py-2 text-primary rounded-md text-sm font-medium cursor-pointer"
                     >
                       Clear All Filters
                     </button>
@@ -1614,26 +1683,26 @@ export default function Assignments() {
       {/* Create Modal */}
       {showCreateModal && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn"
+          className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto animate-fadeIn"
           onClick={() => setShowCreateModal(false)}
         >
           <div
             className="bg-secondarybg rounded-md shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto animate-scaleIn"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+            <div className="p-4 sm:p-6 border-b border-gray-100 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
               <h3 className="text-lg font-bold text-primarytext">
                 Create {createModalType.toUpperCase()} Assignment
               </h3>
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="text-secondarytext hover:text-primarytext transition-colors"
+                className="text-secondarytext cursor-pointer"
               >
                 <X size={20} />
               </button>
             </div>
-            <div className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            <div className="p-4 sm:p-6 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-1">
                     Start Date
@@ -1712,7 +1781,7 @@ export default function Assignments() {
                                 ),
                               })
                             }
-                            className="ml-0.5 hover:text-red text-primary/60 transition-colors"
+                            className="ml-0.5 text-primary/60 cursor-pointer"
                           >
                             <X size={12} />
                           </button>
@@ -1737,8 +1806,22 @@ export default function Assignments() {
                   />
                 </div>
 
-                {/* Inter-Shift Conflict Warning */}
-                {assignmentForm.shift_ids.length > 1 &&
+                {/* EV info: how many assignments will be created */}
+                {createModalType === "ev" &&
+                  assignmentForm.shift_ids.length > 0 && (
+                    <div className="mt-1.5 flex items-center gap-1.5 px-2.5 py-1.5 bg-pending/10 border border-pending/20 rounded-md">
+                      <Zap size={12} className="text-pending shrink-0" />
+                      <span className="text-xs font-medium text-pending">
+                        {assignmentForm.shift_ids.length > 1
+                          ? `${assignmentForm.shift_ids.length} shifts selected — creates ${assignmentForm.shift_ids.length} separate EV assignments`
+                          : "1 shift selected — creates 1 EV assignment"}
+                      </span>
+                    </div>
+                  )}
+
+                {/* Inter-Shift Conflict Warning (non-EV only, since EV creates separate assignments) */}
+                {createModalType !== "ev" &&
+                  assignmentForm.shift_ids.length > 1 &&
                   (() => {
                     const selectedShifts = shifts.filter((s) =>
                       assignmentForm.shift_ids.includes(s.id),
@@ -1839,10 +1922,15 @@ export default function Assignments() {
                           conflictInfo = `${v.vehicle_number} • Conflict ${conflictDate}`;
                         }
 
+                        const defaultDriver =
+                          defaultDriverByVehicleId[String(v.id)] || null;
+
                         return {
                           value: v.id,
                           label: v.vehicle_name || v.vehicle_number,
-                          subtitle: conflictInfo,
+                          subtitle: defaultDriver
+                            ? `${conflictInfo} • Default driver: ${defaultDriver}`
+                            : conflictInfo,
                           available: isAvailable,
                           availableText:
                             hasAvailabilityData && !isAvailable
@@ -1898,12 +1986,24 @@ export default function Assignments() {
                         assignmentForm.shift_ids.length > 0 &&
                         assignmentForm.start_date &&
                         availability !== undefined;
+                      const defaultVehicle =
+                        defaultVehicleByDriverId[String(driverId)] || null;
+                      const subtitleParts = [];
+                      if (d.license_type) {
+                        subtitleParts.push(`License: ${d.license_type}`);
+                      }
+                      if (defaultVehicle) {
+                        subtitleParts.push(
+                          `Default vehicle: ${defaultVehicle}`,
+                        );
+                      }
                       return {
                         value: driverId,
                         label: d.driver_name || d.full_name,
-                        subtitle: d.license_type
-                          ? `License: ${d.license_type}`
-                          : undefined,
+                        subtitle:
+                          subtitleParts.length > 0
+                            ? subtitleParts.join(" • ")
+                            : undefined,
                         available: hasAvailabilityData
                           ? availability?.available !== false
                           : true,
@@ -1942,9 +2042,17 @@ export default function Assignments() {
 
               <button
                 onClick={() => handleCreate()}
-                className="w-full bg-primary text-white rounded-md py-2.5 font-medium hover:bg-primary/90 transition-colors"
+                className="w-full bg-primary text-white rounded-md py-2.5 font-medium flex items-center justify-center gap-2 cursor-pointer"
               >
-                Create Assignment
+                {createModalType === "ev" &&
+                assignmentForm.shift_ids.length > 1 ? (
+                  <>
+                    <Zap size={15} />
+                    Create {assignmentForm.shift_ids.length} EV Assignments
+                  </>
+                ) : (
+                  "Create Assignment"
+                )}
               </button>
             </div>
           </div>
@@ -1954,20 +2062,20 @@ export default function Assignments() {
       {/* Reassign Modal */}
       {reassignModal && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn"
+          className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto animate-fadeIn"
           onClick={() => setReassignModal(null)}
         >
           <div
-            className="bg-secondarybg rounded-md shadow-xl max-w-lg w-full p-6 animate-scaleIn"
+            className="bg-secondarybg rounded-md shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-4 sm:p-6 animate-scaleIn"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
               <h3 className="text-lg font-bold text-primarytext">
                 Reassign Driver
               </h3>
               <button
                 onClick={() => setReassignModal(null)}
-                className="text-secondarytext hover:text-primarytext transition-colors"
+                className="text-secondarytext cursor-pointer"
               >
                 <X size={20} />
               </button>
@@ -1984,12 +2092,22 @@ export default function Assignments() {
               options={availableDrivers.map((d) => {
                 const driverId = d.driver_id || d.id;
                 const availability = driverAvailabilityMap[driverId];
+                const defaultVehicle =
+                  defaultVehicleByDriverId[String(driverId)] || null;
+                const subtitleParts = [];
+                if (d.license_type) {
+                  subtitleParts.push(`License: ${d.license_type}`);
+                }
+                if (defaultVehicle) {
+                  subtitleParts.push(`Default vehicle: ${defaultVehicle}`);
+                }
                 return {
                   value: driverId,
                   label: d.driver_name || d.full_name,
-                  subtitle: d.license_type
-                    ? `License: ${d.license_type}`
-                    : undefined,
+                  subtitle:
+                    subtitleParts.length > 0
+                      ? subtitleParts.join(" • ")
+                      : undefined,
                   available: availability?.available !== false,
                   availableText:
                     availability?.available === false
@@ -1999,16 +2117,16 @@ export default function Assignments() {
               })}
               emptyMessage="No drivers available"
             />
-            <div className="flex gap-2 justify-end mt-4">
+            <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end mt-4">
               <button
                 onClick={() => setReassignModal(null)}
-                className="px-4 py-2 text-secondarytext hover:bg-gray-100 rounded-md transition-colors"
+                className="w-full sm:w-auto px-4 py-2 text-secondarytext rounded-md cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={handleReassign}
-                className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors"
+                className="w-full sm:w-auto px-4 py-2 bg-primary text-white rounded-md cursor-pointer"
               >
                 Confirm Reassign
               </button>
@@ -2020,19 +2138,19 @@ export default function Assignments() {
       {/* Time Conflict Warning Modal */}
       {conflictModal && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn"
+          className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto animate-fadeIn"
           onClick={() => {
             setConflictModal(null);
             setConflictPendingForm(null);
           }}
         >
           <div
-            className="bg-secondarybg rounded-md shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto animate-scaleIn"
+            className="bg-secondarybg rounded-md shadow-xl max-w-2xl w-full p-4 sm:p-6 max-h-[90vh] overflow-y-auto animate-scaleIn"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
             <div className="flex items-start gap-3 mb-4">
-              <div className="w-12 h-12 bg-amber-100 rounded-md flex items-center justify-center flex-shrink-0">
+              <div className="w-12 h-12 bg-amber-100 rounded-md flex items-center justify-center shrink-0">
                 <AlertTriangle className="text-amber-600" size={24} />
               </div>
               <div className="flex-1">
@@ -2050,7 +2168,7 @@ export default function Assignments() {
                   setConflictModal(null);
                   setConflictPendingForm(null);
                 }}
-                className="text-secondarytext hover:text-primarytext transition-colors"
+                className="text-secondarytext cursor-pointer"
               >
                 <X size={20} />
               </button>
@@ -2199,7 +2317,7 @@ export default function Assignments() {
                   </div>
                   <button
                     onClick={handleForceAssign}
-                    className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm font-medium whitespace-nowrap"
+                    className="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium whitespace-nowrap cursor-pointer"
                   >
                     Force Assign
                   </button>
@@ -2233,10 +2351,10 @@ export default function Assignments() {
                                 onClick={() =>
                                   handleSelectAlternateDriver(driverId)
                                 }
-                                className={`flex items-center gap-2 p-3 border rounded-md transition-all text-left ${
+                                className={`flex items-center gap-2 p-3 border rounded-md text-left cursor-pointer ${
                                   isAvailable
-                                    ? "bg-green-50 border-green-300 hover:bg-green-100 hover:border-green-400"
-                                    : "bg-gray-100 border-gray-300 hover:bg-gray-200 opacity-75"
+                                    ? "bg-green-50 border-green-300"
+                                    : "bg-gray-100 border-gray-300 opacity-75"
                                 }`}
                                 title={
                                   isAvailable
@@ -2245,7 +2363,7 @@ export default function Assignments() {
                                 }
                               >
                                 <div
-                                  className={`w-2 h-2 rounded-md flex-shrink-0 ${
+                                  className={`w-2 h-2 rounded-md shrink-0 ${
                                     isAvailable ? "bg-green-500" : "bg-gray-400"
                                   }`}
                                 />
@@ -2269,13 +2387,13 @@ export default function Assignments() {
                                 {isAvailable && (
                                   <CheckCircle
                                     size={14}
-                                    className="text-green-600 flex-shrink-0"
+                                    className="text-green-600 shrink-0"
                                   />
                                 )}
                                 {!isAvailable && (
                                   <AlertTriangle
                                     size={14}
-                                    className="text-gray-500 flex-shrink-0"
+                                    className="text-gray-500 shrink-0"
                                   />
                                 )}
                               </button>
@@ -2295,7 +2413,7 @@ export default function Assignments() {
                   setConflictModal(null);
                   setConflictPendingForm(null);
                 }}
-                className="px-4 py-2 text-secondarytext hover:bg-gray-100 rounded-md transition-colors"
+                className="px-4 py-2 text-secondarytext rounded-md cursor-pointer"
               >
                 Cancel
               </button>
@@ -2307,7 +2425,7 @@ export default function Assignments() {
       {/* EV Assignment Details Modal */}
       {showEvDetailsModal && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn"
+          className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto animate-fadeIn"
           onClick={() => {
             setShowEvDetailsModal(false);
             setEvDetails(null);
@@ -2325,9 +2443,9 @@ export default function Assignments() {
             ) : evDetails ? (
               <>
                 {/* Clean Header */}
-                <div className="p-6 border-b border-gray-200 bg-white rounded-t-xl">
-                  <div className="flex justify-between items-start">
-                    <div className="flex items-start gap-4">
+                <div className="p-4 sm:p-6 border-b border-gray-200 bg-white rounded-t-xl">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+                    <div className="flex items-start gap-3 sm:gap-4">
                       <div className="w-14 h-14 rounded-md bg-green-600 flex items-center justify-center shadow-md">
                         <Zap size={24} className="text-white" />
                       </div>
@@ -2340,24 +2458,12 @@ export default function Assignments() {
                           <span className="font-medium text-primary">
                             {evDetails.cluster_name}
                           </span>
-                          {evDetails.shifts && evDetails.shifts.length > 0 ? (
-                            evDetails.shifts.map((s, i) => (
-                              <span
-                                key={s.shift_id || i}
-                                className="flex items-center gap-1"
-                              >
-                                <span className="text-gray-400">•</span>
-                                <span>{s.shift_name}</span>
-                              </span>
-                            ))
-                          ) : (
-                            <>
-                              <span>•</span>
-                              <span>
-                                {evDetails.shift_name || "Default Schedule"}
-                              </span>
-                            </>
-                          )}
+                          <span className="flex items-center gap-1">
+                            <span className="text-gray-400">•</span>
+                            <span>
+                              {evDetails.shift_name || "Default Schedule"}
+                            </span>
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -2366,7 +2472,7 @@ export default function Assignments() {
                         setShowEvDetailsModal(false);
                         setEvDetails(null);
                       }}
-                      className="text-gray-400 hover:text-gray-600 transition-colors"
+                      className="text-gray-400 cursor-pointer"
                     >
                       <X size={24} />
                     </button>
@@ -2374,63 +2480,28 @@ export default function Assignments() {
                 </div>
 
                 {/* Details Grid */}
-                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Shift Details */}
                   <div className="bg-primarybg rounded-md p-4">
                     <h4 className="text-xs text-secondarytext uppercase tracking-wider mb-3 font-bold flex items-center gap-2">
                       <Clock size={14} /> Shift Details
-                      {evDetails.shifts && evDetails.shifts.length > 1 && (
-                        <span className="ml-auto text-[10px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-md">
-                          {evDetails.shifts.length} SHIFTS
+                    </h4>
+                    <div className="bg-white rounded-md p-3 border border-primary/10 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                          <Clock size={13} className="text-primary" />
+                        </div>
+                        <span className="text-sm font-semibold text-primarytext">
+                          {evDetails.shift_name || "Default"}
+                        </span>
+                      </div>
+                      {evDetails.shift_start_time && (
+                        <span className="text-xs font-medium text-secondarytext bg-gray-100 px-2.5 py-1 rounded-md whitespace-nowrap">
+                          {formatTimeAMPM(evDetails.shift_start_time)} –{" "}
+                          {formatTimeAMPM(evDetails.shift_end_time)}
                         </span>
                       )}
-                    </h4>
-                    {evDetails.shifts && evDetails.shifts.length > 0 ? (
-                      <div className="space-y-2">
-                        {evDetails.shifts.map((s, idx) => (
-                          <div
-                            key={s.shift_id || idx}
-                            className="bg-white rounded-md p-3 border border-primary/10 flex items-center justify-between gap-3"
-                          >
-                            <div className="flex items-center gap-2">
-                              <div className="w-7 h-7 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
-                                <Clock size={13} className="text-primary" />
-                              </div>
-                              <span className="text-sm font-semibold text-primarytext">
-                                {s.shift_name}
-                              </span>
-                            </div>
-                            {s.start_time ? (
-                              <span className="text-xs font-medium text-secondarytext bg-gray-100 px-2.5 py-1 rounded-md whitespace-nowrap">
-                                {s.start_time} – {s.end_time}
-                              </span>
-                            ) : null}
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-secondarytext">
-                            Shift Name
-                          </span>
-                          <span className="font-semibold text-primarytext">
-                            {evDetails.shift_name || "Default"}
-                          </span>
-                        </div>
-                        {evDetails.shift_start_time && (
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-secondarytext">
-                              Time
-                            </span>
-                            <span className="font-semibold text-primarytext">
-                              {formatTimeAMPM(evDetails.shift_start_time)} –{" "}
-                              {formatTimeAMPM(evDetails.shift_end_time)}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    )}
+                    </div>
                   </div>
 
                   {/* Assignment Period */}
@@ -2460,12 +2531,9 @@ export default function Assignments() {
                       <div className="flex justify-between">
                         <span className="text-secondarytext">Status</span>
                         <span
-                          className={`font-medium px-2 py-0.5 rounded-md text-xs ${
-                            evDetails.status === "active" ||
-                            evDetails.status === "assigned"
-                              ? "bg-green/20 text-green"
-                              : "bg-gray-200 text-gray-600"
-                          }`}
+                          className={`font-medium px-2 py-0.5 rounded-md text-xs ${getAssignmentStatusClasses(
+                            evDetails.status || "active",
+                          )}`}
                         >
                           {evDetails.status || "active"}
                         </span>
@@ -2546,13 +2614,13 @@ export default function Assignments() {
 
                 {/* Assigned Vehicles Section */}
                 {evDetails.vehicles && evDetails.vehicles.length > 0 && (
-                  <div className="px-6 pb-4">
+                  <div className="px-4 sm:px-6 pb-4">
                     <div className="bg-primarybg rounded-md p-4">
                       <h4 className="text-xs text-secondarytext uppercase tracking-wider mb-3 font-bold flex items-center gap-2">
                         <Zap size={14} /> Assigned Vehicles (
                         {evDetails.vehicles.length})
                       </h4>
-                      <div className="grid grid-cols-3 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                         {evDetails.vehicles.map((v) => (
                           <div
                             key={v.id}
@@ -2579,14 +2647,14 @@ export default function Assignments() {
                 )}
 
                 {/* Cluster Drivers Section */}
-                <div className="px-6 pb-4">
+                <div className="px-4 sm:px-6 pb-4">
                   <div className="bg-primarybg rounded-md p-4">
                     <h4 className="text-xs text-secondarytext uppercase tracking-wider mb-3 font-bold flex items-center gap-2">
                       <Users size={14} /> Cluster Drivers (
                       {evDetails.drivers?.length || 0})
                     </h4>
                     {evDetails.drivers && evDetails.drivers.length > 0 ? (
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {evDetails.drivers.map((driver) => (
                           <div
                             key={driver.driver_id}
@@ -2637,13 +2705,42 @@ export default function Assignments() {
                 </div>
 
                 {/* Footer Actions */}
-                <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
+                <div className="p-4 sm:p-6 border-t border-gray-100 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+                  <button
+                    onClick={() => {
+                      const assignmentId =
+                        evDetails.id || evDetails.assignment_id;
+                      setShowEvDetailsModal(false);
+                      setEvDetails(null);
+                      handleDelete(assignmentId, true);
+                    }}
+                    className="w-full sm:w-auto px-4 py-2 bg-red text-white rounded-md cursor-pointer"
+                  >
+                    Delete
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowEvDetailsModal(false);
+                      setShowEvReassignModal(true);
+                      setEvReassignData({
+                        assignment_id: evDetails.id || evDetails.assignment_id,
+                        cluster_id: evDetails.cluster_id,
+                        new_cluster_id: "",
+                        start_date: evDetails.start_date,
+                        end_date: evDetails.end_date,
+                        reason: "",
+                      });
+                    }}
+                    className="w-full sm:w-auto px-4 py-2 bg-primary/10 text-primary border border-primary/20 rounded-md cursor-pointer"
+                  >
+                    Reassign Cluster
+                  </button>
                   <button
                     onClick={() => {
                       setShowEvDetailsModal(false);
                       setEvDetails(null);
                     }}
-                    className="px-4 py-2 text-secondarytext hover:bg-gray-100 rounded-md transition-colors"
+                    className="w-full sm:w-auto px-4 py-2 text-secondarytext rounded-md cursor-pointer"
                   >
                     Close
                   </button>
@@ -2667,16 +2764,16 @@ export default function Assignments() {
       {/* EV Reassignment Modal */}
       {showEvReassignModal && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn"
+          className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto animate-fadeIn"
           onClick={() => setShowEvReassignModal(false)}
         >
           <div
-            className="bg-white rounded-md shadow-2xl max-w-2xl w-full animate-scaleIn"
+            className="bg-white rounded-md shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-scaleIn"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="p-6 border-b border-gray-200 bg-white rounded-t-xl">
-              <div className="flex justify-between items-center">
+            <div className="p-4 sm:p-6 border-b border-gray-200 bg-white rounded-t-xl">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-md bg-primary flex items-center justify-center shadow-md">
                     <RefreshCw size={24} className="text-white" />
@@ -2692,7 +2789,7 @@ export default function Assignments() {
                 </div>
                 <button
                   onClick={() => setShowEvReassignModal(false)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  className="text-gray-400 cursor-pointer"
                 >
                   <X size={20} />
                 </button>
@@ -2700,7 +2797,7 @@ export default function Assignments() {
             </div>
 
             {/* Form */}
-            <div className="p-6 space-y-4">
+            <div className="p-4 sm:p-6 space-y-4">
               {/* New Cluster Selection */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -2728,7 +2825,7 @@ export default function Assignments() {
               </div>
 
               {/* Date Range */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Start Date <span className="text-red-500">*</span>
@@ -2783,7 +2880,7 @@ export default function Assignments() {
               </div>
 
               {/* Info Box */}
-              <div className="bg-blue-50 border border-blue-200 rounded-md p-4 flex gap-3">
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-4 flex flex-col sm:flex-row gap-3">
                 <AlertTriangle
                   size={20}
                   className="text-blue-600 shrink-0 mt-0.5"
@@ -2800,16 +2897,16 @@ export default function Assignments() {
             </div>
 
             {/* Footer */}
-            <div className="p-6 bg-gray-50 rounded-b-xl flex justify-end gap-3">
+            <div className="p-4 sm:p-6 bg-gray-50 rounded-b-xl flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
               <button
                 onClick={() => setShowEvReassignModal(false)}
-                className="px-5 py-2.5 text-gray-600 hover:bg-gray-200 rounded-md transition-colors font-medium"
+                className="w-full sm:w-auto px-5 py-2.5 text-gray-600 rounded-md font-medium cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={handleEvReassign}
-                className="px-5 py-2.5 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors flex items-center gap-2 font-medium"
+                className="w-full sm:w-auto px-5 py-2.5 bg-primary text-white rounded-md flex items-center justify-center gap-2 font-medium cursor-pointer"
               >
                 <RefreshCw size={16} />
                 Confirm Reassignment
@@ -2822,7 +2919,7 @@ export default function Assignments() {
       {/* Assignment Details Modal */}
       {showDetailsModal && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn"
+          className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto animate-fadeIn"
           onClick={() => {
             setShowDetailsModal(false);
             setAssignmentDetails(null);
@@ -2841,8 +2938,8 @@ export default function Assignments() {
             ) : assignmentDetails?.assignment ? (
               <>
                 {/* Header */}
-                <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-                  <div className="flex items-center gap-4">
+                <div className="p-4 sm:p-6 border-b border-gray-100 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                  <div className="flex items-center gap-3 sm:gap-4">
                     <div
                       className={`w-14 h-14 rounded-md flex items-center justify-center text-white ${
                         assignmentDetails.assignment.vehicle_type === "BUS"
@@ -2877,14 +2974,14 @@ export default function Assignments() {
                       setShowDetailsModal(false);
                       setAssignmentDetails(null);
                     }}
-                    className="text-secondarytext hover:text-primarytext transition-colors"
+                    className="text-secondarytext cursor-pointer"
                   >
                     <X size={24} />
                   </button>
                 </div>
 
                 {/* Details Grid */}
-                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Shift Info */}
                   <div className="bg-primarybg rounded-md p-4">
                     <h4 className="text-xs text-secondarytext uppercase tracking-wider mb-3 font-bold flex items-center gap-2">
@@ -2901,46 +2998,25 @@ export default function Assignments() {
                       </div>
                       <div className="border-t border-gray-200 pt-3">
                         <span className="text-sm text-secondarytext block mb-3">
-                          Time Slots
+                          Shift Time
                         </span>
-                        <div className="space-y-2">
-                          {assignmentDetails.slots &&
-                          assignmentDetails.slots.length > 0 ? (
-                            assignmentDetails.slots.map((slot, idx) => (
-                              <div
-                                key={idx}
-                                className="flex items-center gap-2 px-3 py-2 rounded-md bg-white border border-gray-200 hover:border-primary/40 transition-colors"
-                              >
-                                <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
-                                  <Clock size={14} className="text-primary" />
-                                </div>
-                                <span className="font-medium text-gray-900 text-sm">
-                                  {formatTimeAMPM(slot.start_time)}
-                                </span>
-                                <span className="text-gray-400">→</span>
-                                <span className="font-medium text-gray-900 text-sm">
-                                  {formatTimeAMPM(slot.end_time)}
-                                </span>
-                              </div>
-                            ))
-                          ) : (
-                            <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-white border border-gray-200">
-                              <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
-                                <Clock size={14} className="text-primary" />
-                              </div>
-                              <span className="font-medium text-gray-900 text-sm">
-                                {formatTimeAMPM(
-                                  assignmentDetails.assignment.start_time,
-                                )}
-                              </span>
-                              <span className="text-gray-400">→</span>
-                              <span className="font-medium text-gray-900 text-sm">
-                                {formatTimeAMPM(
-                                  assignmentDetails.assignment.end_time,
-                                )}
-                              </span>
-                            </div>
-                          )}
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-white border border-gray-200">
+                          <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                            <Clock size={14} className="text-primary" />
+                          </div>
+                          <span className="font-medium text-gray-900 text-sm">
+                            {formatTimeAMPM(
+                              assignmentDetails.slots?.[0]?.start_time ||
+                                assignmentDetails.assignment.start_time,
+                            )}
+                          </span>
+                          <span className="text-gray-400">→</span>
+                          <span className="font-medium text-gray-900 text-sm">
+                            {formatTimeAMPM(
+                              assignmentDetails.slots?.[0]?.end_time ||
+                                assignmentDetails.assignment.end_time,
+                            )}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -2967,16 +3043,26 @@ export default function Assignments() {
                       <div className="flex justify-between">
                         <span className="text-secondarytext">Status</span>
                         <span
-                          className={`font-medium px-2 py-0.5 rounded-md text-xs ${
-                            assignmentDetails.assignment.status === "active" ||
-                            assignmentDetails.assignment.status === "assigned"
-                              ? "bg-green/20 text-green"
-                              : "bg-gray-200 text-gray-600"
-                          }`}
+                          className={`font-medium px-2 py-0.5 rounded-md text-xs ${getAssignmentStatusClasses(
+                            assignmentDetails.assignment.status,
+                          )}`}
                         >
                           {assignmentDetails.assignment.status}
                         </span>
                       </div>
+                      {(
+                        assignmentDetails.assignment.status || ""
+                      ).toLowerCase() === "cancelled" && (
+                        <div className="flex justify-between">
+                          <span className="text-secondarytext">
+                            Cancelled on
+                          </span>
+                          <span className="font-medium text-primarytext">
+                            {assignmentDetails.assignment.cancelled_date ||
+                              "N/A"}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -3062,16 +3148,34 @@ export default function Assignments() {
                 </div>
 
                 {/* Footer Actions */}
-                <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
+                <div className="p-4 sm:p-6 border-t border-gray-100 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
                   <button
                     onClick={() => {
+                      const assignmentId = assignmentDetails.assignment.id;
                       setShowDetailsModal(false);
                       setAssignmentDetails(null);
+                      handleDelete(assignmentId, false);
                     }}
-                    className="px-4 py-2 text-secondarytext hover:bg-gray-100 rounded-md transition-colors"
+                    className="w-full sm:w-auto px-4 py-2 text-white rounded-md bg-red cursor-pointer"
                   >
-                    Close
+                    Delete
                   </button>
+                  {canCancelRegularAssignment(
+                    assignmentDetails.assignment.status,
+                  ) && (
+                    <button
+                      onClick={() => {
+                        const assignmentId = assignmentDetails.assignment.id;
+                        setShowDetailsModal(false);
+                        setAssignmentDetails(null);
+                        handleCancelAssignment(assignmentId);
+                      }}
+                      className="w-full sm:w-auto px-4 py-2 bg-amber-700 text-white rounded-md cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  )}
+
                   <button
                     onClick={() => {
                       setShowDetailsModal(false);
@@ -3081,9 +3185,18 @@ export default function Assignments() {
                       );
                       fetchAvailableDrivers();
                     }}
-                    className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors flex items-center gap-2"
+                    className="w-full sm:w-auto px-4 py-2 bg-primary text-white rounded-md flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    <RefreshCw size={16} /> Reassign Driver
+                    Reassign Driver
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowDetailsModal(false);
+                      setAssignmentDetails(null);
+                    }}
+                    className="w-full sm:w-auto px-4 py-2 text-secondarytext bg-gray-100 rounded-md cursor-pointer"
+                  >
+                    Close
                   </button>
                 </div>
               </>

@@ -2,7 +2,7 @@ import React, {useState, useEffect, useRef} from "react";
 import {useNavigate, useLocation} from "react-router-dom";
 import {getMenuConfigByRole} from "../../config/menuConfig";
 import {ChevronDownIcon, LogoutIcon} from "./Icons";
-import transportLogo from "../../assets/transportlogo.png";
+import bit_logo from "../../assets/bit_logo.png";
 import {useAuth} from "../../context/AuthContext";
 
 /**
@@ -133,9 +133,9 @@ export default function Sidebar({
           <div className="flex flex-col items-center justify-center py-4">
             {useLogo ? (
               <img
-                src={transportLogo}
+                src={bit_logo}
                 alt="Transport Logo"
-                className="w-14 h-14 rounded-md shadow-md"
+                className="w-20 h-14 rounded-md shadow-md"
               />
             ) : (
               <div className="w-14 h-14 bg-primary rounded-md flex items-center justify-center shadow-md shadow-primary/20">
@@ -144,7 +144,7 @@ export default function Sidebar({
                 </span>
               </div>
             )}
-            {!isCollapsed && (
+            {!isCollapsed && menuConfig.portalName && (
               <div className="text-center mt-2">
                 <h1 className="font-bold text-lg text-primarytext">
                   {menuConfig.portalName}
@@ -166,7 +166,7 @@ export default function Sidebar({
                   {/* Parent menu item with submenu */}
                   <button
                     onClick={() => handleMenuClick(item)}
-                    className={`w-full flex items-center justify-between px-3 py-2.5 group
+                    className={`cursor-pointer w-full flex items-center justify-between px-3 py-2.5 group
                     rounded-md transition-all duration-300 ease-in-out ${
                       isSubmenuGroupActive(item)
                         ? "bg-primary/10 text-primary font-medium"
@@ -208,7 +208,7 @@ export default function Sidebar({
                           <button
                             key={subItem.key}
                             onClick={() => handleSubmenuClick(subItem)}
-                            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-md transition-all duration-200 ease-in-out text-[13px] group/sub ${
+                            className={`cursor-pointer w-full flex items-center gap-2.5 px-3 py-2 rounded-md transition-all duration-200 ease-in-out text-[13px] group/sub ${
                               isSubmenuActive(subItem)
                                 ? "bg-primary text-white"
                                 : "text-secondarytext hover:text-primary hover:bg-primarybg"
@@ -236,7 +236,7 @@ export default function Sidebar({
                 /* Regular menu item */
                 <button
                   onClick={() => handleMenuClick(item)}
-                  className={`w-full flex items-center px-3 py-2.5 rounded-md transition-all duration-300 ease-in-out group ${
+                  className={`cursor-pointer w-full flex items-center px-3 py-2.5 rounded-md transition-all duration-300 ease-in-out group ${
                     isActive(item)
                       ? "bg-primary text-white shadow-md shadow-primary/20"
                       : "text-secondarytext hover:bg-primarybg hover:text-primary"
@@ -266,7 +266,7 @@ export default function Sidebar({
         <div className="shrink-0 px-4 py-3 border-t border-gray-100">
           <button
             onClick={handleLogout}
-            className="w-full flex items-center px-3 py-2.5 rounded-md transition-all duration-300 ease-in-out text-secondarytext hover:bg-red-50 hover:text-red-600"
+            className="cursor-pointer w-full flex items-center px-3 py-2.5 rounded-md transition-all duration-300 ease-in-out text-secondarytext hover:bg-red-50 hover:text-red-600"
           >
             <span className="text-gray-400">
               <LogoutIcon />

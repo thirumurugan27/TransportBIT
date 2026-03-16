@@ -44,7 +44,10 @@ func getUserIDFromRequest(c *gin.Context) *int {
 // GET /api/admin/shifts
 func GetAllShifts(c *gin.Context) {
 	rows, err := config.DB.Query(`
-		SELECT id, name, start_time, end_time, COALESCE(description,''), created_by
+		SELECT id, name,
+		       TIME_FORMAT(start_time, '%h:%i %p') AS start_time,
+		       TIME_FORMAT(end_time, '%h:%i %p') AS end_time,
+		       COALESCE(description,''), created_by
 		FROM shifts ORDER BY id DESC
 	`)
 	if err != nil {

@@ -65,8 +65,8 @@ const STATUS_CONFIG = {
     label: "Trip Started",
   },
   completed: {
-    color: "bg-gray-100 text-gray-600 border-gray-200",
-    badge: "bg-gray-500 text-white",
+    color: "bg-green text-white border-green",
+    badge: "bg-green text-white",
     label: "Completed",
   },
   cancelled: {

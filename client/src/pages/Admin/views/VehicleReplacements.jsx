@@ -91,7 +91,7 @@ const Label = ({children}) => (
 
 const Modal = ({onClose, children, maxWidth = "max-w-lg"}) => (
   <div
-    className="fixed inset-0 flex items-center justify-center z-50 p-4"
+    className="fixed inset-0 flex items-start sm:items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto"
     style={{background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)"}}
     onClick={onClose}
   >
@@ -107,7 +107,7 @@ const Modal = ({onClose, children, maxWidth = "max-w-lg"}) => (
 
 const ModalHeader = ({title, onClose}) => (
   <div
-    className="flex items-center justify-between px-6 py-4 border-b"
+    className="flex items-center justify-between px-4 sm:px-6 py-4 border-b"
     style={{borderColor: "#E4E8F4"}}
   >
     <h3 style={{fontSize: 17, fontWeight: 800, color: C.primarytext}}>
@@ -579,7 +579,7 @@ export default function VehicleReplacements({
             title="Replacement Details"
             onClose={() => setShowDetailModal(null)}
           />
-          <div className="p-6 space-y-4">
+          <div className="p-4 sm:p-6 space-y-4">
             <div className="flex items-center justify-between">
               <Pill
                 label={showDetailModal.status}
@@ -765,7 +765,7 @@ export default function VehicleReplacements({
             title="New Replacement"
             onClose={() => setShowCreateModal(false)}
           />
-          <div className="p-6 space-y-4">
+          <div className="p-4 sm:p-6 space-y-4">
             {/* Vehicle Replacement Flow: Vehicle → Driver → Reason → Dates → Replacement Vehicle → Notes */}
             <div>
               <Label>Vehicle *</Label>
@@ -808,7 +808,7 @@ export default function VehicleReplacements({
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>Start Date *</Label>
                 <input
@@ -901,7 +901,7 @@ export default function VehicleReplacements({
             title="Approve & Assign Vehicle"
             onClose={() => setShowApproveModal(null)}
           />
-          <div className="p-6 space-y-4">
+          <div className="p-4 sm:p-6 space-y-4">
             <div className="p-3 rounded-md" style={{background: C.primarybg}}>
               <div className="text-sm font-bold" style={{color: C.primarytext}}>
                 {showApproveModal.vehicle_number} • Driver:{" "}
@@ -954,7 +954,7 @@ export default function VehicleReplacements({
             title="Edit Replacement"
             onClose={() => setShowEditModal(null)}
           />
-          <div className="p-6 space-y-4">
+          <div className="p-4 sm:p-6 space-y-4">
             <div>
               <Label>Reason</Label>
               <CustomDropdown
@@ -963,7 +963,7 @@ export default function VehicleReplacements({
                 options={REASON_OPTIONS}
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>Start Date</Label>
                 <input

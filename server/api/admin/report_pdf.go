@@ -99,15 +99,15 @@ func generateServiceReportPDF(c *gin.Context) {
 	query := `
 		SELECT 
 			v.vehicle_number, v.vehicle_name,
-			COALESCE(st.name, '-'), sr.title, sr.severity, sr.status,
+			COALESCE(vt.type, '-'), sr.title, sr.severity, sr.status,
 			COALESCE(sr.workshop_name, '-'),
-			sr.labor_cost, sr.parts_cost, sr.total_cost,
+			COALESCE(sr.labor_cost, 0), COALESCE(sr.parts_cost, 0), COALESCE(sr.total_cost, 0),
 			COALESCE(DATE_FORMAT(sr.scheduled_date, '%d-%m-%Y'), '-'),
 			COALESCE(DATE_FORMAT(sr.started_at, '%d-%m-%Y'), '-'),
 			COALESCE(DATE_FORMAT(sr.completed_at, '%d-%m-%Y'), '-')
 		FROM service_records sr
 		JOIN vehicles v ON sr.vehicle_id = v.id
-		LEFT JOIN service_types st ON sr.service_type_id = st.id
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 		WHERE sr.created_at BETWEEN ? AND DATE_ADD(?, INTERVAL 1 DAY)
 	`
 	args := []interface{}{startDate, endDate}
@@ -174,11 +174,10 @@ func generatePurchaseReportPDF(c *gin.Context) {
 
 	rows, err := config.DB.Query(`
 		SELECT 
-			pp.id, COALESCE(v.vehicle_number, '-'), COALESCE(vn.name, '-'),
+			COALESCE(v.vehicle_number, '-'), COALESCE(vn.name, '-'),
 			pp.category, pp.part_name, pp.quantity, pp.unit_price, pp.total_price,
 			COALESCE(pp.invoice_number, '-'), pp.status,
 			COALESCE(pp.warranty_months, 0),
-			COALESCE(DATE_FORMAT(pp.purchased_date, '%d-%m-%Y'), '-'),
 			COALESCE(DATE_FORMAT(pp.ordered_date, '%d-%m-%Y'), '-'),
 			COALESCE(DATE_FORMAT(pp.received_date, '%d-%m-%Y'), '-'),
 			DATE_FORMAT(pp.created_at, '%d-%m-%Y')
@@ -195,23 +194,23 @@ func generatePurchaseReportPDF(c *gin.Context) {
 	}
 	defer rows.Close()
 
-	headers := []string{"S.No", "ID", "Vehicle", "Vendor", "Category", "Part", "Qty", "Unit Price", "Total", "Invoice", "Status", "Warranty", "Purchased", "Ordered", "Received", "Created"}
-	widths := []float64{8, 10, 18, 20, 16, 24, 10, 18, 18, 18, 14, 14, 18, 18, 18, 18}
-	aligns := []string{"C", "C", "C", "L", "C", "L", "C", "R", "R", "C", "C", "C", "C", "C", "C", "C"}
+	headers := []string{"S.No", "Vehicle", "Vendor", "Category", "Part", "Qty", "Unit Price", "Total", "Invoice", "Status", "Warranty", "Ordered", "Received", "Created"}
+	widths := []float64{8, 18, 20, 16, 24, 10, 18, 18, 18, 14, 14, 18, 18, 18}
+	aligns := []string{"C", "C", "L", "C", "L", "C", "R", "R", "C", "C", "C", "C", "C", "C"}
 	var data [][]string
 	sno := 1
 	var grandTotal float64
 	for rows.Next() {
-		var id, warrantyMonths, qty int
-		var vehicleNum, vendor, category, partName, invoiceNo, status, purchased, ordered, received, created string
+		var warrantyMonths, qty int
+		var vehicleNum, vendor, category, partName, invoiceNo, status, ordered, received, created string
 		var unitPrice, totalPrice float64
-		if err := rows.Scan(&id, &vehicleNum, &vendor, &category, &partName, &qty, &unitPrice, &totalPrice, &invoiceNo, &status, &warrantyMonths, &purchased, &ordered, &received, &created); err != nil {
+		if err := rows.Scan(&vehicleNum, &vendor, &category, &partName, &qty, &unitPrice, &totalPrice, &invoiceNo, &status, &warrantyMonths, &ordered, &received, &created); err != nil {
 			continue
 		}
 		data = append(data, []string{
-			fmt.Sprintf("%d", sno), fmt.Sprintf("%d", id), vehicleNum, vendor, category, partName,
+			fmt.Sprintf("%d", sno), vehicleNum, vendor, category, partName,
 			fmt.Sprintf("%d", qty), utils.FmtMoney(unitPrice), utils.FmtMoney(totalPrice),
-			invoiceNo, status, fmt.Sprintf("%d mo", warrantyMonths), purchased, ordered, received, created,
+			invoiceNo, status, fmt.Sprintf("%d mo", warrantyMonths), ordered, received, created,
 		})
 		grandTotal += totalPrice
 		sno++
@@ -222,8 +221,8 @@ func generatePurchaseReportPDF(c *gin.Context) {
 	pr.AddTableWithAlign(headers, data, widths, aligns)
 
 	totals := make([]string, len(headers))
-	totals[7] = "TOTAL"
-	totals[8] = utils.FmtMoney(grandTotal)
+	totals[6] = "TOTAL"
+	totals[7] = utils.FmtMoney(grandTotal)
 	pr.AddTotalRow(totals, widths)
 
 	pr.Send(c, fmt.Sprintf("Purchase_Report_%s_to_%s.pdf", startDate, endDate))

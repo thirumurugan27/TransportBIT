@@ -24,30 +24,40 @@ import {toVehicleTypeLabel} from "../../../utils/vehicleTypes";
 
 const API_BASE = import.meta.env.VITE_API_BASE;
 
-function formatTimeAMPM(time24) {
-  if (!time24) return "";
-  const [hours, minutes] = time24.split(":");
-  const h = parseInt(hours);
-  const period = h >= 12 ? "PM" : "AM";
-  const h12 = h > 12 ? h - 12 : h === 0 ? 12 : h;
-  return `${h12}:${minutes} ${period}`;
-}
-
-// Parse dd-mm-yyyy to Date object for comparison
-function parseDMY(dateStr) {
+// Parse API date values for comparisons (supports yyyy-mm-dd, dd-mm-yyyy, and ISO datetime)
+function parseDateValue(dateStr) {
   if (!dateStr) return null;
-  const [d, m, y] = dateStr.split("-");
-  if (!d || !m || !y) return null;
-  return new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
+  if (/^\d{2}-\d{2}-\d{4}$/.test(dateStr)) {
+    const [d, m, y] = dateStr.split("-");
+    return new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10));
+  }
+
+  const parsed = new Date(dateStr);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
 }
 
-function formatDateForInput(dateStr) {
+// HTML date inputs require yyyy-mm-dd; normalize API dates for edit prefill only.
+function normalizeDateForInput(dateStr) {
   if (!dateStr) return "";
-  const d = new Date(dateStr);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    return dateStr;
+  }
+
+  if (/^\d{2}-\d{2}-\d{4}$/.test(dateStr)) {
+    const [dd, mm, yyyy] = dateStr.split("-");
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
+    const [dd, mm, yyyy] = dateStr.split("/");
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  const parsed = new Date(dateStr);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return parsed.toISOString().split("T")[0];
 }
 
 export default function ScheduleManagement() {
@@ -479,8 +489,8 @@ export default function ScheduleManagement() {
         shift_id: item.shift_id || "",
         start_time: item.start_time || "",
         end_time: item.end_time || "",
-        valid_from: item.valid_from ? formatDateForInput(item.valid_from) : "",
-        valid_to: item.valid_to ? formatDateForInput(item.valid_to) : "",
+        valid_from: normalizeDateForInput(item.valid_from),
+        valid_to: normalizeDateForInput(item.valid_to),
         driver_ids: (item.driver_ids || currentDriverIds || []).map((id) =>
           Number(id),
         ),
@@ -495,8 +505,8 @@ export default function ScheduleManagement() {
         vehicle_ids: (item.vehicle_ids || currentVehicleIds || []).map((id) =>
           Number(id),
         ),
-        valid_from: item.valid_from ? formatDateForInput(item.valid_from) : "",
-        valid_to: item.valid_to ? formatDateForInput(item.valid_to) : "",
+        valid_from: normalizeDateForInput(item.valid_from),
+        valid_to: normalizeDateForInput(item.valid_to),
       });
     } else if (type === "shift") {
       const existingSlots =
@@ -821,8 +831,8 @@ export default function ScheduleManagement() {
 
       // Date filter
       if (groupDateFilter === "active") {
-        const from = parseDMY(cluster.valid_from);
-        const to = parseDMY(cluster.valid_to);
+        const from = parseDateValue(cluster.valid_from);
+        const to = parseDateValue(cluster.valid_to);
         if (from && to) return from <= today && to >= today;
         return true; // permanent groups are always active
       }
@@ -831,8 +841,8 @@ export default function ScheduleManagement() {
         groupDateRange.start &&
         groupDateRange.end
       ) {
-        const from = parseDMY(cluster.valid_from);
-        const to = parseDMY(cluster.valid_to);
+        const from = parseDateValue(cluster.valid_from);
+        const to = parseDateValue(cluster.valid_to);
         const rangeStart = new Date(groupDateRange.start);
         const rangeEnd = new Date(groupDateRange.end);
         if (from && to) return from <= rangeEnd && to >= rangeStart;
@@ -874,14 +884,14 @@ export default function ScheduleManagement() {
 
       // Date filter
       if (vgDateFilter === "active") {
-        const from = parseDMY(group.valid_from);
-        const to = parseDMY(group.valid_to);
+        const from = parseDateValue(group.valid_from);
+        const to = parseDateValue(group.valid_to);
         if (from && to) return from <= today && to >= today;
         return true;
       }
       if (vgDateFilter === "custom" && vgDateRange.start && vgDateRange.end) {
-        const from = parseDMY(group.valid_from);
-        const to = parseDMY(group.valid_to);
+        const from = parseDateValue(group.valid_from);
+        const to = parseDateValue(group.valid_to);
         const rangeStart = new Date(vgDateRange.start);
         const rangeEnd = new Date(vgDateRange.end);
         if (from && to) return from <= rangeEnd && to >= rangeStart;
@@ -1608,8 +1618,8 @@ export default function ScheduleManagement() {
                             >
                               <Clock className="w-3.5 h-3.5 text-secondarytext" />
                               <span className="font-medium text-primarytext">
-                                {formatTimeAMPM(slot.start_time)} -{" "}
-                                {formatTimeAMPM(slot.end_time)}
+                                {slot.start_time || "-"} -{" "}
+                                {slot.end_time || "-"}
                               </span>
                             </div>
                           ))
@@ -1617,8 +1627,8 @@ export default function ScheduleManagement() {
                           <div className="flex items-center gap-2 bg-primarybg px-3 py-2 rounded-md text-sm">
                             <Clock className="w-3.5 h-3.5 text-secondarytext" />
                             <span className="font-medium text-primarytext">
-                              {formatTimeAMPM(shift.start_time)} -{" "}
-                              {formatTimeAMPM(shift.end_time)}
+                              {shift.start_time || "-"} -{" "}
+                              {shift.end_time || "-"}
                             </span>
                           </div>
                         )}
@@ -2492,11 +2502,11 @@ export default function ScheduleManagement() {
                               <Clock className="w-4 h-4 text-primary" />
                             </div>
                             <span className="font-medium text-primarytext">
-                              {formatTimeAMPM(slot.start_time)}
+                              {slot.start_time || "-"}
                             </span>
                             <span className="text-secondarytext">→</span>
                             <span className="font-medium text-primarytext">
-                              {formatTimeAMPM(slot.end_time)}
+                              {slot.end_time || "-"}
                             </span>
                           </div>
                         ))
@@ -2506,11 +2516,11 @@ export default function ScheduleManagement() {
                             <Clock className="w-4 h-4 text-primary" />
                           </div>
                           <span className="font-medium text-primarytext">
-                            {formatTimeAMPM(detailItem.start_time)}
+                            {detailItem.start_time || "-"}
                           </span>
                           <span className="text-secondarytext">→</span>
                           <span className="font-medium text-primarytext">
-                            {formatTimeAMPM(detailItem.end_time)}
+                            {detailItem.end_time || "-"}
                           </span>
                         </div>
                       )}

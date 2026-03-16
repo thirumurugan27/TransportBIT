@@ -48,7 +48,19 @@ const (
 	cellPadY = 1.2 // vertical inner padding per side (top & bottom)
 )
 
-const logoPath = "assets/logo.png"
+var logoPaths = []string{
+	"assets/bit_logo.png",
+	"assets/logo.png",
+}
+
+func resolveLogoPath() string {
+	for _, p := range logoPaths {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return ""
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Constructor
@@ -80,8 +92,9 @@ func NewPDFReport(title, subtitle string, landscape bool) *PDFReport {
 	pdf.SetHeaderFunc(func() {
 		usable := pageW - 2*margin
 		logoW, logoH, logoX, logoY := 18.0, 18.0, margin+1, 5.0
+		logoPath := resolveLogoPath()
 
-		if _, err := os.Stat(logoPath); err == nil {
+		if logoPath != "" {
 			pdf.Image(logoPath, logoX, logoY, logoW, logoH, false, "", 0, "")
 		}
 

@@ -82,6 +82,13 @@ const REQUEST_UNDER_OPTIONS = [
   {value: "supporting_department", label: "Supporting Department"},
 ];
 
+const DATE_RANGE_OPTIONS = [
+  {value: "all_time", label: "All Time"},
+  {value: "today", label: "Today"},
+  {value: "this_week", label: "This Week"},
+  {value: "this_month", label: "This Month"},
+];
+
 const getRequestUnderLabel = (value) => {
   const found = REQUEST_UNDER_OPTIONS.find((r) => r.value === value);
   return found ? found.label : value || "-";
@@ -93,6 +100,8 @@ export default function VehicleRequests() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+  const dateFieldFilter = "request_date";
+  const [dateRangeFilter, setDateRangeFilter] = useState("all_time");
 
   // Detail modal
   const [selectedRequest, setSelectedRequest] = useState(null);
@@ -103,6 +112,7 @@ export default function VehicleRequests() {
   const [assignRequest, setAssignRequest] = useState(null);
   const [vehicles, setVehicles] = useState([]);
   const [drivers, setDrivers] = useState([]);
+  const [defaultMappings, setDefaultMappings] = useState([]);
   const [assignForm, setAssignForm] = useState({vehicle_id: 0, driver_id: 0});
   const [assigning, setAssigning] = useState(false);
 
@@ -121,6 +131,24 @@ export default function VehicleRequests() {
   // Conflict modal state
   const [conflictModal, setConflictModal] = useState(null);
   const [conflictPendingAction, setConflictPendingAction] = useState(null); // { type: 'approve'|'assign', payload }
+
+  const defaultDriverByVehicleId = defaultMappings.reduce((acc, mapping) => {
+    if (mapping?.vehicle_id && mapping?.driver_name) {
+      acc[String(mapping.vehicle_id)] = mapping.driver_name;
+    }
+    return acc;
+  }, {});
+
+  const defaultVehicleByDriverId = defaultMappings.reduce((acc, mapping) => {
+    if (mapping?.driver_id) {
+      const vehicleLabel =
+        mapping?.vehicle_name || mapping?.vehicle_number || null;
+      if (vehicleLabel) {
+        acc[String(mapping.driver_id)] = vehicleLabel;
+      }
+    }
+    return acc;
+  }, {});
 
   useEffect(() => {
     fetchRequests();
@@ -162,7 +190,7 @@ export default function VehicleRequests() {
 
   const fetchVehiclesAndDrivers = async () => {
     try {
-      const [vRes, dRes] = await Promise.all([
+      const [vRes, dRes, mRes] = await Promise.all([
         fetch(`${API_BASE}/api/admin/vehicles`, {
           credentials: "include",
           headers: getAuthHeaders(),
@@ -171,9 +199,14 @@ export default function VehicleRequests() {
           credentials: "include",
           headers: getAuthHeaders(),
         }),
+        fetch(`${API_BASE}/api/admin/default-vehicle-drivers`, {
+          credentials: "include",
+          headers: getAuthHeaders(),
+        }),
       ]);
       if (vRes.ok) setVehicles((await vRes.json()) || []);
       if (dRes.ok) setDrivers((await dRes.json()) || []);
+      if (mRes.ok) setDefaultMappings((await mRes.json()) || []);
     } catch (e) {
       console.error(e);
     }
@@ -469,6 +502,86 @@ export default function VehicleRequests() {
     return {date, time};
   };
 
+  const parseDateValue = (value) => {
+    if (!value) return null;
+
+    if (value instanceof Date) {
+      return Number.isNaN(value.getTime()) ? null : value;
+    }
+
+    if (typeof value !== "string") return null;
+
+    const normalized = value.trim().replace(/,/g, " ").replace(/\s+/g, " ");
+    if (!normalized) return null;
+
+    const datePart = normalized.split(" ")[0] || "";
+
+    // dd-mm-yyyy
+    const ddMmYyyyMatch = datePart.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+    if (ddMmYyyyMatch) {
+      const [, dd, mm, yyyy] = ddMmYyyyMatch;
+      return new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+    }
+
+    // yyyy-mm-dd (ISO-like)
+    const yyyyMmDdMatch = datePart.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (yyyyMmDdMatch) {
+      const [, yyyy, mm, dd] = yyyyMmDdMatch;
+      return new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+    }
+
+    const parsed = new Date(normalized);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  };
+
+  const getFilterDateForRequest = (request) => {
+    if (dateFieldFilter === "trip_start_date") {
+      return parseDateValue(
+        request.trip_started_at || request.onward_from_datetime,
+      );
+    }
+
+    return parseDateValue(request.created_at);
+  };
+
+  const isWithinDateRange = (dateValue) => {
+    if (dateRangeFilter === "all_time") return true;
+    if (!dateValue) return false;
+
+    const now = new Date();
+    const todayStart = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    );
+
+    if (dateRangeFilter === "today") {
+      const tomorrowStart = new Date(todayStart);
+      tomorrowStart.setDate(todayStart.getDate() + 1);
+      return dateValue >= todayStart && dateValue < tomorrowStart;
+    }
+
+    if (dateRangeFilter === "this_week") {
+      const weekStart = new Date(todayStart);
+      const day = weekStart.getDay();
+      const distanceToMonday = day === 0 ? -6 : 1 - day;
+      weekStart.setDate(weekStart.getDate() + distanceToMonday);
+
+      const nextWeekStart = new Date(weekStart);
+      nextWeekStart.setDate(weekStart.getDate() + 7);
+
+      return dateValue >= weekStart && dateValue < nextWeekStart;
+    }
+
+    if (dateRangeFilter === "this_month") {
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      return dateValue >= monthStart && dateValue < nextMonthStart;
+    }
+
+    return true;
+  };
+
   // Force assign after conflict warning
   const handleForceAssign = async () => {
     if (!conflictPendingAction) return;
@@ -582,7 +695,11 @@ export default function VehicleRequests() {
       r.faculty_department?.toLowerCase().includes(query) ||
       r.purpose?.toLowerCase().includes(query) ||
       String(r.id).includes(query);
-    return matchesStatus && matchesSearch;
+
+    const filterDate = getFilterDateForRequest(r);
+    const matchesDateRange = isWithinDateRange(filterDate);
+
+    return matchesStatus && matchesSearch && matchesDateRange;
   });
 
   // Stat counts
@@ -604,7 +721,7 @@ export default function VehicleRequests() {
       </h1>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {/* Pending */}
         <div className="bg-secondarybg rounded-md border border-primarybg shadow-sm p-5 flex items-center gap-4">
           <div className="p-3 rounded-md bg-amber-50 text-amber-500 shrink-0">
@@ -664,26 +781,35 @@ export default function VehicleRequests() {
       </div>
 
       {/* Search & Filter */}
-      <div className="bg-secondarybg rounded-md border border-primarybg shadow-sm p-4 flex flex-col sm:flex-row gap-3">
+      <div className="bg-secondarybg rounded-md border border-primarybg shadow-sm p-4 flex flex-col lg:flex-row gap-3 lg:items-center">
         <CustomSearch
           value={searchQuery}
           onChange={setSearchQuery}
           placeholder="Search by name, department, purpose, or ID..."
           className="flex-1"
         />
-        <CustomDropdown
-          value={filterStatus}
-          onChange={setFilterStatus}
-          options={[
-            {value: "", label: "All Statuses"},
-            ...Object.entries(STATUS_CONFIG).map(([key, cfg]) => ({
-              value: key,
-              label: cfg.label,
-            })),
-          ]}
-          placeholder="All Statuses"
-          width="w-full sm:w-48"
-        />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full lg:w-auto">
+          <CustomDropdown
+            value={filterStatus}
+            onChange={setFilterStatus}
+            options={[
+              {value: "", label: "All Statuses"},
+              ...Object.entries(STATUS_CONFIG).map(([key, cfg]) => ({
+                value: key,
+                label: cfg.label,
+              })),
+            ]}
+            placeholder="All Statuses"
+            width="w-full sm:w-44"
+          />
+          <CustomDropdown
+            value={dateRangeFilter}
+            onChange={setDateRangeFilter}
+            options={DATE_RANGE_OPTIONS}
+            placeholder="Date Range"
+            width="w-full sm:w-40"
+          />
+        </div>
       </div>
 
       {/* Table */}
@@ -697,7 +823,7 @@ export default function VehicleRequests() {
       ) : (
         <div className="bg-secondarybg rounded-md border border-primarybg shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-245 text-sm">
               <thead>
                 <tr className="bg-primarybg/50 border-b border-primarybg">
                   <th className="px-6 py-4 text-left text-[10px] font-bold text-secondarytext uppercase tracking-widest whitespace-nowrap">
@@ -810,8 +936,8 @@ export default function VehicleRequests() {
         <div className="fixed inset-0 bg-slate-900/60  flex items-center justify-center z-50 p-4 animate-fadeIn">
           <div className="bg-secondarybg rounded-md shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-scaleIn">
             {/* Header */}
-            <div className="p-6 border-b border-primarybg/50">
-              <div className="flex items-center justify-between">
+            <div className="p-4 sm:p-6 border-b border-primarybg/50">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="flex items-center gap-4">
                   <div
                     className={`w-14 h-14 rounded-md flex items-center justify-center text-secondarybg shadow-lg ${STATUS_CONFIG[selectedRequest.status]?.themeColor === "green" ? "bg-green" : STATUS_CONFIG[selectedRequest.status]?.themeColor === "red" ? "bg-red" : STATUS_CONFIG[selectedRequest.status]?.themeColor === "amber" ? "bg-pending" : "bg-primary"}`}
@@ -853,7 +979,7 @@ export default function VehicleRequests() {
                 <Loading fullScreen={false} size="small" />
               </div>
             ) : (
-              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
                 {/* Trip Timeline & Location Section */}
                 <div className="bg-primarybg rounded-md p-4">
                   <h4 className="text-xs font-bold text-secondarytext uppercase tracking-widest mb-4 flex items-center gap-2">
@@ -869,7 +995,7 @@ export default function VehicleRequests() {
                           <div className="absolute top-3 right-3 px-2 py-0.5 bg-primary/5 text-primary text-[10px] font-bold rounded uppercase">
                             Leg {trip.trip_order}
                           </div>
-                          <div className="grid grid-cols-2 gap-5">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                             <div className="space-y-2">
                               <div className="flex items-center gap-1.5">
                                 <div className="w-2.5 h-2.5 rounded-full bg-primary" />
@@ -937,7 +1063,7 @@ export default function VehicleRequests() {
                       ))
                     ) : (
                       <div className="bg-secondarybg p-4 rounded-md border border-primarybg/50">
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <div className="flex items-center gap-1.5">
                               <div className="w-2.5 h-2.5 rounded-full bg-primary" />
@@ -1044,7 +1170,7 @@ export default function VehicleRequests() {
                           {selectedRequest.faculty_department}
                         </p>
                       </div>
-                      <div className="flex gap-4 pt-2 border-t border-primarybg">
+                      <div className="flex flex-col sm:flex-row gap-4 pt-2 border-t border-primarybg">
                         <div className="flex-1">
                           <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider">
                             Email
@@ -1064,7 +1190,6 @@ export default function VehicleRequests() {
                       </div>
                     </div>
                   </div>
-
                   <div className="bg-primarybg rounded-md p-4">
                     <h4 className="text-xs font-bold text-secondarytext uppercase tracking-widest mb-3 flex items-center gap-2">
                       <Info size={14} /> Booking Metadata
@@ -1076,14 +1201,6 @@ export default function VehicleRequests() {
                         </span>
                         <span className="text-xs font-bold text-primarytext uppercase tracking-tighter">
                           {selectedRequest.trip_type?.replace(/_/g, " ")}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center py-1 group/md border-t border-primarybg/50">
-                        <span className="text-xs font-medium text-secondarytext">
-                          Trip Mode
-                        </span>
-                        <span className="text-xs font-bold text-primarytext uppercase tracking-tighter">
-                          {selectedRequest.trip_mode || "Official"}
                         </span>
                       </div>
                       <div className="flex justify-between items-center py-1 group/md border-t border-primarybg/50">
@@ -1247,7 +1364,7 @@ export default function VehicleRequests() {
                           </p>
                         </div>
                         <div className="overflow-x-auto">
-                          <table className="w-full text-sm">
+                          <table className="w-full min-w-180 text-sm">
                             <thead>
                               <tr className="bg-primarybg/40">
                                 <th className="px-4 py-2.5 text-left text-[11px] font-bold text-secondarytext uppercase tracking-wider">
@@ -1498,11 +1615,27 @@ export default function VehicleRequests() {
                           Vehicle <span className="text-red">*</span>
                         </label>
                         <SearchableSelect
-                          options={vehicles.map((v) => ({
-                            value: v.id,
-                            label: v.vehicle_name || v.vehicle_number,
-                            subtitle: `${v.vehicle_number} • ${v.vehicle_type}`,
-                          }))}
+                          options={vehicles.map((v) => {
+                            const defaultDriver =
+                              defaultDriverByVehicleId[String(v.id)] || null;
+                            const subtitleParts = [
+                              v.vehicle_number,
+                              v.vehicle_type,
+                            ];
+                            if (defaultDriver) {
+                              subtitleParts.push(
+                                `Default driver: ${defaultDriver}`,
+                              );
+                            }
+
+                            return {
+                              value: v.id,
+                              label: v.vehicle_name || v.vehicle_number,
+                              subtitle: subtitleParts
+                                .filter(Boolean)
+                                .join(" • "),
+                            };
+                          })}
                           value={approveForm.vehicle_id}
                           onChange={(val) =>
                             setApproveForm((p) => ({...p, vehicle_id: val}))
@@ -1518,11 +1651,22 @@ export default function VehicleRequests() {
                           Driver <span className="text-red">*</span>
                         </label>
                         <SearchableSelect
-                          options={drivers.map((d) => ({
-                            value: d.id,
-                            label: d.full_name,
-                            subtitle: d.phone || "No phone",
-                          }))}
+                          options={drivers.map((d) => {
+                            const defaultVehicle =
+                              defaultVehicleByDriverId[String(d.id)] || null;
+                            const subtitleParts = [d.phone || "No phone"];
+                            if (defaultVehicle) {
+                              subtitleParts.push(
+                                `Default vehicle: ${defaultVehicle}`,
+                              );
+                            }
+
+                            return {
+                              value: d.id,
+                              label: d.full_name,
+                              subtitle: subtitleParts.join(" • "),
+                            };
+                          })}
                           value={approveForm.driver_id}
                           onChange={(val) =>
                             setApproveForm((p) => ({...p, driver_id: val}))
@@ -1652,11 +1796,20 @@ export default function VehicleRequests() {
                     Vehicle <span className="text-red">*</span>
                   </label>
                   <SearchableSelect
-                    options={vehicles.map((v) => ({
-                      value: v.id,
-                      label: v.vehicle_name || v.vehicle_number,
-                      subtitle: `${v.vehicle_number} • ${v.vehicle_type}`,
-                    }))}
+                    options={vehicles.map((v) => {
+                      const defaultDriver =
+                        defaultDriverByVehicleId[String(v.id)] || null;
+                      const subtitleParts = [v.vehicle_number, v.vehicle_type];
+                      if (defaultDriver) {
+                        subtitleParts.push(`Default driver: ${defaultDriver}`);
+                      }
+
+                      return {
+                        value: v.id,
+                        label: v.vehicle_name || v.vehicle_number,
+                        subtitle: subtitleParts.filter(Boolean).join(" • "),
+                      };
+                    })}
                     value={assignForm.vehicle_id}
                     onChange={(val) =>
                       setAssignForm((p) => ({...p, vehicle_id: val}))
@@ -1671,11 +1824,22 @@ export default function VehicleRequests() {
                     Driver <span className="text-red">*</span>
                   </label>
                   <SearchableSelect
-                    options={drivers.map((d) => ({
-                      value: d.id,
-                      label: d.full_name,
-                      subtitle: d.phone || "No phone",
-                    }))}
+                    options={drivers.map((d) => {
+                      const defaultVehicle =
+                        defaultVehicleByDriverId[String(d.id)] || null;
+                      const subtitleParts = [d.phone || "No phone"];
+                      if (defaultVehicle) {
+                        subtitleParts.push(
+                          `Default vehicle: ${defaultVehicle}`,
+                        );
+                      }
+
+                      return {
+                        value: d.id,
+                        label: d.full_name,
+                        subtitle: subtitleParts.join(" • "),
+                      };
+                    })}
                     value={assignForm.driver_id}
                     onChange={(val) =>
                       setAssignForm((p) => ({...p, driver_id: val}))

@@ -210,7 +210,7 @@ function DonutRing({
 }
 
 // Stat card (enhanced)
-function StatCard({title, value, sub, icon: Icon, color, onClick, badge}) {
+function StatCard({title, value, icon: Icon, color, onClick}) {
   const colorMap = {
     "bg-primary": {bg: "bg-primary/8", text: "text-primary"},
     "bg-green": {bg: "bg-green/8", text: "text-green"},
@@ -232,22 +232,14 @@ function StatCard({title, value, sub, icon: Icon, color, onClick, badge}) {
         >
           <Icon className={`w-4.5 h-4.5 ${soft.text}`} />
         </div>
-        <div className="flex items-center gap-1.5">
-          {badge && (
-            <span className="text-[10px] font-bold bg-red/10 text-red px-1.5 py-0.5 rounded-full">
-              {badge}
-            </span>
-          )}
-          {onClick && <ArrowUpRight className="w-3.5 h-3.5 text-gray-300" />}
-        </div>
+        {onClick && <ArrowUpRight className="w-3.5 h-3.5 text-gray-300" />}
       </div>
-      <p className="mt-3 text-xl font-bold text-primarytext leading-none">
+      <p className="mt-2.5 text-xl font-bold text-primarytext leading-none">
         {value}
       </p>
-      <p className="text-[10px] font-semibold text-secondarytext mt-1 uppercase tracking-wide">
+      <p className="text-[10px] font-semibold text-secondarytext mt-1.5 uppercase tracking-wide">
         {title}
       </p>
-      {sub && <p className="text-[10px] text-secondarytext/60 mt-0.5">{sub}</p>}
     </div>
   );
 }
@@ -800,6 +792,13 @@ export default function AdminHome() {
     return (stats.pending_actions || []).reduce((sum, a) => sum + a.count, 0);
   }, [stats]);
 
+  const pendingVehicleRequests = useMemo(() => {
+    if (!stats) return 0;
+    return Number(
+      stats.vehicle_requests_pending || stats.pending_vehicle_requests || 0,
+    );
+  }, [stats]);
+
   const visibleActions = useMemo(() => {
     if (!stats?.pending_actions) return [];
     return stats.pending_actions.filter(
@@ -893,6 +892,35 @@ export default function AdminHome() {
             </div>
           )}
           <button
+            onClick={() => navigate("/admin-dashboard/vehicle-requests")}
+            className="relative rounded-full transition-transform duration-200 hover:scale-[1.03]"
+            title={`${pendingVehicleRequests} pending vehicle request${pendingVehicleRequests !== 1 ? "s" : ""}`}
+            aria-label="View pending vehicle requests"
+          >
+            {pendingVehicleRequests > 0 && (
+              <>
+                <span className="absolute inset-0 rounded-full bg-customblue/20 animate-ping" />
+                <span className="absolute inset-0 rounded-full bg-customblue/15 animate-ping [animation-delay:450ms]" />
+              </>
+            )}
+            <div
+              className={`relative w-10 h-10 rounded-full flex items-center justify-center border ${
+                pendingVehicleRequests > 0
+                  ? "bg-customblue/12 border-customblue/35 shadow-sm"
+                  : "bg-gray-100 border-gray-200"
+              }`}
+            >
+              <Truck
+                className={`w-5 h-5 ${pendingVehicleRequests > 0 ? "text-customblue" : "text-gray-500"}`}
+              />
+            </div>
+            {pendingVehicleRequests > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-4.5 h-4.5 bg-customblue text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 leading-none border-2 border-primarybg shadow-sm">
+                {pendingVehicleRequests}
+              </span>
+            )}
+          </button>
+          <button
             onClick={() =>
               document
                 .getElementById("action-center")
@@ -923,7 +951,6 @@ export default function AdminHome() {
         <StatCard
           title="Total Drivers"
           value={stats.total_drivers}
-          sub={`${stats.present_drivers} present today`}
           icon={Users}
           color="bg-primary"
           onClick={() => navigate("/admin-dashboard/drivers")}
@@ -931,20 +958,13 @@ export default function AdminHome() {
         <StatCard
           title="Fleet Size"
           value={stats.total_vehicles}
-          sub={`${stats.active_vehicles} active`}
           icon={Bus}
           color="bg-green"
           onClick={() => navigate("/admin-dashboard/vehicles")}
-          badge={
-            stats.in_service_count > 0
-              ? `${stats.in_service_count} servicing`
-              : null
-          }
         />
         <StatCard
           title="Assignments"
           value={stats.total_assignments}
-          sub="Active today"
           icon={ClipboardList}
           color="bg-customblue"
           onClick={() => navigate("/admin-dashboard/all-assignments")}
@@ -952,7 +972,6 @@ export default function AdminHome() {
         <StatCard
           title="Pending Leaves"
           value={stats.pending_leaves}
-          sub="Awaiting approval"
           icon={Calendar}
           color="bg-pending"
           onClick={() => navigate("/admin-dashboard/leave-approvals")}
@@ -960,11 +979,6 @@ export default function AdminHome() {
         <StatCard
           title="Students"
           value={stats.total_students}
-          sub={
-            stats.outstanding_fees > 0
-              ? `Rs.${fmt(stats.outstanding_fees)} dues`
-              : "Active transport"
-          }
           icon={GraduationCap}
           color="bg-primarydull"
           onClick={() => navigate("/admin-dashboard/student-transport")}
@@ -972,7 +986,6 @@ export default function AdminHome() {
         <StatCard
           title="Active Services"
           value={stats.active_services}
-          sub="Repairs in progress"
           icon={Wrench}
           color={stats.active_services > 0 ? "bg-red" : "bg-green"}
           onClick={() => navigate("/admin-dashboard/service-records")}
@@ -1022,11 +1035,31 @@ export default function AdminHome() {
           <div className="p-4 flex-1 overflow-y-auto max-h-[520px]">
             {visibleActions.length > 0 ? (
               (() => {
-                const urgent = visibleActions.filter((a) => a.color === "red");
-                const warning = visibleActions.filter(
+                const isVehicleRequestAction = (action) => {
+                  const label = (action?.label || "").toLowerCase();
+                  const route = (action?.route || "").toLowerCase();
+                  const icon = (action?.icon || "").toLowerCase();
+                  return (
+                    label.includes("vehicle request") ||
+                    route.includes("vehicle-requests") ||
+                    icon === "truck"
+                  );
+                };
+
+                const priorityVehicleAction = visibleActions.find(
+                  isVehicleRequestAction,
+                );
+                const remainingActions = visibleActions.filter(
+                  (a) => !isVehicleRequestAction(a),
+                );
+
+                const urgent = remainingActions.filter(
+                  (a) => a.color === "red",
+                );
+                const warning = remainingActions.filter(
                   (a) => a.color === "pending",
                 );
-                const normal = visibleActions.filter(
+                const normal = remainingActions.filter(
                   (a) => a.color !== "red" && a.color !== "pending",
                 );
 
@@ -1120,6 +1153,45 @@ export default function AdminHome() {
 
                 return (
                   <div>
+                    {priorityVehicleAction && (
+                      <div className="mb-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="w-2 h-2 rounded-full bg-customblue animate-pulse" />
+                          <span className="text-[10px] font-bold text-secondarytext uppercase tracking-wider">
+                            Priority Alert
+                          </span>
+                        </div>
+
+                        <div className="group relative overflow-hidden rounded-md border border-customblue/35 bg-customblue/6 shadow-sm">
+                          <span className="pointer-events-none absolute inset-y-0 -left-1/2 w-1/2 bg-linear-to-r from-transparent via-white/35 to-transparent animate-[pulse_2s_ease-in-out_infinite]" />
+                          <div
+                            onClick={() =>
+                              navigate(priorityVehicleAction.route)
+                            }
+                            className="relative flex items-center gap-3 p-3.5 cursor-pointer"
+                          >
+                            <div className="relative w-9 h-9 rounded-md flex items-center justify-center shrink-0 bg-customblue/14">
+                              <Truck className="w-4.5 h-4.5 text-customblue" />
+                              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red animate-ping" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[13px] font-semibold text-primarytext leading-tight truncate">
+                                {priorityVehicleAction.label}
+                              </p>
+                              <p className="text-[11px] text-secondarytext mt-0.5">
+                                {priorityVehicleAction.count} need attention
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="text-base font-bold tabular-nums text-customblue">
+                                {priorityVehicleAction.count}
+                              </span>
+                              <ChevronRight className="w-4 h-4 text-customblue/60" />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     {renderGroup("Urgent", AlertTriangle, urgent, "bg-red")}
                     {renderGroup(
                       "Needs Attention",
@@ -1180,7 +1252,7 @@ export default function AdminHome() {
                         {stats.expiring_assignments}
                       </p>
                       <p className="text-[10px] text-pending/70">
-                        Expiring in 7d
+                        Expiring in 2d
                       </p>
                     </div>
                   </div>

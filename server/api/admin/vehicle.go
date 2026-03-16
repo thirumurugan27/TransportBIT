@@ -1046,6 +1046,7 @@ func createVehicleTx(tx *sql.Tx, req models.CreateVehicleRequest) error {
 
 	return nil
 }
+
 // nullifyEmptyDate converts a *string that holds an empty string into nil,
 // so the SQL driver sends NULL to MySQL DATE columns instead of ” (which MySQL strict mode rejects).
 func nullifyEmptyDate(s *string) *string {

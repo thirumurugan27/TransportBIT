@@ -224,6 +224,30 @@ export default function DriverHome() {
     };
   };
 
+  const getVehicleReplacementDetails = (assignment) => {
+    const previousVehicle = getVehicleDisplay({
+      vehicle_name: assignment?.vehicle_name,
+      vehicle_number: assignment?.vehicle_number,
+      vehicle_type: assignment?.vehicle_type,
+    });
+    const replacementVehicle = getVehicleDisplay({
+      vehicle_name: assignment?.replacement_vehicle_name,
+      vehicle_number: assignment?.replacement_vehicle_number,
+      vehicle_type: assignment?.vehicle_type,
+    });
+
+    const hasReplacement =
+      normalizeText(assignment?.replacement_vehicle_number) !== "" ||
+      normalizeText(assignment?.replacement_vehicle_name) !== "";
+
+    return {
+      hasReplacement,
+      previousVehicle,
+      activeVehicle: hasReplacement ? replacementVehicle : previousVehicle,
+      replacementVehicle,
+    };
+  };
+
   const getDateRangeLabel = (assignment) =>
     assignment.start_date === assignment.end_date
       ? assignment.start_date
@@ -484,6 +508,8 @@ export default function DriverHome() {
                   const isTemp = assignment.is_temporary_replacement;
                   const isEV = assignment.is_ev_assignment;
                   const isDone = assignment.status === "completed";
+                  const vehicleReplacement =
+                    getVehicleReplacementDetails(assignment);
 
                   if (isEV) {
                     return (
@@ -559,14 +585,22 @@ export default function DriverHome() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="font-semibold text-primarytext text-sm truncate">
-                              {assignment.vehicle_name ||
-                                assignment.vehicle_number}
+                              {vehicleReplacement.activeVehicle.title}
                             </p>
                             <span
                               className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${isTemp ? "bg-pending/10 text-pending" : "bg-gray-100 text-secondarytext"}`}
                             >
                               {assignment.vehicle_type}
                             </span>
+                            {vehicleReplacement.hasReplacement && (
+                              <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold bg-skyblue/10 text-skyblue px-1.5 py-0.5 rounded-full">
+                                <RotateCcw size={8} />
+                                {
+                                  vehicleReplacement.previousVehicle.title
+                                } to{" "}
+                                {vehicleReplacement.replacementVehicle.title}
+                              </span>
+                            )}
                             {isTemp && (
                               <span className="shrink-0 inline-flex items-center gap-0.5 text-[10px] font-bold bg-pending/10 text-pending px-1.5 py-0.5 rounded-full">
                                 <RotateCcw size={8} /> Temp

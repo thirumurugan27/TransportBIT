@@ -655,21 +655,6 @@ export default function Reports() {
           );
         })}
       </div>
-
-      {/* Info Footer */}
-      <div className="bg-blue-50 border border-blue-100 rounded-md p-4 flex items-start gap-3">
-        <FileSpreadsheet className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
-        <div>
-          <p className="text-sm font-medium text-blue-800">About Reports</p>
-          <p className="text-xs text-blue-600 mt-1 leading-relaxed">
-            Reports can be generated as Excel (.xlsx) or PDF files with
-            formatted headers, styled columns and auto-calculated totals. PDF
-            reports include the institution header with Bannari Amman Institute
-            of Technology branding. Click on any report card to adjust its
-            filters before downloading.
-          </p>
-        </div>
-      </div>
     </div>
   );
 }
