@@ -40,6 +40,7 @@ const DRIVER_STATUS_OPTIONS = [
   {value: "assigned", label: "Assigned", icon: CalendarDays},
   {value: "trip_started", label: "On Trip", icon: Play},
   {value: "completed", label: "Completed", icon: CheckCircle},
+  {value: "cancelled", label: "Cancelled", icon: X},
 ];
 
 const STATUS_CONFIG = {
@@ -57,6 +58,11 @@ const STATUS_CONFIG = {
     color: "bg-green/10 text-green border-green/20",
     icon: CheckCircle,
     label: "Completed",
+  },
+  cancelled: {
+    color: "bg-red/10 text-red border-red/20",
+    icon: X,
+    label: "Cancelled",
   },
 };
 
@@ -317,14 +323,24 @@ export default function DriverVehicleRequests() {
             const firstLeg = tripLegs[0];
             const lastLeg = tripLegs[tripLegs.length - 1];
             const hasMultipleLegs = tripLegs.length > 1;
+            const isCancelled = request.status?.toLowerCase() === "cancelled";
 
             return (
               <div
                 key={request.id}
-                className="bg-white rounded-md shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200 overflow-hidden"
+                className={`rounded-md shadow-sm border transition-all duration-200 overflow-hidden relative z-0 ${
+                  isCancelled ? "bg-gray-50 border-red opacity-60" : "bg-white border-gray-100 hover:shadow-md"
+                }`}
               >
+                {/* Cancelled Watermark */}
+                {isCancelled && (
+                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 -rotate-12 text-red font-black text-6xl pointer-events-none uppercase tracking-widest z-0 whitespace-nowrap">
+                    Cancelled
+                  </div>
+                )}
+
                 {/* Card Header */}
-                <div className="p-4 sm:p-5 border-b border-gray-100 bg-gray-50/50">
+                <div className="p-4 sm:p-5 border-b border-gray-100 bg-gray-50/50 relative z-10">
                   <div className="flex justify-between items-start gap-3">
                     <div className="flex gap-3 flex-1 min-w-0">
                       <div
@@ -510,7 +526,7 @@ export default function DriverVehicleRequests() {
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50  animate-fadeIn">
           <div className="bg-secondarybg rounded-t-2xl sm:rounded-md shadow-2xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col animate-scaleIn border border-gray-100">
             {/* Modal Header */}
-            <div className="relative px-4 sm:px-6 py-4 sm:py-5 bg-gradient-to-br from-primary/5 to-primarybg border-b border-gray-200">
+            <div className="relative px-4 sm:px-6 py-4 sm:py-5 bg-linear-to-br from-primary/5 to-primarybg border-b border-gray-200">
               <button
                 onClick={handleCloseModal}
                 className="absolute top-4 right-4 w-9 h-9 hover:bg-secondarybg rounded-md transition-all flex items-center justify-center text-secondarytext hover:text-primarytext shadow-sm"

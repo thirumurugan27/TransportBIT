@@ -112,7 +112,7 @@ export default function DriverFuelIndent() {
   const vehicleOptions = filteredVehicles.map((v) => ({
     value: String(v.id),
     label: v.vehicle_name || v.vehicle_number,
-    subtitle: v.vehicle_number,
+    subtitle: `${v.vehicle_number}${v.seating_capacity ? ` • ${v.seating_capacity} Seats` : ""}`,
   }));
 
   const driverOptions = drivers.map((d) => ({

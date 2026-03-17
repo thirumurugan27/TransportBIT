@@ -90,9 +90,6 @@ export default function KmManagement() {
     remarks: "",
   });
 
-  // Pending count
-  const [pendingCount, setPendingCount] = useState(0);
-
   // Logs
   const [logFilters, setLogFilters] = useState({
     period: "today",
@@ -443,7 +440,6 @@ export default function KmManagement() {
 
   useEffect(() => {
     loadFilterMeta();
-    fetchPendingCount();
     loadVehicleTypeOptions();
   }, []);
 
@@ -459,17 +455,7 @@ export default function KmManagement() {
     setVehicleTypeOptions(mapped);
   };
 
-  const fetchPendingCount = async () => {
-    try {
-      const res = await apiGet("/api/admin/km-logs/pending-count");
-      if (res.ok) {
-        const data = await res.json();
-        setPendingCount(data.count || 0);
-      }
-    } catch (err) {
-      console.error("Failed to fetch pending count", err);
-    }
-  };
+
 
   const fetchDatewiseTracker = async (date) => {
     try {
@@ -522,7 +508,6 @@ export default function KmManagement() {
       if (res.ok) {
         showToast("KM log approved", "success");
         fetchKmLogs();
-        fetchPendingCount();
       } else {
         const data = await res.json();
         showToast(data.error || "Failed to approve", "error");
@@ -544,7 +529,6 @@ export default function KmManagement() {
       if (res.ok) {
         showToast("KM log rejected", "success");
         fetchKmLogs();
-        fetchPendingCount();
       } else {
         const data = await res.json();
         showToast(data.error || "Failed to reject", "error");
@@ -602,6 +586,7 @@ export default function KmManagement() {
         v.vehicle_name && v.vehicle_name !== v.vehicle_number
           ? v.vehicle_name + " (" + v.vehicle_number + ")"
           : v.vehicle_number,
+      subtitle: v.seating_capacity ? `${v.seating_capacity} Seats` : undefined,
     })),
   ];
 
@@ -622,29 +607,6 @@ export default function KmManagement() {
         >
           <BarChart3 className="w-4 h-4" />
           Overview & Logs
-        </button>
-        <button
-          onClick={() => {
-            setActiveTab("pending");
-            setLogFilters((prev) => ({
-              ...prev,
-              status: "pending",
-              period: "all",
-            }));
-          }}
-          className={`inline-flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-semibold rounded-md transition-all duration-300 relative ${
-            activeTab === "pending"
-              ? "bg-primary text-white shadow-md"
-              : "text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          <Clock className="w-4 h-4" />
-          Pending Approvals
-          {pendingCount > 0 && (
-            <span className="inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold bg-red text-white rounded-full">
-              {pendingCount}
-            </span>
-          )}
         </button>
         <button
           onClick={() => setActiveTab("individual")}
@@ -1230,107 +1192,7 @@ export default function KmManagement() {
         </>
       )}
 
-      {/* Pending Approvals Tab */}
-      {activeTab === "pending" && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-primarytext flex items-center gap-2">
-              <Clock className="w-5 h-5 text-pending" />
-              Pending KM Log Approvals
-              {pendingCount > 0 && (
-                <span className="text-sm font-medium text-pending">
-                  ({pendingCount})
-                </span>
-              )}
-            </h2>
-          </div>
 
-          {logsLoading ? (
-            <div className="flex items-center justify-center py-16">
-              <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
-            </div>
-          ) : logs.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-secondarytext">
-              <Check className="w-12 h-12 mb-3 text-green" />
-              <p className="text-lg font-semibold">All caught up!</p>
-              <p className="text-sm">No pending KM log approvals.</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {logs.map((log) => (
-                <div
-                  key={log.id}
-                  className="bg-secondarybg border border-pending/30 rounded-md p-4 shadow-sm hover:shadow-md transition-shadow"
-                >
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <span className="text-sm font-bold text-primarytext">
-                          {log.driver_name}
-                        </span>
-                        <span className="text-xs px-2 py-0.5 bg-customblue/10 text-customblue rounded-full font-medium">
-                          {log.vehicle_number}
-                        </span>
-                        <span className="text-xs text-secondarytext">
-                          {new Date(log.date).toLocaleDateString("en-IN", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                          })}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-4 text-sm text-secondarytext">
-                        <span>
-                          Start:{" "}
-                          <strong className="text-primarytext">
-                            {parseFloat(log.start_km).toLocaleString()} km
-                          </strong>
-                        </span>
-                        <span>
-                          End:{" "}
-                          <strong className="text-primarytext">
-                            {parseFloat(log.end_km).toLocaleString()} km
-                          </strong>
-                        </span>
-                        <span className="text-primary font-semibold">
-                          Total: {parseFloat(log.total_km).toFixed(1)} km
-                        </span>
-                        {log.fuel_consumed && (
-                          <span className="text-pending font-semibold flex items-center gap-1">
-                            <Fuel className="w-3.5 h-3.5" />
-                            {parseFloat(log.fuel_consumed).toFixed(1)} L
-                          </span>
-                        )}
-                      </div>
-                      {log.remarks && (
-                        <p className="text-xs text-secondarytext italic">
-                          "{log.remarks}"
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleApprove(log.id)}
-                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-green text-white text-sm font-medium rounded-md hover:bg-green/90 transition-colors"
-                      >
-                        <Check className="w-4 h-4" />
-                        Approve
-                      </button>
-                      <button
-                        onClick={() => handleReject(log.id)}
-                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-red text-white text-sm font-medium rounded-md hover:bg-red/90 transition-colors"
-                      >
-                        <XCircle className="w-4 h-4" />
-                        Reject
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Individual Analysis Tab */}
       {activeTab === "individual" && (

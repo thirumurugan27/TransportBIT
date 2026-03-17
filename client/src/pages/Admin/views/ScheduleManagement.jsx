@@ -2631,28 +2631,36 @@ export default function ScheduleManagement() {
                       assigned to this group
                     </div>
                   ) : (
-                    <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto">
                       {detailMembers.map((member, idx) => (
                         <div
                           key={member.id || idx}
-                          className="inline-flex items-center gap-2
-                           bg-primary/10 px-3 py-2 rounded-md border border-primary/20"
+                          className="flex items-start gap-3 bg-white px-3 py-2.5 rounded-md border border-gray-100"
                         >
-                          {detailType === "cluster" ? (
-                            <Users className="w-4 h-4 text-primary" />
-                          ) : (
-                            <Car className="w-4 h-4 text-primary" />
-                          )}
-                          <span className="font-medium text-primarytext text-sm">
-                            {detailType === "cluster"
-                              ? member.driver_name ||
-                                member.full_name ||
-                                member.name ||
-                                "Unknown"
-                              : member.vehicle_name ||
-                                member.vehicle_number ||
-                                "Unknown"}
-                          </span>
+                          <div className="p-2 bg-primary/10 rounded-md">
+                            {detailType === "cluster" ? (
+                              <Users className="w-4 h-4 text-primary" />
+                            ) : (
+                              <Car className="w-4 h-4 text-primary" />
+                            )}
+                          </div>
+
+                          <div className="min-w-0">
+                            <p className="font-semibold text-primarytext text-sm truncate">
+                              {detailType === "cluster"
+                                ? member.driver_name || "N/A"
+                                : member.vehicle_name ||
+                                  member.vehicle_number ||
+                                  "N/A"}
+                            </p>
+                            <p className="text-xs text-secondarytext mt-0.5 truncate">
+                              {detailType === "cluster"
+                                ? member.driver_phone ||
+                                  member.phone ||
+                                  "No mobile number"
+                                : member.vehicle_number || "No vehicle number"}
+                            </p>
+                          </div>
                         </div>
                       ))}
                     </div>

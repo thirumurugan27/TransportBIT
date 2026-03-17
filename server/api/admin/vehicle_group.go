@@ -34,6 +34,7 @@ type VehicleGroupMember struct {
 	ID            int    `json:"id"`
 	GroupID       int    `json:"group_id"`
 	VehicleID     int    `json:"vehicle_id"`
+	VehicleName   string `json:"vehicle_name"`
 	VehicleNumber string `json:"vehicle_number"`
 	VehicleType   string `json:"vehicle_type"`
 	ValidFrom     string `json:"valid_from"`
@@ -377,6 +378,7 @@ func GetVehicleGroupMembers(c *gin.Context) {
 
 	rows, err := config.DB.Query(`
 		SELECT vgm.id, vgm.group_id, vgm.vehicle_id,
+		       COALESCE(NULLIF(v.vehicle_name, ''), v.vehicle_number, '') as vehicle_name,
 		       v.vehicle_number, COALESCE(vt.type, '') as vehicle_type,
 		       DATE_FORMAT(vgm.valid_from, '%d-%m-%Y') as valid_from,
 		       DATE_FORMAT(vgm.valid_to, '%d-%m-%Y') as valid_to,
@@ -398,7 +400,7 @@ func GetVehicleGroupMembers(c *gin.Context) {
 	var members []VehicleGroupMember
 	for rows.Next() {
 		var m VehicleGroupMember
-		err := rows.Scan(&m.ID, &m.GroupID, &m.VehicleID, &m.VehicleNumber, &m.VehicleType, &m.ValidFrom, &m.ValidTo, &m.AddedAt, &m.VehicleStatus)
+		err := rows.Scan(&m.ID, &m.GroupID, &m.VehicleID, &m.VehicleName, &m.VehicleNumber, &m.VehicleType, &m.ValidFrom, &m.ValidTo, &m.AddedAt, &m.VehicleStatus)
 		if err != nil {
 			log.Printf("Scan member error: %v", err)
 			continue

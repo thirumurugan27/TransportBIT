@@ -779,6 +779,7 @@ export default function VehicleReplacements({
                 options={vehicles.map((v) => ({
                   value: v.id,
                   label: `${v.vehicle_number} – ${v.vehicle_name || v.vehicle_type}`,
+                  subtitle: v.seating_capacity ? `${v.seating_capacity} Seats` : undefined,
                 }))}
                 placeholder="Select vehicle..."
               />
@@ -856,6 +857,7 @@ export default function VehicleReplacements({
                   options={availableVehicles.map((v) => ({
                     value: v.id,
                     label: `${v.vehicle_number} – ${v.vehicle_name || v.vehicle_type}`,
+                    subtitle: v.seating_capacity ? `${v.seating_capacity} Seats` : undefined,
                   }))}
                   placeholder="Select replacement vehicle..."
                 />
@@ -921,6 +923,7 @@ export default function VehicleReplacements({
                 options={availableVehicles.map((v) => ({
                   value: v.id,
                   label: `${v.vehicle_number} – ${v.vehicle_name || v.vehicle_type}`,
+                  subtitle: v.seating_capacity ? `${v.seating_capacity} Seats` : undefined,
                 }))}
                 placeholder="Select replacement vehicle..."
               />

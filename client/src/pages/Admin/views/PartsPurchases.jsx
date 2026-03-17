@@ -2109,7 +2109,7 @@ export default function PartsPurchases() {
                           label: v.vehicle_name
                             ? `${v.vehicle_name} (${v.vehicle_number})`
                             : v.vehicle_number,
-                          subtitle: v.vehicle_type,
+                          subtitle: v.seating_capacity ? `${v.vehicle_type} • ${v.seating_capacity} Seats` : v.vehicle_type,
                         }))}
                         emptyMessage="No vehicles found"
                       />

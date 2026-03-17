@@ -31,6 +31,9 @@ type DriverAssignment struct {
 	OriginalDriverID         *int   `json:"original_driver_id"`
 	OriginalDriverName       string `json:"original_driver_name"`
 	Description              string `json:"description,omitempty"`
+	// Bus route information
+	RouteFrom string `json:"route_from,omitempty"`
+	RouteTo   string `json:"route_to,omitempty"`
 	// Group information for EV assignments
 	DriverGroupID    *int   `json:"driver_group_id"`
 	DriverGroupName  string `json:"driver_group_name"`
@@ -126,7 +129,9 @@ func GetDriverTodayAssignment(c *gin.Context) {
 			COALESCE((SELECT COALESCE(rv.vehicle_name, rv.vehicle_number) FROM vehicle_replacements vr
 			          JOIN vehicles rv ON vr.replacement_vehicle_id = rv.id
 			          WHERE vr.vehicle_id = a.vehicle_id AND vr.status IN ('approved', 'active')
-			          ORDER BY vr.created_at DESC LIMIT 1), '') as replacement_vehicle_name
+			          ORDER BY vr.created_at DESC LIMIT 1), '') as replacement_vehicle_name,
+			COALESCE(b.start_point, '') as route_from,
+			COALESCE(b.end_point, '') as route_to
 		FROM assignments a
 		JOIN vehicles v ON a.vehicle_id = v.id
 		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
@@ -139,6 +144,7 @@ func GetDriverTodayAssignment(c *gin.Context) {
 		&assignment.ShiftName, &assignment.StartTime, &assignment.EndTime,
 		&assignment.AssignedDate, &assignment.Status,
 		&assignment.ReplacementVehicleNumber, &assignment.ReplacementVehicleName,
+		&assignment.RouteFrom, &assignment.RouteTo,
 	)
 
 	if err == sql.ErrNoRows {
@@ -231,7 +237,9 @@ func GetDriverTodayAssignments(c *gin.Context) {
 			COALESCE((SELECT COALESCE(rv.vehicle_name, rv.vehicle_number) FROM vehicle_replacements vr
 			          JOIN vehicles rv ON vr.replacement_vehicle_id = rv.id
 			          WHERE vr.vehicle_id = a.vehicle_id AND vr.status IN ('approved', 'active')
-			          ORDER BY vr.created_at DESC LIMIT 1), '') as replacement_vehicle_name
+			          ORDER BY vr.created_at DESC LIMIT 1), '') as replacement_vehicle_name,
+			COALESCE(b.start_point, '') as route_from,
+			COALESCE(b.end_point, '') as route_to
 		FROM assignments a
 		JOIN vehicles v ON a.vehicle_id = v.id
 		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
@@ -258,7 +266,8 @@ func GetDriverTodayAssignments(c *gin.Context) {
 			&a.ShiftName, &a.StartTime, &a.EndTime,
 			&a.AssignedDate, &a.StartDate, &a.EndDate, &a.Status,
 			&a.IsTemporaryReplacement, &originalDriverID, &a.OriginalDriverName,
-			&a.ReplacementVehicleNumber, &a.ReplacementVehicleName)
+			&a.ReplacementVehicleNumber, &a.ReplacementVehicleName,
+			&a.RouteFrom, &a.RouteTo)
 
 		if err == nil {
 			if originalDriverID.Valid {
@@ -455,7 +464,9 @@ func GetDriverAssignments(c *gin.Context) {
 			COALESCE((SELECT COALESCE(rv.vehicle_name, rv.vehicle_number) FROM vehicle_replacements vr
 			          JOIN vehicles rv ON vr.replacement_vehicle_id = rv.id
 			          WHERE vr.vehicle_id = a.vehicle_id AND vr.status IN ('approved', 'active')
-			          ORDER BY vr.created_at DESC LIMIT 1), '') as replacement_vehicle_name
+			          ORDER BY vr.created_at DESC LIMIT 1), '') as replacement_vehicle_name,
+			COALESCE(b.start_point, '') as route_from,
+			COALESCE(b.end_point, '') as route_to
 		FROM assignments a
 		JOIN vehicles v ON a.vehicle_id = v.id
 		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
@@ -483,7 +494,8 @@ func GetDriverAssignments(c *gin.Context) {
 			&a.AssignedDate, &a.StartDate, &a.EndDate, &a.Status,
 			&a.IsTemporaryReplacement, &originalDriverID, &a.OriginalDriverName,
 			&a.Description,
-			&a.ReplacementVehicleNumber, &a.ReplacementVehicleName)
+			&a.ReplacementVehicleNumber, &a.ReplacementVehicleName,
+			&a.RouteFrom, &a.RouteTo)
 		if err == nil {
 			if originalDriverID.Valid {
 				id := int(originalDriverID.Int64)
@@ -853,4 +865,89 @@ func getGroupDrivers(groupID int, date string) []GroupDriver {
 		}
 	}
 	return drivers
+}
+
+/*
+=========================
+
+	GET /api/driver/bus/:vehicle_id/route-info
+	Returns bus stops with student counts for the driver's assigned bus
+
+=========================
+*/
+func GetBusRouteInfo(c *gin.Context) {
+	vehicleID := c.Param("vehicle_id")
+	if vehicleID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "vehicle_id required"})
+		return
+	}
+
+	type StopWithStudents struct {
+		ID          int     `json:"id"`
+		StopName    string  `json:"stop_name"`
+		StopOrder   int     `json:"stop_order"`
+		Fee         float64 `json:"fee"`
+		DistanceKm  float64 `json:"distance_km"`
+		ArrivalTime string  `json:"arrival_time"`
+		StudentCount int   `json:"student_count"`
+	}
+
+	type RouteInfoResponse struct {
+		VehicleID     int                `json:"vehicle_id"`
+		RouteFrom     string             `json:"route_from"`
+		RouteTo       string             `json:"route_to"`
+		TotalStudents int                `json:"total_students"`
+		Stops         []StopWithStudents `json:"stops"`
+	}
+
+	// Fetch route details (start/end point)
+	var routeFrom, routeTo string
+	config.DB.QueryRow(`
+		SELECT COALESCE(b.start_point, ''), COALESCE(b.end_point, '')
+		FROM buses b WHERE b.vehicle_id = ?
+	`, vehicleID).Scan(&routeFrom, &routeTo)
+
+	// Fetch stops with per-stop student count
+	rows, err := config.DB.Query(`
+		SELECT 
+			bs.id, bs.stop_name, bs.stop_order, 
+			COALESCE(bs.fee, 0), COALESCE(bs.distance_km, 0),
+			COALESCE(TIME_FORMAT(bs.arrival_time, '%h:%i %p'), '') as arrival_time,
+			COUNT(st.id) as student_count
+		FROM bus_stops bs
+		LEFT JOIN buses b ON b.vehicle_id = bs.vehicle_id
+		LEFT JOIN student_transport st ON st.bus_id = b.id AND st.stop_id = bs.id AND st.status = 'active'
+		WHERE bs.vehicle_id = ?
+		GROUP BY bs.id, bs.stop_name, bs.stop_order, bs.fee, bs.distance_km, bs.arrival_time
+		ORDER BY bs.stop_order ASC
+	`, vehicleID)
+	if err != nil {
+		log.Printf("Get bus route info error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching route info"})
+		return
+	}
+	defer rows.Close()
+
+	var stops []StopWithStudents
+	totalStudents := 0
+	for rows.Next() {
+		var s StopWithStudents
+		if err := rows.Scan(&s.ID, &s.StopName, &s.StopOrder, &s.Fee, &s.DistanceKm, &s.ArrivalTime, &s.StudentCount); err == nil {
+			totalStudents += s.StudentCount
+			stops = append(stops, s)
+		}
+	}
+
+	vID := 0
+	if id, err := strconv.Atoi(vehicleID); err == nil {
+		vID = id
+	}
+
+	c.JSON(http.StatusOK, RouteInfoResponse{
+		VehicleID:     vID,
+		RouteFrom:     routeFrom,
+		RouteTo:       routeTo,
+		TotalStudents: totalStudents,
+		Stops:         stops,
+	})
 }

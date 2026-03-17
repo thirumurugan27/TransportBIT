@@ -9,13 +9,11 @@
  * redirected to /login so stale state is never shown.
  */
 
-export const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
-
+export const API_BASE = import.meta.env.VITE_API_BASE;
 const BASE_HEADERS = {
     'Content-Type': 'application/json',
     'X-Tunnel-Skip-Efficiency-Check': 'true',
 };
-
 /** Redirect to login on 401 — session expired or not authenticated */
 const handleUnauthorized = (res) => {
     if (res.status === 401) {
@@ -37,7 +35,6 @@ export const apiGet = async (endpoint) => {
     });
     return handleUnauthorized(res);
 };
-
 /**
  * Make an authenticated POST request
  * @param {string} endpoint - API endpoint
@@ -53,7 +50,6 @@ export const apiPost = async (endpoint, body) => {
     });
     return handleUnauthorized(res);
 };
-
 /**
  * Make an authenticated PUT request
  * @param {string} endpoint - API endpoint
@@ -69,7 +65,6 @@ export const apiPut = async (endpoint, body) => {
     });
     return handleUnauthorized(res);
 };
-
 /**
  * Make an authenticated DELETE request
  * @param {string} endpoint - API endpoint
@@ -83,7 +78,6 @@ export const apiDelete = async (endpoint) => {
     });
     return handleUnauthorized(res);
 };
-
 /**
  * Make an authenticated file upload request (multipart/form-data)
  * @param {string} endpoint - API endpoint
@@ -102,7 +96,6 @@ export const apiUpload = async (endpoint, formData) => {
     });
     return handleUnauthorized(res);
 };
-
 /**
  * Helper to get today's date in YYYY-MM-DD format
  * @returns {string}

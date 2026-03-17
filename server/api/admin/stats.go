@@ -273,7 +273,7 @@ func GetDashboardStats(c *gin.Context) {
 	config.DB.QueryRow(`SELECT COUNT(*) FROM vehiclerequests WHERE status = 'completed' AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)`).Scan(&s.VehicleRequestsCompleted)
 
 	// ── Vehicles by Type ──
-	s.VehiclesByType = queryTypeCount(`SELECT COALESCE(vehicle_type,'Other'), COUNT(*) FROM vehicles GROUP BY vehicle_type ORDER BY COUNT(*) DESC`)
+	s.VehiclesByType = queryTypeCount(`SELECT COALESCE(vt.type, 'Other'), COUNT(*) FROM vehicles v LEFT JOIN vehicle_types vt ON v.vehicle_type_id = vt.id GROUP BY vt.type ORDER BY COUNT(*) DESC`)
 
 	// ── Vehicles by Fuel ──
 	s.VehiclesByFuel = queryTypeCount(`SELECT COALESCE(fuel_type,'Other'), COUNT(*) FROM vehicles GROUP BY fuel_type ORDER BY COUNT(*) DESC`)
@@ -526,13 +526,14 @@ func queryRecentVehicleRequests() []RecentVehicleRequest {
 	rows, err := config.DB.Query(`
 		SELECT vr.id,
 			COALESCE(u.full_name, 'Unknown') AS faculty_name,
-			COALESCE(vr.department, '') AS department,
-			COALESCE(vr.purpose, '') AS purpose,
+			COALESCE(f.department, '') AS department,
+			COALESCE(vr.Purpose, '') AS purpose,
 			COALESCE(vr.status, 'pending') AS status,
-			COALESCE(DATE_FORMAT(vr.trip_date, '%Y-%m-%d'), '') AS trip_date,
+			COALESCE(DATE_FORMAT(vr.OnwardFromDateTime, '%Y-%m-%d'), '') AS trip_date,
 			vr.created_at
 		FROM vehiclerequests vr
-		LEFT JOIN users u ON vr.user_id = u.id
+		LEFT JOIN faculty f ON vr.faculty_id = f.id
+		LEFT JOIN users u ON f.user_id = u.id
 		ORDER BY vr.created_at DESC
 		LIMIT 5
 	`)
@@ -721,17 +722,36 @@ func GetDriverWorkload(c *gin.Context) {
 		FROM drivers d
 		JOIN users u ON d.user_id = u.id
 		LEFT JOIN (
-			SELECT a.driver_id, COUNT(*) AS cnt
-			FROM assignments a
-			WHERE a.status IN ('assigned','active') AND CURDATE() BETWEEN a.start_date AND a.end_date
-			GROUP BY a.driver_id
+			SELECT a_agg.driver_id, COUNT(*) AS cnt
+			FROM (
+				SELECT driver_id FROM assignments 
+				WHERE status IN ('assigned','active') AND CURDATE() BETWEEN start_date AND end_date
+				UNION ALL
+				SELECT ta.replacement_driver_id FROM temporary_assignments ta
+				WHERE ta.status = 'active' AND CURDATE() BETWEEN ta.start_date AND ta.end_date
+				UNION ALL
+				SELECT dcm.driver_id FROM ev_assignments ea
+				JOIN driver_cluster_members dcm ON ea.cluster_id = dcm.cluster_id
+				WHERE ea.status IN ('assigned', 'active') 
+				  AND CURDATE() BETWEEN ea.start_date AND ea.end_date
+				  AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to
+			) a_agg
+			GROUP BY a_agg.driver_id
 		) active_asgn ON active_asgn.driver_id = d.id
 		LEFT JOIN (
-			SELECT a.driver_id, COUNT(*) AS cnt
-			FROM assignments a
-			WHERE a.start_date <= LAST_DAY(CURDATE())
-			  AND a.end_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
-			GROUP BY a.driver_id
+			SELECT a_agg.driver_id, COUNT(*) AS cnt
+			FROM (
+				SELECT driver_id FROM assignments 
+				WHERE start_date <= LAST_DAY(CURDATE()) AND end_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+				UNION ALL
+				SELECT ta.replacement_driver_id FROM temporary_assignments ta
+				WHERE ta.start_date <= LAST_DAY(CURDATE()) AND ta.end_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+				UNION ALL
+				SELECT dcm.driver_id FROM ev_assignments ea
+				JOIN driver_cluster_members dcm ON ea.cluster_id = dcm.cluster_id
+				WHERE ea.start_date <= LAST_DAY(CURDATE()) AND ea.end_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+			) a_agg
+			GROUP BY a_agg.driver_id
 		) duties_month ON duties_month.driver_id = d.id
 		LEFT JOIN (
 			SELECT kl.driver_id, SUM(kl.total_km) AS total_km
@@ -745,11 +765,21 @@ func GetDriverWorkload(c *gin.Context) {
 				asgn.driver_id,
 				GREATEST(0, asgn.cnt - COALESCE(logs.cnt, 0)) AS cnt
 			FROM (
-				SELECT a.driver_id, COUNT(*) AS cnt
-				FROM assignments a
-				WHERE a.status IN ('assigned','active')
-				  AND CURDATE() BETWEEN a.start_date AND a.end_date
-				GROUP BY a.driver_id
+				SELECT a_agg.driver_id, COUNT(*) AS cnt
+				FROM (
+					SELECT driver_id FROM assignments 
+					WHERE status IN ('assigned','active') AND CURDATE() BETWEEN start_date AND end_date
+					UNION ALL
+					SELECT ta.replacement_driver_id FROM temporary_assignments ta
+					WHERE ta.status = 'active' AND CURDATE() BETWEEN ta.start_date AND ta.end_date
+					UNION ALL
+					SELECT dcm.driver_id FROM ev_assignments ea
+					JOIN driver_cluster_members dcm ON ea.cluster_id = dcm.cluster_id
+					WHERE ea.status IN ('assigned', 'active') 
+					  AND CURDATE() BETWEEN ea.start_date AND ea.end_date
+					  AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to
+				) a_agg
+				GROUP BY a_agg.driver_id
 			) asgn
 			LEFT JOIN (
 				SELECT driver_id, COUNT(*) AS cnt
@@ -765,10 +795,24 @@ func GetDriverWorkload(c *gin.Context) {
 			WHERE a.date = CURDATE()
 		) att ON att.user_id = d.user_id
 		LEFT JOIN (
-			SELECT a.driver_id, COUNT(DISTINCT a.vehicle_id) AS cnt
-			FROM assignments a
-			WHERE a.status IN ('assigned','active') AND CURDATE() BETWEEN a.start_date AND a.end_date
-			GROUP BY a.driver_id
+			SELECT a_agg.driver_id, COUNT(DISTINCT a_agg.vehicle_id) AS cnt
+			FROM (
+				SELECT driver_id, vehicle_id FROM assignments 
+				WHERE status IN ('assigned','active') AND CURDATE() BETWEEN start_date AND end_date
+				UNION ALL
+				SELECT replacement_driver_id as driver_id, vehicle_id FROM temporary_assignments 
+				WHERE status = 'active' AND CURDATE() BETWEEN start_date AND end_date
+				UNION ALL
+				SELECT dcm.driver_id, vgm.vehicle_id 
+				FROM ev_assignments ea
+				JOIN driver_cluster_members dcm ON ea.cluster_id = dcm.cluster_id
+				JOIN vehicle_group_members vgm ON ea.vehicle_group_id = vgm.group_id
+				WHERE ea.status IN ('assigned', 'active') 
+				  AND CURDATE() BETWEEN ea.start_date AND ea.end_date
+				  AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to
+				  AND CURDATE() BETWEEN vgm.valid_from AND vgm.valid_to
+			) a_agg
+			GROUP BY a_agg.driver_id
 		) veh_cnt ON veh_cnt.driver_id = d.id
 		LEFT JOIN (
 			SELECT lr.driver_id, COUNT(*) AS cnt
@@ -817,13 +861,39 @@ func GetDriverWorkload(c *gin.Context) {
 	// Fetch assigned vehicles for each driver
 	for i, dw := range resp.Drivers {
 		vRows, vErr := config.DB.Query(`
-			SELECT v.id, COALESCE(v.vehicle_number,''), COALESCE(vt.type,''), COALESCE(s.name,'')
-			FROM assignments a
-			JOIN vehicles v ON a.vehicle_id = v.id
+			SELECT COALESCE(v.id, 0), 
+			       CASE 
+			         WHEN a.is_ev = 1 THEN a.ev_group_name
+			         ELSE CONCAT(COALESCE(v.vehicle_name, vt.type, ''), ' (', COALESCE(v.vehicle_number, ''), ')')
+			       END as display_name,
+			       CASE 
+			         WHEN a.is_ev = 1 THEN 'BATTERY_VEHICLE'
+			         ELSE COALESCE(vt.type, '')
+			       END as v_type, 
+			       COALESCE(s.name, '')
+			FROM (
+				SELECT vehicle_id, shift_id, 0 as is_ev, '' as ev_group_name 
+				FROM assignments 
+				WHERE driver_id = ? AND status IN ('assigned','active') AND CURDATE() BETWEEN start_date AND end_date
+				UNION ALL
+				SELECT vehicle_id, shift_id, 0 as is_ev, '' as ev_group_name 
+				FROM temporary_assignments 
+				WHERE replacement_driver_id = ? AND status = 'active' AND CURDATE() BETWEEN start_date AND end_date
+				UNION ALL
+				SELECT 0 as vehicle_id, ea.shift_id, 1 as is_ev, COALESCE(vg.name, 'EV Group') as ev_group_name
+				FROM ev_assignments ea
+				JOIN driver_cluster_members dcm ON ea.cluster_id = dcm.cluster_id
+				LEFT JOIN vehicle_groups vg ON ea.vehicle_group_id = vg.id
+				WHERE dcm.driver_id = ?
+				  AND ea.status IN ('assigned', 'active') 
+                  AND CURDATE() BETWEEN ea.start_date AND ea.end_date
+                  AND CURDATE() BETWEEN dcm.valid_from AND dcm.valid_to
+			) a
+			LEFT JOIN vehicles v ON a.vehicle_id = v.id
 			LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 			LEFT JOIN shifts s ON a.shift_id = s.id
-			WHERE a.driver_id = ? AND a.status IN ('assigned','active') AND CURDATE() BETWEEN a.start_date AND a.end_date
-		`, dw.DriverID)
+			ORDER BY s.start_time ASC
+		`, dw.DriverID, dw.DriverID, dw.DriverID)
 		if vErr != nil {
 			log.Printf("vehicle query error for driver %d: %v", dw.DriverID, vErr)
 			continue
@@ -845,14 +915,15 @@ func GetDriverWorkload(c *gin.Context) {
 
 	// Upcoming vehicle requests (next 7 days)
 	vrRows, _ := config.DB.Query(`
-		SELECT vr.id, CONCAT(COALESCE(u.full_name,'Faculty'), ' - ', COALESCE(vr.purpose,'Trip')),
-			COALESCE(DATE_FORMAT(vr.trip_date, '%Y-%m-%d'), ''),
+		SELECT vr.id, CONCAT(COALESCE(u.full_name,'Faculty'), ' - ', COALESCE(vr.Purpose,'Trip')),
+			COALESCE(DATE_FORMAT(vr.OnwardFromDateTime, '%Y-%m-%d'), ''),
 			vr.status
 		FROM vehiclerequests vr
-		LEFT JOIN users u ON vr.user_id = u.id
+		LEFT JOIN faculty f ON vr.faculty_id = f.id
+		LEFT JOIN users u ON f.user_id = u.id
 		WHERE vr.status IN ('approved','assigned')
-		AND vr.trip_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)
-		ORDER BY vr.trip_date ASC LIMIT 5
+		AND vr.OnwardFromDateTime BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+		ORDER BY vr.OnwardFromDateTime ASC LIMIT 5
 	`)
 	if vrRows != nil {
 		defer vrRows.Close()

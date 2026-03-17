@@ -223,7 +223,7 @@ export default function DriverServiceRepair() {
   const vehicleOptions = vehicles.map((v) => ({
     value: String(v.id),
     label: v.vehicle_name || v.vehicle_number,
-    subtitle: v.vehicle_number,
+    subtitle: `${v.vehicle_number}${v.seating_capacity ? ` • ${v.seating_capacity} Seats` : ""}`,
   }));
 
   // Stats from requests

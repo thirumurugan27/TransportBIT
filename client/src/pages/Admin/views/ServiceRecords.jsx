@@ -240,10 +240,7 @@ const initialForm = {
   description: "",
   severity: "medium",
   scheduled_date: "",
-  odometer_reading: "",
-  workshop_name: "",
-  mechanic_name: "",
-  labor_cost: 0,
+  odometer_at_service: "",
 };
 
 // ─── Modal wrapper ─────────────────────────────────────────────────────────────
@@ -307,6 +304,12 @@ export default function ServiceRecords() {
   const [selectedReplacement, setSelectedReplacement] = useState(null);
   const [replacementEndDate, setReplacementEndDate] = useState("");
   const [startLoading, setStartLoading] = useState(false);
+  const [startForm, setStartForm] = useState({
+    workshop_name: "",
+    mechanic_name: "",
+    mechanic_contact: "",
+    labor_cost: 0,
+  });
 
   const [approveForm, setApproveForm] = useState({
     scheduled_date: "",
@@ -376,8 +379,7 @@ export default function ServiceRecords() {
       const body = {
         ...form,
         vehicle_id: parseInt(form.vehicle_id),
-        odometer_reading: parseInt(form.odometer_reading) || 0,
-        labor_cost: parseFloat(form.labor_cost) || 0,
+        odometer_at_service: parseInt(form.odometer_at_service) || 0,
       };
       let res;
       if (editingRecord) {
@@ -486,6 +488,12 @@ export default function ServiceRecords() {
     setSelectedReplacement(null);
     setReplacementEndDate("");
     setAvailableReplacements([]);
+    setStartForm({
+      workshop_name: record.workshop_name || "",
+      mechanic_name: record.mechanic_name || "",
+      mechanic_contact: record.mechanic_contact || "",
+      labor_cost: record.labor_cost || 0,
+    });
     // Fetch available replacement vehicles
     try {
       const today = new Date().toISOString().split("T")[0];
@@ -505,7 +513,12 @@ export default function ServiceRecords() {
     if (!showStartModal) return;
     setStartLoading(true);
     try {
-      const body = {};
+      const body = {
+        workshop_name: startForm.workshop_name,
+        mechanic_name: startForm.mechanic_name,
+        mechanic_contact: startForm.mechanic_contact,
+        labor_cost: parseFloat(startForm.labor_cost) || 0,
+      };
       if (selectedReplacement) {
         body.replacement_vehicle_id = selectedReplacement;
         body.replacement_end_date = replacementEndDate || "";
@@ -557,10 +570,7 @@ export default function ServiceRecords() {
       description: record.description || "",
       severity: record.severity,
       scheduled_date: record.scheduled_date || "",
-      odometer_reading: record.odometer_reading || "",
-      workshop_name: record.workshop_name || "",
-      mechanic_name: record.mechanic_name || "",
-      labor_cost: record.labor_cost || 0,
+      odometer_at_service: record.odometer_at_service || "",
     });
     setShowCreateModal(true);
   };
@@ -871,10 +881,22 @@ export default function ServiceRecords() {
       {showDetailModal && (
         <Modal onClose={() => setShowDetailModal(null)} maxWidth="max-w-2xl">
           {/* Header */}
-          <div className="px-6 py-5 border-b" style={{borderColor: "#E4E8F4"}}>
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1 flex-wrap">
+          <div className="p-4 sm:p-6 border-b border-gray-100 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="w-14 h-14 rounded-md bg-primary flex items-center justify-center text-white shadow-md shrink-0">
+                <Wrench size={28} />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-xl font-bold text-primarytext">
+                  {showDetailModal.title}
+                </h3>
+                <p className="text-sm text-secondarytext">
+                  {showDetailModal.vehicle_name || showDetailModal.vehicle_number}
+                  {showDetailModal.vehicle_name && (
+                    <span> • {showDetailModal.vehicle_number}</span>
+                  )}
+                </p>
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
                   <Pill
                     label={showDetailModal.status?.replace("_", " ")}
                     style={STATUS_STYLE[showDetailModal.status]}
@@ -884,354 +906,304 @@ export default function ServiceRecords() {
                     style={SEVERITY_STYLE[showDetailModal.severity]}
                   />
                 </div>
-                <h3
-                  className="mt-2"
-                  style={{
-                    fontSize: 20,
-                    fontWeight: 900,
-                    color: C.primarytext,
-                    lineHeight: 1.2,
-                  }}
-                >
-                  {showDetailModal.title}
-                </h3>
-                <div className="flex items-center gap-1.5 mt-1.5">
-                  <span
-                    style={{fontSize: 13, fontWeight: 700, color: C.primary}}
-                  >
-                    {showDetailModal.vehicle_name ||
-                      showDetailModal.vehicle_number}
-                  </span>
-                  {showDetailModal.vehicle_name && (
-                    <>
-                      <span style={{color: C.secondarytext, fontSize: 12}}>
-                        ·
-                      </span>
-                      <span style={{fontSize: 12, color: C.secondarytext}}>
-                        {showDetailModal.vehicle_number}
-                      </span>
-                    </>
-                  )}
-                </div>
               </div>
-              <button
-                onClick={() => setShowDetailModal(null)}
-                className="p-2 rounded-md hover:bg-[#EEF1F9] transition-colors flex-shrink-0"
-                style={{color: C.secondarytext}}
-              >
-                <X size={18} />
-              </button>
             </div>
+            <button
+              onClick={() => setShowDetailModal(null)}
+              className="text-secondarytext cursor-pointer shrink-0"
+            >
+              <X size={24} />
+            </button>
           </div>
 
-          <div className="p-6 space-y-4">
+          {/* Details Grid */}
+          <div className="p-4 sm:p-6 space-y-4">
+
             {/* Description */}
-            {showDetailModal.description && (
-              <div
-                className="px-4 py-3 rounded-md"
-                style={{
-                  background: "#EEF1F9",
-                  borderLeft: `3px solid ${C.primary}`,
-                }}
-              >
-                <p
-                  style={{fontSize: 13, color: C.primarytext, lineHeight: 1.6}}
-                >
-                  {showDetailModal.description}
-                </p>
+            <div className="bg-primarybg rounded-md p-4 border-l-3 border-primary">
+              <h4 className="text-xs text-secondarytext uppercase tracking-wider mb-2 font-bold flex items-center gap-2">
+                <FileText size={14} className="text-primary" /> Description
+              </h4>
+              <p className="text-sm text-primarytext leading-relaxed">
+                {showDetailModal.description || "—"}
+              </p>
+            </div>
+
+            {/* Service Details & Timeline */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Service Details */}
+              <div className="bg-primarybg rounded-md p-4">
+                <h4 className="text-xs text-secondarytext uppercase tracking-wider mb-3 font-bold flex items-center gap-2">
+                  <Wrench size={14} className="text-primary" /> Service Details
+                </h4>
+                <div className="space-y-2.5">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-secondarytext">Odometer Reading</span>
+                    <span className="font-semibold text-primarytext">
+                      {showDetailModal.odometer_at_service ? `${showDetailModal.odometer_at_service.toLocaleString()} km` : "—"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-secondarytext">Severity</span>
+                    <Pill
+                      label={showDetailModal.severity || "—"}
+                      style={SEVERITY_STYLE[showDetailModal.severity]}
+                    />
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-secondarytext">Status</span>
+                    <Pill
+                      label={(showDetailModal.status || "—").replace("_", " ")}
+                      style={STATUS_STYLE[showDetailModal.status]}
+                    />
+                  </div>
+                </div>
               </div>
-            )}
 
-            {/* Service + Odometer */}
-            <DataSection
-              icon={Wrench}
-              title="Service Details"
-              items={[
-                {
-                  label: "Odometer Reading",
-                  value: showDetailModal.odometer_reading
-                    ? `${showDetailModal.odometer_reading} km`
-                    : null,
-                },
-              ]}
-            />
+              {/* Timeline */}
+              <div className="bg-primarybg rounded-md p-4">
+                <h4 className="text-xs text-secondarytext uppercase tracking-wider mb-3 font-bold flex items-center gap-2">
+                  <Calendar size={14} className="text-primary" /> Timeline
+                </h4>
+                <div className="space-y-2.5">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-secondarytext">Scheduled Date</span>
+                    <span className="font-semibold text-primarytext">
+                      {showDetailModal.scheduled_date || "—"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-secondarytext">Started At</span>
+                    <span className="font-semibold text-primarytext">
+                      {showDetailModal.started_at || "—"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-secondarytext">Completed At</span>
+                    <span className="font-semibold text-primarytext">
+                      {showDetailModal.completed_at || "—"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-            {/* Timeline */}
-            <DataSection
-              icon={Calendar}
-              title="Timeline"
-              items={[
-                {
-                  label: "Scheduled Date",
-                  value: showDetailModal.scheduled_date,
-                },
-                {
-                  label: "Started At",
-                  value: showDetailModal.started_at,
-                },
-                {
-                  label: "Completed At",
-                  value: showDetailModal.completed_at,
-                },
-              ]}
-            />
+            {/* Workshop & Cost */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Workshop Information */}
+              <div className="bg-primarybg rounded-md p-4">
+                <h4 className="text-xs text-secondarytext uppercase tracking-wider mb-3 font-bold flex items-center gap-2">
+                  <MapPin size={14} className="text-primary" /> Workshop Info
+                </h4>
+                <div className="space-y-2.5">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-secondarytext">Workshop</span>
+                    <span className="font-semibold text-primarytext">
+                      {showDetailModal.workshop_name || "—"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-secondarytext">Mechanic</span>
+                    <span className="font-semibold text-primarytext">
+                      {showDetailModal.mechanic_name || "—"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-secondarytext">Contact</span>
+                    <span className="font-semibold text-primarytext">
+                      {showDetailModal.mechanic_contact || "—"}
+                    </span>
+                  </div>
+                </div>
+              </div>
 
-            {/* Workshop */}
-            <DataSection
-              icon={MapPin}
-              title="Workshop Information"
-              items={[
-                {
-                  label: "Workshop Name",
-                  value: showDetailModal.workshop_name,
-                },
-                {
-                  label: "Mechanic Name",
-                  value: showDetailModal.mechanic_name,
-                },
-                {
-                  label: "Mechanic Contact",
-                  value: showDetailModal.mechanic_contact,
-                },
-              ]}
-            />
+              {/* Cost Breakdown */}
+              <div className="bg-primarybg rounded-md p-4">
+                <h4 className="text-xs text-secondarytext uppercase tracking-wider mb-3 font-bold flex items-center gap-2">
+                  <DollarSign size={14} className="text-primary" /> Cost Breakdown
+                </h4>
+                <div className="space-y-2.5">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-secondarytext">Labor Cost</span>
+                    <span className="font-semibold text-primarytext">
+                      {showDetailModal.labor_cost > 0 ? `₹${showDetailModal.labor_cost.toLocaleString()}` : "—"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-secondarytext">Parts Cost</span>
+                    <span className="font-semibold text-primarytext">
+                      {showDetailModal.parts_cost > 0 ? `₹${showDetailModal.parts_cost.toLocaleString()}` : "—"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between border-t border-gray-200 pt-2">
+                    <span className="text-sm font-bold text-primarytext">Total Cost</span>
+                    <span className={`font-bold ${showDetailModal.total_cost > 0 ? "text-primary text-lg" : "text-primarytext"}`}>
+                      {showDetailModal.total_cost > 0 ? `₹${showDetailModal.total_cost.toLocaleString()}` : "—"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-            {/* Cost */}
-            <DataSection
-              icon={DollarSign}
-              title="Cost Breakdown"
-              items={[
-                {
-                  label: "Labor Cost",
-                  value:
-                    showDetailModal.labor_cost > 0
-                      ? `₹${showDetailModal.labor_cost.toLocaleString()}`
-                      : null,
-                },
-                {
-                  label: "Parts Cost",
-                  value:
-                    showDetailModal.parts_cost > 0
-                      ? `₹${showDetailModal.parts_cost.toLocaleString()}`
-                      : null,
-                },
-                {
-                  label: "Total Cost",
-                  value:
-                    showDetailModal.total_cost > 0
-                      ? `₹${showDetailModal.total_cost.toLocaleString()}`
-                      : null,
-                },
-              ]}
-            />
-
-            {/* Parts */}
-            {detailParts.length > 0 && (
-              <DetailSection icon={FileText} title="Products Purchased">
+            {/* Products Purchased */}
+            <div className="bg-primarybg rounded-md p-4">
+              <h4 className="text-xs text-secondarytext uppercase tracking-wider mb-3 font-bold flex items-center gap-2">
+                <FileText size={14} className="text-primary" /> Products Purchased
+              </h4>
+              {detailParts.length > 0 ? (
                 <div className="space-y-2">
                   {detailParts.map((p) => (
                     <div
                       key={p.id}
-                      className="flex items-center justify-between px-3 py-2.5 rounded-md"
-                      style={{background: "#EEF1F9"}}
+                      className="flex items-center justify-between px-3 py-2.5 rounded-md bg-white border border-gray-200"
                     >
                       <div>
-                        <p
-                          style={{
-                            fontSize: 13,
-                            fontWeight: 700,
-                            color: C.primarytext,
-                          }}
-                        >
+                        <p className="text-sm font-semibold text-primarytext">
                           {p.part_name}
                         </p>
-                        <p
-                          style={{
-                            fontSize: 11,
-                            color: C.secondarytext,
-                            marginTop: 2,
-                          }}
-                        >
+                        <p className="text-xs text-secondarytext mt-0.5">
                           {p.vendor_name || "No vendor"} · Qty: {p.quantity}
                         </p>
                       </div>
-                      <span
-                        style={{
-                          fontSize: 13,
-                          fontWeight: 800,
-                          color: C.primary,
-                        }}
-                      >
+                      <span className="text-sm font-bold text-primary">
                         ₹{p.total_price?.toLocaleString()}
                       </span>
                     </div>
                   ))}
                 </div>
-              </DetailSection>
-            )}
-
-            {/* Additional Info */}
-            <DataSection
-              icon={User}
-              title="Additional Information"
-              items={[
-                {
-                  label: "Reported By",
-                  value: showDetailModal.reported_by_name,
-                },
-                {label: "Created At", value: showDetailModal.created_at},
-              ]}
-            >
-              {(showDetailModal.admin_remarks ||
-                showDetailModal.rejection_reason) && (
-                <div
-                  className="mt-4 space-y-3 pt-4 border-t"
-                  style={{borderColor: "#E4E8F4"}}
-                >
-                  {showDetailModal.admin_remarks && (
-                    <div>
-                      <p
-                        style={{
-                          fontSize: 10,
-                          fontWeight: 800,
-                          color: C.secondarytext,
-                          letterSpacing: "0.08em",
-                          textTransform: "uppercase",
-                          marginBottom: 6,
-                        }}
-                      >
-                        Admin Remarks
-                      </p>
-                      <p
-                        className="px-3 py-2.5 rounded-md"
-                        style={{
-                          fontSize: 13,
-                          color: C.primarytext,
-                          background: "#EEF1F9",
-                          lineHeight: 1.6,
-                        }}
-                      >
-                        {showDetailModal.admin_remarks}
-                      </p>
-                    </div>
-                  )}
-                  {showDetailModal.rejection_reason && (
-                    <div>
-                      <p
-                        style={{
-                          fontSize: 10,
-                          fontWeight: 800,
-                          color: C.red,
-                          letterSpacing: "0.08em",
-                          textTransform: "uppercase",
-                          marginBottom: 6,
-                        }}
-                      >
-                        Rejection Reason
-                      </p>
-                      <p
-                        className="px-3 py-2.5 rounded-md border"
-                        style={{
-                          fontSize: 13,
-                          color: C.red,
-                          background: "#FFF5F5",
-                          borderColor: "#FFCCCC",
-                          lineHeight: 1.6,
-                        }}
-                      >
-                        {showDetailModal.rejection_reason}
-                      </p>
-                    </div>
-                  )}
-                </div>
+              ) : (
+                <p className="text-sm text-secondarytext">No products purchased</p>
               )}
-            </DataSection>
-
-            {/* ── Action Buttons ── */}
-            <div className="flex items-center justify-end gap-2.5 pt-2 flex-wrap">
-              {showDetailModal.status === "reported" && (
-                <>
-                  <ActionBtn
-                    color={C.green}
-                    onClick={() => {
-                      setApproveForm({scheduled_date: "", admin_remarks: ""});
-                      setShowApproveModal(showDetailModal);
-                      setShowDetailModal(null);
-                    }}
-                  >
-                    <CheckCircle size={15} /> Approve
-                  </ActionBtn>
-                  <ActionBtn
-                    color={C.red}
-                    onClick={() => {
-                      setRejectReason("");
-                      setRejectReasonError("");
-                      setShowRejectModal(showDetailModal);
-                      setShowDetailModal(null);
-                    }}
-                  >
-                    <XCircle size={15} /> Reject
-                  </ActionBtn>
-                </>
-              )}
-              {showDetailModal.status === "approved" && (
-                <ActionBtn
-                  color={C.skyblue}
-                  onClick={() => {
-                    const record = showDetailModal;
-                    setShowDetailModal(null);
-                    openStartModal(record);
-                  }}
-                >
-                  <Play size={15} fill="white" /> Start Service
-                </ActionBtn>
-              )}
-              {showDetailModal.status === "in_progress" && (
-                <ActionBtn
-                  color={C.green}
-                  onClick={() => {
-                    setCompleteForm({
-                      labor_cost: showDetailModal.labor_cost || 0,
-                      admin_remarks: "",
-                      next_service_date: "",
-                      next_service_km: 0,
-                    });
-                    setShowCompleteModal(showDetailModal);
-                    setShowDetailModal(null);
-                  }}
-                >
-                  <CheckCircle size={15} /> Mark Complete
-                </ActionBtn>
-              )}
-              {["reported", "approved"].includes(showDetailModal.status) && (
-                <ActionBtn
-                  color={C.primary}
-                  onClick={() => {
-                    openEdit(showDetailModal);
-                    setShowDetailModal(null);
-                  }}
-                >
-                  <Edit2 size={15} /> Edit
-                </ActionBtn>
-              )}
-              <ActionBtn
-                color={C.red}
-                onClick={() => {
-                  const id = showDetailModal.id;
-                  setShowDetailModal(null);
-                  handleDelete(id);
-                }}
-              >
-                <Trash2 size={15} /> Delete
-              </ActionBtn>
-              <ActionBtn
-                color={C.secondarytext}
-                outline
-                onClick={() => setShowDetailModal(null)}
-              >
-                Close
-              </ActionBtn>
             </div>
+
+            {/* Additional Information */}
+            <div className="bg-primarybg rounded-md p-4">
+              <h4 className="text-xs text-secondarytext uppercase tracking-wider mb-3 font-bold flex items-center gap-2">
+                <User size={14} className="text-primary" /> Additional Information
+              </h4>
+              <div className="space-y-2.5">
+                <div className="flex justify-between">
+                  <span className="text-sm text-secondarytext">Reported By</span>
+                  <span className="font-semibold text-primarytext">
+                    {showDetailModal.reported_by_name || "—"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-secondarytext">Created At</span>
+                  <span className="font-semibold text-primarytext">
+                    {showDetailModal.created_at || "—"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-secondarytext">Admin Remarks</span>
+                  <span className="font-semibold text-primarytext text-right max-w-[60%]">
+                    {showDetailModal.admin_remarks || "—"}
+                  </span>
+                </div>
+                {showDetailModal.rejection_reason && (
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <p className="text-[10px] font-extrabold text-red uppercase tracking-widest mb-1.5">
+                      Rejection Reason
+                    </p>
+                    <p className="text-sm px-3 py-2.5 rounded-md border leading-relaxed"
+                      style={{
+                        color: C.red,
+                        background: "#FFF5F5",
+                        borderColor: "#FFCCCC",
+                      }}
+                    >
+                      {showDetailModal.rejection_reason}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Footer Actions */}
+          <div className="p-4 sm:p-6 border-t border-gray-100 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+            {showDetailModal.status === "reported" && (
+              <>
+                <button
+                  onClick={() => {
+                    setApproveForm({scheduled_date: "", admin_remarks: ""});
+                    setShowApproveModal(showDetailModal);
+                    setShowDetailModal(null);
+                  }}
+                  className="w-full sm:w-auto px-4 py-2 bg-green text-white rounded-md cursor-pointer flex items-center justify-center gap-1.5 text-sm font-medium"
+                >
+                  <CheckCircle size={15} /> Approve
+                </button>
+                <button
+                  onClick={() => {
+                    setRejectReason("");
+                    setRejectReasonError("");
+                    setShowRejectModal(showDetailModal);
+                    setShowDetailModal(null);
+                  }}
+                  className="w-full sm:w-auto px-4 py-2 bg-red text-white rounded-md cursor-pointer flex items-center justify-center gap-1.5 text-sm font-medium"
+                >
+                  <XCircle size={15} /> Reject
+                </button>
+              </>
+            )}
+            {showDetailModal.status === "approved" && (
+              <button
+                onClick={() => {
+                  const record = showDetailModal;
+                  setShowDetailModal(null);
+                  openStartModal(record);
+                }}
+                className="w-full sm:w-auto px-4 py-2 text-white rounded-md cursor-pointer flex items-center justify-center gap-1.5 text-sm font-medium"
+                style={{background: C.skyblue}}
+              >
+                <Play size={15} fill="white" /> Start Service
+              </button>
+            )}
+            {showDetailModal.status === "in_progress" && (
+              <button
+                onClick={() => {
+                  setCompleteForm({
+                    labor_cost: showDetailModal.labor_cost || 0,
+                    admin_remarks: "",
+                    next_service_date: "",
+                    next_service_km: 0,
+                  });
+                  setShowCompleteModal(showDetailModal);
+                  setShowDetailModal(null);
+                }}
+                className="w-full sm:w-auto px-4 py-2 bg-green text-white rounded-md cursor-pointer flex items-center justify-center gap-1.5 text-sm font-medium"
+              >
+                <CheckCircle size={15} /> Mark Complete
+              </button>
+            )}
+            {["reported", "approved"].includes(showDetailModal.status) && (
+              <button
+                onClick={() => {
+                  openEdit(showDetailModal);
+                  setShowDetailModal(null);
+                }}
+                className="w-full sm:w-auto px-4 py-2 bg-primary text-white rounded-md cursor-pointer flex items-center justify-center gap-1.5 text-sm font-medium"
+              >
+                <Edit2 size={15} /> Edit
+              </button>
+            )}
+            <button
+              onClick={() => {
+                const id = showDetailModal.id;
+                setShowDetailModal(null);
+                handleDelete(id);
+              }}
+              className="w-full sm:w-auto px-4 py-2 bg-red text-white rounded-md cursor-pointer flex items-center justify-center gap-1.5 text-sm font-medium"
+            >
+              <Trash2 size={15} /> Delete
+            </button>
+            <button
+              onClick={() => setShowDetailModal(null)}
+              className="w-full sm:w-auto px-4 py-2 text-secondarytext bg-gray-100 rounded-md cursor-pointer text-sm font-medium"
+            >
+              Close
+            </button>
           </div>
         </Modal>
       )}
@@ -1253,7 +1225,7 @@ export default function ServiceRecords() {
                 options={vehicles.map((v) => ({
                   value: v.id,
                   label: v.vehicle_name || v.vehicle_number,
-                  subtitle: v.vehicle_number,
+                  subtitle: v.seating_capacity ? `${v.vehicle_number} • ${v.seating_capacity} Seats` : v.vehicle_number,
                 }))}
                 emptyMessage="No vehicles available"
               />
@@ -1308,59 +1280,18 @@ export default function ServiceRecords() {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Odometer (km)</Label>
-                <input
-                  type="number"
-                  value={form.odometer_reading}
-                  onChange={(e) =>
-                    setForm({...form, odometer_reading: e.target.value})
-                  }
-                  className={inputCls}
-                  min="0"
-                  placeholder="Current km"
-                />
-              </div>
-              <div>
-                <Label>Labor Cost (₹)</Label>
-                <input
-                  type="number"
-                  value={form.labor_cost}
-                  onChange={(e) =>
-                    setForm({...form, labor_cost: e.target.value})
-                  }
-                  className={inputCls}
-                  step="0.01"
-                  min="0"
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Workshop</Label>
-                <input
-                  type="text"
-                  value={form.workshop_name}
-                  onChange={(e) =>
-                    setForm({...form, workshop_name: e.target.value})
-                  }
-                  className={inputCls}
-                  placeholder="Workshop name"
-                />
-              </div>
-              <div>
-                <Label>Mechanic</Label>
-                <input
-                  type="text"
-                  value={form.mechanic_name}
-                  onChange={(e) =>
-                    setForm({...form, mechanic_name: e.target.value})
-                  }
-                  className={inputCls}
-                  placeholder="Mechanic name"
-                />
-              </div>
+            <div>
+              <Label>Odometer (km)</Label>
+              <input
+                type="number"
+                value={form.odometer_at_service}
+                onChange={(e) =>
+                  setForm({...form, odometer_at_service: e.target.value})
+                }
+                className={inputCls}
+                min="0"
+                placeholder="Current km"
+              />
             </div>
             <button
               type="submit"
@@ -1621,6 +1552,61 @@ export default function ServiceRecords() {
               </p>
             </div>
 
+            {/* Workshop & Mechanic Info */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Workshop Name</Label>
+                <input
+                  type="text"
+                  value={startForm.workshop_name}
+                  onChange={(e) =>
+                    setStartForm({...startForm, workshop_name: e.target.value})
+                  }
+                  className={inputCls}
+                  placeholder="Workshop name"
+                />
+              </div>
+              <div>
+                <Label>Mechanic Name</Label>
+                <input
+                  type="text"
+                  value={startForm.mechanic_name}
+                  onChange={(e) =>
+                    setStartForm({...startForm, mechanic_name: e.target.value})
+                  }
+                  className={inputCls}
+                  placeholder="Mechanic name"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Mechanic Contact</Label>
+                <input
+                  type="text"
+                  value={startForm.mechanic_contact}
+                  onChange={(e) =>
+                    setStartForm({...startForm, mechanic_contact: e.target.value})
+                  }
+                  className={inputCls}
+                  placeholder="Phone number"
+                />
+              </div>
+              <div>
+                <Label>Labor Cost (₹)</Label>
+                <input
+                  type="number"
+                  value={startForm.labor_cost}
+                  onChange={(e) =>
+                    setStartForm({...startForm, labor_cost: e.target.value})
+                  }
+                  className={inputCls}
+                  step="0.01"
+                  min="0"
+                />
+              </div>
+            </div>
+
             {/* Replacement vehicle picker (optional) */}
             <div>
               <Label>Replacement Vehicle (Optional)</Label>
@@ -1630,6 +1616,7 @@ export default function ServiceRecords() {
                 options={availableReplacements.map((v) => ({
                   value: v.id,
                   label: `${v.vehicle_number} – ${v.vehicle_name || v.vehicle_type}`,
+                  subtitle: v.seating_capacity ? `${v.seating_capacity} Seats` : undefined,
                 }))}
                 placeholder="Search & select replacement vehicle..."
               />

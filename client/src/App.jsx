@@ -6,10 +6,8 @@ import DriverDashboard from "./pages/Driver/DriverDashboard";
 import StudentDashboard from "./pages/Student/StudentDashboard";
 import FacultyDashboard from "./pages/Faculty/FacultyDashboard";
 import ProtectedRoute from "./components/ProtectedRoute";
-
 import {AuthProvider} from "./context/AuthContext";
 import {ToastProvider} from "./context/ToastContext";
-
 function App() {
   return (
     <BrowserRouter>
@@ -18,10 +16,8 @@ function App() {
           <Routes>
             {/* Root is now Login */}
             <Route path="/" element={<Login />} />
-
             {/* Unified Login */}
             <Route path="/login" element={<Login />} />
-
             {/* Legacy Login Routes (redirect to unified login) */}
             <Route
               path="/admin-login"
@@ -31,7 +27,6 @@ function App() {
               path="/driver-login"
               element={<Navigate to="/login" replace />}
             />
-
             {/* Admin Dashboard - Protected with nested routes */}
             <Route
               path="/admin-dashboard/*"

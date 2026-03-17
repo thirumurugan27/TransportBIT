@@ -2,7 +2,7 @@ import React, {useState, useEffect, useRef} from "react";
 import {useNavigate, useLocation} from "react-router-dom";
 import {getMenuConfigByRole} from "../../config/menuConfig";
 import {ChevronDownIcon, LogoutIcon} from "./Icons";
-import bit_logo from "../../assets/bit_logo.png";
+import bit_logo from "../../assets/bit_logBGremoved.png";
 import {useAuth} from "../../context/AuthContext";
 
 /**
@@ -135,7 +135,7 @@ export default function Sidebar({
               <img
                 src={bit_logo}
                 alt="Transport Logo"
-                className="w-20 h-14 rounded-md shadow-md"
+                className="w-24 h-auto object-contain"
               />
             ) : (
               <div className="w-14 h-14 bg-primary rounded-md flex items-center justify-center shadow-md shadow-primary/20">

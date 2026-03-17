@@ -25,7 +25,7 @@ export default function FacultyDashboard() {
 
       <div className="flex-1 flex flex-col min-w-0">
         <DashboardHeader
-          title="Faculty Portal"
+          title="BIT Transport"
           user={{name: facultyName, role: "Faculty"}}
           onLogout={logout}
           onMenuToggle={() => setMobileOpen(true)}

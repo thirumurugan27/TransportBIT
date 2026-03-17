@@ -580,13 +580,9 @@ export default function Assignments() {
 
     // Status filter (for non-EV assignments)
     if (filterStatus && activeTab !== "ev") {
-      if (filterStatus === "not_marked") {
-        filtered = filtered.filter(
-          (a) => a.driver_status !== "present" && a.driver_status !== "absent",
-        );
-      } else {
-        filtered = filtered.filter((a) => a.driver_status === filterStatus);
-      }
+      filtered = filtered.filter(
+        (a) => (a.status || "").toLowerCase() === filterStatus,
+      );
     }
 
     // Keep a stable, clean default order by vehicle/group name.
@@ -1419,16 +1415,17 @@ export default function Assignments() {
                 {activeTab !== "ev" && (
                   <div>
                     <label className="block text-xs font-bold text-secondarytext uppercase tracking-wider mb-2">
-                      Filter by Driver Status
+                      Filter by Assignment Status
                     </label>
                     <CustomDropdown
                       value={filterStatus}
                       onChange={setFilterStatus}
                       options={[
                         {value: "", label: "All Status"},
-                        {value: "present", label: "Present"},
-                        {value: "absent", label: "Absent"},
-                        {value: "not_marked", label: "Not Marked"},
+                        {value: "active", label: "Active"},
+                        {value: "assigned", label: "Assigned"},
+                        {value: "completed", label: "Completed"},
+                        {value: "cancelled", label: "Cancelled"},
                       ]}
                       width="w-full"
                     />
@@ -1593,42 +1590,46 @@ export default function Assignments() {
 
                         {/* Status */}
                         <td className="px-4 py-3.5">
-                          {(a.status || "").toLowerCase() === "cancelled" ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-red/10 text-red text-xs font-semibold">
-                              <span className="w-1.5 h-1.5 rounded-full bg-red" />{" "}
-                              Cancelled
-                            </span>
-                          ) : a.driver_status === "present" ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-green/10 text-green text-xs font-semibold">
-                              <span className="w-1.5 h-1.5 rounded-full bg-green" />{" "}
-                              Present
-                            </span>
-                          ) : a.driver_status === "absent" ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-red/10 text-red text-xs font-semibold">
-                              <span className="w-1.5 h-1.5 rounded-full bg-red" />{" "}
-                              Absent
-                            </span>
-                          ) : a.driver_status === "scheduled" ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-50 text-blue-600 text-xs font-semibold">
-                              <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />{" "}
-                              Scheduled
-                            </span>
-                          ) : a.driver_status === "on_leave" ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-orange-50 text-orange-600 text-xs font-semibold">
-                              <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />{" "}
-                              On Leave
-                            </span>
-                          ) : a.driver_status ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-100 text-secondarytext text-xs font-semibold">
-                              <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />{" "}
-                              Not Marked
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-100 text-secondarytext text-xs font-semibold">
-                              <span className="w-1.5 h-1.5 rounded-full bg-gray-300" />{" "}
-                              N/A
-                            </span>
-                          )}
+                          {(() => {
+                            const assignmentStatus = (
+                              a.status || "assigned"
+                            ).toLowerCase();
+                            const isCancelled =
+                              assignmentStatus === "cancelled";
+                            const isCompleted =
+                              assignmentStatus === "completed";
+                            const isActiveOrAssigned =
+                              assignmentStatus === "active" ||
+                              assignmentStatus === "assigned";
+
+                            const badgeClass = isCancelled
+                              ? "bg-red/10 text-red"
+                              : isCompleted
+                                ? "bg-green/10 text-green"
+                                : isActiveOrAssigned
+                                  ? "bg-blue-50 text-blue-600"
+                                  : "bg-gray-100 text-secondarytext";
+
+                            const dotClass = isCancelled
+                              ? "bg-red"
+                              : isCompleted
+                                ? "bg-green"
+                                : isActiveOrAssigned
+                                  ? "bg-blue-500"
+                                  : "bg-gray-400";
+
+                            return (
+                              <span
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold ${badgeClass}`}
+                              >
+                                <span
+                                  className={`w-1.5 h-1.5 rounded-full ${dotClass}`}
+                                />
+                                {assignmentStatus.charAt(0).toUpperCase() +
+                                  assignmentStatus.slice(1)}
+                              </span>
+                            );
+                          })()}
                         </td>
                       </tr>
                     ))}
@@ -1909,7 +1910,7 @@ export default function Assignments() {
                           : true;
 
                         // Build conflict info for subtitle
-                        let conflictInfo = `${v.vehicle_number} • ${v.vehicle_type}`;
+                        let conflictInfo = `${v.vehicle_number} ${v.seating_capacity ? ` • ${v.seating_capacity} Seats` : ""}`;
                         if (
                           hasAvailabilityData &&
                           !isAvailable &&
@@ -1929,7 +1930,7 @@ export default function Assignments() {
                           value: v.id,
                           label: v.vehicle_name || v.vehicle_number,
                           subtitle: defaultDriver
-                            ? `${conflictInfo} • Default driver: ${defaultDriver}`
+                            ? `${conflictInfo} • ${defaultDriver}`
                             : conflictInfo,
                           available: isAvailable,
                           availableText:

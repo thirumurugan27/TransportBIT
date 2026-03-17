@@ -1622,6 +1622,9 @@ export default function VehicleRequests() {
                               v.vehicle_number,
                               v.vehicle_type,
                             ];
+                            if (v.seating_capacity) {
+                              subtitleParts.push(`${v.seating_capacity} Seats`);
+                            }
                             if (defaultDriver) {
                               subtitleParts.push(
                                 `Default driver: ${defaultDriver}`,
@@ -1800,6 +1803,9 @@ export default function VehicleRequests() {
                       const defaultDriver =
                         defaultDriverByVehicleId[String(v.id)] || null;
                       const subtitleParts = [v.vehicle_number, v.vehicle_type];
+                      if (v.seating_capacity) {
+                        subtitleParts.push(`${v.seating_capacity} Seats`);
+                      }
                       if (defaultDriver) {
                         subtitleParts.push(`Default driver: ${defaultDriver}`);
                       }

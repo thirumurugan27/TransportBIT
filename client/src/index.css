@@ -9,7 +9,7 @@
   --color-primarydull: #9f74f7;
   --color-green: #008000;
   --color-pending: #f0b041;
-  --color-red: #DC2626;
+  --color-red: #dc2626;
   --color-primarytext: #333333;
   --color-secondarytext: #5f6388;
   --color-customblue: #0388fc;
@@ -26,6 +26,18 @@ body {
   font-family: var(--font-sans);
   background-color: var(--color-primarybg);
   color: #111827;
+}
+
+/* Remove spinner controls from number inputs */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
 }
 
 /* Custom scrollbar - Subtle gray theme */

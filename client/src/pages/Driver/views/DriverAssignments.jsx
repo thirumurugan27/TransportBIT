@@ -1,6 +1,6 @@
-import React, {useState, useEffect} from "react";
-import {useAuth} from "../../../context/AuthContext";
-import {apiGet} from "../../../utils/api";
+import React, { useState, useEffect } from "react";
+import { useAuth } from "../../../context/AuthContext";
+import { apiGet } from "../../../utils/api";
 import Loading from "../../../components/ui/Loading";
 import {
   Calendar,
@@ -17,21 +17,28 @@ import {
   X,
   Eye,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   FileText,
   Key,
   Truck,
   TrendingUp,
+  MapPin,
+  Users2,
 } from "lucide-react";
 
 export default function DriverAssignments() {
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedEVAssignment, setSelectedEVAssignment] = useState(null);
+  const [selectedRouteAssignment, setSelectedRouteAssignment] = useState(null);
+  const [routeInfo, setRouteInfo] = useState(null);
+  const [routeLoading, setRouteLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
   const [filterDate, setFilterDate] = useState(
     new Date().toISOString().split("T")[0],
   );
-  const {user} = useAuth();
+  const { user } = useAuth();
   const driverId = user?.driver_id;
 
   useEffect(() => {
@@ -48,13 +55,50 @@ export default function DriverAssignments() {
         `/api/driver/assignments?driver_id=${driverId}${dateParam}`,
       );
       if (res.ok) {
-        const data = await res.json();
-        setAssignments(data || []);
+        let data = await res.json();
+        data = data || [];
+
+        // Sort assignments by start_time
+        const parseTime = (timeStr) => {
+          if (!timeStr) return 0;
+          const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
+          if (!match) return 0;
+          let [_, hours, minutes, modifier] = match;
+          hours = parseInt(hours, 10);
+          if (hours === 12) hours = modifier.toUpperCase() === "AM" ? 0 : 12;
+          else if (modifier.toUpperCase() === "PM") hours += 12;
+          return hours * 60 + parseInt(minutes, 10);
+        };
+        data.sort((a, b) => parseTime(a.start_time) - parseTime(b.start_time));
+
+        setAssignments(data);
+        // Reset expanded state when data refreshes
+        setRouteInfo(null);
       }
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchRouteInfo = async (assignment) => {
+    if (!assignment?.vehicle_id) return;
+    
+    setSelectedRouteAssignment(assignment);
+    setRouteLoading(true);
+    setRouteInfo(null);
+    
+    try {
+      const res = await apiGet(`/api/driver/bus/${assignment.vehicle_id}/route-info`);
+      if (res.ok) {
+        const data = await res.json();
+        setRouteInfo(data);
+      }
+    } catch (err) {
+      console.error("Route info fetch error:", err);
+    } finally {
+      setRouteLoading(false);
     }
   };
 
@@ -109,7 +153,7 @@ export default function DriverAssignments() {
     const vehicleNumber = normalizeText(vehicle?.vehicle_number);
 
     if (vehicleName && vehicleNumber && vehicleName !== vehicleNumber) {
-      return {title: vehicleName, subtitle: vehicleNumber};
+      return { title: vehicleName, subtitle: vehicleNumber };
     }
 
     return {
@@ -269,9 +313,9 @@ export default function DriverAssignments() {
       icon: <CalendarDays size={16} />,
       count: counts.all,
     },
-    {id: "bus", label: "Bus", icon: <Bus size={16} />, count: counts.bus},
-    {id: "car", label: "Car", icon: <Car size={16} />, count: counts.car},
-    {id: "ev", label: "EV", icon: <Zap size={16} />, count: counts.ev},
+    { id: "bus", label: "Bus", icon: <Bus size={16} />, count: counts.bus },
+    { id: "car", label: "Car", icon: <Car size={16} />, count: counts.car },
+    { id: "ev", label: "EV", icon: <Zap size={16} />, count: counts.ev },
     {
       id: "other",
       label: "Other",
@@ -322,11 +366,10 @@ export default function DriverAssignments() {
           )}
           <button
             onClick={() => setFilterDate("")}
-            className={`px-3 py-2 text-xs rounded-md font-semibold transition-colors whitespace-nowrap ${
-              filterDate === ""
+            className={`px-3 py-2 text-xs rounded-md font-semibold transition-colors whitespace-nowrap ${filterDate === ""
                 ? "bg-primary text-white"
                 : "text-gray-600 border border-gray-200 hover:bg-gray-50"
-            }`}
+              }`}
           >
             All
           </button>
@@ -347,21 +390,19 @@ export default function DriverAssignments() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-1 sm:gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-md font-medium text-xs sm:text-sm transition-all ${
-                activeTab === tab.id
+              className={`flex items-center gap-1 sm:gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-md font-medium text-xs sm:text-sm transition-all ${activeTab === tab.id
                   ? "bg-primary text-white shadow-md"
                   : "bg-gray-50 text-gray-600 hover:bg-gray-100"
-              }`}
+                }`}
             >
               {tab.icon}
               {tab.label}
               {tab.count > 0 && (
                 <span
-                  className={`ml-1 px-2 py-0.5 rounded-md text-xs font-bold ${
-                    activeTab === tab.id
+                  className={`ml-1 px-2 py-0.5 rounded-md text-xs font-bold ${activeTab === tab.id
                       ? "bg-white/20 text-white"
                       : "bg-gray-200 text-gray-600"
-                  }`}
+                    }`}
                 >
                   {tab.count}
                 </span>
@@ -396,6 +437,7 @@ export default function DriverAssignments() {
                 const isTemp = assignment.is_temporary_replacement;
                 const isEV = assignment.is_ev_assignment;
                 const isCar = assignment.vehicle_type === "CAR";
+                const isCancelled = assignment.status?.toUpperCase() === "CANCELLED";
                 const vehicleReplacement =
                   getVehicleReplacementDetails(assignment);
 
@@ -406,10 +448,17 @@ export default function DriverAssignments() {
                     <div
                       key={`ev-${assignment.id || index}`}
                       onClick={() => setSelectedEVAssignment(assignment)}
-                      className="bg-white rounded-md p-5 border-2 border-green shadow-sm hover:shadow-lg transition-all duration-200 group relative overflow-hidden cursor-pointer"
+                      className={`rounded-md p-5 border-2 ${isCancelled ? "bg-gray-50 border-red opacity-60" : "bg-white border-green"} shadow-sm hover:shadow-lg transition-all duration-200 group relative overflow-hidden cursor-pointer z-0`}
                     >
+                      {/* Cancelled Watermark */}
+                      {isCancelled && (
+                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 -rotate-12 text-red font-black text-5xl pointer-events-none uppercase tracking-widest z-0 whitespace-nowrap">
+                          Cancelled
+                        </div>
+                      )}
+
                       {/* Top Accent Bar */}
-                      <div className="absolute top-0 left-0 w-full h-1.5 bg-green"></div>
+                      <div className={`absolute top-0 left-0 w-full h-1.5 ${isCancelled ? "bg-red" : "bg-green"}`}></div>
 
                       {/* EV Badge */}
                       <div className="absolute top-3 right-3 flex items-center gap-1 bg-green text-white text-xs font-bold px-2.5 py-1 rounded-md">
@@ -418,7 +467,7 @@ export default function DriverAssignments() {
                       </div>
 
                       {/* Header: Date & Status */}
-                      <div className="flex justify-between items-start mb-4 pt-1">
+                      <div className="flex justify-between items-start mb-4 pt-1 relative z-10">
                         <div>
                           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-0.5">
                             Date Range
@@ -428,6 +477,12 @@ export default function DriverAssignments() {
                             {getDateRangeLabel(assignment)}
                           </p>
                         </div>
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold border ${status.bg} ${status.color} ${status.border} mt-6`}
+                        >
+                          {status.icon}
+                          {status.label}
+                        </span>
                       </div>
 
                       {/* Info Grid */}
@@ -513,10 +568,17 @@ export default function DriverAssignments() {
                   return (
                     <div
                       key={`car-${assignment.id || index}`}
-                      className="bg-white rounded-md p-5 border-2 border-primary shadow-sm hover:shadow-lg transition-all duration-200 relative overflow-hidden"
+                      className={`rounded-md p-5 border-2 ${isCancelled ? "bg-gray-50 border-red opacity-60" : "bg-white border-primary"} shadow-sm hover:shadow-lg transition-all duration-200 relative overflow-hidden z-0`}
                     >
+                      {/* Cancelled Watermark */}
+                      {isCancelled && (
+                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 -rotate-12 text-red font-black text-5xl pointer-events-none uppercase tracking-widest z-0 whitespace-nowrap">
+                          Cancelled
+                        </div>
+                      )}
+
                       {/* Top Accent Bar */}
-                      <div className="absolute top-0 left-0 w-full h-1.5 bg-primary"></div>
+                      <div className={`absolute top-0 left-0 w-full h-1.5 ${isCancelled ? "bg-red" : "bg-primary"}`}></div>
 
                       {/* Car Badge */}
                       <div className="absolute top-3 right-3 flex items-center gap-1 bg-primary text-white text-xs font-bold px-2.5 py-1 rounded-md">
@@ -638,15 +700,20 @@ export default function DriverAssignments() {
                 return (
                   <div
                     key={`reg-${assignment.id || index}`}
-                    className={`bg-white rounded-md p-5 border-2 shadow-sm hover:shadow-lg transition-all duration-200 relative overflow-hidden ${
-                      isTemp ? "border-pending" : "border-gray-200"
-                    }`}
+                    className={`rounded-md p-5 border-2 shadow-sm hover:shadow-lg transition-all duration-200 relative overflow-hidden z-0 ${isCancelled ? "bg-gray-50 border-red opacity-60" : isTemp ? "bg-white border-pending" : "bg-white border-gray-200"
+                      }`}
                   >
+                    {/* Cancelled Watermark */}
+                    {isCancelled && (
+                      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 -rotate-12 text-red font-black text-5xl pointer-events-none uppercase tracking-widest z-0 whitespace-nowrap">
+                        Cancelled
+                      </div>
+                    )}
+
                     {/* Top Accent Bar */}
                     <div
-                      className={`absolute top-0 left-0 w-full h-1.5 ${
-                        isTemp ? "bg-pending" : "bg-primary"
-                      }`}
+                      className={`absolute top-0 left-0 w-full h-1.5 ${isCancelled ? "bg-red" : isTemp ? "bg-pending" : "bg-primary"
+                        }`}
                     ></div>
 
                     {/* Type Badge */}
@@ -740,6 +807,38 @@ export default function DriverAssignments() {
                           </p>
                         </div>
                       </div>
+
+                      {/* Bus Route Row — clickable to open modal */}
+                      {(assignment.route_from || assignment.route_to || assignment.vehicle_type === "BUS") && (
+                        <button
+                          onClick={() => fetchRouteInfo(assignment)}
+                          className={`w-full flex items-center gap-3 p-3 rounded-md transition-all duration-150 text-left border-2 border-transparent hover:border-primary/20 hover:shadow-sm ${
+                            isTemp ? "bg-pending/10 hover:bg-pending/20" : "bg-primarybg hover:bg-blue-50"
+                          }`}
+                        >
+                          <div className={`bg-white p-2 rounded-md shadow-sm shrink-0 ${isTemp ? "text-pending" : "text-primary"}`}>
+                            <TrendingUp size={16} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-secondarytext leading-none mb-1 text-left">Bus Route & Stops</p>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {assignment.route_from && (
+                                <span className="text-sm font-bold text-primarytext truncate">{assignment.route_from}</span>
+                              )}
+                              {assignment.route_from && assignment.route_to && (
+                                <ChevronRight size={13} className={isTemp ? "text-pending" : "text-primary"} />
+                              )}
+                              {assignment.route_to && (
+                                <span className="text-sm font-bold text-primarytext truncate">{assignment.route_to}</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className={`flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-md bg-white shadow-sm border ${isTemp ? "text-pending border-pending/20" : "text-primary border-primary/20"}`}>
+                            <Eye size={12} />
+                            View
+                          </div>
+                        </button>
+                      )}
 
                       {vehicleReplacement.hasReplacement && (
                         <div
@@ -879,13 +978,13 @@ export default function DriverAssignments() {
                 {(selectedEVShifts.length > 0
                   ? selectedEVShifts
                   : [
-                      {
-                        shift_name:
-                          selectedEVAssignment.shift_name || "EV Duty",
-                        start_time: selectedEVAssignment.start_time,
-                        end_time: selectedEVAssignment.end_time,
-                      },
-                    ]
+                    {
+                      shift_name:
+                        selectedEVAssignment.shift_name || "EV Duty",
+                      start_time: selectedEVAssignment.start_time,
+                      end_time: selectedEVAssignment.end_time,
+                    },
+                  ]
                 ).map((shift, idx) => (
                   <div
                     key={idx}
@@ -927,13 +1026,10 @@ export default function DriverAssignments() {
                   <div className="flex justify-between">
                     <span className="text-secondarytext">Status</span>
                     <span
-                      className={`font-medium px-2 py-0.5 rounded-md text-xs ${
-                        getStatusConfig(selectedEVAssignment.status).bg
-                      } ${
-                        getStatusConfig(selectedEVAssignment.status).color
-                      } border ${
-                        getStatusConfig(selectedEVAssignment.status).border
-                      }`}
+                      className={`font-medium px-2 py-0.5 rounded-md text-xs ${getStatusConfig(selectedEVAssignment.status).bg
+                        } ${getStatusConfig(selectedEVAssignment.status).color
+                        } border ${getStatusConfig(selectedEVAssignment.status).border
+                        }`}
                     >
                       {getStatusConfig(selectedEVAssignment.status).label}
                     </span>
@@ -986,7 +1082,7 @@ export default function DriverAssignments() {
                   {selectedEVAssignment.group_drivers?.length || 0})
                 </h4>
                 {selectedEVAssignment.group_drivers &&
-                selectedEVAssignment.group_drivers.length > 0 ? (
+                  selectedEVAssignment.group_drivers.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {selectedEVAssignment.group_drivers.map((driver) => (
                       <div
@@ -1026,6 +1122,162 @@ export default function DriverAssignments() {
                   setSelectedEVAssignment(null);
                 }}
                 className="w-full sm:w-auto px-4 py-2 text-secondarytext rounded-md cursor-pointer hover:bg-gray-100 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Bus Route Info Modal */}
+      {selectedRouteAssignment && (
+        <div
+          className="fixed inset-0 bg-black/60 flex items-start sm:items-center justify-center z-60 p-3 sm:p-4 overflow-y-auto animate-fadeIn backdrop-blur-sm"
+          onClick={() => setSelectedRouteAssignment(null)}
+        >
+          <div
+            className="bg-white rounded-md shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-scaleIn relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="sticky top-0 z-20 bg-white p-4 sm:p-6 border-b border-gray-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`w-12 h-12 rounded-md flex items-center justify-center shadow-md ${selectedRouteAssignment.is_temporary_replacement ? "bg-pending" : "bg-primary"}`}>
+                  <TrendingUp size={24} className="text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900 leading-none mb-1">Bus Route Details</h2>
+                  <p className="text-xs text-secondarytext font-medium flex items-center gap-1">
+                    <Bus size={10} /> {selectedRouteAssignment.vehicle_number} • {selectedRouteAssignment.shift_name}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedRouteAssignment(null)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400 hover:text-gray-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-4 sm:p-6 space-y-6">
+              {/* Route Path (Premium Visual) */}
+              <div className="p-4 bg-primarybg rounded-md border border-primary/5">
+                <p className="text-[10px] font-bold text-secondarytext uppercase tracking-widest mb-3">Service Route</p>
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="w-2.5 h-2.5 rounded-full bg-primary ring-4 ring-primary/10" />
+                      <span className="text-xs font-bold text-secondarytext uppercase tracking-tighter">Origin</span>
+                    </div>
+                    <p className="text-lg font-black text-primarytext truncate">{selectedRouteAssignment.route_from || "Main Campus"}</p>
+                  </div>
+                  <div className="shrink-0">
+                    <ChevronRight size={24} className="text-primary/30" />
+                  </div>
+                  <div className="flex-1 text-right">
+                    <div className="flex items-center justify-end gap-2 mb-1">
+                      <span className="text-xs font-bold text-secondarytext uppercase tracking-tighter">Destination</span>
+                      <div className="w-2.5 h-2.5 rounded-full bg-pending ring-4 ring-pending/10" />
+                    </div>
+                    <p className="text-lg font-black text-primarytext truncate">{selectedRouteAssignment.route_to || "Point A"}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Stats Bar */}
+              {routeInfo && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-white border-2 border-primary/10 rounded-md p-4 flex items-center gap-4 shadow-sm">
+                    <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-primary">
+                      <MapPin size={24} />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider leading-none mb-1">Stops</p>
+                      <p className="text-2xl font-black text-primarytext leading-none">{(routeInfo.stops || []).length}</p>
+                    </div>
+                  </div>
+                  <div className="bg-white border-2 border-pending/10 rounded-md p-4 flex items-center gap-4 shadow-sm">
+                    <div className="w-12 h-12 bg-pending/10 rounded-full flex items-center justify-center text-pending">
+                      <Users2 size={24} />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wider leading-none mb-1">Students</p>
+                      <p className="text-2xl font-black text-primarytext leading-none">{routeInfo.total_students || 0}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Detailed Stops Timeline */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                  <Clock size={16} className="text-primary" />
+                  Stops Overview
+                </h3>
+
+                {routeLoading ? (
+                  <div className="flex flex-col items-center justify-center py-12 gap-3 text-secondarytext">
+                    <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin" />
+                    <p className="text-sm font-medium">Fetching stop details...</p>
+                  </div>
+                ) : routeInfo ? (
+                  <div className="relative pl-6 space-y-0">
+                    <div className="absolute left-[7.5px] top-2 bottom-6 w-0.5 bg-gray-100" />
+                    {(routeInfo.stops || []).map((stop, si) => (
+                      <div key={stop.id} className="relative pb-6 last:pb-0">
+                        <div className={`absolute -left-[24.5px] top-1.5 w-4 h-4 rounded-full border-2 bg-white flex items-center justify-center z-10 ${
+                          si === 0 || si === (routeInfo.stops?.length || 0) - 1 ? "border-primary" : "border-gray-300"
+                        }`}>
+                          <div className={`w-1.5 h-1.5 rounded-full ${
+                             si === 0 || si === (routeInfo.stops?.length || 0) - 1 ? "bg-primary" : "bg-gray-300"
+                          }`} />
+                        </div>
+                        <div className="bg-gray-50/50 hover:bg-gray-50 p-4 rounded-md border border-gray-100 transition-colors flex items-center justify-between gap-4">
+                          <div className="min-w-0">
+                            <h4 className="font-bold text-primarytext leading-none mb-1.5 truncate">{stop.stop_name}</h4>
+                            <div className="flex items-center gap-3">
+                              <span className="text-[10px] font-bold text-secondarytext uppercase tracking-tighter flex items-center gap-1">
+                                <Clock size={10} /> {stop.arrival_time || "TBD"}
+                              </span>
+                              {stop.distance_km > 0 && (
+                                <span className="text-[10px] font-bold text-primary/60 uppercase tracking-tighter flex items-center gap-1">
+                                  <MapPin size={10} /> {stop.distance_km} KM
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className={`shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-md border-2 font-black text-sm ${
+                            stop.student_count > 0 
+                              ? "bg-white border-primary/20 text-primary shadow-sm" 
+                              : "bg-gray-50 border-gray-100 text-gray-400"
+                          }`}>
+                            <Users2 size={16} />
+                            {stop.student_count}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {(!routeInfo.stops || routeInfo.stops.length === 0) && (
+                      <div className="py-8 text-center bg-gray-50 rounded-md border border-dashed border-gray-200">
+                        <MapPin size={32} className="mx-auto text-gray-300 mb-2" />
+                        <p className="text-sm text-secondarytext font-medium">No stops configured for this route</p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="py-12 text-center text-secondarytext">
+                    <p className="text-sm">Unable to load route information.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 sm:p-6 border-t border-gray-100 bg-gray-50/50 flex justify-end">
+              <button
+                onClick={() => setSelectedRouteAssignment(null)}
+                className="px-6 py-2 bg-white border border-gray-200 text-gray-700 font-bold rounded-md hover:bg-gray-50 transition-colors shadow-sm text-sm"
               >
                 Close
               </button>

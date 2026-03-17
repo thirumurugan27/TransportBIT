@@ -239,13 +239,13 @@ export default function DriverKmLog() {
     if (vehicleName && vehicleNumber && vehicleName !== vehicleNumber) {
       return {
         title: vehicleName,
-        subtitle: `${vehicleNumber} • ${vehicle?.vehicle_type || "Vehicle"} • ${vehicle?.source_label || "Assigned"}`,
+        subtitle: `${vehicleNumber} • ${vehicle?.vehicle_type || "Vehicle"} • ${vehicle?.source_label || "Assigned"}${vehicle?.seating_capacity ? ` • ${vehicle?.seating_capacity} Seats` : ""}`,
       };
     }
 
     return {
       title: vehicleNumber || vehicleName || "Unknown vehicle",
-      subtitle: `${vehicle?.vehicle_type || "Vehicle"} • ${vehicle?.source_label || "Assigned"}`,
+      subtitle: `${vehicle?.vehicle_type || "Vehicle"} • ${vehicle?.source_label || "Assigned"}${vehicle?.seating_capacity ? ` • ${vehicle?.seating_capacity} Seats` : ""}`,
     };
   };
 

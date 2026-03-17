@@ -1,4 +1,4 @@
-﻿import React, {useState, useEffect, useMemo} from "react";
+import React, {useState, useEffect, useMemo} from "react";
 import {useNavigate} from "react-router-dom";
 import Loading from "../../../components/ui/Loading";
 import {
@@ -441,7 +441,7 @@ function DriverWorkloadSection({
           {[
             {
               label: "Light",
-              count: allDrivers.filter((d) => d.workload_score <= 40).length,
+              count: allDrivers.filter((d) => d.active_assignments > 0 && d.active_assignments <= 2).length,
               bg: "bg-green/10",
               dot: "bg-green",
               text: "text-green",
@@ -449,7 +449,7 @@ function DriverWorkloadSection({
             {
               label: "Moderate",
               count: allDrivers.filter(
-                (d) => d.workload_score > 40 && d.workload_score <= 70,
+                (d) => d.active_assignments > 2 && d.active_assignments <= 4,
               ).length,
               bg: "bg-pending/10",
               dot: "bg-pending",
@@ -500,19 +500,25 @@ function DriverWorkloadSection({
             {visible.map((driver) => {
               const isExpanded = expandedId === driver.driver_id;
               const scoreClass =
-                driver.workload_score > 70
-                  ? {badge: "bg-red/10 text-red", bar: "bg-red", label: "Heavy"}
-                  : driver.workload_score > 40
-                    ? {
-                        badge: "bg-pending/10 text-pending",
-                        bar: "bg-pending",
-                        label: "Moderate",
-                      }
-                    : {
-                        badge: "bg-green/10 text-green",
-                        bar: "bg-green",
-                        label: "Light",
-                      };
+                driver.active_assignments === 0
+                  ? {
+                      badge: "bg-gray-100 text-gray-500",
+                      bar: "bg-gray-300",
+                      label: "Unassigned",
+                    }
+                  : driver.active_assignments > 4
+                    ? {badge: "bg-red/10 text-red", bar: "bg-red", label: "Heavy"}
+                    : driver.active_assignments > 2
+                      ? {
+                          badge: "bg-pending/10 text-pending",
+                          bar: "bg-pending",
+                          label: "Moderate",
+                        }
+                      : {
+                          badge: "bg-green/10 text-green",
+                          bar: "bg-green",
+                          label: "Light",
+                        };
 
               return (
                 <div key={driver.driver_id}>
@@ -558,7 +564,7 @@ function DriverWorkloadSection({
                         <div
                           className={`h-full rounded-full transition-all duration-700 ${scoreClass.bar}`}
                           style={{
-                            width: `${Math.max(driver.workload_score, 3)}%`,
+                            width: `${driver.active_assignments > 0 ? Math.max(driver.workload_score, 3) : 0}%`,
                           }}
                         />
                       </div>
@@ -828,7 +834,7 @@ export default function AdminHome() {
 
   const heavyWorkloadDrivers = useMemo(() => {
     if (!workloadData?.drivers) return [];
-    return workloadData.drivers.filter((d) => d.workload_score > 70);
+    return workloadData.drivers.filter((d) => d.active_assignments > 4);
   }, [workloadData]);
 
   const unassignedDrivers = useMemo(() => {

@@ -28,13 +28,14 @@ type DriverCluster struct {
 
 // ClusterMember - driver membership in a cluster
 type ClusterMember struct {
-	ID         int    `json:"id"`
-	ClusterID  int    `json:"cluster_id"`
-	DriverID   int    `json:"driver_id"`
-	DriverName string `json:"driver_name"`
-	ValidFrom  string `json:"valid_from"`
-	ValidTo    string `json:"valid_to"`
-	AddedAt    string `json:"added_at"`
+	ID          int    `json:"id"`
+	ClusterID   int    `json:"cluster_id"`
+	DriverID    int    `json:"driver_id"`
+	DriverName  string `json:"driver_name"`
+	DriverPhone string `json:"driver_phone"`
+	ValidFrom   string `json:"valid_from"`
+	ValidTo     string `json:"valid_to"`
+	AddedAt     string `json:"added_at"`
 }
 
 // ClusterDriver - driver in a cluster (for listing)
@@ -114,6 +115,7 @@ func GetClusterMembers(c *gin.Context) {
 	rows, err := config.DB.Query(`
 		SELECT dcm.id, dcm.cluster_id, dcm.driver_id, 
 		       COALESCE(u.full_name, '') as driver_name,
+		       COALESCE(u.phone, '') as driver_phone,
 		       DATE_FORMAT(dcm.valid_from, '%d-%m-%Y') as valid_from,
 		       DATE_FORMAT(dcm.valid_to, '%d-%m-%Y') as valid_to,
 		       DATE_FORMAT(dcm.added_at, '%d-%m-%Y %h:%i %p') as added_at
@@ -133,7 +135,7 @@ func GetClusterMembers(c *gin.Context) {
 	var members []ClusterMember
 	for rows.Next() {
 		var m ClusterMember
-		err := rows.Scan(&m.ID, &m.ClusterID, &m.DriverID, &m.DriverName, &m.ValidFrom, &m.ValidTo, &m.AddedAt)
+		err := rows.Scan(&m.ID, &m.ClusterID, &m.DriverID, &m.DriverName, &m.DriverPhone, &m.ValidFrom, &m.ValidTo, &m.AddedAt)
 		if err != nil {
 			log.Printf("Scan member error: %v", err)
 			continue

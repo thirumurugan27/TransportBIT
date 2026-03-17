@@ -114,7 +114,7 @@ func NewPDFReport(title, subtitle string, landscape bool) *PDFReport {
 		pdf.SetX(textX)
 		pdf.SetFont("Arial", "", 7)
 		pdf.SetTextColor(clrMutedR, clrMutedG, clrMutedB)
-		pdf.CellFormat(textW, 4, "Sathyamangalam, Erode District - 638401, Tamil Nadu  |  Stay Ahead", "", 1, "C", false, 0, "")
+		pdf.CellFormat(textW, 4, "Sathyamangalam, Erode District - 638401, Tamil Nadu ", "", 1, "C", false, 0, "")
 
 		ruleY := logoY + logoH + 1.5
 		pdf.SetDrawColor(clrNavyR, clrNavyG, clrNavyB)

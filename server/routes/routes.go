@@ -313,7 +313,6 @@ func registerAdminRoutes(adm *gin.RouterGroup) {
 	adm.DELETE("/services/parts/delete", admin.DeletePart)
 	adm.GET("/parts", admin.GetAllParts)
 	adm.GET("/parts/expenditure", admin.GetPartsExpenditure)
-
 	// Purchase Orders
 	adm.GET("/purchase-orders", admin.GetAllPurchaseOrders)
 	adm.GET("/purchase-orders/:id", admin.GetPurchaseOrderByID)
@@ -323,22 +322,18 @@ func registerAdminRoutes(adm *gin.RouterGroup) {
 	adm.DELETE("/purchase-orders/delete", admin.DeletePurchaseOrder)
 	adm.POST("/purchase-orders/add-product", admin.AddProductToOrder)
 	adm.DELETE("/purchase-orders/remove-product", admin.RemoveProductFromOrder)
-
 	// Purchase Order Invoice Upload
 	adm.POST("/purchase-orders/:id/invoice", admin.UploadPurchaseInvoice)
 	adm.GET("/purchase-orders/:id/invoice", admin.GetPurchaseInvoice)
 	adm.DELETE("/purchase-orders/:id/invoice", admin.DeletePurchaseInvoice)
-
 	// Vendors
 	adm.GET("/vendors", admin.GetVendors)
 	adm.GET("/vendors/:id", admin.GetVendorByID)
 	adm.POST("/vendors/create", admin.CreateVendor)
 	adm.POST("/vendors/update", admin.UpdateVendor)
 	adm.DELETE("/vendors/delete", admin.DeleteVendor)
-
 	adm.GET("/service-tracking", admin.GetServiceTracking)
 	adm.POST("/service-tracking/update", admin.UpdateServiceTracking)
-
 	// Reports (Excel download)
 	adm.GET("/reports/attendance", admin.GenerateAttendanceReport)
 	adm.GET("/reports/service", admin.GenerateServiceReport)
@@ -357,7 +352,6 @@ func registerAdminRoutes(adm *gin.RouterGroup) {
 	adm.GET("/reports/vehicle-groups", admin.GenerateVehicleGroupReport)
 	adm.GET("/reports/shifts", admin.GenerateShiftReport)
 }
-
 // registerDriverRoutes sets up all driver endpoints under /api/driver
 func registerDriverRoutes(drv *gin.RouterGroup) {
 	drv.GET("/profile", driver.GetDriverProfile)
@@ -399,8 +393,10 @@ func registerDriverRoutes(drv *gin.RouterGroup) {
 	drv.GET("/fuel-indents", driver.GetDriverFuelIndents)
 	drv.POST("/fuel-indents/create", driver.CreateDriverFuelIndent)
 	drv.GET("/drivers-dropdown", driver.GetDriversDropdown)
-}
 
+	// Bus Route Info (for bus assignments)
+	drv.GET("/bus/:vehicle_id/route-info", driver.GetBusRouteInfo)
+}
 // registerStudentRoutes sets up all student endpoints under /api/student
 func registerStudentRoutes(stu *gin.RouterGroup) {
 	stu.GET("/buses", bus.GetBusFleet)

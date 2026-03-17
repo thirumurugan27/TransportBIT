@@ -411,7 +411,7 @@ export default function Vehicles() {
     .map((v) => ({
       value: String(v.id),
       label: v.vehicle_name || v.vehicle_number,
-      subtitle: `${v.vehicle_number} • ${getVehicleTypeLabel(v.vehicle_type)}`,
+      subtitle: `${v.vehicle_number} • ${getVehicleTypeLabel(v.vehicle_type)}${v.seating_capacity ? ` • ${v.seating_capacity} Seats` : ""}`,
     }));
 
   const mappingDriverOptions = mappingDrivers.map((d) => ({
@@ -2340,23 +2340,14 @@ export default function Vehicles() {
                         <span className="text-sm text-secondarytext">
                           Vehicle Number
                         </span>
-                        <span className="text-sm font-semibold text-primarytext font-mono bg-secondarybg px-2 py-0.5 rounded-md border border-primary/10">
+                        <span className="text-sm font-semibold text-primarytext font-mono">
                           {selectedVehicle.vehicle_number}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-secondarytext">Type</span>
                         <span
-                          className={`text-xs font-semibold px-2.5 py-1 rounded-md ${
-                            selectedVehicle.vehicle_type === "BUS"
-                              ? "bg-primary/10 text-primary"
-                              : selectedVehicle.vehicle_type === "CAR"
-                                ? "bg-green/10 text-green"
-                                : selectedVehicle.vehicle_type ===
-                                    "BATTERY_VEHICLE"
-                                  ? "bg-pending/10 text-pending"
-                                  : "bg-secondarytext/10 text-secondarytext"
-                          }`}
+                          className="text-sm font-semibold text-primarytext font-mono"
                         >
                           {getVehicleTypeLabel(selectedVehicle.vehicle_type)}
                         </span>

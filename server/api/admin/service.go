@@ -385,10 +385,14 @@ func StartServiceRecord(c *gin.Context) {
 		return
 	}
 
-	// Accept optional replacement vehicle
+	// Accept optional replacement vehicle + workshop/mechanic info
 	var body struct {
-		ReplacementVehicleID *int   `json:"replacement_vehicle_id"`
-		ReplacementEndDate   string `json:"replacement_end_date"`
+		ReplacementVehicleID *int    `json:"replacement_vehicle_id"`
+		ReplacementEndDate   string  `json:"replacement_end_date"`
+		WorkshopName         string  `json:"workshop_name"`
+		MechanicName         string  `json:"mechanic_name"`
+		MechanicContact      string  `json:"mechanic_contact"`
+		LaborCost            float64 `json:"labor_cost"`
 	}
 	c.ShouldBindJSON(&body)
 
@@ -403,9 +407,10 @@ func StartServiceRecord(c *gin.Context) {
 	defer tx.Rollback()
 
 	_, err = tx.Exec(`
-		UPDATE service_records SET status = 'in_progress', started_at = ?
+		UPDATE service_records SET status = 'in_progress', started_at = ?,
+			workshop_name = ?, mechanic_name = ?, mechanic_contact = ?, labor_cost = ?
 		WHERE id = ? AND status = 'approved'
-	`, now, idInt)
+	`, now, body.WorkshopName, body.MechanicName, body.MechanicContact, body.LaborCost, idInt)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start service: " + err.Error()})
 		return

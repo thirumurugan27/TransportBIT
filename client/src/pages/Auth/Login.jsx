@@ -1,5 +1,5 @@
 import React, {useState, useEffect} from "react";
-import bit_logo from "../../assets/bit_logo.png";
+import bit_logo from "../../assets/bit_logBGremoved.png";
 
 import {useAuth} from "../../context/AuthContext";
 
@@ -109,11 +109,11 @@ export default function Login() {
           {/* Logo and Branding */}
           <div className="text-center">
             <div className="flex justify-center mb-4">
-              <div className="w-24 h-24 bg-white rounded-md flex items-center justify-center border-2 border-primary/10">
+              <div className="w-32 h-32 flex items-center justify-center">
                 <img
                   src={bit_logo}
                   alt="Transport Logo"
-                  className="w-20 h-20 object-contain"
+                  className="w-full h-full object-contain"
                 />
               </div>
             </div>
