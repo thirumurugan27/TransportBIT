@@ -613,47 +613,58 @@ func generateAssignmentReportPDF(c *gin.Context) {
 		return
 	}
 
-	rows, err := config.DB.Query(`
-		SELECT 
-			u.full_name, v.vehicle_number, v.vehicle_name,
-			COALESCE(sh.name, '-'),
-			DATE_FORMAT(a.start_date, '%d-%m-%Y'), DATE_FORMAT(a.end_date, '%d-%m-%Y'),
-			a.status,
-			CASE WHEN a.is_temporary_replacement = 1 THEN 'Yes' ELSE 'No' END,
-			COALESCE(a.description, '-'),
-			DATE_FORMAT(a.created_at, '%d-%m-%Y')
-		FROM assignments a
-		JOIN drivers d ON a.driver_id = d.id
-		JOIN users u ON d.user_id = u.id
-		JOIN vehicles v ON a.vehicle_id = v.id
-		LEFT JOIN shifts sh ON a.shift_id = sh.id
-		WHERE a.start_date <= ? AND a.end_date >= ?
-		ORDER BY a.start_date DESC, u.full_name
-	`, endDate, startDate)
+	driverID, err := parseAssignmentReportDriverID(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "driver_id must be a valid driver"})
+		return
+	}
+
+	reportRows, err := fetchAssignmentReportRows(startDate, endDate, driverID)
 	if err != nil {
 		log.Printf("PDF assignment report error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate report"})
 		return
 	}
-	defer rows.Close()
 
-	headers := []string{"S.No", "Driver Name", "Vehicle No", "Vehicle Name", "Shift", "Start Date", "End Date", "Status", "Temp?", "Description", "Created"}
-	widths := []float64{8, 32, 20, 26, 18, 20, 20, 16, 12, 38, 20}
-	aligns := []string{"C", "L", "C", "L", "C", "C", "C", "C", "C", "L", "C"}
+	headers := []string{"S.No", "Driver Name", "Vehicle Details", "Source", "Shift Details", "Details", "Start", "End", "Status"}
+	widths := []float64{8, 28, 46, 20, 34, 44, 16, 16, 16}
+	aligns := []string{"C", "L", "L", "L", "L", "L", "C", "C", "C"}
 	var data [][]string
 	sno := 1
-	for rows.Next() {
-		var driverName, vNum, vName, shift, startD, endD, status, tempRepl, desc, created string
-		if err := rows.Scan(&driverName, &vNum, &vName, &shift, &startD, &endD, &status, &tempRepl, &desc, &created); err != nil {
-			continue
+	for _, row := range reportRows {
+		vehicleDetails := "-"
+		shiftDetails := formatAssignmentShiftDetails(row.Schedule, row.StartTime, row.EndTime)
+		if strings.EqualFold(row.Source, "EV Assignment") {
+			// EV assignments are group/cluster based; keep details concise without forced vehicle type formatting.
+			vehicleDetails = strings.TrimSpace(strings.Join([]string{row.VehicleNumber, row.VehicleName}, " | "))
+			if vehicleDetails == "" || vehicleDetails == "|" {
+				vehicleDetails = "EV Group"
+			}
+		} else {
+			parts := make([]string, 0, 3)
+			if strings.TrimSpace(row.VehicleName) != "" && row.VehicleName != "-" {
+				parts = append(parts, row.VehicleName)
+			}
+			if strings.TrimSpace(row.VehicleNumber) != "" && row.VehicleNumber != "-" {
+				parts = append(parts, row.VehicleNumber)
+			}
+			if strings.TrimSpace(row.VehicleType) != "" && row.VehicleType != "-" {
+				parts = append(parts, row.VehicleType)
+			}
+			if len(parts) > 0 {
+				vehicleDetails = strings.Join(parts, " | ")
+			}
 		}
+
 		data = append(data, []string{
-			fmt.Sprintf("%d", sno), driverName, vNum, vName, shift, startD, endD, status, tempRepl, desc, created,
+			fmt.Sprintf("%d", sno), row.DriverName, vehicleDetails,
+			row.Source, shiftDetails, row.Details,
+			row.StartDate, row.EndDate, row.Status,
 		})
 		sno++
 	}
 
-	period := fmt.Sprintf("Period: %s to %s | Generated: %s", startDate, endDate, time.Now().Format("02-01-2006 03:04 PM"))
+	period := fmt.Sprintf("Period: %s to %s | Driver: %s | Generated: %s", startDate, endDate, getAssignmentReportDriverLabel(driverID), time.Now().Format("02-01-2006 03:04 PM"))
 	pr := utils.NewPDFReport("ASSIGNMENT REPORT", period, true)
 	pr.AddTableWithAlign(headers, data, widths, aligns)
 	pr.Send(c, fmt.Sprintf("Assignment_Report_%s_to_%s.pdf", startDate, endDate))

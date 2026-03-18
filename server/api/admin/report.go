@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 	"transport-server/config"
 
 	"github.com/gin-gonic/gin"
+	mysqlDriver "github.com/go-sql-driver/mysql"
 	"github.com/xuri/excelize/v2"
 )
 
@@ -35,6 +38,7 @@ func styleHeader(f *excelize.File, sheet string, cols int, row int) {
 		f.SetCellStyle(sheet, cell, cell, style)
 	}
 }
+
 // styleTitleRow adds title and subtitle to the sheet
 func styleTitleRow(f *excelize.File, sheet, title, period string, cols int) {
 	titleStyle, _ := f.NewStyle(&excelize.Style{
@@ -59,6 +63,7 @@ func setColWidths(f *excelize.File, sheet string, widths map[string]float64) {
 		f.SetColWidth(sheet, col, col, w)
 	}
 }
+
 // sendExcel writes the workbook to the HTTP response
 func sendExcel(c *gin.Context, f *excelize.File, filename string) {
 	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
@@ -68,6 +73,7 @@ func sendExcel(c *gin.Context, f *excelize.File, filename string) {
 		log.Printf("Error writing excel: %v", err)
 	}
 }
+
 // ===================================
 // 1. ATTENDANCE REPORT
 // ===================================
@@ -151,6 +157,7 @@ func GenerateAttendanceReport(c *gin.Context) {
 	filename := fmt.Sprintf("Attendance_Report_%s_to_%s.xlsx", startDate, endDate)
 	sendExcel(c, f, filename)
 }
+
 // ===================================
 // 2. SERVICE RECORDS REPORT
 // ===================================
@@ -248,6 +255,7 @@ func GenerateServiceReport(c *gin.Context) {
 	filename := fmt.Sprintf("Service_Report_%s_to_%s.xlsx", startDate, endDate)
 	sendExcel(c, f, filename)
 }
+
 // ===================================
 // 3. PURCHASE / BILLS REPORT
 // ===================================
@@ -938,6 +946,511 @@ func GenerateDriverReport(c *gin.Context) {
 // 10. ASSIGNMENT REPORT
 // ===================================
 
+type assignmentReportExportRow struct {
+	DriverName         string
+	OriginalDriverName string
+	VehicleType        string
+	VehicleNumber      string
+	VehicleName        string
+	Source             string
+	Schedule           string
+	Details            string
+	StartDate          string
+	EndDate            string
+	StartTime          string
+	EndTime            string
+	Status             string
+	CreatedAt          string
+	SortStart          string
+	SortCreated        string
+	SortShiftStart     string
+}
+
+func parseAssignmentReportDriverID(c *gin.Context) (*int, error) {
+	rawDriverID := strings.TrimSpace(c.Query("driver_id"))
+	if rawDriverID == "" || strings.EqualFold(rawDriverID, "all") {
+		return nil, nil
+	}
+
+	driverID, err := strconv.Atoi(rawDriverID)
+	if err != nil || driverID <= 0 {
+		return nil, fmt.Errorf("invalid driver_id")
+	}
+
+	return &driverID, nil
+}
+
+func getAssignmentReportDriverLabel(driverID *int) string {
+	if driverID == nil {
+		return "All Drivers"
+	}
+
+	var driverName string
+	err := config.DB.QueryRow(`
+		SELECT COALESCE(u.full_name, '')
+		FROM drivers d
+		JOIN users u ON d.user_id = u.id
+		WHERE d.id = ?
+	`, *driverID).Scan(&driverName)
+	if err != nil || strings.TrimSpace(driverName) == "" {
+		return fmt.Sprintf("Driver #%d", *driverID)
+	}
+
+	return driverName
+}
+
+func isIgnorableAssignmentReportSQLError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	mysqlErr, ok := err.(*mysqlDriver.MySQLError)
+	if !ok {
+		return false
+	}
+
+	// Ignore optional source failures so report generation remains available
+	// even when some deployments don't have all extension tables/columns.
+	switch mysqlErr.Number {
+	case 1051, 1054, 1109, 1146:
+		return true
+	default:
+		return false
+	}
+}
+
+func formatAssignmentShiftDetails(schedule, startTime, endTime string) string {
+	schedule = strings.TrimSpace(schedule)
+	startTime = strings.TrimSpace(startTime)
+	endTime = strings.TrimSpace(endTime)
+
+	if schedule == "" {
+		schedule = "-"
+	}
+
+	hasStart := startTime != "" && startTime != "-"
+	hasEnd := endTime != "" && endTime != "-"
+
+	if hasStart && hasEnd {
+		return fmt.Sprintf("%s | %s - %s", schedule, startTime, endTime)
+	}
+	if hasStart {
+		return fmt.Sprintf("%s | %s", schedule, startTime)
+	}
+	if hasEnd {
+		return fmt.Sprintf("%s | %s", schedule, endTime)
+	}
+
+	return schedule
+}
+
+func formatAssignmentVehicleDetails(reportRow assignmentReportExportRow) string {
+	if strings.EqualFold(reportRow.Source, "EV Assignment") {
+		vehicleDetails := strings.TrimSpace(strings.Join([]string{reportRow.VehicleNumber, reportRow.VehicleName}, " | "))
+		if vehicleDetails == "" || vehicleDetails == "|" {
+			return "EV Group"
+		}
+		return vehicleDetails
+	}
+
+	parts := make([]string, 0, 3)
+	if strings.TrimSpace(reportRow.VehicleName) != "" && reportRow.VehicleName != "-" {
+		parts = append(parts, reportRow.VehicleName)
+	}
+	if strings.TrimSpace(reportRow.VehicleNumber) != "" && reportRow.VehicleNumber != "-" {
+		parts = append(parts, reportRow.VehicleNumber)
+	}
+	if strings.TrimSpace(reportRow.VehicleType) != "" && reportRow.VehicleType != "-" {
+		parts = append(parts, reportRow.VehicleType)
+	}
+
+	if len(parts) == 0 {
+		return "-"
+	}
+
+	return strings.Join(parts, " | ")
+}
+
+func fetchAssignmentReportRows(startDate, endDate string, driverID *int) ([]assignmentReportExportRow, error) {
+	var reportRows []assignmentReportExportRow
+
+	appendRows := func(source string, query string, args ...interface{}) error {
+		rows, err := config.DB.Query(query, args...)
+		if err != nil {
+			if isIgnorableAssignmentReportSQLError(err) {
+				log.Printf("Assignment report: skipping %s source due to schema mismatch: %v", source, err)
+				return nil
+			}
+			return err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var row assignmentReportExportRow
+			if err := rows.Scan(
+				&row.DriverName,
+				&row.OriginalDriverName,
+				&row.VehicleType,
+				&row.VehicleNumber,
+				&row.VehicleName,
+				&row.Source,
+				&row.Schedule,
+				&row.Details,
+				&row.StartDate,
+				&row.EndDate,
+				&row.StartTime,
+				&row.EndTime,
+				&row.Status,
+				&row.CreatedAt,
+				&row.SortStart,
+				&row.SortCreated,
+				&row.SortShiftStart,
+			); err != nil {
+				continue
+			}
+			reportRows = append(reportRows, row)
+		}
+
+		return rows.Err()
+	}
+
+	regularQuery := `
+		SELECT
+			COALESCE(u.full_name, '-') AS driver_name,
+			COALESCE(NULLIF(u_orig.full_name, ''), '-') AS original_driver_name,
+			COALESCE(NULLIF(vt.type, ''), NULLIF(v.fuel_type, ''), 'OTHER') AS vehicle_type,
+			COALESCE(v.vehicle_number, '-') AS vehicle_number,
+			COALESCE(NULLIF(v.vehicle_name, ''), v.vehicle_number, '-') AS vehicle_name,
+			'Regular Assignment' AS source,
+			COALESCE(NULLIF(s.name, ''), '-') AS schedule_name,
+			COALESCE(NULLIF(a.description, ''), '-') AS details,
+			DATE_FORMAT(a.start_date, '%d-%m-%Y') AS start_date,
+			DATE_FORMAT(a.end_date, '%d-%m-%Y') AS end_date,
+			COALESCE(TIME_FORMAT(s.start_time, '%h:%i %p'), '-') AS start_time,
+			COALESCE(TIME_FORMAT(s.end_time, '%h:%i %p'), '-') AS end_time,
+			COALESCE(a.status, '-') AS status,
+			DATE_FORMAT(a.created_at, '%d-%m-%Y %h:%i %p') AS created_at,
+			DATE_FORMAT(a.start_date, '%Y-%m-%d') AS sort_start,
+			DATE_FORMAT(a.created_at, '%Y-%m-%d %H:%i:%s') AS sort_created,
+			COALESCE(TIME_FORMAT(s.start_time, '%H:%i:%s'), '99:99:99') AS sort_shift_start
+		FROM assignments a
+		JOIN drivers d ON a.driver_id = d.id
+		JOIN users u ON d.user_id = u.id
+		LEFT JOIN drivers d_orig ON a.original_driver_id = d_orig.id
+		LEFT JOIN users u_orig ON d_orig.user_id = u_orig.id
+		JOIN vehicles v ON a.vehicle_id = v.id
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
+		LEFT JOIN shifts s ON a.shift_id = s.id
+		WHERE COALESCE(a.is_deleted, 0) = 0
+		  AND a.start_date <= ?
+		  AND a.end_date >= ?
+	`
+	regularArgs := []interface{}{endDate, startDate}
+	if driverID != nil {
+		regularQuery += " AND (a.driver_id = ? OR a.original_driver_id = ?)"
+		regularArgs = append(regularArgs, *driverID, *driverID)
+	}
+	if err := appendRows("regular", regularQuery, regularArgs...); err != nil {
+		return nil, err
+	}
+
+	dutyQuery := `
+		SELECT
+			COALESCE(u.full_name, '-') AS driver_name,
+			COALESCE(NULLIF(u_orig.full_name, ''), '-') AS original_driver_name,
+			COALESCE(NULLIF(vt.type, ''), NULLIF(v.fuel_type, ''), 'OTHER') AS vehicle_type,
+			COALESCE(v.vehicle_number, '-') AS vehicle_number,
+			COALESCE(NULLIF(v.vehicle_name, ''), v.vehicle_number, '-') AS vehicle_name,
+			'Duty' AS source,
+			CONCAT(COALESCE(NULLIF(s.name, ''), 'Assignment'), ' Duty') AS schedule_name,
+			CASE
+				WHEN COALESCE(NULLIF(TRIM(dy.route_from), ''), '') <> '' OR COALESCE(NULLIF(TRIM(dy.route_to), ''), '') <> ''
+					THEN CONCAT(
+						COALESCE(NULLIF(TRIM(dy.route_from), ''), 'N/A'),
+						' -> ',
+						COALESCE(NULLIF(TRIM(dy.route_to), ''), 'N/A')
+					)
+				WHEN COALESCE(NULLIF(TRIM(a.description), ''), '') <> '' THEN a.description
+				ELSE '-'
+			END AS details,
+			DATE_FORMAT(a.start_date, '%d-%m-%Y') AS start_date,
+			DATE_FORMAT(a.end_date, '%d-%m-%Y') AS end_date,
+			COALESCE(TIME_FORMAT(dy.start_time, '%h:%i %p'), TIME_FORMAT(s.start_time, '%h:%i %p'), '-') AS start_time,
+			COALESCE(TIME_FORMAT(dy.end_time, '%h:%i %p'), TIME_FORMAT(s.end_time, '%h:%i %p'), '-') AS end_time,
+			COALESCE(dy.status, '-') AS status,
+			COALESCE(DATE_FORMAT(dy.approved_at, '%d-%m-%Y %h:%i %p'), DATE_FORMAT(a.created_at, '%d-%m-%Y %h:%i %p')) AS created_at,
+			DATE_FORMAT(a.start_date, '%Y-%m-%d') AS sort_start,
+			COALESCE(DATE_FORMAT(dy.approved_at, '%Y-%m-%d %H:%i:%s'), DATE_FORMAT(a.created_at, '%Y-%m-%d %H:%i:%s')) AS sort_created,
+			COALESCE(TIME_FORMAT(dy.start_time, '%H:%i:%s'), TIME_FORMAT(s.start_time, '%H:%i:%s'), '99:99:99') AS sort_shift_start
+		FROM duties dy
+		JOIN assignments a ON dy.assignment_id = a.id
+		JOIN drivers d ON a.driver_id = d.id
+		JOIN users u ON d.user_id = u.id
+		LEFT JOIN drivers d_orig ON a.original_driver_id = d_orig.id
+		LEFT JOIN users u_orig ON d_orig.user_id = u_orig.id
+		JOIN vehicles v ON a.vehicle_id = v.id
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
+		LEFT JOIN shifts s ON a.shift_id = s.id
+		WHERE COALESCE(a.is_deleted, 0) = 0
+		  AND a.start_date <= ?
+		  AND a.end_date >= ?
+	`
+	dutyArgs := []interface{}{endDate, startDate}
+	if driverID != nil {
+		dutyQuery += " AND (a.driver_id = ? OR a.original_driver_id = ?)"
+		dutyArgs = append(dutyArgs, *driverID, *driverID)
+	}
+	if err := appendRows("duty", dutyQuery, dutyArgs...); err != nil {
+		return nil, err
+	}
+
+	temporaryQuery := `
+		SELECT
+			COALESCE(u.full_name, '-') AS driver_name,
+			COALESCE(NULLIF(u_orig.full_name, ''), '-') AS original_driver_name,
+			COALESCE(NULLIF(vt.type, ''), NULLIF(v.fuel_type, ''), 'OTHER') AS vehicle_type,
+			COALESCE(v.vehicle_number, '-') AS vehicle_number,
+			COALESCE(NULLIF(v.vehicle_name, ''), v.vehicle_number, '-') AS vehicle_name,
+			'Temporary Assignment' AS source,
+			COALESCE(NULLIF(s.name, ''), CONCAT('Temporary ', COALESCE(NULLIF(ta.category, ''), 'Assignment'))) AS schedule_name,
+			CASE
+				WHEN COALESCE(NULLIF(TRIM(ta.reason), ''), '') <> '' THEN ta.reason
+				WHEN COALESCE(NULLIF(TRIM(ta.category), ''), '') <> '' THEN CONCAT('Category: ', ta.category)
+				ELSE '-'
+			END AS details,
+			DATE_FORMAT(ta.start_date, '%d-%m-%Y') AS start_date,
+			DATE_FORMAT(ta.end_date, '%d-%m-%Y') AS end_date,
+			COALESCE(TIME_FORMAT(s.start_time, '%h:%i %p'), '-') AS start_time,
+			COALESCE(TIME_FORMAT(s.end_time, '%h:%i %p'), '-') AS end_time,
+			COALESCE(ta.status, '-') AS status,
+			DATE_FORMAT(ta.created_at, '%d-%m-%Y %h:%i %p') AS created_at,
+			DATE_FORMAT(ta.start_date, '%Y-%m-%d') AS sort_start,
+			DATE_FORMAT(ta.created_at, '%Y-%m-%d %H:%i:%s') AS sort_created,
+			COALESCE(TIME_FORMAT(s.start_time, '%H:%i:%s'), '99:99:99') AS sort_shift_start
+		FROM temporary_assignments ta
+		JOIN drivers d ON ta.replacement_driver_id = d.id
+		JOIN users u ON d.user_id = u.id
+		JOIN drivers d_orig ON ta.original_driver_id = d_orig.id
+		JOIN users u_orig ON d_orig.user_id = u_orig.id
+		JOIN vehicles v ON ta.vehicle_id = v.id
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
+		LEFT JOIN shifts s ON ta.shift_id = s.id
+		WHERE COALESCE(ta.is_deleted, 0) = 0
+		  AND ta.start_date <= ?
+		  AND ta.end_date >= ?
+	`
+	temporaryArgs := []interface{}{endDate, startDate}
+	if driverID != nil {
+		temporaryQuery += " AND (ta.replacement_driver_id = ? OR ta.original_driver_id = ?)"
+		temporaryArgs = append(temporaryArgs, *driverID, *driverID)
+	}
+	if err := appendRows("temporary", temporaryQuery, temporaryArgs...); err != nil {
+		return nil, err
+	}
+
+	evQuery := `
+		SELECT DISTINCT
+			COALESCE(u.full_name, '-') AS driver_name,
+			'-' AS original_driver_name,
+			'EV' AS vehicle_type,
+			COALESCE(NULLIF(vg.name, ''), 'EV Group') AS vehicle_number,
+			COALESCE(NULLIF(dc.name, ''), 'EV Cluster') AS vehicle_name,
+			'EV Assignment' AS source,
+			COALESCE(NULLIF(s.name, ''), 'EV Duty') AS schedule_name,
+			CONCAT('Cluster: ', COALESCE(NULLIF(dc.name, ''), '-')) AS details,
+			DATE_FORMAT(GREATEST(ev.start_date, dcm.valid_from), '%d-%m-%Y') AS start_date,
+			DATE_FORMAT(LEAST(ev.end_date, dcm.valid_to), '%d-%m-%Y') AS end_date,
+			COALESCE(TIME_FORMAT(s.start_time, '%h:%i %p'), '-') AS start_time,
+			COALESCE(TIME_FORMAT(s.end_time, '%h:%i %p'), '-') AS end_time,
+			COALESCE(ev.status, '-') AS status,
+			DATE_FORMAT(ev.created_at, '%d-%m-%Y %h:%i %p') AS created_at,
+			DATE_FORMAT(GREATEST(ev.start_date, dcm.valid_from), '%Y-%m-%d') AS sort_start,
+			DATE_FORMAT(ev.created_at, '%Y-%m-%d %H:%i:%s') AS sort_created,
+			COALESCE(TIME_FORMAT(s.start_time, '%H:%i:%s'), '99:99:99') AS sort_shift_start
+		FROM ev_assignments ev
+		JOIN driver_clusters dc ON ev.cluster_id = dc.id
+		JOIN driver_cluster_members dcm ON dcm.cluster_id = dc.id
+		JOIN drivers d ON dcm.driver_id = d.id
+		JOIN users u ON d.user_id = u.id
+		LEFT JOIN shifts s ON ev.shift_id = s.id
+		LEFT JOIN vehicle_groups vg ON ev.vehicle_group_id = vg.id
+		WHERE COALESCE(ev.is_deleted, 0) = 0
+		  AND ev.start_date <= ?
+		  AND ev.end_date >= ?
+		  AND dcm.valid_from <= ?
+		  AND dcm.valid_to >= ?
+	`
+	evArgs := []interface{}{endDate, startDate, endDate, startDate}
+	if driverID != nil {
+		evQuery += " AND d.id = ?"
+		evArgs = append(evArgs, *driverID)
+	}
+	if err := appendRows("ev", evQuery, evArgs...); err != nil {
+		return nil, err
+	}
+
+	replacementQuery := `
+		SELECT
+			CASE
+				WHEN vr.replacement_type = 'driver' AND COALESCE(ru.full_name, '') <> '' THEN ru.full_name
+				ELSE COALESCE(u.full_name, '-')
+			END AS driver_name,
+			CASE
+				WHEN vr.replacement_type = 'driver' AND COALESCE(ru.full_name, '') <> '' THEN COALESCE(u.full_name, '-')
+				ELSE '-'
+			END AS original_driver_name,
+			COALESCE(NULLIF(rvt.type, ''), NULLIF(vt.type, ''), NULLIF(COALESCE(rv.fuel_type, v.fuel_type), ''), 'OTHER') AS vehicle_type,
+			COALESCE(rv.vehicle_number, v.vehicle_number, '-') AS vehicle_number,
+			COALESCE(NULLIF(rv.vehicle_name, ''), rv.vehicle_number, NULLIF(v.vehicle_name, ''), v.vehicle_number, '-') AS vehicle_name,
+			'Vehicle Replacement' AS source,
+			CASE
+				WHEN vr.replacement_type = 'driver' THEN 'Driver Replacement'
+				ELSE 'Vehicle Replacement'
+			END AS schedule_name,
+			CONCAT(
+				'Reason: ', COALESCE(NULLIF(TRIM(vr.reason), ''), '-'),
+				CASE
+					WHEN COALESCE(rv.vehicle_number, '') <> '' THEN CONCAT(' | Replacement Vehicle: ', rv.vehicle_number)
+					ELSE ''
+				END,
+				CASE
+					WHEN COALESCE(ru.full_name, '') <> '' THEN CONCAT(' | Replacement Driver: ', ru.full_name)
+					ELSE ''
+				END
+			) AS details,
+			DATE_FORMAT(vr.start_date, '%d-%m-%Y') AS start_date,
+			DATE_FORMAT(vr.end_date, '%d-%m-%Y') AS end_date,
+			'-' AS start_time,
+			'-' AS end_time,
+			COALESCE(vr.status, '-') AS status,
+			DATE_FORMAT(vr.created_at, '%d-%m-%Y %h:%i %p') AS created_at,
+			DATE_FORMAT(vr.start_date, '%Y-%m-%d') AS sort_start,
+			DATE_FORMAT(vr.created_at, '%Y-%m-%d %H:%i:%s') AS sort_created,
+			'99:99:99' AS sort_shift_start
+		FROM vehicle_replacements vr
+		JOIN vehicles v ON vr.vehicle_id = v.id
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
+		LEFT JOIN vehicles rv ON vr.replacement_vehicle_id = rv.id
+		LEFT JOIN vehicle_types rvt ON rvt.id = rv.vehicle_type_id
+		LEFT JOIN drivers d ON vr.driver_id = d.id
+		LEFT JOIN users u ON d.user_id = u.id
+		LEFT JOIN drivers rd ON vr.replacement_driver_id = rd.id
+		LEFT JOIN users ru ON rd.user_id = ru.id
+		WHERE COALESCE(vr.is_deleted, 0) = 0
+		  AND vr.start_date <= ?
+		  AND vr.end_date >= ?
+	`
+	replacementArgs := []interface{}{endDate, startDate}
+	if driverID != nil {
+		replacementQuery += " AND (vr.driver_id = ? OR vr.replacement_driver_id = ?)"
+		replacementArgs = append(replacementArgs, *driverID, *driverID)
+	}
+	if err := appendRows("replacement", replacementQuery, replacementArgs...); err != nil {
+		return nil, err
+	}
+
+	vehicleRequestQuery := `
+		SELECT
+			COALESCE(u_drv.full_name, '-') AS driver_name,
+			'-' AS original_driver_name,
+			COALESCE(NULLIF(vt.type, ''), NULLIF(v.fuel_type, ''), 'OTHER') AS vehicle_type,
+			COALESCE(v.vehicle_number, '-') AS vehicle_number,
+			COALESCE(NULLIF(v.vehicle_name, ''), v.vehicle_number, '-') AS vehicle_name,
+			'Vehicle Request' AS source,
+			CONCAT(
+				COALESCE(NULLIF(vr.BookingType, ''), 'Request'),
+				' / ',
+				COALESCE(NULLIF(vr.TripType, ''), 'Trip')
+			) AS schedule_name,
+			CONCAT(
+				COALESCE(NULLIF(vr.Purpose, ''), NULLIF(vr.PurposeOfVisit, ''), 'No purpose'),
+				' | ',
+				COALESCE(u_fac.full_name, 'Faculty'),
+				' | ',
+				COALESCE(NULLIF(vrt.from_place, ''), NULLIF(vr.OnwardFromPlace, ''), '-'),
+				' -> ',
+				COALESCE(NULLIF(vrt_last.to_place, ''), NULLIF(vrt.to_place, ''), NULLIF(vr.OnwardToPlace, ''), '-')
+			) AS details,
+			DATE_FORMAT(COALESCE(vrt.from_datetime, vr.OnwardFromDateTime), '%d-%m-%Y') AS start_date,
+			DATE_FORMAT(COALESCE(vrt_last.to_datetime, vrt.to_datetime, vr.OnwardTodateTime, vrt.from_datetime, vr.OnwardFromDateTime), '%d-%m-%Y') AS end_date,
+			COALESCE(DATE_FORMAT(COALESCE(vrt.from_datetime, vr.OnwardFromDateTime), '%h:%i %p'), '-') AS start_time,
+			COALESCE(DATE_FORMAT(COALESCE(vrt_last.to_datetime, vrt.to_datetime, vr.OnwardTodateTime, vrt.from_datetime, vr.OnwardFromDateTime), '%h:%i %p'), '-') AS end_time,
+			COALESCE(vr.status, '-') AS status,
+			DATE_FORMAT(COALESCE(vr.assigned_at, vr.created_at), '%d-%m-%Y %h:%i %p') AS created_at,
+			DATE_FORMAT(COALESCE(vrt.from_datetime, vr.OnwardFromDateTime), '%Y-%m-%d') AS sort_start,
+			DATE_FORMAT(COALESCE(vr.assigned_at, vr.created_at), '%Y-%m-%d %H:%i:%s') AS sort_created,
+			COALESCE(DATE_FORMAT(COALESCE(vrt.from_datetime, vr.OnwardFromDateTime), '%H:%i:%s'), '99:99:99') AS sort_shift_start
+		FROM vehiclerequests vr
+		LEFT JOIN vehicle_request_trips vrt ON vrt.request_id = vr.id AND vrt.trip_order = 1
+		LEFT JOIN vehicle_request_trips vrt_last ON vrt_last.request_id = vr.id AND vrt_last.trip_order = (
+			SELECT MAX(trip_order) FROM vehicle_request_trips WHERE request_id = vr.id
+		)
+		LEFT JOIN vehicles v ON vr.vehicle_id = v.id
+		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
+		LEFT JOIN drivers d_drv ON vr.driver_id = d_drv.id
+		LEFT JOIN users u_drv ON d_drv.user_id = u_drv.id
+		LEFT JOIN faculty f ON vr.faculty_id = f.id
+		LEFT JOIN users u_fac ON f.user_id = u_fac.id
+		WHERE COALESCE(vr.is_deleted, 0) = 0
+		  AND vr.driver_id IS NOT NULL
+		  AND vr.status IN ('assigned', 'trip_started', 'completed', 'cancelled')
+		  AND COALESCE(vrt.from_datetime, vr.OnwardFromDateTime) IS NOT NULL
+		  AND COALESCE(vrt.from_datetime, vr.OnwardFromDateTime) <= DATE_ADD(?, INTERVAL 1 DAY)
+		  AND COALESCE(vrt_last.to_datetime, vrt.to_datetime, vr.OnwardTodateTime, vrt.from_datetime, vr.OnwardFromDateTime) >= ?
+	`
+	vehicleRequestArgs := []interface{}{endDate, startDate}
+	if driverID != nil {
+		vehicleRequestQuery += " AND vr.driver_id = ?"
+		vehicleRequestArgs = append(vehicleRequestArgs, *driverID)
+	}
+	if err := appendRows("vehicle_request", vehicleRequestQuery, vehicleRequestArgs...); err != nil {
+		return nil, err
+	}
+
+	sort.SliceStable(reportRows, func(i, j int) bool {
+		// Primary sort: by start date (ascending - earliest to latest)
+		if reportRows[i].SortStart != reportRows[j].SortStart {
+			return reportRows[i].SortStart < reportRows[j].SortStart
+		}
+
+		// Secondary sort: by driver name (ascending)
+		leftDriver := strings.TrimSpace(strings.ToLower(reportRows[i].DriverName))
+		rightDriver := strings.TrimSpace(strings.ToLower(reportRows[j].DriverName))
+		if leftDriver == "" || leftDriver == "-" {
+			leftDriver = "zzzz"
+		}
+		if rightDriver == "" || rightDriver == "-" {
+			rightDriver = "zzzz"
+		}
+		if leftDriver != rightDriver {
+			return leftDriver < rightDriver
+		}
+
+		// Tertiary sort: by shift start time (ascending)
+		leftShift := strings.TrimSpace(reportRows[i].SortShiftStart)
+		rightShift := strings.TrimSpace(reportRows[j].SortShiftStart)
+		if leftShift == "" {
+			leftShift = "99:99:99"
+		}
+		if rightShift == "" {
+			rightShift = "99:99:99"
+		}
+		if leftShift != rightShift {
+			return leftShift < rightShift
+		}
+
+		// Quaternary sort: by source type (ascending)
+		if reportRows[i].Source != reportRows[j].Source {
+			return reportRows[i].Source < reportRows[j].Source
+		}
+
+		// Final sort: by creation date (descending - newest first)
+		return reportRows[i].SortCreated > reportRows[j].SortCreated
+	})
+
+	return reportRows, nil
+}
+
 // GET /api/admin/reports/assignments?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD
 func GenerateAssignmentReport(c *gin.Context) {
 	if c.Query("format") == "pdf" {
@@ -951,38 +1464,25 @@ func GenerateAssignmentReport(c *gin.Context) {
 		return
 	}
 
-	rows, err := config.DB.Query(`
-		SELECT 
-			u.full_name as driver_name,
-			v.vehicle_number, v.vehicle_name,
-			COALESCE(sh.name, '-') as shift_name,
-			DATE_FORMAT(a.start_date, '%d-%m-%Y'),
-			DATE_FORMAT(a.end_date, '%d-%m-%Y'),
-			a.status,
-			CASE WHEN a.is_temporary_replacement = 1 THEN 'Yes' ELSE 'No' END,
-			COALESCE(a.description, '-'),
-			DATE_FORMAT(a.created_at, '%d-%m-%Y')
-		FROM assignments a
-		JOIN drivers d ON a.driver_id = d.id
-		JOIN users u ON d.user_id = u.id
-		JOIN vehicles v ON a.vehicle_id = v.id
-		LEFT JOIN shifts sh ON a.shift_id = sh.id
-		WHERE a.start_date <= ? AND a.end_date >= ?
-		ORDER BY a.start_date DESC, u.full_name
-	`, endDate, startDate)
+	driverID, err := parseAssignmentReportDriverID(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "driver_id must be a valid driver"})
+		return
+	}
+
+	reportRows, err := fetchAssignmentReportRows(startDate, endDate, driverID)
 	if err != nil {
 		log.Printf("Assignment report error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate report"})
 		return
 	}
-	defer rows.Close()
 
 	f := excelize.NewFile()
 	sheet := "Assignment Report"
 	f.SetSheetName("Sheet1", sheet)
 
-	period := fmt.Sprintf("Period: %s to %s | Generated: %s", startDate, endDate, time.Now().Format("02-01-2006 03:04 PM"))
-	headers := []string{"S.No", "Driver Name", "Vehicle No", "Vehicle Name", "Shift", "Start Date", "End Date", "Status", "Temp Replacement?", "Description", "Created"}
+	period := fmt.Sprintf("Period: %s to %s | Driver: %s | Generated: %s", startDate, endDate, getAssignmentReportDriverLabel(driverID), time.Now().Format("02-01-2006 03:04 PM"))
+	headers := []string{"S.No", "Driver Name", "Vehicle Details", "Source", "Shift Details", "Assignment Details", "Start Date", "End Date", "Status"}
 	styleTitleRow(f, sheet, "ASSIGNMENT REPORT", period, len(headers))
 
 	for i, h := range headers {
@@ -993,27 +1493,23 @@ func GenerateAssignmentReport(c *gin.Context) {
 
 	row := 5
 	sno := 1
-	for rows.Next() {
-		var driverName, vNum, vName, shift, startD, endD, status, tempRepl, desc, created string
-		if err := rows.Scan(&driverName, &vNum, &vName, &shift, &startD, &endD, &status, &tempRepl, &desc, &created); err != nil {
-			continue
-		}
+	for _, reportRow := range reportRows {
+		shiftDetails := formatAssignmentShiftDetails(reportRow.Schedule, reportRow.StartTime, reportRow.EndTime)
+		vehicleDetails := formatAssignmentVehicleDetails(reportRow)
 		f.SetCellValue(sheet, fmt.Sprintf("A%d", row), sno)
-		f.SetCellValue(sheet, fmt.Sprintf("B%d", row), driverName)
-		f.SetCellValue(sheet, fmt.Sprintf("C%d", row), vNum)
-		f.SetCellValue(sheet, fmt.Sprintf("D%d", row), vName)
-		f.SetCellValue(sheet, fmt.Sprintf("E%d", row), shift)
-		f.SetCellValue(sheet, fmt.Sprintf("F%d", row), startD)
-		f.SetCellValue(sheet, fmt.Sprintf("G%d", row), endD)
-		f.SetCellValue(sheet, fmt.Sprintf("H%d", row), status)
-		f.SetCellValue(sheet, fmt.Sprintf("I%d", row), tempRepl)
-		f.SetCellValue(sheet, fmt.Sprintf("J%d", row), desc)
-		f.SetCellValue(sheet, fmt.Sprintf("K%d", row), created)
+		f.SetCellValue(sheet, fmt.Sprintf("B%d", row), reportRow.DriverName)
+		f.SetCellValue(sheet, fmt.Sprintf("C%d", row), vehicleDetails)
+		f.SetCellValue(sheet, fmt.Sprintf("D%d", row), reportRow.Source)
+		f.SetCellValue(sheet, fmt.Sprintf("E%d", row), shiftDetails)
+		f.SetCellValue(sheet, fmt.Sprintf("F%d", row), reportRow.Details)
+		f.SetCellValue(sheet, fmt.Sprintf("G%d", row), reportRow.StartDate)
+		f.SetCellValue(sheet, fmt.Sprintf("H%d", row), reportRow.EndDate)
+		f.SetCellValue(sheet, fmt.Sprintf("I%d", row), reportRow.Status)
 		row++
 		sno++
 	}
 
-	setColWidths(f, sheet, map[string]float64{"A": 6, "B": 22, "C": 14, "D": 18, "E": 14, "F": 12, "G": 12, "H": 12, "I": 16, "J": 22, "K": 12})
+	setColWidths(f, sheet, map[string]float64{"A": 6, "B": 22, "C": 44, "D": 20, "E": 30, "F": 36, "G": 12, "H": 12, "I": 14})
 
 	filename := fmt.Sprintf("Assignment_Report_%s_to_%s.xlsx", startDate, endDate)
 	sendExcel(c, f, filename)

@@ -120,11 +120,11 @@ const REPORTS = [
     key: "assignments",
     title: "Assignment Report",
     description:
-      "Driver-vehicle assignment history with shift, dates & temporary replacements",
+      "Combined assignment history across regular, duty, temporary, EV, replacement & vehicle requests",
     icon: FileText,
     color: "bg-red/10 text-red",
     endpoint: "/api/admin/reports/assignments",
-    filters: ["dateRange"],
+    filters: ["dateRange", "driverSelect"],
   },
   {
     key: "vendor",
@@ -220,7 +220,7 @@ function getDefaultDates() {
 
 export default function Reports() {
   const defaults = getDefaultDates();
-  // Per-card filters: { [reportKey]: { start_date, end_date, academic_year, status, bus_id } }
+  // Per-card filters: { [reportKey]: { start_date, end_date, academic_year, status, bus_id, driver_id } }
   const [cardFilters, setCardFilters] = useState(() => {
     const initial = {};
     REPORTS.forEach((r) => {
@@ -230,6 +230,7 @@ export default function Reports() {
         academic_year: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
         status: "all",
         bus_id: "",
+        driver_id: "all",
       };
     });
     return initial;
@@ -237,24 +238,36 @@ export default function Reports() {
   const [downloading, setDownloading] = useState(null);
   const [expandedCard, setExpandedCard] = useState(null);
   const [buses, setBuses] = useState([]);
+  const [drivers, setDrivers] = useState([]);
   const [reportFormat, setReportFormat] = useState({});
   const {showToast} = useToast();
 
   useEffect(() => {
-    const fetchBuses = async () => {
+    const fetchInitialFilters = async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/admin/buses/with-students`, {
-          credentials: "include",
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setBuses(data || []);
+        const [busRes, driverRes] = await Promise.all([
+          fetch(`${API_BASE}/api/admin/buses/with-students`, {
+            credentials: "include",
+          }),
+          fetch(`${API_BASE}/api/admin/drivers`, {
+            credentials: "include",
+          }),
+        ]);
+
+        if (busRes.ok) {
+          const busData = await busRes.json();
+          setBuses(Array.isArray(busData) ? busData : []);
+        }
+
+        if (driverRes.ok) {
+          const driverData = await driverRes.json();
+          setDrivers(Array.isArray(driverData) ? driverData : []);
         }
       } catch (err) {
-        console.error("Failed to fetch buses:", err);
+        console.error("Failed to load report filters:", err);
       }
     };
-    fetchBuses();
+    fetchInitialFilters();
   }, []);
 
   const handleCardFilterChange = (reportKey, filterKey, value) => {
@@ -305,6 +318,13 @@ export default function Reports() {
       }
       if (report.filters.includes("busSelect") && filters.bus_id) {
         params.set("bus_id", filters.bus_id);
+      }
+      if (
+        report.filters.includes("driverSelect") &&
+        filters.driver_id &&
+        filters.driver_id !== "all"
+      ) {
+        params.set("driver_id", filters.driver_id);
       }
       if (format === "pdf") {
         params.set("format", "pdf");
@@ -452,6 +472,16 @@ export default function Reports() {
                           : "Select a bus"}
                       </span>
                     )}
+                    {report.filters.includes("driverSelect") && (
+                      <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-gray-50 text-gray-600 border border-gray-100">
+                        <Users className="w-3 h-3" />
+                        {filters.driver_id === "all"
+                          ? "All drivers"
+                          : drivers.find(
+                              (d) => String(d.id) === String(filters.driver_id),
+                            )?.full_name || `Driver #${filters.driver_id}`}
+                      </span>
+                    )}
                     {report.filters.length === 0 && (
                       <span className="text-[11px] px-2 py-0.5 rounded-full bg-green/5 text-green border border-green/10">
                         No filters needed — full data
@@ -582,6 +612,33 @@ export default function Reports() {
                             <option key={b.id} value={b.id}>
                               {b.name || `Bus #${b.id}`}
                               {b.route ? ` (${b.route})` : ""}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {/* Driver Select */}
+                    {report.filters.includes("driverSelect") && (
+                      <div>
+                        <label className="block text-[11px] font-medium text-gray-500 mb-1">
+                          Driver
+                        </label>
+                        <select
+                          value={filters.driver_id}
+                          onChange={(e) =>
+                            handleCardFilterChange(
+                              report.key,
+                              "driver_id",
+                              e.target.value,
+                            )
+                          }
+                          className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white"
+                        >
+                          <option value="all">All drivers</option>
+                          {drivers.map((d) => (
+                            <option key={d.id} value={d.id}>
+                              {d.full_name || `Driver #${d.id}`}
                             </option>
                           ))}
                         </select>

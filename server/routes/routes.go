@@ -36,7 +36,6 @@ func RegisterRoutes(r *gin.Engine) {
 	// Shared dropdown data (for forms across roles)
 	authenticated.GET("/vehicles", admin.GetAllVehicles)
 	authenticated.GET("/vehicle-types", admin.GetVehicleTypes)
-	authenticated.GET("/stops", admin.GetAllStops)
 	authenticated.GET("/shifts", admin.GetAllShifts)
 	authenticated.GET("/drivers", admin.GetDrivers)
 
@@ -114,11 +113,6 @@ func registerAdminRoutes(adm *gin.RouterGroup) {
 	adm.POST("/default-vehicle-drivers/create", admin.CreateDefaultVehicleDriver)
 	adm.PUT("/default-vehicle-drivers/update", admin.UpdateDefaultVehicleDriver)
 	adm.DELETE("/default-vehicle-drivers/delete", admin.DeleteDefaultVehicleDriver)
-
-	// Stop Management
-	adm.GET("/stops", admin.GetAllStops)
-	adm.POST("/stops/create", admin.CreateStop)
-	adm.DELETE("/stops/delete", admin.DeleteStop)
 
 	// Shift Management
 	adm.GET("/shifts", admin.GetAllShifts)
@@ -223,8 +217,6 @@ func registerAdminRoutes(adm *gin.RouterGroup) {
 	adm.POST("/fuel-indents/approve", admin.ApproveFuelIndent)
 	adm.POST("/fuel-indents/reject", admin.RejectFuelIndent)
 	adm.GET("/fuel-indents/pending-count", admin.GetPendingFuelIndentCount)
-	adm.GET("/odometer-readings", admin.GetOdometerReadings)
-	adm.POST("/odometer-readings/create", admin.CreateOdometerReading)
 
 	// Vehicle Replacements (unified replacement system)
 	adm.GET("/vehicle-replacements", admin.GetVehicleReplacements)
@@ -258,6 +250,9 @@ func registerAdminRoutes(adm *gin.RouterGroup) {
 	adm.GET("/students", admin.GetAllStudents)
 	adm.POST("/students/create", admin.CreateStudent)
 	adm.DELETE("/students/delete", admin.DeleteStudent)
+	adm.POST("/users/students/bulk-create-file", admin.BulkCreateStudentsFile)
+	adm.POST("/users/faculty/bulk-create-file", admin.BulkCreateFacultyFile)
+	adm.POST("/users/faculty/create", admin.CreateFacultyUser)
 	adm.GET("/student-transport", admin.GetAllStudentTransport)
 	adm.POST("/student-transport/assign", admin.AssignStudentTransport)
 	adm.POST("/student-transport/update", admin.UpdateStudentTransport)
@@ -267,18 +262,15 @@ func registerAdminRoutes(adm *gin.RouterGroup) {
 	adm.GET("/stop-change-requests", admin.GetAllStopChangeRequests)
 	adm.POST("/stop-change-requests/process", admin.ProcessStopChangeRequest)
 	adm.GET("/stop-change-requests/pending-count", admin.GetPendingStopChangeCount)
-
 	// Transport Requests
 	adm.GET("/transport-requests", admin.GetAllTransportRequests)
 	adm.POST("/transport-requests/process", admin.ProcessTransportRequest)
 	adm.POST("/transport-requests/fix-approved", admin.FixApprovedRequests)
 	adm.GET("/transport-requests/pending-count", admin.GetPendingTransportRequestCount)
-
 	// Students by Bus
 	adm.GET("/buses/with-students", admin.GetBusesWithStudentCounts)
 	adm.GET("/buses/:id/students", admin.GetStudentsByBus)
 	adm.GET("/student-transport/:id/fee-summary", admin.GetStudentFeeSummary)
-
 	// Vehicle Requests (Faculty Bookings - Admin side)
 	adm.GET("/vehicle-requests", admin.GetAllVehicleRequests)
 	adm.GET("/vehicle-request/:id", admin.GetVehicleRequestDetails)
@@ -290,7 +282,6 @@ func registerAdminRoutes(adm *gin.RouterGroup) {
 	adm.POST("/vehicle-request/end-trip", admin.EndVehicleRequestTripByAdmin)
 	adm.POST("/vehicle-request/complete", admin.CompleteVehicleRequest)
 	adm.GET("/vehicle-requests/pending-count", admin.GetPendingVehicleRequestCount)
-
 	// Service & Repair
 	adm.GET("/services", admin.GetAllServiceRecords)
 	adm.GET("/services/stats", admin.GetServiceStats)
@@ -304,7 +295,6 @@ func registerAdminRoutes(adm *gin.RouterGroup) {
 	adm.POST("/services/:id/start", admin.StartServiceRecord)
 	adm.POST("/services/:id/complete", admin.CompleteServiceRecord)
 	adm.POST("/services/:id/cancel", admin.CancelServiceRecord)
-
 	adm.GET("/services/:id/parts", admin.GetPartsByServiceRecord)
 	adm.POST("/services/parts/add", admin.AddPart)
 	adm.POST("/services/parts/add-bulk", admin.AddBulkParts)
@@ -352,51 +342,45 @@ func registerAdminRoutes(adm *gin.RouterGroup) {
 	adm.GET("/reports/vehicle-groups", admin.GenerateVehicleGroupReport)
 	adm.GET("/reports/shifts", admin.GenerateShiftReport)
 }
+
 // registerDriverRoutes sets up all driver endpoints under /api/driver
 func registerDriverRoutes(drv *gin.RouterGroup) {
 	drv.GET("/profile", driver.GetDriverProfile)
 	drv.GET("/assignment/today", driver.GetDriverTodayAssignment)
 	drv.GET("/assignments/today", driver.GetDriverTodayAssignments)
 	drv.GET("/assignments", driver.GetDriverAssignments)
-
 	// KM Logs
 	drv.GET("/km-logs", driver.GetDriverKmLogs)
 	drv.POST("/km-log/add", driver.AddDriverKmLog)
 	drv.GET("/km-log/assigned-vehicles", driver.GetDriverKmLogAssignedVehicles)
 	drv.GET("/vehicle-last-log", driver.GetLastLogForVehicle)
-
 	// Leave
 	drv.POST("/leave/apply", driver.ApplyLeave)
 	drv.GET("/leave", driver.GetMyLeaveRequests)
-
 	// Alerts
 	drv.GET("/vehicles/alerts", driver.GetDriverVehicleAlerts)
-
 	// Notifications
 	drv.GET("/notifications", driver.GetDriverNotifications)
 	drv.GET("/notifications/unread-count", driver.GetUnreadNotificationCount)
 	drv.POST("/notifications/:id/mark-read", driver.MarkNotificationRead)
 	drv.POST("/notifications/mark-all-read", driver.MarkAllNotificationsRead)
-
 	// Vehicle Requests (Faculty Bookings assigned to driver)
 	drv.GET("/vehicle-requests", driver.GetDriverVehicleRequests)
 	drv.GET("/vehicle-requests/upcoming", driver.GetDriverUpcomingVehicleRequests)
 	drv.POST("/vehicle-request/verify-start-otp", driver.VerifyStartOTP)
 	drv.POST("/vehicle-request/verify-end-otp", driver.VerifyEndOTP)
-
 	// Service & Repair (Driver)
 	drv.POST("/services/report", driver.ReportIssue)
 	drv.GET("/services/my-requests", driver.GetMyServiceRequests)
 	drv.GET("/services/vehicle-history", driver.GetVehicleServiceHistory)
-
 	// Fuel Indent (Driver)
 	drv.GET("/fuel-indents", driver.GetDriverFuelIndents)
 	drv.POST("/fuel-indents/create", driver.CreateDriverFuelIndent)
 	drv.GET("/drivers-dropdown", driver.GetDriversDropdown)
-
 	// Bus Route Info (for bus assignments)
 	drv.GET("/bus/:vehicle_id/route-info", driver.GetBusRouteInfo)
 }
+
 // registerStudentRoutes sets up all student endpoints under /api/student
 func registerStudentRoutes(stu *gin.RouterGroup) {
 	stu.GET("/buses", bus.GetBusFleet)
@@ -416,7 +400,6 @@ func registerStudentRoutes(stu *gin.RouterGroup) {
 func registerFacultyRoutes(fac *gin.RouterGroup) {
 	fac.GET("/profile", faculty.GetFacultyProfile)
 	fac.POST("/profile/update", faculty.UpdateFacultyProfile)
-
 	// Vehicle Booking
 	fac.POST("/vehicle-request", faculty.CreateVehicleRequest)
 	fac.GET("/vehicle-requests", faculty.GetMyVehicleRequests)

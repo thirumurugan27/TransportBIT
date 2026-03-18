@@ -1,5 +1,4 @@
 package admin
-
 import (
 	"log"
 	"net/http"
@@ -9,13 +8,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
-
 /*
 =========================
-
 	GET /api/admin/available-drivers
 	Get drivers available for a specific date (not on leave, not assigned)
-
 =========================
 */
 func GetAvailableDrivers(c *gin.Context) {
@@ -107,13 +103,10 @@ func GetAvailableDrivers(c *gin.Context) {
 
 	c.JSON(http.StatusOK, drivers)
 }
-
 /*
 =========================
-
 	GET /api/admin/assignments/by-category
 	Get assignments filtered by vehicle category (BUS, CAR, OTHER)
-
 =========================
 */
 func GetAssignmentsByCategory(c *gin.Context) {
@@ -315,12 +308,9 @@ func GetAssignmentsByCategory(c *gin.Context) {
 
 	c.JSON(http.StatusOK, assignments)
 }
-
 /*
 =========================
-
 	GET /api/admin/km-summary
 	Get KM summary by vehicle type for dashboard
-
 =========================
 */

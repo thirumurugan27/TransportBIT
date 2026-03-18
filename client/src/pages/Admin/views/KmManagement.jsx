@@ -92,7 +92,7 @@ export default function KmManagement() {
 
   // Logs
   const [logFilters, setLogFilters] = useState({
-    period: "today",
+    period: "all",
     driverId: "",
     vehicleId: "",
     vehicleType: "",
@@ -564,10 +564,10 @@ export default function KmManagement() {
       : 1;
 
   const periodOptions = [
+    {value: "all", label: "All Time"},
     {value: "today", label: "Today"},
     {value: "week", label: "This Week"},
     {value: "month", label: "This Month"},
-    {value: "all", label: "All Time"},
   ];
 
   const driverOptions = [

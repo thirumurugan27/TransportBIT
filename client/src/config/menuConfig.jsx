@@ -26,7 +26,6 @@ import {
   SubPartsIcon,
   SubReminderIcon,
   SubVendorIcon,
-  ReportIcon,
   FuelIcon,
 } from "../components/layout/Icons";
 
@@ -163,10 +162,10 @@ export const adminMenuConfig = {
       path: "/student-transport",
     },
     {
-      key: "reports",
-      label: "Reports",
-      icon: <ReportIcon />,
-      path: "/reports",
+      key: "adminActions",
+      label: "Admin Actions",
+      icon: <AssignmentIcon />,
+      path: "/admin-actions",
     },
   ],
 };
