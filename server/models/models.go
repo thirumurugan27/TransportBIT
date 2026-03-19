@@ -512,6 +512,7 @@ type FuelIndent struct {
 	DriverID         int     `json:"driver_id"`
 	FuelRequested    float64 `json:"fuel_requested"`
 	FuelFilled       float64 `json:"fuel_filled"`
+	FuelAmount       float64 `json:"fuel_amount"`
 	OdometerReading  int     `json:"odometer_reading"`
 	Status           string  `json:"status"` // pending, completed, rejected
 	RequestedAt      string  `json:"requested_at"`
@@ -521,6 +522,12 @@ type FuelIndent struct {
 	FuelType         string  `json:"fuel_type"`
 	FilledDate       string  `json:"filled_date"`
 	FilledTime       string  `json:"filled_time"`
+	BillFileName     string  `json:"bill_file_name"`
+	BillOriginalName string  `json:"bill_original_name"`
+	BillFileType     string  `json:"bill_file_type"`
+	BillFileSize     int64   `json:"bill_file_size"`
+	BillFileURL      string  `json:"bill_file_url"`
+	BillUploadedAt   *string `json:"bill_uploaded_at"`
 	// Joined fields
 	VehicleNumber string `json:"vehicle_number"`
 	VehicleName   string `json:"vehicle_name"`
@@ -542,6 +549,7 @@ type DriverCreateFuelIndentRequest struct {
 	FilledTime       string  `json:"filled_time"`
 	OdometerReading  int     `json:"odometer_reading"`
 	FilledLiters     float64 `json:"filled_liters"`
+	FuelAmount       float64 `json:"fuel_amount"`
 }
 type CompleteFuelIndentRequest struct {
 	IndentID   int     `json:"indent_id"`

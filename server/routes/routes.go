@@ -216,8 +216,10 @@ func registerAdminRoutes(adm *gin.RouterGroup) {
 	adm.POST("/fuel-indents/complete", admin.CompleteFuelIndent)
 	adm.POST("/fuel-indents/approve", admin.ApproveFuelIndent)
 	adm.POST("/fuel-indents/reject", admin.RejectFuelIndent)
+	adm.POST("/fuel-indents/:id/bill", admin.UploadFuelIndentBill)
+	adm.PUT("/fuel-indents/:id", admin.UpdateFuelIndent)
+	adm.DELETE("/fuel-indents/:id", admin.DeleteFuelIndent)
 	adm.GET("/fuel-indents/pending-count", admin.GetPendingFuelIndentCount)
-
 	// Vehicle Replacements (unified replacement system)
 	adm.GET("/vehicle-replacements", admin.GetVehicleReplacements)
 	adm.POST("/vehicle-replacements/create", admin.CreateVehicleReplacement)
@@ -342,6 +344,7 @@ func registerAdminRoutes(adm *gin.RouterGroup) {
 	adm.GET("/reports/vehicle-groups", admin.GenerateVehicleGroupReport)
 	adm.GET("/reports/shifts", admin.GenerateShiftReport)
 }
+
 // registerDriverRoutes sets up all driver endpoints under /api/driver
 func registerDriverRoutes(drv *gin.RouterGroup) {
 	drv.GET("/profile", driver.GetDriverProfile)
@@ -375,10 +378,14 @@ func registerDriverRoutes(drv *gin.RouterGroup) {
 	// Fuel Indent (Driver)
 	drv.GET("/fuel-indents", driver.GetDriverFuelIndents)
 	drv.POST("/fuel-indents/create", driver.CreateDriverFuelIndent)
+	drv.POST("/fuel-indents/:id/bill", driver.UploadDriverFuelIndentBill)
+	drv.PUT("/fuel-indents/:id", driver.UpdateDriverFuelIndent)
+	drv.DELETE("/fuel-indents/:id", driver.DeleteDriverFuelIndent)
 	drv.GET("/drivers-dropdown", driver.GetDriversDropdown)
 	// Bus Route Info (for bus assignments)
 	drv.GET("/bus/:vehicle_id/route-info", driver.GetBusRouteInfo)
 }
+
 // registerStudentRoutes sets up all student endpoints under /api/student
 func registerStudentRoutes(stu *gin.RouterGroup) {
 	stu.GET("/buses", bus.GetBusFleet)
@@ -393,6 +400,7 @@ func registerStudentRoutes(stu *gin.RouterGroup) {
 	stu.GET("/available-stops", student.GetAvailableStops)
 	stu.GET("/all-buses", student.GetAllBuses)
 }
+
 // registerFacultyRoutes sets up all faculty endpoints under /api/faculty
 func registerFacultyRoutes(fac *gin.RouterGroup) {
 	fac.GET("/profile", faculty.GetFacultyProfile)

@@ -111,7 +111,6 @@ func toKmVehicleList(vehicleMap map[int]KmLogAssignedVehicle) []KmLogAssignedVeh
 		}
 		vehicles = append(vehicles, v)
 	}
-
 	sort.Slice(vehicles, func(i, j int) bool {
 		left := strings.ToLower(strings.TrimSpace(vehicles[i].VehicleName))
 		right := strings.ToLower(strings.TrimSpace(vehicles[j].VehicleName))
@@ -126,7 +125,6 @@ func toKmVehicleList(vehicleMap map[int]KmLogAssignedVehicle) []KmLogAssignedVeh
 		}
 		return left < right
 	})
-
 	return vehicles
 }
 
@@ -138,24 +136,20 @@ func toKmVehicleList(vehicleMap map[int]KmLogAssignedVehicle) []KmLogAssignedVeh
 =========================
 */
 func GetDriverKmLogAssignedVehicles(c *gin.Context) {
-	driverID := c.Query("driver_id")
-	date := c.Query("date")
-
-	if driverID == "" || date == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "driver_id and date required"})
+	driverID := strings.TrimSpace(c.Query("driver_id"))
+	date := strings.TrimSpace(c.Query("date"))
+	if driverID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "driver_id required"})
 		return
 	}
-
 	driverIDInt, err := strconv.Atoi(driverID)
 	if err != nil || driverIDInt <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid driver_id"})
 		return
 	}
-
 	vehicleMap := make(map[int]KmLogAssignedVehicle)
-
 	// 1) Regular assignments
-	assignmentRows, err := config.DB.Query(`
+	assignmentQuery := `
 		SELECT v.id,
 		       COALESCE(NULLIF(v.vehicle_name, ''), v.vehicle_number, '') as vehicle_name,
 		       COALESCE(v.vehicle_number, '') as vehicle_number,
@@ -166,8 +160,15 @@ func GetDriverKmLogAssignedVehicles(c *gin.Context) {
 		JOIN vehicles v ON v.id = a.vehicle_id
 		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 		WHERE a.driver_id = ?
-		  AND ? BETWEEN a.start_date AND a.end_date
-	`, driverIDInt, date)
+		  AND COALESCE(a.is_deleted, 0) = 0
+	`
+	assignmentArgs := []interface{}{driverIDInt}
+	if date != "" {
+		assignmentQuery += " AND ? BETWEEN a.start_date AND a.end_date"
+		assignmentArgs = append(assignmentArgs, date)
+	}
+
+	assignmentRows, err := config.DB.Query(assignmentQuery, assignmentArgs...)
 	if err != nil {
 		log.Printf("GetDriverKmLogAssignedVehicles regular assignment query error: %v", err)
 	} else {
@@ -183,9 +184,8 @@ func GetDriverKmLogAssignedVehicles(c *gin.Context) {
 			}
 		}
 	}
-
 	// 2) Temporary assignments
-	tempRows, err := config.DB.Query(`
+	temporaryQuery := `
 		SELECT v.id,
 		       COALESCE(NULLIF(v.vehicle_name, ''), v.vehicle_number, '') as vehicle_name,
 		       COALESCE(v.vehicle_number, '') as vehicle_number,
@@ -196,9 +196,15 @@ func GetDriverKmLogAssignedVehicles(c *gin.Context) {
 		JOIN vehicles v ON v.id = ta.vehicle_id
 		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 		WHERE ta.replacement_driver_id = ?
-		  AND ? BETWEEN ta.start_date AND ta.end_date
-		  AND ta.status = 'active'
-	`, driverIDInt, date)
+		  AND COALESCE(ta.is_deleted, 0) = 0
+	`
+	temporaryArgs := []interface{}{driverIDInt}
+	if date != "" {
+		temporaryQuery += " AND ? BETWEEN ta.start_date AND ta.end_date"
+		temporaryArgs = append(temporaryArgs, date)
+	}
+
+	tempRows, err := config.DB.Query(temporaryQuery, temporaryArgs...)
 	if err != nil {
 		log.Printf("GetDriverKmLogAssignedVehicles temporary assignment query error: %v", err)
 	} else {
@@ -213,9 +219,8 @@ func GetDriverKmLogAssignedVehicles(c *gin.Context) {
 			}
 		}
 	}
-
 	// 3) EV group assignments
-	evRows, err := config.DB.Query(`
+	evQuery := `
 		SELECT DISTINCT v.id,
 		       COALESCE(NULLIF(v.vehicle_name, ''), v.vehicle_number, '') as vehicle_name,
 		       COALESCE(v.vehicle_number, '') as vehicle_number,
@@ -227,13 +232,21 @@ func GetDriverKmLogAssignedVehicles(c *gin.Context) {
 		JOIN vehicles v ON v.id = vgm.vehicle_id
 		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 		WHERE dcm.driver_id = ?
+		  AND COALESCE(ev.is_deleted, 0) = 0
+	`
+	evArgs := []interface{}{driverIDInt}
+	if date != "" {
+		evQuery += `
 		  AND ? BETWEEN ev.start_date AND ev.end_date
-		  AND ev.status = 'active'
 		  AND (dcm.valid_from IS NULL OR ? >= dcm.valid_from)
 		  AND (dcm.valid_to IS NULL OR ? <= dcm.valid_to)
 		  AND (vgm.valid_from IS NULL OR ? >= vgm.valid_from)
 		  AND (vgm.valid_to IS NULL OR ? <= vgm.valid_to)
-	`, driverIDInt, date, date, date, date, date)
+		`
+		evArgs = append(evArgs, date, date, date, date, date)
+	}
+
+	evRows, err := config.DB.Query(evQuery, evArgs...)
 	if err != nil {
 		log.Printf("GetDriverKmLogAssignedVehicles EV assignment query error: %v", err)
 	} else {
@@ -247,12 +260,8 @@ func GetDriverKmLogAssignedVehicles(c *gin.Context) {
 			}
 		}
 	}
-
 	// 4) Vehicle requests assigned to driver
-	// Include active request assignments always; include completed requests for the selected date.
-	scheduleExpr := "COALESCE(vrt.from_datetime, vr.assigned_at, vr.created_at)"
-
-	query := `
+	requestQuery := `
 		SELECT DISTINCT v.id,
 		       COALESCE(NULLIF(v.vehicle_name, ''), v.vehicle_number, '') as vehicle_name,
 		       COALESCE(v.vehicle_number, '') as vehicle_number,
@@ -261,16 +270,12 @@ func GetDriverKmLogAssignedVehicles(c *gin.Context) {
 		FROM vehiclerequests vr
 		JOIN vehicles v ON v.id = vr.vehicle_id
 		LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
-		LEFT JOIN vehicle_request_trips vrt ON vrt.request_id = vr.id
 		WHERE vr.driver_id = ?
 		  AND vr.vehicle_id IS NOT NULL
-		  AND (
-		       vr.status IN ('assigned', 'trip_started')
-		       OR (vr.status = 'completed' AND DATE(` + scheduleExpr + `) = ?)
-		  )
+		  AND COALESCE(vr.is_deleted, 0) = 0
+		  AND vr.status IN ('assigned', 'trip_started', 'completed', 'cancelled')
 	`
-
-	requestRows, reqErr := config.DB.Query(query, driverIDInt, date)
+	requestRows, reqErr := config.DB.Query(requestQuery, driverIDInt)
 	if reqErr != nil {
 		log.Printf("GetDriverKmLogAssignedVehicles vehicle request query error: %v", reqErr)
 	} else {
@@ -284,15 +289,12 @@ func GetDriverKmLogAssignedVehicles(c *gin.Context) {
 			}
 		}
 	}
-
 	c.JSON(http.StatusOK, toKmVehicleList(vehicleMap))
 }
 
 /*
 =========================
-
-	GET /api/driver/km-logs
-
+GET /api/driver/km-logs
 =========================
 */
 func GetDriverKmLogs(c *gin.Context) {
@@ -301,7 +303,6 @@ func GetDriverKmLogs(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "driver_id required"})
 		return
 	}
-
 	rows, err := config.DB.Query(`
 		SELECT k.id, k.driver_id, DATE_FORMAT(k.date, '%d-%m-%Y') as date, 
 		       k.start_km, k.end_km, k.total_km, k.fuel_consumed,
@@ -315,14 +316,12 @@ func GetDriverKmLogs(c *gin.Context) {
 		ORDER BY k.date DESC
 		LIMIT 30
 	`, driverID)
-
 	if err != nil {
 		log.Printf("Get km logs error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching km logs"})
 		return
 	}
 	defer rows.Close()
-
 	var logs []KmLog
 	for rows.Next() {
 		var l KmLog
@@ -333,7 +332,6 @@ func GetDriverKmLogs(c *gin.Context) {
 		l.VehicleNumber = vehicleNumber
 		logs = append(logs, l)
 	}
-
 	c.JSON(http.StatusOK, logs)
 }
 
@@ -350,28 +348,23 @@ func AddDriverKmLog(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return
 	}
-
 	// Validate
 	if req.DriverID == 0 || req.Date == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "driver_id and date required"})
 		return
 	}
-
 	if req.VehicleID == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "vehicle_id required"})
 		return
 	}
-
 	if req.EndKm < req.StartKm {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "End KM must be greater than Start KM"})
 		return
 	}
-
 	// Calculate total if not provided or incorrect
 	if req.TotalKm == 0 {
 		req.TotalKm = req.EndKm - req.StartKm
 	}
-
 	// Check for duplicate entry unless force flag is set
 	if !req.Force {
 		var existingID int
@@ -391,7 +384,6 @@ func AddDriverKmLog(c *gin.Context) {
 			return
 		}
 	}
-
 	// Fetch driver user info for recorded_by metadata
 	var recordedByUserID int
 	err := config.DB.QueryRow(`
@@ -404,7 +396,6 @@ func AddDriverKmLog(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Driver not found"})
 		return
 	}
-
 	// Auto-detect assignment if not provided
 	if req.AssignmentID == nil {
 		var assignmentID sql.NullInt64
@@ -419,28 +410,23 @@ func AddDriverKmLog(c *gin.Context) {
 			req.AssignmentID = &val
 		}
 	}
-
 	var vehicleID interface{}
 	if req.VehicleID != nil {
 		vehicleID = *req.VehicleID
 	}
-
 	var assignmentID interface{}
 	if req.AssignmentID != nil {
 		assignmentID = *req.AssignmentID
 	}
-
 	var shiftID interface{}
 	if req.ShiftID != nil {
 		shiftID = *req.ShiftID
 	}
-
 	// Insert into DB with status='pending' - requires admin approval
 	var fuelConsumed interface{}
 	if req.FuelConsumed != nil {
 		fuelConsumed = *req.FuelConsumed
 	}
-
 	result, err := config.DB.Exec(`
 		INSERT INTO km_logs (
 			driver_id, date, start_km, end_km, total_km, fuel_consumed, remarks,
@@ -449,13 +435,11 @@ func AddDriverKmLog(c *gin.Context) {
 		)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
 	`, req.DriverID, req.Date, req.StartKm, req.EndKm, req.TotalKm, fuelConsumed, req.Remarks, vehicleID, assignmentID, shiftID, recordedByUserID)
-
 	if err != nil {
 		log.Printf("Add km log error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error adding km log"})
 		return
 	}
-
 	id, _ := result.LastInsertId()
 	c.JSON(http.StatusOK, gin.H{
 		"message": "KM log submitted for approval",
@@ -466,9 +450,7 @@ func AddDriverKmLog(c *gin.Context) {
 
 /*
 =========================
-
-	GET /api/driver/vehicle-last-log
-
+GET /api/driver/vehicle-last-log
 =========================
 */
 func GetLastLogForVehicle(c *gin.Context) {
@@ -477,7 +459,6 @@ func GetLastLogForVehicle(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "vehicle_id required"})
 		return
 	}
-
 	var endKm float64
 	err := config.DB.QueryRow(`
 		SELECT end_km 
@@ -486,10 +467,8 @@ func GetLastLogForVehicle(c *gin.Context) {
 		ORDER BY date DESC, end_km DESC 
 		LIMIT 1
 	`, vehicleID).Scan(&endKm)
-
 	if err != nil {
 		endKm = 0
 	}
-
 	c.JSON(http.StatusOK, gin.H{"end_km": endKm})
 }

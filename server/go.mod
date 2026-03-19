@@ -1,7 +1,5 @@
 module transport-server
-
 go 1.25.5
-
 require (
 	github.com/gin-contrib/cors v1.7.6
 	github.com/gin-gonic/gin v1.11.0
@@ -12,7 +10,6 @@ require (
 	github.com/xuri/excelize/v2 v2.10.1
 	golang.org/x/oauth2 v0.34.0
 )
-
 require (
 	cloud.google.com/go/compute/metadata v0.9.0 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect

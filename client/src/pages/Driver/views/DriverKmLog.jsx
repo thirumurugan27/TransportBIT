@@ -43,7 +43,7 @@ export default function DriverKmLog() {
   useEffect(() => {
     if (driverId) {
       fetchLogs();
-      fetchAssignedVehicles(getToday());
+      fetchAssignedVehicles();
     }
   }, [driverId]);
 
@@ -84,11 +84,11 @@ export default function DriverKmLog() {
     }
   };
 
-  const fetchAssignedVehicles = async (dateValue = form.date) => {
+  const fetchAssignedVehicles = async () => {
     setVehiclesLoading(true);
     try {
       const res = await apiGet(
-        `/api/driver/km-log/assigned-vehicles?driver_id=${driverId}&date=${dateValue}`,
+        `/api/driver/km-log/assigned-vehicles?driver_id=${driverId}`,
       );
       if (!res.ok) {
         throw new Error("Failed to load assigned vehicles");
@@ -202,7 +202,8 @@ export default function DriverKmLog() {
       } else if (data.code === "duplicate") {
         const confirmed = await showConfirm(
           "Log Already Exists",
-          data.error || "You have already submitted a KM log for this date and vehicle. Do you want to add another log?",
+          data.error ||
+            "You have already submitted a KM log for this date and vehicle. Do you want to add another log?",
         );
         if (confirmed) {
           await handleSubmit(null, true);
@@ -288,7 +289,7 @@ export default function DriverKmLog() {
         <button
           onClick={() => {
             setShowModal(true);
-            fetchAssignedVehicles(form.date);
+            fetchAssignedVehicles();
           }}
           className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-md hover:bg-primary/90 transition-colors text-sm font-medium"
         >
@@ -624,7 +625,7 @@ export default function DriverKmLog() {
                     const nextDate = e.target.value;
                     setForm((prev) => ({...prev, date: nextDate}));
                     if (driverId) {
-                      fetchAssignedVehicles(nextDate);
+                      fetchAssignedVehicles();
                     }
                   }}
                   max={getToday()}
@@ -662,13 +663,13 @@ export default function DriverKmLog() {
                 />
                 {vehiclesLoading && (
                   <p className="text-xs text-secondarytext mt-1">
-                    Loading assigned vehicles for selected date...
+                    Loading assigned vehicles...
                   </p>
                 )}
                 {vehicles.length === 0 && (
                   <p className="text-xs text-orange-500 mt-1">
-                    No assigned vehicles found for this date (including EV group
-                    and vehicle requests). Contact admin if this looks wrong.
+                    No assigned vehicles found (including EV group and vehicle
+                    requests). Contact admin if this looks wrong.
                   </p>
                 )}
               </div>

@@ -40,6 +40,7 @@ import {
   apiDelete,
   apiUpload,
 } from "../../../utils/api";
+import {showConfirm} from "../../../utils/swal";
 
 const bulkTemplateHeaders = [
   "full_name",
@@ -72,6 +73,7 @@ export default function AdminDrivers() {
   const [showBulkUploadModal, setShowBulkUploadModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedDriver, setSelectedDriver] = useState(null);
+  const [deletingDriver, setDeletingDriver] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editId, setEditId] = useState(null);
   const [bulkSheetUrl, setBulkSheetUrl] = useState("");
@@ -233,11 +235,13 @@ export default function AdminDrivers() {
 
   const handleDeleteFromDetails = async () => {
     if (!selectedDriver) return;
-    if (
-      !confirm(`Are you sure you want to delete ${selectedDriver.full_name}?`)
-    )
-      return;
+    const isConfirmed = await showConfirm(
+      "Delete Driver",
+      `Are you sure you want to delete ${selectedDriver.full_name}? This action cannot be undone.`,
+    );
+    if (!isConfirmed) return;
 
+    setDeletingDriver(true);
     try {
       const res = await apiDelete(
         `/api/admin/drivers/delete?id=${selectedDriver.id}`,
@@ -245,6 +249,7 @@ export default function AdminDrivers() {
       if (res.ok) {
         showToast("Driver deleted successfully", "success");
         setShowDetailsModal(false);
+        setSelectedDriver(null);
         fetchDrivers();
       } else {
         showToast("Failed to delete driver", "error");
@@ -252,6 +257,8 @@ export default function AdminDrivers() {
     } catch (err) {
       console.error(err);
       showToast("Error deleting driver", "error");
+    } finally {
+      setDeletingDriver(false);
     }
   };
 
@@ -1070,10 +1077,11 @@ export default function AdminDrivers() {
               </button>
               <button
                 onClick={handleDeleteFromDetails}
-                className="px-5 py-2.5 bg-red/10 text-red rounded-md hover:bg-red/20 transition-colors font-semibold text-sm flex items-center gap-2"
+                disabled={deletingDriver}
+                className="px-5 py-2.5 bg-red/10 text-red rounded-md hover:bg-red/20 transition-colors font-semibold text-sm flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <Trash2 size={16} />
-                Delete
+                {deletingDriver ? "Deleting..." : "Delete"}
               </button>
               <button
                 onClick={handleEditFromDetails}

@@ -1,4 +1,5 @@
 package admin
+
 import (
 	"database/sql"
 	"fmt"
@@ -9,8 +10,10 @@ import (
 	"time"
 	"transport-server/config"
 	"transport-server/models"
+
 	"github.com/gin-gonic/gin"
 )
+
 /* =========================
    ASSIGNMENT HANDLERS
 ========================= */
@@ -26,7 +29,7 @@ func GetAllAssignments(c *gin.Context) {
 		       a.original_driver_id,
 		       a.created_by,
 		       s.name AS shift_name, 
-		       TIME_FORMAT(s.start_time, 'h:%i %p') as start_time, 
+		       TIME_FORMAT(s.start_time, '%h:%i %p') as start_time, 
 		       TIME_FORMAT(s.end_time, '%h:%i %p') as end_time,
 		       v.vehicle_number, COALESCE(vt.type, '') as vehicle_type,
 		       COALESCE(v.vehicle_name, v.vehicle_number) as vehicle_name,

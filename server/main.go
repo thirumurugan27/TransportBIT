@@ -1,5 +1,4 @@
 package main
-
 import (
 	"log"
 	"os"
@@ -7,13 +6,11 @@ import (
 	"transport-server/api/admin"
 	"transport-server/config"
 	"transport-server/routes"
-
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"github.com/robfig/cron/v3"
 )
-
 func main() {
 	// 1. Load Environment Variables
 	if err := godotenv.Load(); err != nil {
@@ -38,7 +35,6 @@ func main() {
 		AllowOrigins:     strings.Split(allowedOrigins, ","),
 	}
 	r.Use(cors.New(corsConfig))
-
 	// 5. Register Routes
 	routes.RegisterRoutes(r)
 	// 6. Initialize Cron Jobs
@@ -48,16 +44,11 @@ func main() {
 	// Sync vehicle statuses daily at midnight (catches end_date expirations)
 	_, _ = c.AddFunc("0 0 0 * * *", admin.SyncAllVehicleStatuses)
 	c.Start()
-
 	// Run startup checks in background
 	go admin.AutoCompleteExpiredVehicleReplacements()
 	go admin.SyncAllVehicleStatuses()
-
 	// 7. Start Server
 	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
 	log.Printf("Server running on port %s", port)
 	r.Run(":" + port)
 }
