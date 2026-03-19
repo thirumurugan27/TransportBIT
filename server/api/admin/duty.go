@@ -2,17 +2,13 @@ package admin
 
 import (
 	"net/http"
-
 	"transport-server/config"
 	"transport-server/models"
-
 	"github.com/gin-gonic/gin"
 )
-
 /* =========================
    DUTY HANDLERS
 ========================= */
-
 // GET /api/admin/duties
 func GetAllDuties(c *gin.Context) {
 	rows, err := config.DB.Query(`

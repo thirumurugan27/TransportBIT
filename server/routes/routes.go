@@ -342,7 +342,6 @@ func registerAdminRoutes(adm *gin.RouterGroup) {
 	adm.GET("/reports/vehicle-groups", admin.GenerateVehicleGroupReport)
 	adm.GET("/reports/shifts", admin.GenerateShiftReport)
 }
-
 // registerDriverRoutes sets up all driver endpoints under /api/driver
 func registerDriverRoutes(drv *gin.RouterGroup) {
 	drv.GET("/profile", driver.GetDriverProfile)
@@ -380,7 +379,6 @@ func registerDriverRoutes(drv *gin.RouterGroup) {
 	// Bus Route Info (for bus assignments)
 	drv.GET("/bus/:vehicle_id/route-info", driver.GetBusRouteInfo)
 }
-
 // registerStudentRoutes sets up all student endpoints under /api/student
 func registerStudentRoutes(stu *gin.RouterGroup) {
 	stu.GET("/buses", bus.GetBusFleet)
@@ -395,7 +393,6 @@ func registerStudentRoutes(stu *gin.RouterGroup) {
 	stu.GET("/available-stops", student.GetAvailableStops)
 	stu.GET("/all-buses", student.GetAllBuses)
 }
-
 // registerFacultyRoutes sets up all faculty endpoints under /api/faculty
 func registerFacultyRoutes(fac *gin.RouterGroup) {
 	fac.GET("/profile", faculty.GetFacultyProfile)

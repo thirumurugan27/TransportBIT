@@ -510,19 +510,19 @@ export default function AdminDrivers() {
   );
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-4 sm:space-y-6 animate-fadeIn">
       {/* License Expiry Alert */}
       {(expiredLicenses.length > 0 || expiringLicenses.length > 0) && (
-        <div className="bg-red/5 border-l-4 border-red rounded-md p-5 shadow-sm">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-red/10 rounded-md flex items-center justify-center text-red shrink-0">
+        <div className="rounded-md border border-red/20 bg-red/5 p-4 shadow-sm sm:p-5">
+          <div className="flex items-start gap-3 sm:gap-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-red/10 text-red sm:h-12 sm:w-12">
               <AlertTriangle className="w-6 h-6" />
             </div>
             <div className="flex-1">
-              <h4 className="font-bold text-red text-base mb-1">
+              <h4 className="mb-1 text-sm font-bold text-red sm:text-base">
                 License Expiry Alert
               </h4>
-              <p className="text-sm text-secondarytext">
+              <p className="text-xs text-secondarytext sm:text-sm">
                 {expiredLicenses.length > 0 && (
                   <span className="text-red font-semibold">
                     {expiredLicenses.length} expired
@@ -543,23 +543,25 @@ export default function AdminDrivers() {
       )}
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-5">
         {stats.map((stat, index) => (
           <div
             key={index}
-            className="bg-secondarybg p-6 rounded-md border border-primarybg hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
+            className="rounded-md border border-primarybg/80 bg-secondarybg p-4 shadow-sm transition-all duration-200 hover:border-primary/20 hover:shadow-md sm:p-5"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-bold text-secondarytext uppercase tracking-wider mb-2">
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-secondarytext sm:text-xs">
                   {stat.label}
                 </p>
-                <h3 className="text-3xl font-extrabold text-primarytext">
+                <h3 className="text-3xl font-extrabold leading-none text-primarytext sm:text-[2rem]">
                   {stat.value}
                 </h3>
               </div>
-              <div className={`p-3 rounded-md ${stat.color} shadow-sm`}>
-                <stat.icon size={24} strokeWidth={2.5} />
+              <div
+                className={`flex h-12 w-12 items-center justify-center rounded-md ${stat.color} shadow-sm sm:h-11 sm:w-11`}
+              >
+                <stat.icon size={20} strokeWidth={2.3} />
               </div>
             </div>
           </div>
@@ -567,76 +569,80 @@ export default function AdminDrivers() {
       </div>
 
       {/* Toolbar */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-secondarybg p-5 rounded-md border border-primarybg shadow-sm">
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <div className="relative flex-1 sm:w-80">
-            <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-secondarytext"
-              size={18}
-            />
-            <input
-              type="text"
-              placeholder="Search by name, phone, or license..."
-              className="w-full pl-10 pr-4 py-3 bg-primarybg border border-primarybg/50 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-sm font-medium transition-all"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+      <div className="rounded-md border border-primarybg bg-secondarybg p-3 shadow-sm sm:p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center lg:w-auto">
+            <div className="relative w-full sm:w-80">
+              <Search
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-secondarytext"
+                size={18}
+              />
+              <input
+                type="text"
+                placeholder="Search by name, phone, or license..."
+                className="h-11 w-full rounded-md border border-primarybg/60 bg-primarybg pl-10 pr-4 text-sm font-medium transition-all focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div className="w-full sm:w-48">
+              <CustomDropdown
+                value={filterStatus}
+                onChange={(val) => {
+                  setFilterStatus(val);
+                  if (val === "all") {
+                    searchParams.delete("status");
+                  } else {
+                    searchParams.set("status", val);
+                  }
+                  setSearchParams(searchParams);
+                }}
+                options={[
+                  {value: "all", label: "All Status"},
+                  {value: "present", label: "Present"},
+                  {value: "absent", label: "Absent"},
+                  {value: "on_leave", label: "On Leave"},
+                  {value: "not_marked", label: "Not Marked"},
+                ]}
+              />
+            </div>
           </div>
-          <CustomDropdown
-            value={filterStatus}
-            onChange={(val) => {
-              setFilterStatus(val);
-              if (val === "all") {
-                searchParams.delete("status");
-              } else {
-                searchParams.set("status", val);
-              }
-              setSearchParams(searchParams);
-            }}
-            options={[
-              {value: "all", label: "All Status"},
-              {value: "present", label: "Present"},
-              {value: "absent", label: "Absent"},
-              {value: "on_leave", label: "On Leave"},
-              {value: "not_marked", label: "Not Marked"},
-            ]}
-          />
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowBulkUploadModal(true)}
-            className="bg-primarybg hover:bg-primary/10 text-primary px-6 py-3 rounded-md flex items-center gap-2 border border-primary/20 transition-all duration-300 text-sm font-bold"
-          >
-            <Upload size={18} strokeWidth={2.5} /> Bulk Upload
-          </button>
-          <div className="flex items-center bg-primarybg rounded-md p-1.5 border border-primarybg shadow-sm">
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center sm:gap-3">
             <button
-              onClick={() => setViewMode("table")}
-              className={`p-2.5 rounded-md transition-all duration-200 ${
-                viewMode === "table"
-                  ? "bg-primary text-secondarybg shadow-md"
-                  : "text-secondarytext hover:text-primary hover:bg-primarybg"
-              }`}
+              onClick={() => setShowBulkUploadModal(true)}
+              className="col-span-1 flex h-11 items-center justify-center gap-2 rounded-md border border-primary/20 bg-primarybg px-4 text-sm font-semibold text-primary transition-all duration-200 hover:bg-primary/10"
             >
-              <List size={18} strokeWidth={2.5} />
+              <Upload size={16} strokeWidth={2.3} /> Bulk Upload
             </button>
+            <div className="col-span-1 flex h-11 items-center justify-center rounded-md border border-primarybg bg-primarybg p-1.5 shadow-sm">
+              <button
+                onClick={() => setViewMode("table")}
+                className={`rounded-md p-2.5 transition-all duration-200 ${
+                  viewMode === "table"
+                    ? "bg-primary text-secondarybg shadow"
+                    : "text-secondarytext hover:bg-secondarybg hover:text-primary"
+                }`}
+              >
+                <List size={17} strokeWidth={2.3} />
+              </button>
+              <button
+                onClick={() => setViewMode("grid")}
+                className={`rounded-md p-2.5 transition-all duration-200 ${
+                  viewMode === "grid"
+                    ? "bg-primary text-secondarybg shadow"
+                    : "text-secondarytext hover:bg-secondarybg hover:text-primary"
+                }`}
+              >
+                <Grid size={17} strokeWidth={2.3} />
+              </button>
+            </div>
             <button
-              onClick={() => setViewMode("grid")}
-              className={`p-2.5 rounded-md transition-all duration-200 ${
-                viewMode === "grid"
-                  ? "bg-primary text-secondarybg shadow-md"
-                  : "text-secondarytext hover:text-primary hover:bg-primarybg"
-              }`}
+              onClick={() => setShowCreateModal(true)}
+              className="col-span-2 flex h-11 items-center justify-center gap-2 rounded-md bg-primary px-5 text-sm font-bold text-secondarybg shadow-sm transition-all duration-200 hover:bg-primarydull sm:col-span-1"
             >
-              <Grid size={18} strokeWidth={2.5} />
+              <Plus size={17} strokeWidth={2.3} /> Add Driver
             </button>
           </div>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="bg-primary hover:bg-primarydull text-secondarybg px-6 py-3 rounded-md flex items-center gap-2 shadow-lg shadow-primary/30 transition-all duration-300 text-sm font-bold hover:scale-105"
-          >
-            <Plus size={18} strokeWidth={2.5} /> Add Driver
-          </button>
         </div>
       </div>
 
@@ -651,17 +657,17 @@ export default function AdminDrivers() {
               <p className="font-medium">No drivers found</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
               {filteredDrivers.map((driver) => (
                 <div
                   key={driver.id}
                   onClick={() => handleRowClick(driver)}
-                  className="bg-secondarybg border-2 border-gray-300 rounded-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer overflow-hidden group"
+                  className="group cursor-pointer overflow-hidden rounded-md border border-primarybg bg-secondarybg shadow-sm transition-all duration-200 hover:border-primary/30 hover:shadow-md"
                 >
                   {/* Card Top – colored band + status */}
-                  <div className="relative h-20 bg-primary/10 flex items-end px-5 pb-0">
+                  <div className="relative flex h-18 items-end bg-primary/10 px-4 pb-0 sm:h-20 sm:px-5">
                     <span
-                      className={`absolute top-3 right-3 px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide ${
+                      className={`absolute right-3 top-3 rounded-md px-2.5 py-1 text-[10px] font-semibold tracking-wide sm:text-[11px] ${
                         driver.status === "present"
                           ? "bg-green/15 text-green"
                           : driver.status === "absent"
@@ -677,25 +683,25 @@ export default function AdminDrivers() {
                           driver.status.slice(1).replace("_", " ")}
                     </span>
                     {/* Avatar overlapping the band */}
-                    <div className="w-14 h-14 rounded-md bg-primary flex items-center justify-center text-white shadow-md translate-y-7 border-2 border-secondarybg">
-                      <span className="text-xl font-extrabold">
+                    <div className="h-12 w-12 translate-y-6 rounded-md border border-secondarybg bg-primary text-white shadow-sm sm:h-14 sm:w-14 sm:translate-y-7">
+                      <span className="flex h-full w-full items-center justify-center text-lg font-bold sm:text-xl">
                         {driver.full_name?.charAt(0).toUpperCase()}
                       </span>
                     </div>
                   </div>
 
                   {/* Card Body */}
-                  <div className="pt-10 px-5 pb-5">
+                  <div className="px-4 pb-4 pt-8 sm:px-5 sm:pb-5 sm:pt-10">
                     {/* Name & license number */}
-                    <h3 className="text-base font-bold text-primarytext truncate">
+                    <h3 className="truncate text-base font-bold text-primarytext">
                       {driver.full_name}
                     </h3>
-                    <p className="text-xs text-secondarytext font-mono mt-0.5 truncate">
+                    <p className="mt-0.5 truncate font-mono text-xs text-secondarytext">
                       {driver.license_number}
                     </p>
 
                     {/* License type badge */}
-                    <span className="inline-block mt-3 px-3 py-1 bg-primary/10 text-primary rounded-md text-xs font-bold tracking-wide">
+                    <span className="mt-3 inline-block rounded-md bg-primary/10 px-3 py-1 text-xs font-semibold tracking-wide text-primary">
                       {driver.license_type}
                     </span>
 

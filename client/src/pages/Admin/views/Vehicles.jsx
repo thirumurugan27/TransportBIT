@@ -1371,87 +1371,90 @@ export default function Vehicles() {
 
       {/* Stats Section */}
       {viewMode === "fleet" && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
-          <div className="bg-secondarybg rounded-md p-5 shadow-sm border border-primary/10 hover:shadow-md hover:border-primary/20 transition-all">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-bold text-secondarytext uppercase tracking-wide mb-1">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 lg:gap-4">
+          <div className="bg-secondarybg rounded-md p-3 sm:p-4 border border-gray-100">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.08em] text-secondarytext mb-0.5">
                   Total Vehicles
                 </p>
-                <p className="text-3xl font-bold text-primarytext">
+                <h3 className="text-xl sm:text-2xl font-semibold text-slate-700 leading-tight">
                   {vehicles?.length || 0}
-                </p>
+                </h3>
               </div>
-              <div className="p-3 bg-primary/10 rounded-md">
-                <Bus size={24} className="text-primary" />
+              <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center shrink-0">
+                <Bus className="w-6 h-6 text-primary" strokeWidth={2.5} />
               </div>
             </div>
           </div>
 
-          <div className="bg-secondarybg rounded-md p-5 shadow-sm border border-primary/10 hover:shadow-md hover:border-primary/20 transition-all">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-bold text-secondarytext uppercase tracking-wide mb-1">
+          <div className="bg-secondarybg rounded-md p-3 sm:p-4 border border-gray-100">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.08em] text-secondarytext mb-0.5">
                   Buses
                 </p>
-                <p className="text-3xl font-bold text-primarytext">
+                <h3 className="text-xl sm:text-2xl font-semibold text-slate-700 leading-tight">
                   {vehicles?.filter((v) => v.vehicle_type === "BUS").length ||
                     0}
-                </p>
+                </h3>
               </div>
-              <div className="p-3 bg-primary/10 rounded-md">
-                <Bus size={24} className="text-primary" />
+              <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center shrink-0">
+                <Bus className="w-6 h-6 text-primary" strokeWidth={2.5} />
               </div>
             </div>
           </div>
 
-          <div className="bg-secondarybg rounded-md p-5 shadow-sm border border-green/10 hover:shadow-md hover:border-green/20 transition-all">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-bold text-secondarytext uppercase tracking-wide mb-1">
+          <div className="bg-secondarybg rounded-md p-3 sm:p-4 border border-gray-100">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.08em] text-secondarytext mb-0.5">
                   Cars
                 </p>
-                <p className="text-3xl font-bold text-primarytext">
+                <h3 className="text-xl sm:text-2xl font-semibold text-slate-700 leading-tight">
                   {vehicles?.filter((v) => v.vehicle_type === "CAR").length ||
                     0}
-                </p>
+                </h3>
               </div>
-              <div className="p-3 bg-green/10 rounded-md">
-                <Car size={24} className="text-green" />
+              <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center shrink-0">
+                <Car className="w-6 h-6 text-green" strokeWidth={2.5} />
               </div>
             </div>
           </div>
 
-          <div className="bg-secondarybg rounded-md p-5 shadow-sm border border-pending/10 hover:shadow-md hover:border-pending/20 transition-all">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-bold text-secondarytext uppercase tracking-wide mb-1">
+          <div className="bg-secondarybg rounded-md p-3 sm:p-4 border border-gray-100">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.08em] text-secondarytext mb-0.5">
                   Battery Vehicles
                 </p>
-                <p className="text-3xl font-bold text-primarytext">
+                <h3 className="text-xl sm:text-2xl font-semibold text-slate-700 leading-tight">
                   {vehicles?.filter((v) => v.vehicle_type === "BATTERY_VEHICLE")
                     .length || 0}
-                </p>
+                </h3>
               </div>
-              <div className="p-3 bg-pending/10 rounded-md">
-                <Zap size={24} className="text-pending" />
+              <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center shrink-0">
+                <Zap className="w-6 h-6 text-pending" strokeWidth={2.5} />
               </div>
             </div>
           </div>
 
-          <div className="bg-secondarybg rounded-md p-5 shadow-sm border border-secondarytext/10 hover:shadow-md hover:border-secondarytext/20 transition-all">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-bold text-secondarytext uppercase tracking-wide mb-1">
+          <div className="bg-secondarybg rounded-md p-3 sm:p-4 border border-gray-100">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.08em] text-secondarytext mb-0.5">
                   Others
                 </p>
-                <p className="text-3xl font-bold text-primarytext">
+                <h3 className="text-xl sm:text-2xl font-semibold text-slate-700 leading-tight">
                   {vehicles?.filter((v) => v.vehicle_type === "OTHER").length ||
                     0}
-                </p>
+                </h3>
               </div>
-              <div className="p-3 bg-secondarytext/10 rounded-md">
-                <Truck size={24} className="text-secondarytext" />
+              <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center shrink-0">
+                <Truck
+                  className="w-6 h-6 text-secondarytext"
+                  strokeWidth={2.5}
+                />
               </div>
             </div>
           </div>
@@ -1551,7 +1554,7 @@ export default function Vehicles() {
       {viewMode === "expiry" && (
         <>
           {/* Expiry Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-3 gap-2 sm:gap-3 lg:gap-4">
             {[
               {
                 key: "insurance",
@@ -1598,62 +1601,38 @@ export default function Vehicles() {
             ].map((doc) => {
               const Icon = doc.icon;
               const hasIssues = doc.stats.expired > 0 || doc.stats.critical > 0;
+              const colorClasses = {
+                skyblue: "text-skyblue",
+                green: "text-green",
+                primary: "text-primary",
+                pending: "text-pending",
+              };
               return (
                 <div
                   key={doc.key}
-                  className={`bg-secondarybg rounded-md p-5 shadow-sm border-l-4 ${
-                    doc.stats.expired > 0
-                      ? "border-l-red"
-                      : doc.stats.critical > 0
-                        ? "border-l-pending"
-                        : `border-l-${doc.color}`
-                  } border border-primary/10`}
+                  className="bg-secondarybg rounded-md p-3 sm:p-4 border border-gray-100"
                 >
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`p-2 bg-${doc.color}/10 text-${doc.color} rounded-md`}
-                      >
-                        <Icon size={20} />
-                      </div>
-                      <h4 className="font-bold text-primarytext text-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.08em] text-secondarytext mb-0.5">
                         {doc.label}
-                      </h4>
-                    </div>
-                    {hasIssues && (
-                      <div className="flex items-center gap-1">
-                        <AlertCircle size={14} className="text-red" />
+                      </p>
+                      <div className="flex items-end gap-2">
+                        <span
+                          className={`text-xl sm:text-2xl font-semibold leading-tight ${hasIssues ? "text-red" : "text-slate-700"}`}
+                        >
+                          {doc.stats.expired + doc.stats.critical}
+                        </span>
+                        <span className="text-[9px] sm:text-[10px] font-semibold text-secondarytext pb-1">
+                          {doc.stats.expired > 0 ? "expired" : "critical"}
+                        </span>
                       </div>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div
-                      className={`flex flex-col items-center p-3 rounded-md ${doc.stats.expired > 0 ? "bg-red/10" : "bg-primarybg"}`}
-                    >
-                      <p
-                        className={`text-2xl font-bold ${doc.stats.expired > 0 ? "text-red" : "text-secondarytext"}`}
-                      >
-                        {doc.stats.expired}
-                      </p>
-                      <p
-                        className={`text-xs font-medium ${doc.stats.expired > 0 ? "text-red" : "text-secondarytext"}`}
-                      >
-                        Expired
-                      </p>
                     </div>
-                    <div
-                      className={`flex flex-col items-center p-3 rounded-md ${doc.stats.critical > 0 ? "bg-pending/10" : "bg-primarybg"}`}
-                    >
-                      <p
-                        className={`text-2xl font-bold ${doc.stats.critical > 0 ? "text-pending" : "text-secondarytext"}`}
-                      >
-                        {doc.stats.critical}
-                      </p>
-                      <p
-                        className={`text-xs font-medium ${doc.stats.critical > 0 ? "text-pending" : "text-secondarytext"}`}
-                      >
-                        {"< 30 days"}
-                      </p>
+                    <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center shrink-0">
+                      <Icon
+                        className={`w-6 h-6 ${colorClasses[doc.color] || colorClasses.primary}`}
+                        strokeWidth={2.5}
+                      />
                     </div>
                   </div>
                 </div>
@@ -2346,9 +2325,7 @@ export default function Vehicles() {
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-secondarytext">Type</span>
-                        <span
-                          className="text-sm font-semibold text-primarytext font-mono"
-                        >
+                        <span className="text-sm font-semibold text-primarytext font-mono">
                           {getVehicleTypeLabel(selectedVehicle.vehicle_type)}
                         </span>
                       </div>

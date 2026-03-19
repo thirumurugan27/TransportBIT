@@ -331,5 +331,3 @@ func UpdateBusRoute(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Route updated successfully"})
 }
-
-

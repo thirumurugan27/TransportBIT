@@ -263,7 +263,7 @@ export default function AdminFuelIndents() {
       ) : (
         <>
           {/* Stats Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 lg:gap-4">
             {[
               {
                 label: "Total",
@@ -298,22 +298,33 @@ export default function AdminFuelIndents() {
             ].map((s, i) => (
               <div
                 key={i}
-                className="bg-secondarybg rounded-md border border-gray-100 p-4 relative overflow-hidden"
+                className="bg-secondarybg rounded-md border border-gray-100 p-3 sm:p-4"
               >
-                <div className="absolute top-0 right-0 p-3 opacity-5">
-                  <s.icon size={48} />
-                </div>
-                <div className="flex items-center gap-3 relative z-10">
-                  <div className={`p-2 bg-${s.color}-100 rounded-md`}>
-                    <s.icon size={18} className={`text-${s.color}-600`} />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-secondarytext uppercase tracking-wider">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.08em] text-secondarytext mb-0.5">
                       {s.label}
                     </p>
-                    <p className="text-lg font-bold text-primarytext">
+                    <p className="text-xl sm:text-2xl font-semibold text-slate-700 leading-tight">
                       {s.value}
                     </p>
+                  </div>
+                  <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center shrink-0">
+                    <s.icon
+                      size={22}
+                      strokeWidth={2.5}
+                      className={
+                        s.color === "orange"
+                          ? "text-orange-600"
+                          : s.color === "green"
+                            ? "text-green"
+                            : s.color === "red"
+                              ? "text-red"
+                              : s.color === "primary"
+                                ? "text-primary"
+                                : "text-blue-600"
+                      }
+                    />
                   </div>
                 </div>
               </div>

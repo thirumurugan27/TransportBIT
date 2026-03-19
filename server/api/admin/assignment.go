@@ -1,5 +1,4 @@
 package admin
-
 import (
 	"database/sql"
 	"fmt"
@@ -8,17 +7,13 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
 	"transport-server/config"
 	"transport-server/models"
-
 	"github.com/gin-gonic/gin"
 )
-
 /* =========================
    ASSIGNMENT HANDLERS
 ========================= */
-
 // GET /api/admin/assignments
 func GetAllAssignments(c *gin.Context) {
 	rows, err := config.DB.Query(`

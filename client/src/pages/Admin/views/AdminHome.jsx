@@ -212,34 +212,35 @@ function DonutRing({
 // Stat card (enhanced)
 function StatCard({title, value, icon: Icon, color, onClick}) {
   const colorMap = {
-    "bg-primary": {bg: "bg-primary/8", text: "text-primary"},
-    "bg-green": {bg: "bg-green/8", text: "text-green"},
-    "bg-customblue": {bg: "bg-customblue/8", text: "text-customblue"},
-    "bg-pending": {bg: "bg-pending/8", text: "text-pending"},
-    "bg-primarydull": {bg: "bg-primarydull/8", text: "text-primarydull"},
-    "bg-red": {bg: "bg-red/8", text: "text-red"},
+    "bg-primary": {text: "text-primary"},
+    "bg-green": {text: "text-green"},
+    "bg-customblue": {text: "text-customblue"},
+    "bg-pending": {text: "text-pending"},
+    "bg-primarydull": {text: "text-primarydull"},
+    "bg-red": {text: "text-red"},
   };
-  const soft = colorMap[color] || {bg: "bg-primary/8", text: "text-primary"};
+  const soft = colorMap[color] || {text: "text-primary"};
 
   return (
     <div
       onClick={onClick}
-      className={`bg-secondarybg rounded-md p-4 border border-gray-100 ${onClick ? "cursor-pointer" : ""}`}
+      className={`bg-secondarybg rounded-md p-3 sm:p-4 border border-gray-100 ${
+        onClick ? "cursor-pointer" : ""
+      }`}
     >
-      <div className="flex items-start justify-between">
-        <div
-          className={`w-9 h-9 ${soft.bg} rounded-md flex items-center justify-center`}
-        >
-          <Icon className={`w-4.5 h-4.5 ${soft.text}`} />
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <p className="mb-0.5 text-[10px] sm:text-xs font-semibold uppercase tracking-[0.08em] text-secondarytext">
+            {title}
+          </p>
+          <h3 className="text-2xl sm:text-[30px] font-semibold leading-tight text-slate-700 break-words">
+            {value}
+          </h3>
         </div>
-        {onClick && <ArrowUpRight className="w-3.5 h-3.5 text-gray-300" />}
+        <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center shrink-0">
+          <Icon className={`w-6 h-6 ${soft.text}`} strokeWidth={2} />
+        </div>
       </div>
-      <p className="mt-2.5 text-xl font-bold text-primarytext leading-none">
-        {value}
-      </p>
-      <p className="text-[10px] font-semibold text-secondarytext mt-1.5 uppercase tracking-wide">
-        {title}
-      </p>
     </div>
   );
 }
@@ -441,7 +442,9 @@ function DriverWorkloadSection({
           {[
             {
               label: "Light",
-              count: allDrivers.filter((d) => d.active_assignments > 0 && d.active_assignments <= 2).length,
+              count: allDrivers.filter(
+                (d) => d.active_assignments > 0 && d.active_assignments <= 2,
+              ).length,
               bg: "bg-green/10",
               dot: "bg-green",
               text: "text-green",
@@ -507,7 +510,11 @@ function DriverWorkloadSection({
                       label: "Unassigned",
                     }
                   : driver.active_assignments > 4
-                    ? {badge: "bg-red/10 text-red", bar: "bg-red", label: "Heavy"}
+                    ? {
+                        badge: "bg-red/10 text-red",
+                        bar: "bg-red",
+                        label: "Heavy",
+                      }
                     : driver.active_assignments > 2
                       ? {
                           badge: "bg-pending/10 text-pending",
@@ -953,7 +960,7 @@ export default function AdminHome() {
         </div>
       </div>
       {/* Key Metrics Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3 lg:gap-4">
         <StatCard
           title="Total Drivers"
           value={stats.total_drivers}
@@ -1374,62 +1381,83 @@ export default function AdminHome() {
               })}
             </span>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-primarybg/60 rounded-md p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Gauge className="w-4 h-4 text-primary" />
-                <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wide">
-                  KM Driven
-                </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
+            <div className="bg-secondarybg rounded-md p-3 sm:p-4 border border-gray-100">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="mb-0.5 text-[10px] sm:text-xs font-semibold uppercase tracking-[0.08em] text-secondarytext">
+                    KM Driven
+                  </p>
+                  <p className="text-lg sm:text-xl font-semibold text-slate-700 leading-tight">
+                    {fmt(stats.total_km_month)}
+                    <span className="text-[10px] sm:text-xs font-medium text-secondarytext ml-1">
+                      km
+                    </span>
+                  </p>
+                </div>
+                <div className="flex h-10 w-10 items-center justify-center shrink-0">
+                  <Gauge className="w-6 h-6 text-primary" strokeWidth={2} />
+                </div>
               </div>
-              <p className="text-xl font-bold text-primarytext">
-                {fmt(stats.total_km_month)}
-                <span className="text-xs font-medium text-secondarytext ml-1">
-                  km
-                </span>
-              </p>
             </div>
-            <div className="bg-primarybg/60 rounded-md p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Fuel className="w-4 h-4 text-green" />
-                <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wide">
-                  Fuel
-                </p>
+            <div className="bg-secondarybg rounded-md p-3 sm:p-4 border border-gray-100">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="mb-0.5 text-[10px] sm:text-xs font-semibold uppercase tracking-[0.08em] text-secondarytext">
+                    Fuel Consumed
+                  </p>
+                  <p className="text-lg sm:text-xl font-semibold text-slate-700 leading-tight">
+                    {fmt(stats.fuel_consumed_month)}
+                    <span className="text-[10px] sm:text-xs font-medium text-secondarytext ml-1">
+                      L
+                    </span>
+                  </p>
+                </div>
+                <div className="flex h-10 w-10 items-center justify-center shrink-0">
+                  <Fuel className="w-6 h-6 text-green" strokeWidth={2} />
+                </div>
               </div>
-              <p className="text-xl font-bold text-primarytext">
-                {fmt(stats.fuel_consumed_month)}
-                <span className="text-xs font-medium text-secondarytext ml-1">
-                  L
-                </span>
-              </p>
             </div>
-            <div className="bg-primarybg/60 rounded-md p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Wrench className="w-4 h-4 text-pending" />
-                <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wide">
-                  Service
-                </p>
+            <div className="bg-secondarybg rounded-md p-3 sm:p-4 border border-gray-100">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="mb-0.5 text-[10px] sm:text-xs font-semibold uppercase tracking-[0.08em] text-secondarytext">
+                    Service Cost
+                  </p>
+                  <p className="text-lg sm:text-xl font-semibold text-slate-700 leading-tight">
+                    Rs
+                    <span className="ml-1">
+                      {fmt(stats.service_cost_month)}
+                    </span>
+                  </p>
+                </div>
+                <div className="flex h-10 w-10 items-center justify-center shrink-0">
+                  <Wrench className="w-6 h-6 text-pending" strokeWidth={2} />
+                </div>
               </div>
-              <p className="text-xl font-bold text-primarytext">
-                <span className="text-sm">Rs.</span>
-                {fmt(stats.service_cost_month)}
-              </p>
             </div>
-            <div className="bg-primarybg/60 rounded-md p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <TrendingUp className="w-4 h-4 text-skyblue" />
-                <p className="text-[10px] font-bold text-secondarytext uppercase tracking-wide">
-                  Avg Mileage
-                </p>
+            <div className="bg-secondarybg rounded-md p-3 sm:p-4 border border-gray-100">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="mb-0.5 text-[10px] sm:text-xs font-semibold uppercase tracking-[0.08em] text-secondarytext">
+                    Avg Mileage
+                  </p>
+                  <p className="text-lg sm:text-xl font-semibold text-slate-700 leading-tight">
+                    {stats.avg_mileage_month > 0
+                      ? stats.avg_mileage_month.toFixed(1)
+                      : "\u2014"}
+                    <span className="text-[10px] sm:text-xs font-medium text-secondarytext ml-1">
+                      km/L
+                    </span>
+                  </p>
+                </div>
+                <div className="flex h-10 w-10 items-center justify-center shrink-0">
+                  <TrendingUp
+                    className="w-6 h-6 text-skyblue"
+                    strokeWidth={2}
+                  />
+                </div>
               </div>
-              <p className="text-xl font-bold text-primarytext">
-                {stats.avg_mileage_month > 0
-                  ? stats.avg_mileage_month.toFixed(1)
-                  : "\u2014"}
-                <span className="text-xs font-medium text-secondarytext ml-1">
-                  km/L
-                </span>
-              </p>
             </div>
           </div>
           {monthlyTotal > 0 && (

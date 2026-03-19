@@ -295,7 +295,12 @@ export default function AdminStudentTransport() {
         paymentForm,
       );
       if (res.ok) {
-        showToast(paymentForm.payment_type === "refund" ? "Refund recorded successfully!" : "Payment recorded successfully!", "success");
+        showToast(
+          paymentForm.payment_type === "refund"
+            ? "Refund recorded successfully!"
+            : "Payment recorded successfully!",
+          "success",
+        );
         setShowPaymentModal(false);
         setPaymentForm({
           student_transport_id: 0,
@@ -394,28 +399,24 @@ export default function AdminStudentTransport() {
       label: "Total Students",
       value: studentTransports.length,
       icon: Users,
-      color: "bg-primary/10",
       iconColor: "text-primary",
     },
     {
       label: "Pending Requests",
       value: pendingTransportCount,
       icon: Clock,
-      color: "bg-pending/10",
       iconColor: "text-pending",
     },
     {
       label: "Stop Changes",
       value: pendingCount,
       icon: MapPin,
-      color: "bg-primary/10",
       iconColor: "text-primary",
     },
     {
       label: "Total Revenue",
       value: `₹${payments.reduce((sum, p) => sum + (p.amount || 0), 0).toLocaleString()}`,
       icon: TrendingUp,
-      color: "bg-green/10",
       iconColor: "text-green",
     },
   ];
@@ -464,23 +465,26 @@ export default function AdminStudentTransport() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
         {stats.map((stat, index) => (
           <div
             key={index}
-            className="bg-secondarybg rounded-md p-6 border border-primarybg hover:shadow-lg transition-shadow"
+            className="bg-secondarybg rounded-md p-3 sm:p-4 border border-gray-100"
           >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-secondarytext text-sm font-medium mb-1">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.08em] text-secondarytext mb-0.5">
                   {stat.label}
                 </p>
-                <p className="text-2xl font-bold text-primarytext">
+                <p className="text-xl sm:text-2xl font-semibold text-slate-700 leading-tight">
                   {stat.value}
                 </p>
               </div>
-              <div className={`${stat.color} p-3 rounded-md`}>
-                <stat.icon className={`w-6 h-6 ${stat.iconColor}`} />
+              <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center shrink-0">
+                <stat.icon
+                  className={`w-6 h-6 ${stat.iconColor}`}
+                  strokeWidth={2}
+                />
               </div>
             </div>
           </div>
@@ -1105,7 +1109,8 @@ export default function AdminStudentTransport() {
                                     className="flex items-center gap-1 text-red hover:text-red/80 text-sm font-medium"
                                   >
                                     <IndianRupee className="w-4 h-4" />
-                                    Refund ₹{Math.abs(st.balance)?.toLocaleString()}
+                                    Refund ₹
+                                    {Math.abs(st.balance)?.toLocaleString()}
                                   </button>
                                 ) : (
                                   <button
@@ -1241,8 +1246,11 @@ export default function AdminStudentTransport() {
                                   </span>
                                 )}
                               </td>
-                              <td className={`px-4 py-3 text-sm font-semibold ${p.payment_type === "refund" ? "text-red" : "text-green"}`}>
-                                {p.payment_type === "refund" ? "-" : "+"}₹{p.amount?.toLocaleString()}
+                              <td
+                                className={`px-4 py-3 text-sm font-semibold ${p.payment_type === "refund" ? "text-red" : "text-green"}`}
+                              >
+                                {p.payment_type === "refund" ? "-" : "+"}₹
+                                {p.amount?.toLocaleString()}
                               </td>
                               <td className="px-4 py-3 text-sm text-primarytext capitalize">
                                 {p.payment_method}
@@ -1607,11 +1615,17 @@ export default function AdminStudentTransport() {
           <div className="bg-secondarybg rounded-md shadow-2xl max-w-lg w-full border border-primarybg animate-scaleIn">
             <div className="flex items-center justify-between p-6 border-b border-primarybg">
               <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-md flex items-center justify-center ${paymentForm.payment_type === "refund" ? "bg-red/10" : "bg-green/10"}`}>
-                  <CreditCard className={`w-5 h-5 ${paymentForm.payment_type === "refund" ? "text-red" : "text-green"}`} />
+                <div
+                  className={`w-10 h-10 rounded-md flex items-center justify-center ${paymentForm.payment_type === "refund" ? "bg-red/10" : "bg-green/10"}`}
+                >
+                  <CreditCard
+                    className={`w-5 h-5 ${paymentForm.payment_type === "refund" ? "text-red" : "text-green"}`}
+                  />
                 </div>
                 <h3 className="text-xl font-bold text-primarytext">
-                  {paymentForm.payment_type === "refund" ? "Record Refund" : "Record Payment"}
+                  {paymentForm.payment_type === "refund"
+                    ? "Record Refund"
+                    : "Record Payment"}
                 </h3>
               </div>
               <button
@@ -1736,7 +1750,9 @@ export default function AdminStudentTransport() {
                 onClick={handleRecordPayment}
                 className={`flex-1 py-3 text-white rounded-md hover:opacity-90 transition-opacity font-medium ${paymentForm.payment_type === "refund" ? "bg-red" : "bg-green"}`}
               >
-                {paymentForm.payment_type === "refund" ? "Record Refund" : "Record Payment"}
+                {paymentForm.payment_type === "refund"
+                  ? "Record Refund"
+                  : "Record Payment"}
               </button>
             </div>
           </div>

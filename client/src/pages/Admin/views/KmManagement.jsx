@@ -455,8 +455,6 @@ export default function KmManagement() {
     setVehicleTypeOptions(mapped);
   };
 
-
-
   const fetchDatewiseTracker = async (date) => {
     try {
       setTrackerLoading(true);
@@ -636,42 +634,45 @@ export default function KmManagement() {
       {activeTab === "overview" && (
         <>
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 lg:gap-4">
             {[
               {
                 label: "Total Distance",
                 value: formatNumber(summary.grand_total_km, 1) + " km",
                 icon: Map,
-                color: "bg-primary/10 text-primary",
+                color: "text-primary",
               },
               {
                 label: "Total Trips",
                 value: summary.grand_total_trips || 0,
                 icon: Route,
-                color: "bg-green-50 text-green-600",
+                color: "text-green",
               },
               {
                 label: "Avg / Trip",
                 value: formatNumber(avgKmPerTrip, 1) + " km",
                 icon: TrendingUp,
-                color: "bg-amber-50 text-amber-600",
+                color: "text-amber-600",
               },
             ].map((stat) => (
               <div
                 key={stat.label}
-                className="bg-secondarybg rounded-md p-5 border border-primarybg shadow-sm"
+                className="bg-secondarybg rounded-md p-3 sm:p-4 border border-gray-100"
               >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-bold text-secondarytext uppercase tracking-wider mb-2">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.08em] text-secondarytext mb-0.5">
                       {stat.label}
                     </p>
-                    <h3 className="text-2xl font-extrabold text-primarytext">
+                    <h3 className="text-xl sm:text-2xl font-semibold text-slate-700 leading-tight">
                       {stat.value}
                     </h3>
                   </div>
-                  <div className={"p-3 rounded-md shadow-sm " + stat.color}>
-                    <stat.icon size={24} strokeWidth={2.5} />
+                  <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center shrink-0">
+                    <stat.icon
+                      className={`w-6 h-6 ${stat.color}`}
+                      strokeWidth={2.5}
+                    />
                   </div>
                 </div>
               </div>
@@ -1191,8 +1192,6 @@ export default function KmManagement() {
           )}
         </>
       )}
-
-
 
       {/* Individual Analysis Tab */}
       {activeTab === "individual" && (

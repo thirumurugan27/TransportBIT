@@ -609,28 +609,24 @@ export default function ServiceRecords() {
           value: stats.active_services || 0,
           icon: Wrench,
           color: C.primary,
-          bg: "#F0EBFE",
         },
         {
           label: "Pending Requests",
           value: stats.pending_requests || 0,
           icon: Clock,
           color: C.pending,
-          bg: "#FFF8E7",
         },
         {
           label: "Completed (30 Days)",
           value: stats.completed_this_month || 0,
           icon: CheckCircle,
           color: C.green,
-          bg: "#E8F5E9",
         },
         {
           label: "Cost (30 Days)",
           value: `₹${(stats.total_cost_this_month || 0).toLocaleString()}`,
           icon: DollarSign,
           color: C.skyblue,
-          bg: "#E8F4FE",
         },
       ]
     : [];
@@ -652,45 +648,30 @@ export default function ServiceRecords() {
 
       {/* ── Stats Cards ── */}
       {statsCards.length > 0 && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
           {statsCards.map((stat, i) => (
             <div
               key={i}
-              className="rounded-md p-5 border"
+              className="bg-secondarybg rounded-md p-3 sm:p-4 border border-gray-100"
               style={{
-                background: C.secondarybg,
-                borderColor: "#E4E8F4",
-                boxShadow: "0 1px 4px rgba(125,83,246,0.06)",
                 animation: `fadeIn 0.3s ease ${i * 0.05}s both`,
               }}
             >
-              <div className="flex items-start justify-between">
-                <div>
-                  <p
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 700,
-                      color: C.secondarytext,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      marginBottom: 8,
-                    }}
-                  >
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.08em] text-secondarytext mb-0.5">
                     {stat.label}
                   </p>
-                  <p
-                    style={{
-                      fontSize: 26,
-                      fontWeight: 900,
-                      color: C.primarytext,
-                      lineHeight: 1,
-                    }}
-                  >
+                  <p className="text-xl sm:text-2xl font-semibold text-slate-700 leading-tight">
                     {stat.value}
                   </p>
                 </div>
-                <div className="p-2.5 rounded-md" style={{background: stat.bg}}>
-                  <stat.icon size={20} color={stat.color} strokeWidth={2.5} />
+                <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center shrink-0">
+                  <stat.icon
+                    className="w-6 h-6"
+                    color={stat.color}
+                    strokeWidth={2.5}
+                  />
                 </div>
               </div>
             </div>
@@ -891,7 +872,8 @@ export default function ServiceRecords() {
                   {showDetailModal.title}
                 </h3>
                 <p className="text-sm text-secondarytext">
-                  {showDetailModal.vehicle_name || showDetailModal.vehicle_number}
+                  {showDetailModal.vehicle_name ||
+                    showDetailModal.vehicle_number}
                   {showDetailModal.vehicle_name && (
                     <span> • {showDetailModal.vehicle_number}</span>
                   )}
@@ -918,7 +900,6 @@ export default function ServiceRecords() {
 
           {/* Details Grid */}
           <div className="p-4 sm:p-6 space-y-4">
-
             {/* Description */}
             <div className="bg-primarybg rounded-md p-4 border-l-3 border-primary">
               <h4 className="text-xs text-secondarytext uppercase tracking-wider mb-2 font-bold flex items-center gap-2">
@@ -938,9 +919,13 @@ export default function ServiceRecords() {
                 </h4>
                 <div className="space-y-2.5">
                   <div className="flex justify-between">
-                    <span className="text-sm text-secondarytext">Odometer Reading</span>
+                    <span className="text-sm text-secondarytext">
+                      Odometer Reading
+                    </span>
                     <span className="font-semibold text-primarytext">
-                      {showDetailModal.odometer_at_service ? `${showDetailModal.odometer_at_service.toLocaleString()} km` : "—"}
+                      {showDetailModal.odometer_at_service
+                        ? `${showDetailModal.odometer_at_service.toLocaleString()} km`
+                        : "—"}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -967,19 +952,25 @@ export default function ServiceRecords() {
                 </h4>
                 <div className="space-y-2.5">
                   <div className="flex justify-between">
-                    <span className="text-sm text-secondarytext">Scheduled Date</span>
+                    <span className="text-sm text-secondarytext">
+                      Scheduled Date
+                    </span>
                     <span className="font-semibold text-primarytext">
                       {showDetailModal.scheduled_date || "—"}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-secondarytext">Started At</span>
+                    <span className="text-sm text-secondarytext">
+                      Started At
+                    </span>
                     <span className="font-semibold text-primarytext">
                       {showDetailModal.started_at || "—"}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-secondarytext">Completed At</span>
+                    <span className="text-sm text-secondarytext">
+                      Completed At
+                    </span>
                     <span className="font-semibold text-primarytext">
                       {showDetailModal.completed_at || "—"}
                     </span>
@@ -1020,25 +1011,40 @@ export default function ServiceRecords() {
               {/* Cost Breakdown */}
               <div className="bg-primarybg rounded-md p-4">
                 <h4 className="text-xs text-secondarytext uppercase tracking-wider mb-3 font-bold flex items-center gap-2">
-                  <DollarSign size={14} className="text-primary" /> Cost Breakdown
+                  <DollarSign size={14} className="text-primary" /> Cost
+                  Breakdown
                 </h4>
                 <div className="space-y-2.5">
                   <div className="flex justify-between">
-                    <span className="text-sm text-secondarytext">Labor Cost</span>
+                    <span className="text-sm text-secondarytext">
+                      Labor Cost
+                    </span>
                     <span className="font-semibold text-primarytext">
-                      {showDetailModal.labor_cost > 0 ? `₹${showDetailModal.labor_cost.toLocaleString()}` : "—"}
+                      {showDetailModal.labor_cost > 0
+                        ? `₹${showDetailModal.labor_cost.toLocaleString()}`
+                        : "—"}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-secondarytext">Parts Cost</span>
+                    <span className="text-sm text-secondarytext">
+                      Parts Cost
+                    </span>
                     <span className="font-semibold text-primarytext">
-                      {showDetailModal.parts_cost > 0 ? `₹${showDetailModal.parts_cost.toLocaleString()}` : "—"}
+                      {showDetailModal.parts_cost > 0
+                        ? `₹${showDetailModal.parts_cost.toLocaleString()}`
+                        : "—"}
                     </span>
                   </div>
                   <div className="flex justify-between border-t border-gray-200 pt-2">
-                    <span className="text-sm font-bold text-primarytext">Total Cost</span>
-                    <span className={`font-bold ${showDetailModal.total_cost > 0 ? "text-primary text-lg" : "text-primarytext"}`}>
-                      {showDetailModal.total_cost > 0 ? `₹${showDetailModal.total_cost.toLocaleString()}` : "—"}
+                    <span className="text-sm font-bold text-primarytext">
+                      Total Cost
+                    </span>
+                    <span
+                      className={`font-bold ${showDetailModal.total_cost > 0 ? "text-primary text-lg" : "text-primarytext"}`}
+                    >
+                      {showDetailModal.total_cost > 0
+                        ? `₹${showDetailModal.total_cost.toLocaleString()}`
+                        : "—"}
                     </span>
                   </div>
                 </div>
@@ -1048,7 +1054,8 @@ export default function ServiceRecords() {
             {/* Products Purchased */}
             <div className="bg-primarybg rounded-md p-4">
               <h4 className="text-xs text-secondarytext uppercase tracking-wider mb-3 font-bold flex items-center gap-2">
-                <FileText size={14} className="text-primary" /> Products Purchased
+                <FileText size={14} className="text-primary" /> Products
+                Purchased
               </h4>
               {detailParts.length > 0 ? (
                 <div className="space-y-2">
@@ -1072,18 +1079,23 @@ export default function ServiceRecords() {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-secondarytext">No products purchased</p>
+                <p className="text-sm text-secondarytext">
+                  No products purchased
+                </p>
               )}
             </div>
 
             {/* Additional Information */}
             <div className="bg-primarybg rounded-md p-4">
               <h4 className="text-xs text-secondarytext uppercase tracking-wider mb-3 font-bold flex items-center gap-2">
-                <User size={14} className="text-primary" /> Additional Information
+                <User size={14} className="text-primary" /> Additional
+                Information
               </h4>
               <div className="space-y-2.5">
                 <div className="flex justify-between">
-                  <span className="text-sm text-secondarytext">Reported By</span>
+                  <span className="text-sm text-secondarytext">
+                    Reported By
+                  </span>
                   <span className="font-semibold text-primarytext">
                     {showDetailModal.reported_by_name || "—"}
                   </span>
@@ -1095,7 +1107,9 @@ export default function ServiceRecords() {
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm text-secondarytext">Admin Remarks</span>
+                  <span className="text-sm text-secondarytext">
+                    Admin Remarks
+                  </span>
                   <span className="font-semibold text-primarytext text-right max-w-[60%]">
                     {showDetailModal.admin_remarks || "—"}
                   </span>
@@ -1105,7 +1119,8 @@ export default function ServiceRecords() {
                     <p className="text-[10px] font-extrabold text-red uppercase tracking-widest mb-1.5">
                       Rejection Reason
                     </p>
-                    <p className="text-sm px-3 py-2.5 rounded-md border leading-relaxed"
+                    <p
+                      className="text-sm px-3 py-2.5 rounded-md border leading-relaxed"
                       style={{
                         color: C.red,
                         background: "#FFF5F5",
@@ -1225,7 +1240,9 @@ export default function ServiceRecords() {
                 options={vehicles.map((v) => ({
                   value: v.id,
                   label: v.vehicle_name || v.vehicle_number,
-                  subtitle: v.seating_capacity ? `${v.vehicle_number} • ${v.seating_capacity} Seats` : v.vehicle_number,
+                  subtitle: v.seating_capacity
+                    ? `${v.vehicle_number} • ${v.seating_capacity} Seats`
+                    : v.vehicle_number,
                 }))}
                 emptyMessage="No vehicles available"
               />
@@ -1586,7 +1603,10 @@ export default function ServiceRecords() {
                   type="text"
                   value={startForm.mechanic_contact}
                   onChange={(e) =>
-                    setStartForm({...startForm, mechanic_contact: e.target.value})
+                    setStartForm({
+                      ...startForm,
+                      mechanic_contact: e.target.value,
+                    })
                   }
                   className={inputCls}
                   placeholder="Phone number"
@@ -1616,7 +1636,9 @@ export default function ServiceRecords() {
                 options={availableReplacements.map((v) => ({
                   value: v.id,
                   label: `${v.vehicle_number} – ${v.vehicle_name || v.vehicle_type}`,
-                  subtitle: v.seating_capacity ? `${v.seating_capacity} Seats` : undefined,
+                  subtitle: v.seating_capacity
+                    ? `${v.seating_capacity} Seats`
+                    : undefined,
                 }))}
                 placeholder="Search & select replacement vehicle..."
               />
