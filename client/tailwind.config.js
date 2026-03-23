@@ -6,11 +6,14 @@ export default {
     ],
 
 
-    
+
     theme: {
         extend:{
             colors: 
             {
+
+
+                
                 primarybg: '#EEF1F9',
                 secondarybg: '#FFFFFF',
                 primary: '#7D53F6',
