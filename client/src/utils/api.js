@@ -9,11 +9,23 @@
  * redirected to /login so stale state is never shown.
  */
 
-export const API_BASE = import.meta.env.VITE_API_BASE;
-const BASE_HEADERS = {
-    'Content-Type': 'application/json',
-    'X-Tunnel-Skip-Efficiency-Check': 'true',
+export const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8080';
+
+export const getHeaders = (extra = {}) => {
+    const headers = {
+        'Content-Type': 'application/json',
+        'X-Tunnel-Skip-Efficiency-Check': 'true',
+        ...extra,
+    };
+    try {
+        const token = localStorage.getItem('token');
+        if (token && token !== 'null' && token !== 'undefined') {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+    } catch {}
+    return headers;
 };
+
 /** Redirect to login on 401 — session expired or not authenticated */
 const handleUnauthorized = (res) => {
     if (res.status === 401) {
@@ -31,7 +43,7 @@ export const apiGet = async (endpoint) => {
     const res = await fetch(`${API_BASE}${endpoint}`, {
         method: 'GET',
         credentials: 'include',
-        headers: BASE_HEADERS,
+        headers: getHeaders(),
     });
     return handleUnauthorized(res);
 };
@@ -45,7 +57,7 @@ export const apiPost = async (endpoint, body) => {
     const res = await fetch(`${API_BASE}${endpoint}`, {
         method: 'POST',
         credentials: 'include',
-        headers: BASE_HEADERS,
+        headers: getHeaders(),
         body: JSON.stringify(body),
     });
     return handleUnauthorized(res);
@@ -60,7 +72,7 @@ export const apiPut = async (endpoint, body) => {
     const res = await fetch(`${API_BASE}${endpoint}`, {
         method: 'PUT',
         credentials: 'include',
-        headers: BASE_HEADERS,
+        headers: getHeaders(),
         body: JSON.stringify(body),
     });
     return handleUnauthorized(res);
@@ -74,7 +86,7 @@ export const apiDelete = async (endpoint) => {
     const res = await fetch(`${API_BASE}${endpoint}`, {
         method: 'DELETE',
         credentials: 'include',
-        headers: BASE_HEADERS,
+        headers: getHeaders(),
     });
     return handleUnauthorized(res);
 };

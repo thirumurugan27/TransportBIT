@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from "react";
+import React, {useState, useEffect, useRef} from "react";
 import bit_logo from "../../assets/bit_logBGremoved.png";
 
 import {useAuth} from "../../context/AuthContext";
@@ -13,11 +13,19 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
+  const popupCheckerRef = useRef(null);
+  const popupRef = useRef(null);
+
   // Redirect if already logged in handled by AuthContext but we can double check or leave it to context
 
   const handleGoogleLogin = () => {
     setError("");
     setGoogleLoading(true);
+
+    if (popupCheckerRef.current) {
+      clearInterval(popupCheckerRef.current);
+      popupCheckerRef.current = null;
+    }
 
     const width = 500;
     const height = 600;
@@ -32,6 +40,7 @@ export default function Login() {
       "Google_Login",
       `width=${width},height=${height},top=${top},left=${left}`,
     );
+    popupRef.current = popup;
 
     if (!popup) {
       setGoogleLoading(false);
@@ -39,12 +48,19 @@ export default function Login() {
       return;
     }
 
-    const popupChecker = window.setInterval(() => {
-      if (popup.closed) {
-        window.clearInterval(popupChecker);
-        setGoogleLoading(false);
+    popupCheckerRef.current = window.setInterval(() => {
+      try {
+        if (!popupRef.current || popupRef.current.closed) {
+          if (popupCheckerRef.current) {
+            clearInterval(popupCheckerRef.current);
+            popupCheckerRef.current = null;
+          }
+          setGoogleLoading(false);
+        }
+      } catch {
+        // Cross-Origin-Opener-Policy might restrict accessing window.closed across origins
       }
-    }, 500);
+    }, 1000);
   };
 
   useEffect(() => {
@@ -61,6 +77,19 @@ export default function Login() {
         return;
       }
 
+      if (popupCheckerRef.current) {
+        clearInterval(popupCheckerRef.current);
+        popupCheckerRef.current = null;
+      }
+
+      try {
+        if (popupRef.current && !popupRef.current.closed) {
+          popupRef.current.close();
+        }
+      } catch {
+        // Ignore popup close restrictions
+      }
+
       if (payload.success) {
         setError("");
         setGoogleLoading(false);
@@ -73,7 +102,13 @@ export default function Login() {
     };
 
     window.addEventListener("message", handleMessage);
-    return () => window.removeEventListener("message", handleMessage);
+    return () => {
+      window.removeEventListener("message", handleMessage);
+      if (popupCheckerRef.current) {
+        clearInterval(popupCheckerRef.current);
+        popupCheckerRef.current = null;
+      }
+    };
   }, [googleLoginSuccess]);
 
   useEffect(() => {

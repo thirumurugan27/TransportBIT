@@ -24,8 +24,8 @@ import {useToast} from "../../../context/ToastContext";
 import {showConfirm} from "../../../utils/swal";
 import Loading from "../../../components/ui/Loading";
 import CustomDropdown from "../../../components/ui/CustomDropdown";
-
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
+import RouteMapPreview from "../../../components/maps/RouteMapPreview";
+import {apiGet, apiPost} from "../../../utils/api";
 
 const STATUS_TABS = [
   {key: "all", label: "All", icon: FileText},
@@ -242,14 +242,10 @@ export default function VehicleBooking() {
 
   const fetchRequests = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`${API_BASE}/api/faculty/vehicle-requests`, {
-        headers: {Authorization: `Bearer ${token}`},
-        credentials: "include",
-      });
+      const res = await apiGet("/api/faculty/vehicle-requests");
       if (res.ok) {
         const data = await res.json();
-        setRequests(data || []);
+        setRequests(Array.isArray(data) ? data : []);
       }
     } catch (e) {
       console.error(e);
@@ -266,25 +262,15 @@ export default function VehicleBooking() {
     if (!confirmed) return;
 
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(
-        `${API_BASE}/api/faculty/vehicle-request/cancel`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          credentials: "include",
-          body: JSON.stringify({request_id: requestId}),
-        },
-      );
+      const res = await apiPost("/api/faculty/vehicle-request/cancel", {
+        request_id: requestId,
+      });
       if (res.ok) {
         showToast("Request cancelled", "success");
         fetchRequests();
         setShowDetailsModal(false);
       } else {
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         showToast(data.error || "Failed to cancel", "error");
       }
     } catch (e) {
@@ -300,13 +286,10 @@ export default function VehicleBooking() {
     setSelectedRequest(request);
     setShowDetailsModal(true);
     setOtpData(null);
-    if (request.status === "assigned" || request.status === "trip_started") {
+    const reqStatus = (request.status || "").toLowerCase();
+    if (reqStatus === "assigned" || reqStatus === "trip_started") {
       setOtpLoading(true);
-      const token = localStorage.getItem("token");
-      fetch(`${API_BASE}/api/faculty/vehicle-request/${request.id}/otp`, {
-        headers: {Authorization: `Bearer ${token}`},
-        credentials: "include",
-      })
+      apiGet(`/api/faculty/vehicle-request/${request.id}/otp`)
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => setOtpData(data))
         .catch(console.error)
@@ -316,20 +299,36 @@ export default function VehicleBooking() {
 
   // Filter requests
   const filteredRequests = requests.filter((r) => {
-    const matchesTab = activeTab === "all" || r.status === activeTab;
-    const matchesSearch =
-      searchQuery === "" ||
-      r.purpose?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.request_under?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.id?.toString().includes(searchQuery);
-    return matchesTab && matchesSearch;
+    const status = (r.status || "").toLowerCase();
+    const matchesTab = activeTab === "all" || status === activeTab.toLowerCase();
+    const query = searchQuery.trim().toLowerCase();
+    if (!matchesTab) return false;
+    if (query === "") return true;
+
+    const purpose = (r.purpose || r.Purpose || "").toLowerCase();
+    const requestUnder = (r.request_under || r.RequestUnder || "").toLowerCase();
+    const vertical = (r.vertical || r.Vertical || "").toLowerCase();
+    const fromPlace = (r.onward_from_place || r.OnwardFromPlace || "").toLowerCase();
+    const toPlace = (r.onward_to_place || r.OnwardToPlace || "").toLowerCase();
+    const idStr = String(r.id || "");
+
+    return (
+      purpose.includes(query) ||
+      requestUnder.includes(query) ||
+      vertical.includes(query) ||
+      fromPlace.includes(query) ||
+      toPlace.includes(query) ||
+      idStr.includes(query)
+    );
   });
 
   // Get counts for tabs
   const getCounts = () => {
     const counts = {all: requests.length};
     STATUS_TABS.slice(1).forEach((tab) => {
-      counts[tab.key] = requests.filter((r) => r.status === tab.key).length;
+      counts[tab.key] = requests.filter(
+        (r) => (r.status || "").toLowerCase() === tab.key.toLowerCase(),
+      ).length;
     });
     return counts;
   };
@@ -423,20 +422,31 @@ export default function VehicleBooking() {
               <tbody className="divide-y divide-gray-50">
                 {filteredRequests.map((req, idx) => {
                   const cfg =
-                    STATUS_CONFIG[req.status] || STATUS_CONFIG.pending;
+                    STATUS_CONFIG[(req.status || "").toLowerCase()] || STATUS_CONFIG.pending;
 
-                  const departureDateTime = req.onward_from_datetime;
+                  const purpose = req.purpose || req.Purpose || "-";
+                  const tripType = req.trip_type || req.TripType || "";
+                  const requestUnder = req.request_under || req.RequestUnder || "";
+                  const vertical = req.vertical || req.Vertical || "-";
+                  const fromPlace = req.onward_from_place || req.OnwardFromPlace || req.trips?.[0]?.departure_location || "";
+                  const toPlace = req.onward_to_place || req.OnwardToPlace || req.trips?.[req.trips?.length - 1]?.arrival_location || "";
+                  const departureDateTime =
+                    req.onward_from_datetime ||
+                    req.OnwardFromDateTime ||
+                    (req.trips?.[0]?.departure_date
+                      ? `${req.trips[0].departure_date} ${req.trips[0].departure_time || ""}`
+                      : "");
+
                   const routeDisplay =
                     req.trips?.length > 1
                       ? [
                           req.trips[0].departure_location,
                           ...req.trips.map((t) => t.arrival_location),
-                        ].join(" → ")
-                      : req.trips?.length === 1
-                        ? `${req.trips[0].departure_location}${req.trips[0].arrival_location ? ` → ${req.trips[0].arrival_location}` : ""}`
-                        : req.onward_from_place
-                          ? `${req.onward_from_place}${req.onward_to_place ? ` → ${req.onward_to_place}` : ""}`
-                          : null;
+                        ].filter(Boolean).join(" → ")
+                      : fromPlace && toPlace
+                        ? `${fromPlace} → ${toPlace}`
+                        : fromPlace || toPlace || null;
+
                   return (
                     <tr
                       key={req.id}
@@ -446,12 +456,12 @@ export default function VehicleBooking() {
                       <td className="px-6 py-4 text-sm font-semibold text-primary">
                         {idx + 1}
                       </td>
-                      <td className="px-6 py-4 text-sm text-primarytext max-w-[200px] truncate">
-                        {req.purpose}
+                      <td className="px-6 py-4 text-sm text-primarytext max-w-[200px] truncate" title={purpose}>
+                        {purpose}
                       </td>
                       <td className="px-6 py-4">
                         <span className="inline-flex px-2.5 py-1 bg-primary/10 text-primary rounded-md text-xs font-medium">
-                          {getTripTypeLabel(req.trip_type)}
+                          {getTripTypeLabel(tripType)}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-sm text-secondarytext">
@@ -467,10 +477,10 @@ export default function VehicleBooking() {
                         )}
                       </td>
                       <td className="px-6 py-4 text-sm text-secondarytext">
-                        {getRequestUnderLabel(req.request_under)}
+                        {getRequestUnderLabel(requestUnder)}
                       </td>
                       <td className="px-6 py-4 text-sm text-secondarytext">
-                        {req.vertical || "-"}
+                        {vertical}
                       </td>
                       <td className="px-6 py-4">
                         <span
@@ -1471,6 +1481,18 @@ export default function VehicleBooking() {
                   </div>
                 );
               })()}
+
+              <div className="bg-primarybg rounded-md border border-gray-200 p-4">
+                <h4 className="text-xs font-bold text-secondarytext uppercase tracking-wide mb-3 flex items-center gap-2">
+                  <MapPin size={14} className="text-primary" />
+                  Route Map
+                </h4>
+                <RouteMapPreview
+                  trips={selectedRequest.trips || []}
+                  height={300}
+                />
+              </div>
+
               {/* Travelling Person Details */}
               {(selectedRequest.traveller_name ||
                 selectedRequest.traveller_mobile ||

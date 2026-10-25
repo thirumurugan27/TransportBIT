@@ -23,6 +23,7 @@ import Loading from "../../../components/ui/Loading";
 import CustomSearch from "../../../components/ui/CustomSearch";
 import CustomDropdown from "../../../components/ui/CustomDropdown";
 import SearchableSelect from "../../../components/ui/SearchableSelect";
+import RouteMapPreview from "../../../components/maps/RouteMapPreview";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
@@ -1150,6 +1151,16 @@ export default function VehicleRequests() {
                       </div>
                     )}
                   </div>
+                </div>
+
+                <div className="bg-primarybg rounded-md p-4">
+                  <h4 className="text-xs font-bold text-secondarytext uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <MapPin size={14} /> Route Map
+                  </h4>
+                  <RouteMapPreview
+                    trips={selectedRequest.trips || []}
+                    height={320}
+                  />
                 </div>
 
                 {/* Faculty & Booking Details Section */}

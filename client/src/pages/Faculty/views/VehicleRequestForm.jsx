@@ -1,9 +1,12 @@
-﻿import React, {useState, useEffect} from "react";
+import React, {useState, useEffect} from "react";
 import {useNavigate} from "react-router-dom";
 import {useToast} from "../../../context/ToastContext";
+import {useAuth} from "../../../context/AuthContext";
+import {apiGet, apiPost} from "../../../utils/api";
 import Loading from "../../../components/ui/Loading";
 import CustomDropdown from "../../../components/ui/CustomDropdown";
 import SearchableDropdown from "../../../components/ui/SearchableDropdown";
+import OpenStreetMapRoutePicker from "../../../components/maps/OpenStreetMapRoutePicker";
 import {
   User,
   MapPin,
@@ -12,8 +15,6 @@ import {
   Car,
   Building2,
 } from "lucide-react";
-
-const API_BASE = import.meta.env.VITE_API_BASE;
 
 // Format date from YYYY-MM-DD to DD-MM-YYYY
 const formatDate = (dateStr) => {
@@ -40,15 +41,20 @@ const emptyTrip = {
   departure_date: "",
   departure_time: "",
   departure_location: "",
+  departure_latitude: null,
+  departure_longitude: null,
   arrival_date: "",
   arrival_time: "",
   arrival_location: "",
+  arrival_latitude: null,
+  arrival_longitude: null,
   passenger_contacts: "",
 };
 
 export default function VehicleRequestForm() {
   const navigate = useNavigate();
   const {showToast} = useToast();
+  const {user} = useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [step, setStep] = useState(1); // 1: trip info, 2: trip legs, 3: declaration
   const [profile, setProfile] = useState(null);
@@ -183,11 +189,7 @@ export default function VehicleRequestForm() {
 
   const fetchProfile = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`${API_BASE}/api/faculty/profile`, {
-        headers: {Authorization: `Bearer ${token}`},
-        credentials: "include",
-      });
+      const res = await apiGet("/api/faculty/profile");
       if (res.ok) {
         setProfile(await res.json());
       }
@@ -205,7 +207,15 @@ export default function VehicleRequestForm() {
   const handleTripChange = (index, field, value) => {
     setTrips((prev) => {
       const updated = [...prev];
-      updated[index] = {...updated[index], [field]: value};
+      const oldTrip = updated[index];
+      const newTrip = {...oldTrip, [field]: value};
+
+      // Auto-set arrival_date to departure_date if empty
+      if (field === "departure_date" && (!oldTrip.arrival_date || oldTrip.arrival_date === oldTrip.departure_date)) {
+        newTrip.arrival_date = value;
+      }
+
+      updated[index] = newTrip;
       return updated;
     });
   };
@@ -224,27 +234,45 @@ export default function VehicleRequestForm() {
   };
 
   const validateStep1 = () => {
-    if (!form.trip_type.trim()) {
+    if (!form.trip_type || !form.trip_type.trim()) {
       showToast("Trip Type is required", "warning");
       return false;
     }
-    if (!form.purpose.trim()) {
-      showToast("Purpose of trip is required", "warning");
+    const passengers = parseInt(form.total_passengers, 10);
+    if (isNaN(passengers) || passengers < 1) {
+      showToast("Total passengers must be at least 1", "warning");
       return false;
     }
-    if (!form.request_under.trim()) {
+    if (!form.traveller_name || !form.traveller_name.trim()) {
+      showToast("Travelling Person / Guest Name is required", "warning");
+      return false;
+    }
+    if (!form.traveller_mobile || !form.traveller_mobile.trim()) {
+      showToast("Travelling Person Mobile Number is required", "warning");
+      return false;
+    }
+    const cleanPhone = form.traveller_mobile.replace(/\D/g, "");
+    if (cleanPhone.length < 10) {
+      showToast("Mobile number must be at least 10 digits", "warning");
+      return false;
+    }
+    if (!form.request_under || !form.request_under.trim()) {
       showToast("Request Under field is required", "warning");
       return false;
     }
-    if (!form.vertical.trim()) {
+    if (!form.vertical || !form.vertical.trim()) {
       showToast("Vertical field is required", "warning");
       return false;
     }
-    if (!form.task_id.trim()) {
-      showToast("Task ID is required", "warning");
+    if (!form.purpose || !form.purpose.trim()) {
+      showToast("Purpose of trip is required", "warning");
       return false;
     }
-    if (!form.outcome_auditable.trim()) {
+    if (!form.task_id || !form.task_id.trim()) {
+      showToast("Task ID is required (e.g. T123456 or Local)", "warning");
+      return false;
+    }
+    if (!form.outcome_auditable || !form.outcome_auditable.trim()) {
       showToast("Auditable Outcome is required", "warning");
       return false;
     }
@@ -252,15 +280,69 @@ export default function VehicleRequestForm() {
   };
 
   const validateStep2 = () => {
+    const today = new Date().toISOString().split("T")[0];
+
     for (let i = 0; i < trips.length; i++) {
       const t = trips[i];
-      if (!t.departure_date || !t.departure_time || !t.departure_location) {
-        showToast(`Trip ${i + 1}: Departure details are required`, "warning");
+      const legNum = i + 1;
+
+      if (!t.departure_date) {
+        showToast(`Trip Leg ${legNum}: Departure date is required`, "warning");
         return false;
       }
-      if (!t.arrival_date || !t.arrival_time || !t.arrival_location) {
-        showToast(`Trip ${i + 1}: Arrival details are required`, "warning");
+      if (t.departure_date < today) {
+        showToast(`Trip Leg ${legNum}: Departure date cannot be in the past`, "warning");
         return false;
+      }
+      if (!t.departure_time) {
+        showToast(`Trip Leg ${legNum}: Departure time is required`, "warning");
+        return false;
+      }
+      if (!t.departure_location || !t.departure_location.trim()) {
+        showToast(`Trip Leg ${legNum}: Departure location is required`, "warning");
+        return false;
+      }
+
+      if (!t.arrival_date) {
+        showToast(`Trip Leg ${legNum}: Arrival date is required`, "warning");
+        return false;
+      }
+      if (t.arrival_date < t.departure_date) {
+        showToast(`Trip Leg ${legNum}: Arrival date cannot be earlier than departure date`, "warning");
+        return false;
+      }
+      if (!t.arrival_time) {
+        showToast(`Trip Leg ${legNum}: Arrival time is required`, "warning");
+        return false;
+      }
+      if (!t.arrival_location || !t.arrival_location.trim()) {
+        showToast(`Trip Leg ${legNum}: Arrival location is required`, "warning");
+        return false;
+      }
+
+      if (t.departure_location.trim().toLowerCase() === t.arrival_location.trim().toLowerCase()) {
+        showToast(`Trip Leg ${legNum}: Departure and arrival locations cannot be identical`, "warning");
+        return false;
+      }
+
+      const depDT = new Date(`${t.departure_date}T${t.departure_time}`);
+      const arrDT = new Date(`${t.arrival_date}T${t.arrival_time}`);
+      if (isNaN(depDT.getTime()) || isNaN(arrDT.getTime())) {
+        showToast(`Trip Leg ${legNum}: Invalid date or time format`, "warning");
+        return false;
+      }
+      if (arrDT <= depDT) {
+        showToast(`Trip Leg ${legNum}: Arrival date/time must be strictly after departure date/time`, "warning");
+        return false;
+      }
+
+      if (i > 0) {
+        const prevTrip = trips[i - 1];
+        const prevArrDT = new Date(`${prevTrip.arrival_date}T${prevTrip.arrival_time}`);
+        if (depDT < prevArrDT) {
+          showToast(`Trip Leg ${legNum}: Departure cannot be earlier than Trip Leg ${i} arrival`, "warning");
+          return false;
+        }
       }
     }
     return true;
@@ -268,7 +350,12 @@ export default function VehicleRequestForm() {
 
   const handleSubmit = async () => {
     // Validate all steps before submitting
-    if (!validateStep1() || !validateStep2()) {
+    if (!validateStep1()) {
+      setStep(1);
+      return;
+    }
+    if (!validateStep2()) {
+      setStep(2);
       return;
     }
 
@@ -279,10 +366,6 @@ export default function VehicleRequestForm() {
 
     setSubmitting(true);
     try {
-      const token = localStorage.getItem("token");
-
-      // Transform data to match backend expected format
-      // Ensure we have at least one trip with valid data
       const onwardTrip = trips[0];
       if (
         !onwardTrip ||
@@ -303,13 +386,13 @@ export default function VehicleRequestForm() {
         request_under: form.request_under,
         vertical: form.vertical,
         purpose: form.purpose,
-        count_person: parseInt(form.total_passengers) || 1,
+        count_person: parseInt(form.total_passengers, 10) || 1,
         task_id: form.task_id || "",
         outcome_auditable: form.outcome_auditable || "",
 
         // Onward journey
-        onward_from_place: onwardTrip.departure_location || "",
-        onward_to_place: onwardTrip.arrival_location || "",
+        onward_from_place: (onwardTrip.departure_location || "").trim(),
+        onward_to_place: (onwardTrip.arrival_location || "").trim(),
         onward_from_datetime:
           onwardTrip.departure_date && onwardTrip.departure_time
             ? `${onwardTrip.departure_date} ${onwardTrip.departure_time}`
@@ -320,8 +403,8 @@ export default function VehicleRequestForm() {
             : "",
 
         // Return journey (for round trip - last leg)
-        return_from_place: returnTrip?.departure_location || "",
-        return_to_place: returnTrip?.arrival_location || "",
+        return_from_place: (returnTrip?.departure_location || "").trim(),
+        return_to_place: (returnTrip?.arrival_location || "").trim(),
         return_from_datetime:
           returnTrip?.departure_date && returnTrip?.departure_time
             ? `${returnTrip.departure_date} ${returnTrip.departure_time}`
@@ -331,11 +414,28 @@ export default function VehicleRequestForm() {
             ? `${returnTrip.arrival_date} ${returnTrip.arrival_time}`
             : "",
 
-        // All trip legs (for round_trip with multiple stops)
+        // All trip legs
         trips: trips.map((t, i) => ({
           trip_order: i + 1,
-          departure_location: t.departure_location || "",
-          arrival_location: t.arrival_location || "",
+          departure_location: (t.departure_location || "").trim(),
+          departure_latitude:
+            t.departure_latitude !== null && t.departure_latitude !== undefined
+              ? Number(t.departure_latitude)
+              : null,
+          departure_longitude:
+            t.departure_longitude !== null &&
+            t.departure_longitude !== undefined
+              ? Number(t.departure_longitude)
+              : null,
+          arrival_location: (t.arrival_location || "").trim(),
+          arrival_latitude:
+            t.arrival_latitude !== null && t.arrival_latitude !== undefined
+              ? Number(t.arrival_latitude)
+              : null,
+          arrival_longitude:
+            t.arrival_longitude !== null && t.arrival_longitude !== undefined
+              ? Number(t.arrival_longitude)
+              : null,
           departure_date: t.departure_date || "",
           departure_time: t.departure_time || "",
           arrival_date: t.arrival_date || "",
@@ -345,26 +445,18 @@ export default function VehicleRequestForm() {
         })),
 
         // Contact info (Faculty/Indenter)
-        contact_name: profile?.full_name || "",
-        contact_phone: profile?.phone || "",
+        contact_name: profile?.full_name || user?.full_name || user?.username || "",
+        contact_phone: profile?.phone || user?.phone || "",
 
         // Travelling Persons Contact Details
-        traveller_name: form.traveller_name || "",
-        traveller_address: form.traveller_address || "",
-        traveller_mobile: form.traveller_mobile || "",
+        traveller_name: (form.traveller_name || "").trim(),
+        traveller_address: (form.traveller_address || "").trim(),
+        traveller_mobile: (form.traveller_mobile || "").trim(),
       };
 
-      const res = await fetch(`${API_BASE}/api/faculty/vehicle-request`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        credentials: "include",
-        body: JSON.stringify(requestBody),
-      });
+      const res = await apiPost("/api/faculty/vehicle-request", requestBody);
+      const data = await res.json().catch(() => ({}));
 
-      const data = await res.json();
       if (res.ok) {
         showToast("Vehicle request submitted successfully!", "success");
         navigate("/faculty-dashboard/vehicle-booking");
@@ -373,7 +465,7 @@ export default function VehicleRequestForm() {
       }
     } catch (e) {
       console.error(e);
-      showToast("Network error", "error");
+      showToast("Network error. Please try again.", "error");
     } finally {
       setSubmitting(false);
     }
@@ -846,6 +938,7 @@ export default function VehicleRequestForm() {
                       </label>
                       <input
                         type="date"
+                        min={new Date().toISOString().split("T")[0]}
                         value={trip.departure_date}
                         onChange={(e) =>
                           handleTripChange(
@@ -888,7 +981,7 @@ export default function VehicleRequestForm() {
                             e.target.value,
                           )
                         }
-                        placeholder="Departure location"
+                        placeholder="Set from map below"
                         className={inputClass}
                       />
                     </div>
@@ -923,6 +1016,7 @@ export default function VehicleRequestForm() {
                       </label>
                       <input
                         type="date"
+                        min={trip.departure_date || new Date().toISOString().split("T")[0]}
                         value={trip.arrival_date}
                         onChange={(e) =>
                           handleTripChange(idx, "arrival_date", e.target.value)
@@ -957,12 +1051,95 @@ export default function VehicleRequestForm() {
                             e.target.value,
                           )
                         }
-                        placeholder="Arrival location"
+                        placeholder="Set from map below"
                         className={inputClass}
                       />
                     </div>
                   </div>
                 </div>
+
+                <OpenStreetMapRoutePicker
+                  departureLocation={trip.departure_location}
+                  departureLatitude={trip.departure_latitude}
+                  departureLongitude={trip.departure_longitude}
+                  arrivalLocation={trip.arrival_location}
+                  arrivalLatitude={trip.arrival_latitude}
+                  arrivalLongitude={trip.arrival_longitude}
+                  onChange={(updated) => {
+                    if (
+                      Object.prototype.hasOwnProperty.call(
+                        updated,
+                        "departureLocation",
+                      )
+                    ) {
+                      handleTripChange(
+                        idx,
+                        "departure_location",
+                        updated.departureLocation,
+                      );
+                    }
+                    if (
+                      Object.prototype.hasOwnProperty.call(
+                        updated,
+                        "departureLatitude",
+                      )
+                    ) {
+                      handleTripChange(
+                        idx,
+                        "departure_latitude",
+                        updated.departureLatitude,
+                      );
+                    }
+                    if (
+                      Object.prototype.hasOwnProperty.call(
+                        updated,
+                        "departureLongitude",
+                      )
+                    ) {
+                      handleTripChange(
+                        idx,
+                        "departure_longitude",
+                        updated.departureLongitude,
+                      );
+                    }
+                    if (
+                      Object.prototype.hasOwnProperty.call(
+                        updated,
+                        "arrivalLocation",
+                      )
+                    ) {
+                      handleTripChange(
+                        idx,
+                        "arrival_location",
+                        updated.arrivalLocation,
+                      );
+                    }
+                    if (
+                      Object.prototype.hasOwnProperty.call(
+                        updated,
+                        "arrivalLatitude",
+                      )
+                    ) {
+                      handleTripChange(
+                        idx,
+                        "arrival_latitude",
+                        updated.arrivalLatitude,
+                      );
+                    }
+                    if (
+                      Object.prototype.hasOwnProperty.call(
+                        updated,
+                        "arrivalLongitude",
+                      )
+                    ) {
+                      handleTripChange(
+                        idx,
+                        "arrival_longitude",
+                        updated.arrivalLongitude,
+                      );
+                    }
+                  }}
+                />
               </div>
             </div>
           ))}

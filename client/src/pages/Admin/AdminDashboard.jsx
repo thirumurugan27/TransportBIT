@@ -1,6 +1,6 @@
-import React, {useState, useEffect} from "react";
-import {Routes, Route, useNavigate} from "react-router-dom";
-import {Sidebar} from "../../components/layout";
+import React, { useState, useEffect } from "react";
+import { Routes, Route, useNavigate } from "react-router-dom";
+import { Sidebar } from "../../components/layout";
 import DashboardHeader from "../../components/DashboardHeader";
 import AdminHome from "./views/AdminHome";
 import AdminDrivers from "./views/AdminDrivers";
@@ -23,11 +23,11 @@ import AdminFuelIndents from "./views/AdminFuelIndents";
 import AdminActions from "./views/AdminActions";
 import UserUpdates from "./views/UserUpdates";
 
-import {useAuth} from "../../context/AuthContext";
-import {apiGet, getToday} from "../../utils/api";
+import { useAuth } from "../../context/AuthContext";
+import { apiGet, getToday } from "../../utils/api";
 
 export default function AdminDashboard() {
-  const {user, logout} = useAuth();
+  const { user, logout } = useAuth();
   const [absentAlerts, setAbsentAlerts] = useState([]);
   const navigate = useNavigate();
   const adminName = user?.full_name || user?.username || "Admin";
@@ -49,7 +49,7 @@ export default function AdminDashboard() {
     const interval = setInterval(fetchAbsentAlerts, 30000);
 
     // Trigger group expiry check (creates notifications if any groups are expiring/expired)
-    apiGet("/api/admin/group-expiry-check").catch(() => {});
+    apiGet("/api/admin/group-expiry-check").catch(() => { });
 
     return () => clearInterval(interval);
   }, []);
@@ -67,7 +67,7 @@ export default function AdminDashboard() {
       <div className="flex-1 flex flex-col min-w-0">
         <DashboardHeader
           title="BIT Transport"
-          user={{name: adminName, role: "Admin"}}
+          user={{ name: adminName, role: "Admin" }}
           onLogout={logout}
           alerts={absentAlerts}
           onMenuToggle={() => setMobileOpen(true)}

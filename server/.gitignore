@@ -1,30 +1,42 @@
-# Binaries for programs and plugins
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-
-# Test binary, built with `go test -c`
-*.test
-
-# Output of the go build
-main
-tmp/
-__debug_bin
+# Dependencies
+node_modules/
+/.pnp
+.pnp.js
 
 # Environment variables
 .env
 .env.local
 .env.*.local
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+logs
+*.log
 
-# OS
+# Runtime data / Uploads
+uploads/*
+!uploads/.gitkeep
+Documents/FuelIndents/*
+!Documents/FuelIndents/.gitkeep
+Documents/Purchase/*
+!Documents/Purchase/.gitkeep
+Documents/Vehicles/*
+!Documents/Vehicles/.gitkeep
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS generated files
 .DS_Store
 Thumbs.db

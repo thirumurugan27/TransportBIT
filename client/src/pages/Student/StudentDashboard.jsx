@@ -1,15 +1,15 @@
-import React, {useState} from "react";
-import {Routes, Route} from "react-router-dom";
-import {Sidebar} from "../../components/layout";
+import React, { useState } from "react";
+import { Routes, Route } from "react-router-dom";
+import { Sidebar } from "../../components/layout";
 import DashboardHeader from "../../components/DashboardHeader";
 import StudentHome from "./views/StudentHome";
 import StudentTrackBus from "./views/StudentTrackBus";
 import StudentTransport from "./views/StudentTransport";
 import ComingSoon from "./views/ComingSoon";
-import {useAuth} from "../../context/AuthContext";
+import { useAuth } from "../../context/AuthContext";
 
 export default function StudentDashboard() {
-  const {user, logout} = useAuth();
+  const { user, logout } = useAuth();
   const studentName = user?.full_name || user?.username || "Student";
 
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -26,7 +26,7 @@ export default function StudentDashboard() {
       <div className="flex-1 flex flex-col min-w-0">
         <DashboardHeader
           title="Student Portal"
-          user={{name: studentName, role: "Student"}}
+          user={{ name: studentName, role: "Student" }}
           onLogout={logout}
           onMenuToggle={() => setMobileOpen(true)}
         />

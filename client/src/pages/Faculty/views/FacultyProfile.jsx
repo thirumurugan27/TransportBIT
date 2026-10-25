@@ -1,8 +1,7 @@
 import React, {useState, useEffect} from "react";
 import {useAuth} from "../../../context/AuthContext";
 import Loading from "../../../components/ui/Loading";
-
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
+import {apiGet, apiPost} from "../../../utils/api";
 
 export default function FacultyProfile() {
   const {user} = useAuth();
@@ -26,11 +25,7 @@ export default function FacultyProfile() {
 
   const fetchProfile = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`${API_BASE}/api/faculty/profile`, {
-        headers: {Authorization: `Bearer ${token}`},
-        credentials: "include",
-      });
+      const res = await apiGet("/api/faculty/profile");
 
       if (res.ok) {
         const data = await res.json();
@@ -68,17 +63,7 @@ export default function FacultyProfile() {
 
     setSaving(true);
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`${API_BASE}/api/faculty/profile/update`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(formData),
-        credentials: "include",
-      });
-
+      const res = await apiPost("/api/faculty/profile/update", formData);
       const data = await res.json();
 
       if (res.ok) {

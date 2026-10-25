@@ -507,35 +507,40 @@ export default function Assignments() {
         evParams.set("end_date", filterEndDate);
       }
 
-      const [bus, car, ev, other, s, v, d, c, vg, mappings] = await Promise.all(
-        [
-          apiGet(buildAssignmentUrl("BUS")).then((r) => r.json()),
-          apiGet(buildAssignmentUrl("CAR")).then((r) => r.json()),
-          apiGet(`/api/admin/ev-assignments?${evParams.toString()}`).then((r) =>
-            r.json(),
-          ),
-          apiGet(buildAssignmentUrl("OTHER")).then((r) => r.json()),
-          apiGet("/api/admin/shifts").then((r) => r.json()),
-          apiGet("/api/admin/vehicles").then((r) => r.json()),
-          apiGet("/api/admin/drivers").then((r) => r.json()),
-          apiGet("/api/admin/clusters").then((r) => r.json()),
-          apiGet("/api/admin/vehicle-groups").then((r) => r.json()),
-          apiGet("/api/admin/default-vehicle-drivers")
-            .then((r) => (r.ok ? r.json() : []))
-            .catch(() => []),
-        ],
-      );
+      const safeJsonArray = async (resPromise) => {
+        try {
+          const r = await resPromise;
+          if (!r.ok) return [];
+          const data = await r.json();
+          return Array.isArray(data) ? data : [];
+        } catch {
+          return [];
+        }
+      };
 
-      setBusAssignments(bus || []);
-      setCarAssignments(car || []);
-      setEvAssignments(ev || []);
-      setOtherAssignments(other || []);
-      setShifts(s || []);
-      setVehicles(v || []);
-      setDrivers(d || []);
-      setClusters(c || []);
-      setVehicleGroups(vg || []);
-      setDefaultMappings(mappings || []);
+      const [bus, car, ev, other, s, v, d, c, vg, mappings] = await Promise.all([
+        safeJsonArray(apiGet(buildAssignmentUrl("BUS"))),
+        safeJsonArray(apiGet(buildAssignmentUrl("CAR"))),
+        safeJsonArray(apiGet(`/api/admin/ev-assignments?${evParams.toString()}`)),
+        safeJsonArray(apiGet(buildAssignmentUrl("OTHER"))),
+        safeJsonArray(apiGet("/api/admin/shifts")),
+        safeJsonArray(apiGet("/api/admin/vehicles")),
+        safeJsonArray(apiGet("/api/admin/drivers")),
+        safeJsonArray(apiGet("/api/admin/clusters")),
+        safeJsonArray(apiGet("/api/admin/vehicle-groups")),
+        safeJsonArray(apiGet("/api/admin/default-vehicle-drivers")),
+      ]);
+
+      setBusAssignments(bus);
+      setCarAssignments(car);
+      setEvAssignments(ev);
+      setOtherAssignments(other);
+      setShifts(s);
+      setVehicles(v);
+      setDrivers(d);
+      setClusters(c);
+      setVehicleGroups(vg);
+      setDefaultMappings(mappings);
     } catch (err) {
       console.error("Error fetching assignments data:", err);
     } finally {
@@ -549,7 +554,8 @@ export default function Assignments() {
 
   // Filter and Sort Logic
   const getFilteredAndSortedAssignments = (assignments) => {
-    let filtered = [...assignments];
+    const list = Array.isArray(assignments) ? assignments : [];
+    let filtered = [...list];
 
     // Search filter
     if (searchQuery.trim()) {

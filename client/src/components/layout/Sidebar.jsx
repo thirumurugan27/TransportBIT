@@ -1,9 +1,9 @@
-import React, {useState, useEffect, useRef} from "react";
-import {useNavigate, useLocation} from "react-router-dom";
-import {getMenuConfigByRole} from "../../config/menuConfig";
-import {ChevronDownIcon, LogoutIcon} from "./Icons";
+import React, { useState, useEffect, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { getMenuConfigByRole } from "../../config/menuConfig";
+import { ChevronDownIcon, LogoutIcon } from "./Icons";
 import bit_logo from "../../assets/bit_logBGremoved.png";
-import {useAuth} from "../../context/AuthContext";
+import { useAuth } from "../../context/AuthContext";
 
 /**
  * Unified Sidebar Component
@@ -21,7 +21,7 @@ export default function Sidebar({
   const [openSubmenu, setOpenSubmenu] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const {logout} = useAuth();
+  const { logout } = useAuth();
   const sidebarRef = useRef(null);
 
   // Get menu config based on role
@@ -122,11 +122,9 @@ export default function Sidebar({
       {/* Sidebar */}
       <aside
         ref={sidebarRef}
-        className={`${
-          isCollapsed ? "w-20" : "w-[220px]"
-        } bg-white shadow-md flex flex-col h-screen fixed top-0 left-0 z-50 transition-transform duration-300 ease-in-out ${
-          mobileOpen ? "translate-x-0" : "-translate-x-full"
-        } lg:sticky lg:top-0 lg:translate-x-0`}
+        className={`${isCollapsed ? "w-20" : "w-[220px]"
+          } bg-white shadow-md flex flex-col h-screen fixed top-0 left-0 z-50 transition-transform duration-300 ease-in-out ${mobileOpen ? "translate-x-0" : "-translate-x-full"
+          } lg:sticky lg:top-0 lg:translate-x-0`}
       >
         {/* Logo/Header Section */}
         <div className="shrink-0 p-4">
@@ -167,11 +165,10 @@ export default function Sidebar({
                   <button
                     onClick={() => handleMenuClick(item)}
                     className={`cursor-pointer w-full flex items-center justify-between px-3 py-2.5 group
-                    rounded-md transition-all duration-300 ease-in-out ${
-                      isSubmenuGroupActive(item)
+                    rounded-md transition-all duration-300 ease-in-out ${isSubmenuGroupActive(item)
                         ? "bg-primary/10 text-primary font-medium"
                         : "text-secondarytext hover:bg-primarybg"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-3">
                       <span
@@ -197,22 +194,20 @@ export default function Sidebar({
                   {/* Submenu */}
                   {!isCollapsed && (
                     <div
-                      className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                        openSubmenu === item.key
+                      className={`overflow-hidden transition-all duration-300 ease-in-out ${openSubmenu === item.key
                           ? "max-h-80 opacity-100"
                           : "max-h-0 opacity-0"
-                      }`}
+                        }`}
                     >
                       <div className="mt-0.5 ml-6 space-y-0.5">
                         {item.submenu.map((subItem) => (
                           <button
                             key={subItem.key}
                             onClick={() => handleSubmenuClick(subItem)}
-                            className={`cursor-pointer w-full flex items-center gap-2.5 px-3 py-2 rounded-md transition-all duration-200 ease-in-out text-[13px] group/sub ${
-                              isSubmenuActive(subItem)
+                            className={`cursor-pointer w-full flex items-center gap-2.5 px-3 py-2 rounded-md transition-all duration-200 ease-in-out text-[13px] group/sub ${isSubmenuActive(subItem)
                                 ? "bg-primary text-white"
                                 : "text-secondarytext hover:text-primary hover:bg-primarybg"
-                            }`}
+                              }`}
                           >
                             {subItem.icon && (
                               <span
@@ -236,11 +231,10 @@ export default function Sidebar({
                 /* Regular menu item */
                 <button
                   onClick={() => handleMenuClick(item)}
-                  className={`cursor-pointer w-full flex items-center px-3 py-2.5 rounded-md transition-all duration-300 ease-in-out group ${
-                    isActive(item)
+                  className={`cursor-pointer w-full flex items-center px-3 py-2.5 rounded-md transition-all duration-300 ease-in-out group ${isActive(item)
                       ? "bg-primary text-white shadow-md shadow-primary/20"
                       : "text-secondarytext hover:bg-primarybg hover:text-primary"
-                  }`}
+                    }`}
                 >
                   <span
                     className={

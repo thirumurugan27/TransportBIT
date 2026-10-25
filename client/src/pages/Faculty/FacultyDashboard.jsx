@@ -1,15 +1,15 @@
-import React, {useState} from "react";
-import {Routes, Route} from "react-router-dom";
-import {Sidebar} from "../../components/layout";
+import React, { useState } from "react";
+import { Routes, Route } from "react-router-dom";
+import { Sidebar } from "../../components/layout";
 import DashboardHeader from "../../components/DashboardHeader";
 import FacultyHome from "./views/FacultyHome";
 import FacultyProfile from "./views/FacultyProfile";
 import VehicleRequestForm from "./views/VehicleRequestForm";
 import VehicleBooking from "./views/VehicleBooking";
-import {useAuth} from "../../context/AuthContext";
+import { useAuth } from "../../context/AuthContext";
 
 export default function FacultyDashboard() {
-  const {user, logout} = useAuth();
+  const { user, logout } = useAuth();
   const facultyName = user?.full_name || user?.username || "Faculty";
 
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -26,7 +26,7 @@ export default function FacultyDashboard() {
       <div className="flex-1 flex flex-col min-w-0">
         <DashboardHeader
           title="BIT Transport"
-          user={{name: facultyName, role: "Faculty"}}
+          user={{ name: facultyName, role: "Faculty" }}
           onLogout={logout}
           onMenuToggle={() => setMobileOpen(true)}
         />

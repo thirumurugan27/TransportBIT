@@ -17,12 +17,7 @@ import {
   Eye,
 } from "lucide-react";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
-
-const getAuthHeaders = () => {
-  const token = localStorage.getItem("token");
-  return token ? {Authorization: `Bearer ${token}`} : {};
-};
+import { apiGet } from "../../../utils/api";
 
 const STATUS_CONFIG = {
   pending: {
@@ -91,30 +86,27 @@ export default function FacultyHome() {
 
   const fetchRequests = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/faculty/vehicle-requests`, {
-        credentials: "include",
-        headers: getAuthHeaders(),
-      });
+      const res = await apiGet("/api/faculty/vehicle-requests");
       if (res.ok) {
         const data = await res.json();
-        const allRequests = data || [];
+        const allRequests = Array.isArray(data) ? data : [];
         setRequests(allRequests);
 
         // Calculate stats
         const pending = allRequests.filter(
-          (r) => r.status === "pending",
+          (r) => (r.status || "").toLowerCase() === "pending",
         ).length;
         const approved = allRequests.filter(
-          (r) => r.status === "approved",
+          (r) => (r.status || "").toLowerCase() === "approved",
         ).length;
         const assigned = allRequests.filter(
-          (r) => r.status === "assigned",
+          (r) => (r.status || "").toLowerCase() === "assigned",
         ).length;
         const tripStarted = allRequests.filter(
-          (r) => r.status === "trip_started",
+          (r) => (r.status || "").toLowerCase() === "trip_started",
         ).length;
         const completed = allRequests.filter(
-          (r) => r.status === "completed",
+          (r) => (r.status || "").toLowerCase() === "completed",
         ).length;
 
         setStats({
@@ -135,7 +127,7 @@ export default function FacultyHome() {
 
   // Get active requests (not completed, cancelled, or rejected)
   const activeRequests = requests.filter(
-    (r) => !["completed", "cancelled", "rejected"].includes(r.status),
+    (r) => !["completed", "cancelled", "rejected"].includes((r.status || "").toLowerCase()),
   );
 
   // Get unread rejected/cancelled requests
@@ -275,7 +267,7 @@ export default function FacultyHome() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-primarytext">
-                        {request.onward_from_place} → {request.onward_to_place}
+                        {request.onward_from_place || request.OnwardFromPlace || request.trips?.[0]?.departure_location || "BIT Campus"} → {request.onward_to_place || request.OnwardToPlace || request.trips?.[request.trips?.length - 1]?.arrival_location || "Destination"}
                       </p>
                       <p
                         className={`mt-1 text-xs font-semibold ${
@@ -289,7 +281,7 @@ export default function FacultyHome() {
                       <div className="mt-2 flex items-center gap-2 text-xs text-secondarytext">
                         <Calendar size={12} />
                         <span>
-                          {request.onward_from_datetime?.split(" ")[0] || "N/A"}
+                          {request.onward_from_datetime || request.OnwardFromDateTime || (request.trips?.[0]?.departure_date ? `${request.trips[0].departure_date} ${request.trips[0].departure_time || ''}` : "N/A")}
                         </span>
                       </div>
                       {request.admin_remarks && (
@@ -340,6 +332,25 @@ export default function FacultyHome() {
               {activeRequests.slice(0, 5).map((request) => {
                 const config =
                   STATUS_CONFIG[request.status] || STATUS_CONFIG.pending;
+                const fromPlace =
+                  request.onward_from_place ||
+                  request.OnwardFromPlace ||
+                  request.trips?.[0]?.departure_location ||
+                  "BIT Campus";
+                const toPlace =
+                  request.onward_to_place ||
+                  request.OnwardToPlace ||
+                  request.trips?.[request.trips?.length - 1]?.arrival_location ||
+                  "Destination";
+                const dt =
+                  request.onward_from_datetime ||
+                  request.OnwardFromDateTime ||
+                  (request.trips?.[0]?.departure_date
+                    ? `${request.trips[0].departure_date} ${request.trips[0].departure_time || ""}`
+                    : "");
+                const datePart = dt ? (dt.includes(" ") ? dt.split(" ")[0] : dt) : "N/A";
+                const timePart = dt && dt.includes(" ") ? dt.split(" ").slice(1).join(" ") : "";
+
                 return (
                   <div
                     key={request.id}
@@ -356,23 +367,18 @@ export default function FacultyHome() {
                       </div>
                       <div className="min-w-0">
                         <p className="font-semibold text-primarytext truncate">
-                          {request.onward_from_place} →{" "}
-                          {request.onward_to_place}
+                          {fromPlace} → {toPlace}
                         </p>
                         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-secondarytext">
                           <Calendar size={12} />
-                          <span>
-                            {request.onward_from_datetime?.split(" ")[0] ||
-                              "N/A"}
-                          </span>
-                          <span className="text-gray-300">•</span>
-                          <Clock size={12} />
-                          <span>
-                            {request.onward_from_datetime
-                              ?.split(" ")
-                              .slice(1)
-                              .join(" ") || "N/A"}
-                          </span>
+                          <span>{datePart}</span>
+                          {timePart && (
+                            <>
+                              <span className="text-gray-300">•</span>
+                              <Clock size={12} />
+                              <span>{timePart}</span>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>

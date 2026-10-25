@@ -21,6 +21,7 @@ import {useAuth} from "../../../context/AuthContext";
 import Loading from "../../../components/ui/Loading";
 import CustomDropdown from "../../../components/ui/CustomDropdown";
 import CustomSearch from "../../../components/ui/CustomSearch";
+import RouteMapPreview from "../../../components/maps/RouteMapPreview";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
@@ -329,7 +330,9 @@ export default function DriverVehicleRequests() {
               <div
                 key={request.id}
                 className={`rounded-md shadow-sm border transition-all duration-200 overflow-hidden relative z-0 ${
-                  isCancelled ? "bg-gray-50 border-red opacity-60" : "bg-white border-gray-100 hover:shadow-md"
+                  isCancelled
+                    ? "bg-gray-50 border-red opacity-60"
+                    : "bg-white border-gray-100 hover:shadow-md"
                 }`}
               >
                 {/* Cancelled Watermark */}
@@ -707,6 +710,17 @@ export default function DriverVehicleRequests() {
                     </div>
                   );
                 })()}
+              </div>
+
+              <div className="bg-primarybg rounded-md border border-gray-200 p-4">
+                <h4 className="text-xs font-bold text-secondarytext uppercase tracking-wide mb-3 flex items-center gap-2">
+                  <MapPin size={14} className="text-primary" />
+                  Route Map
+                </h4>
+                <RouteMapPreview
+                  trips={selectedRequest.trips || []}
+                  height={300}
+                />
               </div>
 
               {/* Passenger Details */}

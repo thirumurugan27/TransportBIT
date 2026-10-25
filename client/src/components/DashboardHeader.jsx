@@ -1,9 +1,9 @@
 import React from "react";
-import {User, Menu} from "lucide-react";
+import { User, Menu } from "lucide-react";
 
 export default function DashboardHeader({
   title,
-  user = {name: "User", role: "User"},
+  user = { name: "User", role: "User" },
   onLogout,
   alerts = [],
   onMenuToggle,

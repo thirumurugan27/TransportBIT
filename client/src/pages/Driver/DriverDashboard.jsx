@@ -1,6 +1,6 @@
-import React, {useState} from "react";
-import {Routes, Route} from "react-router-dom";
-import {Sidebar} from "../../components/layout";
+import React, { useState } from "react";
+import { Routes, Route } from "react-router-dom";
+import { Sidebar } from "../../components/layout";
 import DashboardHeader from "../../components/DashboardHeader";
 import DriverHome from "./views/DriverHome";
 import DriverAssignments from "./views/DriverAssignments";
@@ -11,10 +11,10 @@ import DriverProfile from "./views/DriverProfile";
 import Notifications from "./views/Notifications";
 import DriverServiceRepair from "./views/DriverServiceRepair";
 import DriverFuelIndent from "./views/DriverFuelIndent";
-import {useAuth} from "../../context/AuthContext";
+import { useAuth } from "../../context/AuthContext";
 
 export default function DriverDashboard() {
-  const {user, logout} = useAuth();
+  const { user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const driverName = user?.full_name || user?.username || "Driver";
 
@@ -29,7 +29,7 @@ export default function DriverDashboard() {
       <div className="flex-1 flex flex-col min-w-0">
         <DashboardHeader
           title="BIT Transport"
-          user={{name: driverName, role: "Driver"}}
+          user={{ name: driverName, role: "Driver" }}
           onLogout={logout}
           onMenuToggle={() => setMobileOpen(true)}
         />
